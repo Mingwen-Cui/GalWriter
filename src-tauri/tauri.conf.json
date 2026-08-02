@@ -28,7 +28,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [],
+    "resources": [
+      "resources/rembg/u2netp.onnx",
+      "binaries/rembg-sidecar.exe"
+    ],
     "publisher": "Mingwen Cui",
     "copyright": "Copyright © 2026 Mingwen Cui (mingwencui.com). All Rights Reserved.",
     "category": "DeveloperTool",

@@ -1,15 +1,15 @@
 {
   "data": {
-    "characterName": "顾遥",
-    "identity": "22岁 · 夜班跑腿员",
+    "characterName": "\u987e\u9065",
+    "identity": "22\u5c81 \u00b7 \u591c\u73ed\u8dd1\u817f\u5458",
     "avatarUrl": "/presets/characters/gu-yao.png",
-    "appearance": "深色雨衣，旧球鞋，常把头发随手扎起。",
+    "appearance": "\u6df1\u8272\u96e8\u8863\uff0c\u65e7\u7403\u978b\uff0c\u5e38\u628a\u5934\u53d1\u968f\u624b\u624e\u8d77\u3002",
     "traits": "",
-    "personality": "对人礼貌，但不轻易解释自己。",
-    "habits": "等红灯时会数路边亮着的窗户。",
-    "speechStyle": "句子很短，偶尔会说出意外准确的比喻。",
-    "experience": "熟悉城市里多数不愿被记住的小路。",
-    "relationships": "与附近便利店店员互相认识。",
-    "notes": "怕狗，却总会随身带一小包狗粮。"
+    "personality": "\u5bf9\u4eba\u793c\u8c8c\uff0c\u4f46\u4e0d\u8f7b\u6613\u89e3\u91ca\u81ea\u5df1\u3002",
+    "habits": "\u7b49\u7ea2\u706f\u65f6\u4f1a\u6570\u8def\u8fb9\u4eae\u7740\u7684\u7a97\u6237\u3002",
+    "speechStyle": "\u53e5\u5b50\u5f88\u77ed\uff0c\u5076\u5c14\u4f1a\u8bf4\u51fa\u610f\u5916\u51c6\u786e\u7684\u6bd4\u55bb\u3002",
+    "experience": "\u719f\u6089\u57ce\u5e02\u91cc\u591a\u6570\u4e0d\u613f\u88ab\u8bb0\u4f4f\u7684\u5c0f\u8def\u3002",
+    "relationships": "\u4e0e\u9644\u8fd1\u4fbf\u5229\u5e97\u5e97\u5458\u4e92\u76f8\u8ba4\u8bc6\u3002",
+    "notes": "\u6015\u72d7\uff0c\u5374\u603b\u4f1a\u968f\u8eab\u5e26\u4e00\u5c0f\u5305\u72d7\u7cae\u3002"
   }
 }

@@ -7,6 +7,7 @@ export const DEFAULT_IMAGE_MODEL = 'doubao-seedream-4-5-251128';
 export const DEFAULT_IMAGE_SIZE = '2K';
 export const LOCAL_STABLE_DIFFUSION_PROVIDER = 'local-stable-diffusion';
 export const HOSTED_IMAGE_PROXY_PROVIDER = 'hosted-image';
+export const LOCAL_REMBG_PROVIDER = 'local-rembg';
 export const DEFAULT_STABLE_DIFFUSION_API_URL = 'http://127.0.0.1:7860';
 export const DEFAULT_STABLE_DIFFUSION_MODEL = 'stable-diffusion-webui';
 export const DEFAULT_STABLE_DIFFUSION_SAMPLER = 'DPM++ 2M Karras';
@@ -37,6 +38,31 @@ export const isLocalStableDiffusionProvider = (provider = '') =>
 
 export const isHostedImageProxyProvider = (provider = '') =>
   provider === HOSTED_IMAGE_PROXY_PROVIDER;
+
+export const isLocalRembgProvider = (provider = '') => provider === LOCAL_REMBG_PROVIDER;
+
+const readImageAsDataUrl = async (imageUrl: string) => {
+  if (/^data:image\//i.test(imageUrl)) return imageUrl;
+
+  const response = await fetch(imageUrl);
+  if (!response.ok) {
+    throw new Error(`Unable to read image for local background removal: HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Unable to encode image for local background removal.'));
+      }
+    });
+    reader.addEventListener('error', () => reject(reader.error || new Error('Unable to read image.')));
+    reader.readAsDataURL(blob);
+  });
+};
 
 const clampNumber = (value: unknown, fallback: number, min: number, max: number) => {
   const numberValue = typeof value === 'number' ? value : Number(value);
@@ -154,6 +180,7 @@ const collectCharacterImageReferences = (
     return;
   }
 
+  pushUniqueReference(references, seen, node.data.threeViewUrl, `${labelName} - 三视图`);
   pushUniqueReference(references, seen, node.data.avatarUrl, `${labelName} - 头像`);
   outfits.forEach((outfit) => {
     pushUniqueReference(
@@ -239,6 +266,12 @@ export const getConnectedImageReferences = (
           `${characterName} - ${connectedOutfit.name || '服装'}`,
         );
       } else {
+        pushUniqueReference(
+          references,
+          seen,
+          connectedNode.data.threeViewUrl,
+          `${characterName} - 三视图`,
+        );
         pushUniqueReference(
           references,
           seen,
@@ -584,10 +617,25 @@ export const requestSubjectSegmentation = async (
     apiUrl?: string;
     apiKey?: string;
     reqKey?: string;
+    provider?: string;
     useHostedProxy?: boolean;
     bundledWithImageGeneration?: boolean;
   } = {},
 ) => {
+  if (isLocalRembgProvider(options.provider)) {
+    const invoke = await getTauriInvoke();
+    if (!invoke) {
+      throw new Error('Local rembg is available only in the GalWriter desktop app.');
+    }
+    const image = await readImageAsDataUrl(imageUrl);
+    return String(
+      await invoke('remove_local_image_background', {
+        image,
+        model: options.reqKey?.trim() || 'u2netp',
+      }),
+    );
+  }
+
   const configuredUrl = options.apiUrl?.trim() || '';
   const useHostedProxy =
     Boolean(options.useHostedProxy) || /(?:^|\/)proxy\.php(?:$|[?#])/i.test(configuredUrl);

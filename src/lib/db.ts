@@ -87,6 +87,11 @@ interface StoredSettingLibraryRecord {
   updatedAt: number;
 }
 
+interface StoredVoicePreviewRecord {
+  blob: Blob;
+  updatedAt: number;
+}
+
 interface GalWriterDB extends DBSchema {
   autosave: {
     key: string;
@@ -107,6 +112,10 @@ interface GalWriterDB extends DBSchema {
       'by-kind': SettingLibraryItem['kind'];
     };
   };
+  voicePreviewCache: {
+    key: string;
+    value: StoredVoicePreviewRecord;
+  };
   appSettings: {
     key: string;
     value: LocalAppSettings;
@@ -122,7 +131,7 @@ interface GalWriterDB extends DBSchema {
 }
 
 const DB_NAME = 'GalWriterDB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const APP_SETTINGS_KEY = 'current';
 const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   theme: null,
@@ -187,6 +196,10 @@ const getDB = () => {
           const settingLibraryStore = db.createObjectStore('settingLibrary', { keyPath: 'id' });
           settingLibraryStore.createIndex('by-updatedAt', 'updatedAt');
           settingLibraryStore.createIndex('by-kind', 'kind');
+        }
+
+        if (!db.objectStoreNames.contains('voicePreviewCache')) {
+          db.createObjectStore('voicePreviewCache');
         }
 
         if (!db.objectStoreNames.contains('appSettings')) {
@@ -638,6 +651,17 @@ export const listSettingLibraryItems = async (): Promise<SettingLibraryItem[]> =
 export const deleteSettingLibraryItem = async (id: string): Promise<void> => {
   const db = await getDB();
   await db.delete('settingLibrary', id);
+};
+
+export const getVoicePreviewCache = async (key: string): Promise<Blob | null> => {
+  const db = await getDB();
+  const record = await db.get('voicePreviewCache', key);
+  return record?.blob ?? null;
+};
+
+export const saveVoicePreviewCache = async (key: string, blob: Blob): Promise<void> => {
+  const db = await getDB();
+  await db.put('voicePreviewCache', { blob, updatedAt: Date.now() }, key);
 };
 
 export const saveAppSettings = async (

@@ -41,7 +41,6 @@ import { createPortal } from 'react-dom';
 
 import type {
   BackgroundRemovalAIProfile,
-  CharacterImageMode,
   ImageAIProfile,
   PlotStructureGenerateDirection,
   SavedAIProfile,
@@ -238,8 +237,6 @@ interface SettingsModalProps {
   onDeleteAIProfile: (profileId: string) => void | Promise<void>;
   generateLength: string;
   setGenerateLength: (len: string) => void;
-  characterImageMode: CharacterImageMode;
-  setCharacterImageMode: (mode: CharacterImageMode) => void;
   hideStoryImageButtonWithTags: boolean;
   setHideStoryImageButtonWithTags: (hidden: boolean) => void;
   sceneImageMode: SceneImageMode;
@@ -414,8 +411,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDeleteAIProfile,
   generateLength: _generateLength,
   setGenerateLength: _setGenerateLength,
-  characterImageMode,
-  setCharacterImageMode,
   hideStoryImageButtonWithTags,
   setHideStoryImageButtonWithTags,
   sceneImageMode,
@@ -1816,36 +1811,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <section className="space-y-3">
                     <div className={settingsRowClass}>
                       <div className={settingsRowTitleClass}>
-                        {renderSettingHint(s.characterImageType, s.characterImageTypeDescription)}
+                        {renderSettingHint(s.characterAssets, s.characterAssetsDescription)}
                       </div>
-                      <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
+                      <div className="grid flex-1 grid-cols-3 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
                         {[
                           {
-                            value: 'three-view' as const,
-                            title: s.characterThreeView,
-                            description: s.characterThreeViewDescription,
+                            title: s.characterPortraitAsset,
+                            description: s.characterPortraitAssetDescription,
                           },
                           {
-                            value: 'transparent-sprite' as const,
-                            title: s.characterTransparentSprite,
-                            description: s.characterTransparentSpriteDescription,
+                            title: s.characterThreeViewAsset,
+                            description: s.characterThreeViewAssetDescription,
                           },
-                        ].map((option) => {
-                          const selected = characterImageMode === option.value;
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => setCharacterImageMode(option.value)}
-                              className={optionCardButtonClass(selected)}
-                            >
-                              {renderSettingHint(
-                                <span className="text-sm font-black">{option.title}</span>,
-                                option.description,
-                              )}
-                            </button>
-                          );
-                        })}
+                          {
+                            title: s.characterTagSpriteAsset,
+                            description: s.characterTagSpriteAssetDescription,
+                          },
+                        ].map((option) => (
+                          <div
+                            key={option.title}
+                            className="min-w-0 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2.5"
+                          >
+                            {renderSettingHint(
+                              <span className="text-sm font-black">{option.title}</span>,
+                              option.description,
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <button

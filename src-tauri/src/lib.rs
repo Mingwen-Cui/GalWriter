@@ -9,7 +9,11 @@ use std::{
 };
 
 #[cfg(target_os = "windows")]
-use std::process::Stdio;
+use std::{
+  io::{BufRead, BufReader},
+  os::windows::process::CommandExt,
+  process::{Child, ChildStdin, ChildStdout, Stdio},
+};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 #[cfg(target_os = "windows")]
@@ -71,6 +75,21 @@ struct RenderTextStyle {
 struct CloseButtonBehaviorState {
   minimize_on_close: Mutex<bool>,
 }
+
+#[cfg(target_os = "windows")]
+struct LocalRembgSidecarProcess {
+  child: Child,
+  stdin: ChildStdin,
+  stdout: BufReader<ChildStdout>,
+}
+
+#[cfg(target_os = "windows")]
+struct LocalRembgSidecarState {
+  process: Mutex<Option<LocalRembgSidecarProcess>>,
+}
+
+#[cfg(not(target_os = "windows"))]
+struct LocalRembgSidecarState;
 
 fn sanitize_file_name(file_name: &str) -> String {
   let sanitized: String = file_name
@@ -990,8 +1009,194 @@ $response = Invoke-WebRequest -Uri $env:GALWRITER_VOLCENGINE_ENDPOINT -Method Po
   }
 }
 
+#[cfg(target_os = "windows")]
+const LOCAL_REMBG_SUPPORTED_MODELS: &[&str] = &[
+  "u2netp",
+  "silueta",
+  "u2net",
+  "isnet-general-use",
+  "isnet-anime",
+  "birefnet-general-lite",
+];
+
+#[cfg(target_os = "windows")]
+fn rembg_resource_path(app: &AppHandle, relative_path: &str) -> Option<PathBuf> {
+  let bundled_path = app
+    .path()
+    .resource_dir()
+    .ok()
+    .map(|resource_dir| resource_dir.join(relative_path));
+  if let Some(path) = bundled_path.filter(|path| path.is_file()) {
+    return Some(path);
+  }
+
+  let development_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative_path);
+  development_path.is_file().then_some(development_path)
+}
+
+#[cfg(target_os = "windows")]
+fn rembg_models_dir(app: &AppHandle) -> Result<PathBuf, String> {
+  let models_dir = app
+    .path()
+    .app_data_dir()
+    .map_err(|error| format!("Unable to locate GalWriter's app-data directory: {error}"))?
+    .join("rembg-models");
+  fs::create_dir_all(&models_dir)
+    .map_err(|error| format!("Unable to create the local rembg model directory: {error}"))?;
+
+  let bundled_model_path = rembg_resource_path(app, "resources/rembg/u2netp.onnx").ok_or_else(|| {
+    "The bundled u2netp model is missing. Rebuild the desktop app with `npm run rembg:prepare`."
+      .to_string()
+  })?;
+  let installed_model_path = models_dir.join("u2netp.onnx");
+  if !installed_model_path.is_file() {
+    fs::copy(&bundled_model_path, &installed_model_path)
+      .map_err(|error| format!("Unable to install the bundled u2netp model: {error}"))?;
+  }
+
+  Ok(models_dir)
+}
+
+#[cfg(target_os = "windows")]
+fn start_local_rembg_sidecar(
+  app: &AppHandle,
+  models_dir: &Path,
+) -> Result<LocalRembgSidecarProcess, String> {
+  let executable = rembg_resource_path(app, "binaries/rembg-sidecar.exe").ok_or_else(|| {
+    "The local rembg component is missing. Rebuild the desktop app with `npm run rembg:prepare`."
+      .to_string()
+  })?;
+
+  let mut command = Command::new(executable);
+  command
+    .arg("--models-dir")
+    .arg(models_dir)
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::null())
+    .creation_flags(0x08000000);
+  let mut child = command
+    .spawn()
+    .map_err(|error| format!("Unable to start the local rembg component: {error}"))?;
+  let stdin = child
+    .stdin
+    .take()
+    .ok_or_else(|| "The local rembg component did not expose stdin.".to_string())?;
+  let stdout = child
+    .stdout
+    .take()
+    .ok_or_else(|| "The local rembg component did not expose stdout.".to_string())?;
+
+  Ok(LocalRembgSidecarProcess {
+    child,
+    stdin,
+    stdout: BufReader::new(stdout),
+  })
+}
+
+#[cfg(target_os = "windows")]
+fn remove_local_image_background_inner(
+  app: &AppHandle,
+  rembg_state: &LocalRembgSidecarState,
+  image: String,
+  model: String,
+) -> Result<String, String> {
+  let model = model.trim().to_string();
+  if !LOCAL_REMBG_SUPPORTED_MODELS.contains(&model.as_str()) {
+    return Err(format!("Unsupported local rembg model: {model}"));
+  }
+  if image.trim().is_empty() {
+    return Err("The local rembg request did not include an image.".to_string());
+  }
+
+  let models_dir = rembg_models_dir(app)?;
+  let mut process_guard = rembg_state
+    .process
+    .lock()
+    .map_err(|_| "The local rembg worker state is unavailable.".to_string())?;
+
+  let restart_worker = process_guard
+    .as_mut()
+    .map(|process| process.child.try_wait().ok().flatten().is_some())
+    .unwrap_or(false);
+  if restart_worker {
+    *process_guard = None;
+  }
+  if process_guard.is_none() {
+    *process_guard = Some(start_local_rembg_sidecar(app, &models_dir)?);
+  }
+
+  let process = process_guard
+    .as_mut()
+    .ok_or_else(|| "The local rembg component could not be started.".to_string())?;
+  let request = serde_json::json!({ "image": image, "model": model }).to_string();
+  writeln!(process.stdin, "{request}")
+    .map_err(|error| format!("Unable to send an image to the local rembg component: {error}"))?;
+  process
+    .stdin
+    .flush()
+    .map_err(|error| format!("Unable to flush the local rembg request: {error}"))?;
+
+  let mut response_line = String::new();
+  process
+    .stdout
+    .read_line(&mut response_line)
+    .map_err(|error| format!("Unable to read the local rembg response: {error}"))?;
+  if response_line.trim().is_empty() {
+    *process_guard = None;
+    return Err("The local rembg component stopped before it returned an image.".to_string());
+  }
+
+  let response: serde_json::Value = serde_json::from_str(response_line.trim())
+    .map_err(|error| format!("The local rembg component returned invalid data: {error}"))?;
+  if let Some(error) = response.get("error").and_then(|value| value.as_str()) {
+    return Err(format!("Local rembg failed: {error}"));
+  }
+  response
+    .get("image")
+    .and_then(|value| value.as_str())
+    .map(str::to_owned)
+    .ok_or_else(|| "The local rembg component returned no transparent PNG.".to_string())
+}
+
+#[cfg(target_os = "windows")]
 #[tauri::command]
-fn force_quit_app(app: AppHandle) {
+fn remove_local_image_background(
+  app: AppHandle,
+  rembg_state: State<'_, LocalRembgSidecarState>,
+  image: String,
+  model: String,
+) -> Result<String, String> {
+  remove_local_image_background_inner(&app, &rembg_state, image, model)
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn remove_local_image_background(
+  _app: AppHandle,
+  _rembg_state: State<'_, LocalRembgSidecarState>,
+  _image: String,
+  _model: String,
+) -> Result<String, String> {
+  Err("Local rembg is currently bundled only with the Windows desktop app.".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn stop_local_rembg_sidecar(rembg_state: &LocalRembgSidecarState) {
+  if let Ok(mut process_guard) = rembg_state.process.lock() {
+    if let Some(mut process) = process_guard.take() {
+      let _ = process.child.kill();
+      let _ = process.child.wait();
+    }
+  }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn stop_local_rembg_sidecar(_rembg_state: &LocalRembgSidecarState) {}
+
+#[tauri::command]
+fn force_quit_app(app: AppHandle, rembg_state: State<'_, LocalRembgSidecarState>) {
+  stop_local_rembg_sidecar(&rembg_state);
   app.exit(0);
 }
 
@@ -1548,10 +1753,18 @@ fn finish_high_perf_render(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  #[cfg(target_os = "windows")]
+  let rembg_sidecar_state = LocalRembgSidecarState {
+    process: Mutex::new(None),
+  };
+  #[cfg(not(target_os = "windows"))]
+  let rembg_sidecar_state = LocalRembgSidecarState;
+
   tauri::Builder::default()
     .manage(CloseButtonBehaviorState {
       minimize_on_close: Mutex::new(false),
     })
+    .manage(rembg_sidecar_state)
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
       choose_render_output_dir,
@@ -1562,6 +1775,7 @@ pub fn run() {
       proxy_volcengine_tts,
       proxy_aliyun_imageseg_request,
       proxy_volcengine_imagex_request,
+      remove_local_image_background,
       force_quit_app,
       set_close_button_minimizes,
       save_rendered_video,

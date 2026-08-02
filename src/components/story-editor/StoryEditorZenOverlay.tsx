@@ -65,12 +65,15 @@ export function StoryEditorZenOverlay({
           const outfits = Array.isArray(item.data.outfits) ? item.data.outfits : [];
           const outfit = config?.outfitId
             ? outfits.find((outfitItem: any) => outfitItem.id === config.outfitId)
-            : outfits.find((outfitItem: any) => outfitItem.imageUrl);
+            : undefined;
           return {
             id: item.id,
             name: String(item.data.characterName).trim(),
             imageUrl:
               (outfit as { imageUrl?: string } | undefined)?.imageUrl ||
+              (typeof item.data.tagSpriteUrl === 'string' ? item.data.tagSpriteUrl : undefined) ||
+              (outfits.find((outfitItem: any) => outfitItem.imageUrl) as { imageUrl?: string } | undefined)
+                ?.imageUrl ||
               (typeof item.data.avatarUrl === 'string' ? item.data.avatarUrl : undefined),
           };
         })

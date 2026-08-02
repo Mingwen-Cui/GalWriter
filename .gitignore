@@ -19,6 +19,11 @@ LOCAL_TEMPLATES_DO_NOT_COMMIT/
 
 # Tauri/Rust generated output
 src-tauri/gen/
+src-tauri/binaries/rembg-sidecar.exe
+src-tauri/rembg-sidecar/.venv/
+src-tauri/rembg-sidecar/build/
+src-tauri/rembg-sidecar/dist/
+src-tauri/resources/rembg/u2netp.onnx
 
 # Local diagnostics and temporary error captures
 errors_context.txt

@@ -1,19 +1,19 @@
 {
   "data": {
-    "sceneName": "午后资料室",
-    "location": "学校旧楼二层的资料室。",
-    "time": "下午三点，阳光斜照进来。",
-    "weather": "窗外闷热，室内有纸张和灰尘的干燥气味。",
-    "visual": "高书架遮住半扇窗，桌面堆着未归档的文件夹。",
-    "sound": "风扇转动、纸页摩擦，走廊偶尔传来脚步声。",
-    "items": "索引卡、木梯、旧风扇、上锁的铁柜。",
-    "notes": "最里面一排书架后有一张影桌。",
+    "sceneName": "\u5348\u540e\u8d44\u6599\u5ba4",
+    "location": "\u5b66\u6821\u65e7\u697c\u4e8c\u5c42\u7684\u8d44\u6599\u5ba4\u3002",
+    "time": "\u4e0b\u5348\u4e09\u70b9\uff0c\u9633\u5149\u659c\u7167\u8fdb\u6765\u3002",
+    "weather": "\u7a97\u5916\u95f7\u70ed\uff0c\u5ba4\u5185\u6709\u7eb8\u5f20\u548c\u7070\u5c18\u7684\u5e72\u71e5\u6c14\u5473\u3002",
+    "visual": "\u9ad8\u4e66\u67b6\u906e\u4f4f\u534a\u6247\u7a97\uff0c\u684c\u9762\u5806\u7740\u672a\u5f52\u6863\u7684\u6587\u4ef6\u5939\u3002",
+    "sound": "\u98ce\u6247\u8f6c\u52a8\u3001\u7eb8\u9875\u6469\u64e6\uff0c\u8d70\u5eca\u5076\u5c14\u4f20\u6765\u811a\u6b65\u58f0\u3002",
+    "items": "\u7d22\u5f15\u5361\u3001\u6728\u68af\u3001\u65e7\u98ce\u6247\u3001\u4e0a\u9501\u7684\u94c1\u67dc\u3002",
+    "notes": "\u6700\u91cc\u9762\u4e00\u6392\u4e66\u67b6\u540e\u6709\u4e00\u5f20\u5f71\u684c\u3002",
     "description": "",
     "coverImageUrl": "/presets/scenes/afternoon-archive-room.png",
     "images": [
       {
         "id": "afternoon-archive-room-background",
-        "name": "午后资料室背景",
+        "name": "\u5348\u540e\u8d44\u6599\u5ba4\u80cc\u666f",
         "imageUrl": "/presets/scenes/afternoon-archive-room.png"
       }
     ]

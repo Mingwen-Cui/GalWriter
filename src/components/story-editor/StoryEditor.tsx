@@ -726,10 +726,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const missingBackgroundRemovalApiKey =
     didHydrateLocalState &&
     (!activeBackgroundRemovalProfile ||
-      !activeBackgroundRemovalProfile.apiUrl.trim() ||
-      !activeBackgroundRemovalProfile.apiKey.trim() ||
-      (activeBackgroundRemovalProfile.provider !== 'custom' &&
-        !activeBackgroundRemovalProfile.model.trim()));
+      (activeBackgroundRemovalProfile.provider !== 'local-rembg' &&
+        (!activeBackgroundRemovalProfile.apiUrl.trim() ||
+          !activeBackgroundRemovalProfile.apiKey.trim() ||
+          (activeBackgroundRemovalProfile.provider !== 'custom' &&
+            !activeBackgroundRemovalProfile.model.trim()))));
   const importModeRef = useRef<'replace' | 'new'>('replace');
   const requestSettingsAttention = useCallback(
     (target: 'text' | 'image' | 'background-removal' | 'voice') => {
@@ -1303,7 +1304,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     backgroundRemovalApiKey,
     backgroundRemovalModel,
     backgroundRemovalProvider,
-    characterImageMode,
     sceneImageMode,
     showTitles: showTitles && storyTitlePlacement === 'inside',
     setImageSize,
@@ -2077,6 +2077,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     }));
   }, [activeVoiceProfile, savedAIProfiles]);
 
+  const voicePreviewRequestCacheRef = useRef(new Map<string, Promise<Blob>>());
+
   const handlePreviewCharacterVoice = useCallback(
     async (nodeId: string, voiceProfileId?: string, voiceId?: string) => {
       const selectedProfile = voiceProfileId
@@ -2092,20 +2094,82 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       }
 
       const character = nodes.find((node) => node.id === nodeId && node.type === 'characterNode');
-      const name = String(character?.data.characterName || (language === 'zh' ? '这个角色' : 'this character'));
+      const name = String(character?.data.characterName || '').trim();
+      const isNewCharacter = !name || ['新角色', '新キャラクター', 'New Character'].includes(name);
+      const previewText = isNewCharacter
+        ? language === 'zh'
+          ? '您好，可以听到吗？'
+          : language === 'ja'
+            ? 'こんにちは。聞こえますか？'
+            : 'Hello, can you hear me?'
+        : language === 'zh'
+          ? `您好，我是${name}。`
+          : language === 'ja'
+            ? `こんにちは、${name}です。`
+            : `Hello, I am ${name}.`;
+      const resolvedVoice = voiceId?.trim() || selectedProfile.voice;
+      const cacheKey = JSON.stringify({
+        version: 1,
+        profileId: selectedProfile.id,
+        provider: selectedProfile.provider,
+        apiUrl: selectedProfile.apiUrl,
+        model: selectedProfile.model,
+        voice: resolvedVoice,
+        text: previewText,
+      });
+
+      const playPreview = async (blob: Blob) => {
+        const url = URL.createObjectURL(blob);
+        const player = new Audio(url);
+        const releaseUrl = () => URL.revokeObjectURL(url);
+        player.addEventListener('ended', releaseUrl, { once: true });
+        player.addEventListener('error', releaseUrl, { once: true });
+        try {
+          await player.play();
+        } catch (error) {
+          releaseUrl();
+          throw error;
+        }
+      };
+
       try {
-        const audio = await ttsService.generate({
-          text: language === 'zh' ? `你好，我是${name}。` : `Hello, I am ${name}.`,
-          provider: selectedProfile.provider,
-          apiUrl: selectedProfile.apiUrl,
-          apiKey: selectedProfile.apiKey,
-          appKey: selectedProfile.appKey,
-          appSecret: selectedProfile.appSecret || selectedProfile.apiKey,
-          model: selectedProfile.model,
-          voice: voiceId?.trim() || selectedProfile.voice,
-        });
-        const player = new Audio(audio.url);
-        await player.play();
+        let blob: Blob | null = null;
+        try {
+          blob = await localPersistenceService.getVoicePreviewCache(cacheKey);
+        } catch (error) {
+          console.warn('Unable to read cached character voice preview:', error);
+        }
+
+        if (!blob) {
+          let request = voicePreviewRequestCacheRef.current.get(cacheKey);
+          if (!request) {
+            request = ttsService
+              .generate({
+                text: previewText,
+                provider: selectedProfile.provider,
+                apiUrl: selectedProfile.apiUrl,
+                apiKey: selectedProfile.apiKey,
+                appKey: selectedProfile.appKey,
+                appSecret: selectedProfile.appSecret || selectedProfile.apiKey,
+                model: selectedProfile.model,
+                voice: resolvedVoice,
+              })
+              .then((audio) => audio.blob);
+            voicePreviewRequestCacheRef.current.set(cacheKey, request);
+          }
+          try {
+            blob = await request;
+            try {
+              await localPersistenceService.saveVoicePreviewCache(cacheKey, blob);
+            } catch (error) {
+              console.warn('Unable to save character voice preview cache:', error);
+            }
+          } finally {
+            voicePreviewRequestCacheRef.current.delete(cacheKey);
+          }
+        }
+
+        await playPreview(blob);
       } catch (error) {
         console.error('Character voice preview failed:', error);
         showToast(language === 'zh' ? '音色试听失败，请检查语音 API 设置' : 'Voice preview failed', 'error');
@@ -2800,8 +2864,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           onDeleteAIProfile={handleDeleteAIProfile}
           generateLength={generateLength}
           setGenerateLength={setGenerateLength}
-          characterImageMode={characterImageMode}
-          setCharacterImageMode={setCharacterImageMode}
           hideStoryImageButtonWithTags={hideStoryImageButtonWithTags}
           setHideStoryImageButtonWithTags={setHideStoryImageButtonWithTags}
           sceneImageMode={sceneImageMode}

@@ -15,6 +15,7 @@ import {
   DEFAULT_STABLE_DIFFUSION_SAMPLER,
   DEFAULT_STABLE_DIFFUSION_STEPS,
 } from '../../editor-features/media/imageGeneration';
+import { isTauriRuntime } from '../../lib/tauriRuntime';
 import { DEFAULT_TTS_API_URL, DEFAULT_TTS_MODEL, DEFAULT_TTS_VOICE } from './constants';
 
 export const buildProfileId = () => uuidv4();
@@ -57,10 +58,10 @@ export const buildDefaultBackgroundRemovalProfile = (): BackgroundRemovalAIProfi
   id: buildProfileId(),
   name: '去背景 AI',
   kind: 'background-removal',
-  provider: 'custom',
+  provider: isTauriRuntime() ? 'local-rembg' : 'custom',
   apiKey: '',
-  apiUrl: 'api/proxy.php',
-  model: '',
+  apiUrl: isTauriRuntime() ? '' : 'api/proxy.php',
+  model: isTauriRuntime() ? 'u2netp' : '',
 });
 
 export const buildDefaultVoiceProfile = (): VoiceAIProfile => ({

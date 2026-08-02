@@ -1,19 +1,19 @@
 {
   "data": {
-    "sceneName": "雨夜车站",
-    "location": "城郊支线尽头的小站台。",
-    "time": "深夜，末班车刚离开。",
-    "weather": "持续小雨，空气潮冷。",
-    "visual": "褪色站牌、积水和一盏闪烁的顶灯。",
-    "sound": "雨滴敲铁皮，远处偶尔有货车经过。",
-    "items": "自动售票机、折叠伞、停摆的时刻表。",
-    "notes": "站台另一端没有照明。",
+    "sceneName": "\u96e8\u591c\u8f66\u7ad9",
+    "location": "\u57ce\u90ca\u652f\u7ebf\u5c3d\u5934\u7684\u5c0f\u7ad9\u53f0\u3002",
+    "time": "\u6df1\u591c\uff0c\u672b\u73ed\u8f66\u521a\u79bb\u5f00\u3002",
+    "weather": "\u6301\u7eed\u5c0f\u96e8\uff0c\u7a7a\u6c14\u6f6e\u51b7\u3002",
+    "visual": "\u892a\u8272\u7ad9\u724c\u3001\u79ef\u6c34\u548c\u4e00\u76cf\u95ea\u70c1\u7684\u9876\u706f\u3002",
+    "sound": "\u96e8\u6ef4\u6572\u94c1\u76ae\uff0c\u8fdc\u5904\u5076\u5c14\u6709\u8d27\u8f66\u7ecf\u8fc7\u3002",
+    "items": "\u81ea\u52a8\u552e\u7968\u673a\u3001\u6298\u53e0\u4f1e\u3001\u505c\u6446\u7684\u65f6\u523b\u8868\u3002",
+    "notes": "\u7ad9\u53f0\u53e6\u4e00\u7aef\u6ca1\u6709\u7167\u660e\u3002",
     "description": "",
     "coverImageUrl": "/presets/scenes/rainy-platform.png",
     "images": [
       {
         "id": "rainy-platform-background",
-        "name": "雨夜车站背景",
+        "name": "\u96e8\u591c\u8f66\u7ad9\u80cc\u666f",
         "imageUrl": "/presets/scenes/rainy-platform.png"
       }
     ]

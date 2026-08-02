@@ -14,6 +14,7 @@ import {
   getAppSettings,
   getLocalProject,
   getSettingLibraryItem,
+  getVoicePreviewCache,
   listSettingLibraryItems,
   listLocalProjects,
   renameLocalProject,
@@ -23,6 +24,7 @@ import {
   saveAppSettings,
   saveLocalProject,
   saveSettingLibraryItem,
+  saveVoicePreviewCache,
   type LocalAIProfilesState,
   type LocalProjectSummary,
   type LocalApiKeySettings,
@@ -127,6 +129,14 @@ export const localPersistenceService = {
 
   deleteSettingLibraryItem(id: string) {
     return deleteSettingLibraryItem(id);
+  },
+
+  getVoicePreviewCache(key: string) {
+    return getVoicePreviewCache(key);
+  },
+
+  saveVoicePreviewCache(key: string, blob: Blob) {
+    return saveVoicePreviewCache(key, blob);
   },
 
   async saveTheme(theme: 'light' | 'dark' | 'system') {

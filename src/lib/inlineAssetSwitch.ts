@@ -74,10 +74,12 @@ export const resolveCharacterImageUrl = (
   const targetAssetId = isSwitchInlineAction(switchAction)
     ? switchAction.targetAssetId
     : config.outfitId;
-  const outfit = targetAssetId
+  const selectedOutfit = targetAssetId
     ? data.outfits?.find((item) => item.id === targetAssetId)
-    : data.outfits?.find((item) => item.imageUrl);
-  return outfit?.imageUrl || data.avatarUrl;
+    : undefined;
+  if (selectedOutfit?.imageUrl) return selectedOutfit.imageUrl;
+
+  return data.tagSpriteUrl || data.outfits?.find((item) => item.imageUrl)?.imageUrl || data.avatarUrl;
 };
 
 export const resolveSceneMedia = ({

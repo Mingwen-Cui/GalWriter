@@ -335,6 +335,12 @@ const IMAGE_PROVIDER_OPTIONS: ProviderOption[] = [
 
 const BACKGROUND_REMOVAL_PROVIDER_OPTIONS: ProviderOption[] = [
   {
+    value: 'local-rembg',
+    label: '本机 rembg（无需 API Key）',
+    apiUrl: '',
+    model: 'u2netp',
+  },
+  {
     value: 'custom',
     label: '自定义接口',
     apiUrl: '',
@@ -351,6 +357,18 @@ const BACKGROUND_REMOVAL_PROVIDER_OPTIONS: ProviderOption[] = [
     label: '火山 veImageX',
     apiUrl: VOLCENGINE_IMAGEX_API_URL,
     model: VOLCENGINE_IMAGEX_MODEL,
+  },
+];
+
+const LOCAL_REMBG_MODEL_OPTIONS: ModelOption[] = [
+  { value: 'u2netp', label: 'u2netp — 内置快速模式（约 4.7 MB）' },
+  { value: 'silueta', label: 'silueta — 下载后使用（约 43 MB）' },
+  { value: 'u2net', label: 'u2net — 通用高质量（约 176 MB）' },
+  { value: 'isnet-general-use', label: 'ISNet — 通用高质量（约 178 MB）' },
+  { value: 'isnet-anime', label: 'ISNet Anime — 二次元角色（需自行选择下载）' },
+  {
+    value: 'birefnet-general-lite',
+    label: 'BiRefNet General Lite — 高级模式（约 200 MB，需自行选择下载）',
   },
 ];
 
@@ -621,6 +639,7 @@ const IMAGE_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
 };
 
 const BACKGROUND_REMOVAL_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
+  'local-rembg': [],
   custom: [{ value: '', label: 'Custom endpoint' }],
   aliyun: [{ value: ALIYUN_IMAGESEG_API_URL, label: ALIYUN_IMAGESEG_API_URL }],
   volcengine: [{ value: VOLCENGINE_IMAGEX_API_URL, label: VOLCENGINE_IMAGEX_API_URL }],
@@ -797,10 +816,10 @@ const buildDefaultBackgroundRemovalDraft = (): BackgroundRemovalAIProfile => ({
   id: 'draft-background-removal',
   name: '',
   kind: 'background-removal',
-  provider: 'aliyun',
+  provider: isTauriRuntime() ? 'local-rembg' : 'aliyun',
   apiKey: '',
-  apiUrl: ALIYUN_IMAGESEG_API_URL,
-  model: ALIYUN_IMAGESEG_MODEL,
+  apiUrl: isTauriRuntime() ? '' : ALIYUN_IMAGESEG_API_URL,
+  model: isTauriRuntime() ? 'u2netp' : ALIYUN_IMAGESEG_MODEL,
 });
 
 const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
@@ -824,7 +843,9 @@ const getProviderOptions = (kind: ProfileKind) => {
 };
 
 const getModelOptions = (kind: ProfileKind, provider: string): ModelOption[] => {
-  if (kind === 'background-removal') return [];
+  if (kind === 'background-removal') {
+    return provider === 'local-rembg' ? LOCAL_REMBG_MODEL_OPTIONS : [];
+  }
   const map =
     kind === 'text'
       ? TEXT_MODEL_OPTIONS
@@ -1393,7 +1414,12 @@ export function AISettingsPanel({
     const providerOptions = getProviderOptions(editorState.kind).filter(
       (option) =>
         !(editorState.kind === 'image' && option.value === 'hosted-image' && isTauriRuntime()) &&
-        !(editorState.kind === 'voice' && option.value === 'hosted-voice' && isTauriRuntime()),
+        !(editorState.kind === 'voice' && option.value === 'hosted-voice' && isTauriRuntime()) &&
+        !(
+          editorState.kind === 'background-removal' &&
+          option.value === 'local-rembg' &&
+          !isTauriRuntime()
+        ),
     );
     const rawModelOptions = getModelOptions(editorState.kind, draft.provider);
     const modelOptions =
@@ -1404,6 +1430,7 @@ export function AISettingsPanel({
     const meta = getProfileKindMeta(editorState.kind, language);
     const isLocalStableDiffusion =
       draft.kind === 'image' && draft.provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
+    const isLocalRembg = draft.kind === 'background-removal' && draft.provider === 'local-rembg';
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
     // NOTE: hosted 模式下无需用户填写 API Key，由服务端代理持有
     const isHosted = draft.kind === 'text' && draft.provider === 'hosted';
@@ -1851,8 +1878,47 @@ export function AISettingsPanel({
               </>
             )}
 
-            {draft.kind === 'background-removal' && (
-              <>
+            {draft.kind === 'background-removal' &&
+              (isLocalRembg ? (
+                <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-4 text-sm leading-6 text-fuchsia-950 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-50">
+                  <p className="font-black">本机去背景：图片不会上传到服务器</p>
+                  <p className="mt-1 text-xs font-medium text-fuchsia-800 dark:text-fuchsia-100/80">
+                    u2netp 已随 Windows 安装包提供。选择其他模型后，会在首次实际去背景时下载到
+                    GalWriter 的本机模型目录；之后可离线使用。
+                  </p>
+                  <div className="mt-3 grid gap-2 text-xs font-medium md:grid-cols-2">
+                    <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
+                      <p className="font-black">默认：u2netp</p>
+                      <p className="mt-0.5">体积最小、启动最快，适合日常角色图的快速处理。</p>
+                    </div>
+                    <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
+                      <p className="font-black">高级：BiRefNet General Lite</p>
+                      <p className="mt-0.5">请自行确认模型许可并在此处选择；首次使用会按 rembg 的官方模型机制下载。</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <a
+                      href="https://github.com/danielgatis/rembg"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      rembg 模型说明
+                    </a>
+                    <a
+                      href="https://github.com/ZhengPeng7/BiRefNet"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      BiRefNet 配置与许可
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <>
                 <div className="grid gap-5 md:grid-cols-2">
                   {draft.provider === 'aliyun' && (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 md:col-span-2">
@@ -1972,8 +2038,8 @@ export function AISettingsPanel({
                     </p>
                   </div>
                 </div>
-              </>
-            )}
+                </>
+              ))}
 
             {draft.kind === 'voice' && (
               <>

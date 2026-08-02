@@ -241,6 +241,7 @@ export interface BackgroundRemovalAIProfile {
   provider: string;
   apiKey: string;
   apiUrl: string;
+  /** rembg session name when the desktop-local provider is selected. */
   model: string;
 }
 
@@ -548,7 +549,11 @@ export interface EditorNodeCallbacks {
   onAIAnalyze?: (id: string, mode?: string) => Promise<void> | void;
   onGenerateImage?: (id: string) => Promise<void> | void;
   onGenerateSpeech?: (id: string) => Promise<void> | void;
-  onGenerateSettingImage?: (id: string, type: 'character' | 'scene') => Promise<void> | void;
+  onGenerateSettingImage?: (
+    id: string,
+    type: 'character' | 'scene',
+    onProgress?: (current: number, total: number, label?: string) => void,
+  ) => Promise<void> | void;
   onPreviewCharacterVoice?: (
     id: string,
     voiceProfileId?: string,
@@ -645,7 +650,12 @@ export interface CharacterNodeData extends BaseEditorNodeData {
   features?: string;
   background?: string;
   other?: string;
+  /** Card portrait. Kept as the legacy primary image so old projects remain compatible. */
   avatarUrl?: string;
+  /** Front / side / back design sheet, used as the visual reference for scene redraws. */
+  threeViewUrl?: string;
+  /** Full-body character cutout with a transparent background, used by story tags. */
+  tagSpriteUrl?: string;
   outfits?: CharacterOutfit[];
   isGlobal?: boolean;
   showPersonality?: boolean;

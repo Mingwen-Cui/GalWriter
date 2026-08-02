@@ -23,9 +23,18 @@ export const settingsModalEn = {
   characterTransparentSprite: 'Transparent Sprite',
   characterTransparentSpriteDescription:
     'A single full-body character on a transparent background.',
+  characterAssets: 'Character Assets',
+  characterAssetsDescription:
+    'Each AI run creates three assets in order and uses them automatically by purpose.',
+  characterPortraitAsset: 'Front Portrait',
+  characterPortraitAssetDescription: 'Used as the character card portrait.',
+  characterThreeViewAsset: 'Three-view Sheet',
+  characterThreeViewAssetDescription: 'Used as the reference for character-and-scene redraws.',
+  characterTagSpriteAsset: 'Transparent Tag Sprite',
+  characterTagSpriteAssetDescription: 'Used for story character tags; falls back to the portrait.',
   hideStoryImageWithTags: 'Hide story image button when tags exist',
   hideStoryImageWithTagsDescription:
-    'Applies only with Transparent Sprite when the story text contains a character or scene tag.',
+    'Applies when the story text contains a character or scene tag.',
   sceneImageRatio: 'Scene Image Ratio',
   sceneImageRatioDescription:
     'Only affects scene card generation and overrides the image API size.',

@@ -293,9 +293,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     String(text),
   );
   const hideGenerateImageButton =
-    data.characterImageMode === 'transparent-sprite' &&
-    data.hideStoryImageButtonWithTags === true &&
-    hasCharacterOrSceneTag;
+    data.hideStoryImageButtonWithTags === true && hasCharacterOrSceneTag;
   const hasScenePresentationImage = Boolean(storyPresentation.scene && imageUrl);
   const hasScenePresentationVideo = Boolean(
     videoUrl && !imageUrl && (storyPresentation.scene || storyPresentation.characters.length > 0),

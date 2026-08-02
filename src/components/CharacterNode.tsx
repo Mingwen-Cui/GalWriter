@@ -27,11 +27,13 @@ import {
   UserCircle2,
   Volume2,
   WandSparkles,
+  X,
 } from 'lucide-react';
 import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { CharacterFlowNode, CharacterNodeData, CharacterOutfit } from '../domain/project';
+import type { CharacterFlowNode, CharacterNodeData } from '../domain/project';
 import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
@@ -62,7 +64,7 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
-  70 + 73 + 330 + 81 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
+  70 + 73 + 330 + 132 + 81 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
 const CHARACTER_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const CHARACTER_NODE_HEIGHT_SAFETY = 8;
@@ -83,6 +85,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const selectedVoiceId = data.voiceId || selectedVoiceProfile?.defaultVoice || '';
   const voiceListId = `character-voice-options-${id}`;
   const avatarUrl = data.avatarUrl;
+  const threeViewUrl = data.threeViewUrl;
+  const tagSpriteUrl = data.tagSpriteUrl;
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
   const cardToolbarScale =
@@ -92,15 +96,48 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
   const isMinimized = !!data.isMinimized;
   const outfits = data.outfits || [];
+  const characterAssetSlots = [
+    {
+      key: 'avatarUrl' as const,
+      url: avatarUrl,
+      surfaceClass: 'bg-gradient-to-b from-purple-50 via-white to-slate-50 dark:from-purple-950/40 dark:via-slate-950 dark:to-slate-900',
+      label: lang === 'zh' ? '正面头像' : lang === 'ja' ? '正面ポートレート' : 'Front Portrait',
+      hint: lang === 'zh' ? '人物卡片' : lang === 'ja' ? '人物カード' : 'Character card',
+    },
+    {
+      key: 'threeViewUrl' as const,
+      url: threeViewUrl,
+      surfaceClass: 'bg-slate-50 dark:bg-slate-900/70',
+      label: lang === 'zh' ? '人物三视图' : lang === 'ja' ? '三面図' : 'Three-view Sheet',
+      hint: lang === 'zh' ? '场景重绘参考' : lang === 'ja' ? '再描画の参照' : 'Redraw reference',
+    },
+    {
+      key: 'tagSpriteUrl' as const,
+      url: tagSpriteUrl,
+      surfaceClass:
+        'bg-[repeating-conic-gradient(#f8fafc_0%_25%,#e2e8f0_0%_50%)] bg-[length:12px_12px] dark:bg-[repeating-conic-gradient(#1e293b_0%_25%,#0f172a_0%_50%)]',
+      label: lang === 'zh' ? '透明标签立绘' : lang === 'ja' ? '透過タグ立ち絵' : 'Transparent Tag Sprite',
+      hint: lang === 'zh' ? '剧情人物 Tag' : lang === 'ja' ? 'ストーリータグ' : 'Story character tag',
+    },
+  ];
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
   const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<{
+    current: number;
+    total: number;
+    label?: string;
+  } | null>(null);
+  const [previewAssetKey, setPreviewAssetKey] = useState<
+    'avatarUrl' | 'threeViewUrl' | 'tagSpriteUrl' | null
+  >(null);
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
   const contentFrameRef = useRef<HTMLDivElement>(null);
   const [measuredMinHeight, setMeasuredMinHeight] = useState(
     getCalculatedCharacterNodeMinHeight(0),
   );
+  const previewAsset = characterAssetSlots.find((asset) => asset.key === previewAssetKey);
 
   const storeApi = useStoreApi();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -408,19 +445,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     }
   };
 
-  const syncPrimaryOutfitImage = (currentOutfits: CharacterOutfit[], url: string) => {
-    const primaryName =
-      lang === 'zh' ? '人物照片' : lang === 'ja' ? 'キャラクター画像' : 'Character Photo';
-
-    if (currentOutfits.length === 0) {
-      return [{ id: uuidv4(), name: primaryName, imageUrl: url }];
-    }
-
-    return currentOutfits.map((outfit, index) =>
-      index === 0 ? { ...outfit, imageUrl: url } : outfit,
-    );
-  };
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, outfitId?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -430,12 +454,19 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         outfits: outfits.map((o) => (o.id === outfitId ? { ...o, imageUrl: url } : o)),
       });
     } else {
-      updateNodeData({
-        avatarUrl: url,
-        outfits: syncPrimaryOutfitImage(outfits, url),
-      });
+      updateNodeData({ avatarUrl: url });
     }
     e.target.value = '';
+  };
+
+  const handleCharacterAssetUpload = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    assetKey: 'avatarUrl' | 'threeViewUrl' | 'tagSpriteUrl',
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    updateNodeData({ [assetKey]: URL.createObjectURL(file) } as Partial<CharacterNodeData>);
+    event.target.value = '';
   };
 
   const addOutfit = () => {
@@ -523,10 +554,14 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     if (!data.onGenerateSettingImage || isGeneratingSettingImage || !hasCharacterText) return;
 
     setIsGeneratingSettingImage(true);
+    setGenerationProgress({ current: 0, total: 3 });
     try {
-      await data.onGenerateSettingImage(id, 'character');
+      await data.onGenerateSettingImage(id, 'character', (current, total, label) => {
+        setGenerationProgress({ current, total, label });
+      });
     } finally {
       setIsGeneratingSettingImage(false);
+      setGenerationProgress(null);
     }
   };
 
@@ -803,7 +838,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   disabled={isGeneratingSettingImage}
                   className={`shrink-0 w-8 h-8 rounded-lg transition-colors flex items-center justify-center border border-fuchsia-500/20 ${isGeneratingSettingImage ? 'text-fuchsia-500 bg-fuchsia-500/10 cursor-wait' : 'text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-500/10'}`}
                   title={
-                    lang === 'zh' ? '根据人物设定一键生图' : 'Generate image from character setting'
+                    lang === 'zh'
+                      ? '根据人物设定生成头像、三视图和透明标签立绘'
+                      : 'Generate portrait, three-view sheet, and transparent tag sprite'
                   }
                 >
                   {isGeneratingSettingImage ? (
@@ -1067,11 +1104,88 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
               </div>
             </div>
 
-            {/* Outfits / Three-views */}
+            <div className="px-3 pb-3">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="ml-1 text-[11px] font-bold text-[var(--text-secondary)]">
+                  {lang === 'zh' ? '人物素材' : lang === 'ja' ? 'キャラクター素材' : 'Character Assets'}
+                </label>
+                {isGeneratingSettingImage && (
+                  <span className="text-[10px] font-medium text-fuchsia-500">
+                    {generationProgress?.label || (lang === 'zh' ? '准备中' : 'Preparing')}{' '}
+                    {generationProgress?.current || 0}/{generationProgress?.total || 3}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {characterAssetSlots.map((asset) => (
+                  <div
+                    key={asset.key}
+                    className="min-w-0 overflow-hidden rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)]"
+                  >
+                    <div
+                      className={`relative flex h-[82px] items-center justify-center overflow-hidden ${asset.surfaceClass}`}
+                    >
+                      {asset.url ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPreviewAssetKey(asset.key);
+                          }}
+                          className="nodrag nopan flex h-full w-full cursor-zoom-in items-center justify-center p-1.5"
+                          title={lang === 'zh' ? `查看${asset.label}` : `View ${asset.label}`}
+                        >
+                          <img
+                            src={asset.url}
+                            alt={asset.label}
+                            className="h-full w-full object-contain drop-shadow-sm"
+                          />
+                        </button>
+                      ) : (
+                        <label
+                          className="flex h-full w-full cursor-pointer items-center justify-center text-purple-400 transition-colors hover:bg-purple-500/10"
+                          title={lang === 'zh' ? `上传${asset.label}` : `Upload ${asset.label}`}
+                        >
+                          <ImageIcon className="h-5 w-5" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => handleCharacterAssetUpload(event, asset.key)}
+                          />
+                        </label>
+                      )}
+                      {asset.url && (
+                        <label
+                          className="absolute right-1.5 top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-white/70 bg-white/85 text-purple-500 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/90"
+                          title={lang === 'zh' ? `替换${asset.label}` : `Replace ${asset.label}`}
+                        >
+                          <Upload className="h-3 w-3" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => handleCharacterAssetUpload(event, asset.key)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <div className="px-1.5 py-1.5">
+                      <div className="truncate text-[10px] font-bold text-[var(--text-primary)]">
+                        {asset.label}
+                      </div>
+                      <div className="truncate text-[9px] text-[var(--text-muted)]">{asset.hint}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Outfits / alternate looks */}
             <div className="p-3 flex flex-col gap-2 relative shrink-0 min-h-[100px] rounded-b-xl border-t border-[var(--card-border)] bg-[var(--card-bg)]">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-[var(--text-secondary)] ml-1">
-                  人物图片 / 不同穿着
+                  {lang === 'zh' ? '不同穿着' : lang === 'ja' ? '衣装違い' : 'Alternate Looks'}
                 </label>
                 <button
                   onClick={addOutfit}
@@ -1254,6 +1368,50 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
           />
         </>
       )}
+
+      {previewAsset?.url &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-5 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label={previewAsset.label}
+            onMouseDown={() => setPreviewAssetKey(null)}
+          >
+            <div
+              className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/70 bg-[var(--card-bg)] shadow-2xl"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold text-[var(--text-primary)]">
+                    {previewAsset.label}
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)]">{previewAsset.hint}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewAssetKey(null)}
+                  className="nodrag nopan rounded-lg p-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]"
+                  title={lang === 'zh' ? '关闭预览' : 'Close preview'}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div
+                className={`flex h-[min(65vh,560px)] items-center justify-center p-5 ${previewAsset.surfaceClass}`}
+              >
+                <img
+                  src={previewAsset.url}
+                  alt={previewAsset.label}
+                  className="h-full w-full object-contain drop-shadow-xl"
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

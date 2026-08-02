@@ -3,9 +3,9 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { CharacterImageMode, CharacterNodeData, SceneImageMode } from '../../domain/project';
+import type { CharacterNodeData, SceneImageMode } from '../../domain/project';
 import { useDialog } from '../../editor-shell/DialogProvider';
-import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
+import { formatSceneNodeText } from '../../lib/export';
 import {
   buildImageGenerationRequest,
   buildReferencePrompt,
@@ -43,7 +43,6 @@ interface UseMediaActionsParams {
   backgroundRemovalApiKey?: string;
   backgroundRemovalModel?: string;
   backgroundRemovalProvider?: string;
-  characterImageMode: CharacterImageMode;
   sceneImageMode: SceneImageMode;
   showTitles: boolean;
   setImageSize: Dispatch<SetStateAction<string>>;
@@ -152,7 +151,6 @@ export const useMediaActions = ({
   backgroundRemovalApiKey,
   backgroundRemovalModel,
   backgroundRemovalProvider,
-  characterImageMode,
   sceneImageMode,
   showTitles,
   setImageSize,
@@ -190,9 +188,10 @@ export const useMediaActions = ({
   const isHostedImageProxy = isHostedImageProxyProvider(imageProvider);
   const isHostedBackgroundRemovalProxy = false;
   const missingBackgroundRemovalConfig =
-    !backgroundRemovalApiUrl?.trim() ||
-    !backgroundRemovalApiKey?.trim() ||
-    (backgroundRemovalProvider !== 'custom' && !backgroundRemovalModel?.trim());
+    backgroundRemovalProvider !== 'local-rembg' &&
+    (!backgroundRemovalApiUrl?.trim() ||
+      !backgroundRemovalApiKey?.trim() ||
+      (backgroundRemovalProvider !== 'custom' && !backgroundRemovalModel?.trim()));
   const notifyMissingBackgroundRemovalConfig = useCallback(() => {
     onMissingBackgroundRemovalApiRequest?.();
     showToast(
@@ -266,6 +265,7 @@ export const useMediaActions = ({
         sizeOverride?: string;
         aspectRatio?: number;
         negativePromptOverride?: string;
+        referenceImages?: ImageReference[];
       } = {},
     ) => {
       const {
@@ -273,6 +273,7 @@ export const useMediaActions = ({
         sizeOverride,
         aspectRatio,
         negativePromptOverride,
+        referenceImages = [],
       } = options;
       const requestStableDiffusionOptions = negativePromptOverride
         ? {
@@ -308,15 +309,26 @@ export const useMediaActions = ({
       const finalPrompt = wantsTransparentBackground
         ? `${prompt}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
         : prompt;
+      let apiReferenceImages: string[] = [];
+      if (referenceImages.length > 0) {
+        try {
+          apiReferenceImages = await Promise.all(
+            referenceImages.map((reference) => toApiImageReference(reference.url)),
+          );
+        } catch (error) {
+          console.warn('Character reference image could not be attached:', error);
+        }
+      }
+      const promptWithReferences = `${finalPrompt}${buildReferencePrompt(referenceImages)}`;
       const imageRequest = buildImageGenerationRequest(
         imageApiUrl,
         imageModel,
         sizeOverride || imageSize,
-        finalPrompt,
+        promptWithReferences,
         imageApiKey,
         imageProvider,
         requestStableDiffusionOptions,
-        [],
+        apiReferenceImages,
         shouldRemoveBackground,
       );
       const imageRequestBody = JSON.stringify(imageRequest.body);
@@ -388,11 +400,11 @@ export const useMediaActions = ({
             imageApiUrl,
             imageModel,
             imageSize,
-            finalPrompt,
+            promptWithReferences,
             imageApiKey,
             imageProvider,
             requestStableDiffusionOptions,
-            [],
+            apiReferenceImages,
             shouldRemoveBackground,
           );
           response = await fetch(fallbackRequest.url, {
@@ -436,6 +448,7 @@ export const useMediaActions = ({
             apiUrl: backgroundRemovalApiUrl,
             apiKey: backgroundRemovalApiKey,
             reqKey: backgroundRemovalModel,
+            provider: backgroundRemovalProvider,
             useHostedProxy: isHostedBackgroundRemovalProxy,
             bundledWithImageGeneration: true,
           });
@@ -481,6 +494,7 @@ export const useMediaActions = ({
       backgroundRemovalApiKey,
       backgroundRemovalApiUrl,
       backgroundRemovalModel,
+      backgroundRemovalProvider,
       language,
       missingBackgroundRemovalConfig,
       notifyMissingBackgroundRemovalConfig,
@@ -491,7 +505,11 @@ export const useMediaActions = ({
   );
 
   const handleGenerateSettingNodeImage = useCallback(
-    async (id: string, type: 'character' | 'scene') => {
+    async (
+      id: string,
+      type: 'character' | 'scene',
+      onProgress?: (current: number, total: number, label?: string) => void,
+    ) => {
       const node = nodes.find((item) => item.id === id);
       if (!node) return;
 
@@ -512,9 +530,7 @@ export const useMediaActions = ({
                   : 'Unnamed Scene');
         const bodyText =
           type === 'character'
-            ? characterImageMode === 'transparent-sprite'
-              ? formatCharacterSpritePromptText(node.data as Record<string, unknown>)
-              : formatCharacterNodeText(node.data as Record<string, unknown>)
+            ? formatCharacterSpritePromptText(node.data as Record<string, unknown>)
             : formatSceneNodeText(node.data as Record<string, unknown>);
         const basePrompt = [titleText, bodyText].filter(Boolean).join('\n\n').trim();
 
@@ -537,23 +553,74 @@ export const useMediaActions = ({
           return;
         }
 
-        const prompt =
-          type === 'character'
-            ? characterImageMode === 'transparent-sprite'
-              ? `Create exactly ONE polished visual novel character sprite: one single front-facing full-body depiction of one character, with the entire figure visible from head to toe. This is NOT a character sheet and NOT a turnaround. Do not generate side views, back views, multiple poses, duplicate figures, panels, or comparison layouts. Use a transparent background with a clean alpha channel. If native alpha transparency is unavailable, use a perfectly uniform pure white (#FFFFFF) background so it can be removed cleanly. No scenery, floor, backdrop, cast shadow, text, labels, UI, or frame. Preserve the character design described below:\n\n${basePrompt}`
-              : `Create a polished visual novel character design sheet with three views (front, side, back) in one image. Keep the same character consistent across all views. No text labels, no UI, clean neutral background. Character setting:\n\n${basePrompt}`
-            : sceneImageMode === 'storyboard-16:9'
-              ? `Create a polished cinematic visual novel storyboard frame in a wide 16:9 landscape composition. Focus on the environment, spatial layout, camera framing, mood, props, lighting, and color palette. Compose important subjects so they remain visible after a centered 16:9 crop. No text labels, no UI. Scene setting:\n\n${basePrompt}`
-              : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
+        if (type === 'character') {
+          const saveCharacterAsset = (updates: Partial<CharacterNodeData>) => {
+            setNodes((nds) =>
+              nds.map((current) =>
+                current.id === id
+                  ? {
+                      ...current,
+                      data: {
+                        ...current.data,
+                        ...updates,
+                        generatedSettingImageId: undefined,
+                      },
+                    }
+                  : current,
+              ),
+            );
+          };
+          const characterSetting = `Character setting:\n\n${basePrompt}`;
 
-        const forceSceneStoryboard = type === 'scene' && sceneImageMode === 'storyboard-16:9';
+          onProgress?.(1, 3, language === 'zh' ? '正面头像' : 'Card portrait');
+          const avatarUrl = await requestGeneratedImage(
+            `Create exactly ONE polished visual novel character portrait for a character card. Use a front-facing close-up or upper-body composition, with the face clear and centered. One character only. No character sheet, no alternate views, no duplicate figures, no text, no UI, and no frame. Preserve the character design described below:\n\n${characterSetting}`,
+          );
+          if (!avatarUrl) return;
+          saveCharacterAsset({ avatarUrl });
+
+          const portraitReference: ImageReference[] = [
+            { url: avatarUrl, label: `${titleText} card portrait` },
+          ];
+          onProgress?.(2, 3, language === 'zh' ? '人物三视图' : 'Three-view sheet');
+          const threeViewUrl = await requestGeneratedImage(
+            `Create a polished visual novel character design sheet with exactly three full-body views of the SAME character: front, side, and back. Keep the face, hair, clothing, proportions, and colors consistent with the attached card portrait. Use a clean neutral background. No text labels, no UI, and no frame.\n\n${characterSetting}`,
+            { referenceImages: portraitReference },
+          );
+          if (!threeViewUrl) return;
+          saveCharacterAsset({ threeViewUrl });
+
+          onProgress?.(3, 3, language === 'zh' ? '透明标签立绘' : 'Transparent tag sprite');
+          const tagSpriteUrl = await requestGeneratedImage(
+            `Create exactly ONE polished visual novel character sprite of the SAME character as the attached card portrait. Show one single front-facing full-body figure, head to toe. This is NOT a character sheet or turnaround. Do not generate side views, back views, duplicate figures, multiple poses, panels, scenery, floor, cast shadow, text, labels, UI, or frame. Use a clean transparent background.\n\n${characterSetting}`,
+            {
+              transparentBackground: true,
+              negativePromptOverride:
+                'character sheet, turnaround, three views, multiple views, side view, back view, multiple poses, duplicate character, split panel, collage, contact sheet, scenery, floor, shadow, text, UI, frame',
+              referenceImages: portraitReference,
+            },
+          );
+          if (!tagSpriteUrl) return;
+          saveCharacterAsset({ tagSpriteUrl });
+
+          onProgress?.(3, 3, language === 'zh' ? '已完成' : 'Complete');
+          showToast(
+            language === 'zh'
+              ? '人物素材已生成：头像、三视图、透明标签立绘'
+              : language === 'ja'
+                ? 'キャラクター素材を生成しました：ポートレート・三面図・透過立ち絵'
+                : 'Character assets generated: portrait, three-view, and transparent sprite',
+          );
+          return;
+        }
+
+        const prompt =
+          sceneImageMode === 'storyboard-16:9'
+            ? `Create a polished cinematic visual novel storyboard frame in a wide 16:9 landscape composition. Focus on the environment, spatial layout, camera framing, mood, props, lighting, and color palette. Compose important subjects so they remain visible after a centered 16:9 crop. No text labels, no UI. Scene setting:\n\n${basePrompt}`
+            : `Create a polished visual novel scene concept image from this setting. Focus on the environment, spatial layout, mood, props, lighting, and color palette. No text labels, no UI. Scene setting:\n\n${basePrompt}`;
+
+        const forceSceneStoryboard = sceneImageMode === 'storyboard-16:9';
         const imageSrc = await requestGeneratedImage(prompt, {
-          transparentBackground:
-            type === 'character' && characterImageMode === 'transparent-sprite',
-          negativePromptOverride:
-            type === 'character' && characterImageMode === 'transparent-sprite'
-              ? 'character sheet, turnaround, three views, multiple views, side view, back view, multiple poses, duplicate character, split panel, collage, contact sheet'
-              : undefined,
           sizeOverride: forceSceneStoryboard ? '1920x1080' : undefined,
           aspectRatio: forceSceneStoryboard ? 16 / 9 : undefined,
         });
@@ -633,7 +700,7 @@ export const useMediaActions = ({
           }),
         );
 
-        if (type === 'character' && characterImageMode === 'transparent-sprite') {
+        if (type === 'character') {
           showToast(
             language === 'zh'
               ? '人物透明背景立绘已生成'
@@ -670,7 +737,6 @@ export const useMediaActions = ({
       }
     },
     [
-      characterImageMode,
       language,
       nodes,
       requestGeneratedImage,
@@ -848,6 +914,7 @@ export const useMediaActions = ({
               apiUrl: backgroundRemovalApiUrl,
               apiKey: backgroundRemovalApiKey,
               reqKey: backgroundRemovalModel,
+              provider: backgroundRemovalProvider,
               useHostedProxy: isHostedBackgroundRemovalProxy,
               bundledWithImageGeneration: true,
             });
@@ -951,6 +1018,7 @@ export const useMediaActions = ({
       backgroundRemovalApiKey,
       backgroundRemovalApiUrl,
       backgroundRemovalModel,
+      backgroundRemovalProvider,
       language,
       missingBackgroundRemovalConfig,
       nodes,
@@ -980,6 +1048,7 @@ export const useMediaActions = ({
           apiUrl: backgroundRemovalApiUrl,
           apiKey: backgroundRemovalApiKey,
           reqKey: backgroundRemovalModel,
+          provider: backgroundRemovalProvider,
           useHostedProxy: isHostedBackgroundRemovalProxy,
           bundledWithImageGeneration: false,
         });
@@ -1063,6 +1132,7 @@ export const useMediaActions = ({
       backgroundRemovalApiKey,
       backgroundRemovalApiUrl,
       backgroundRemovalModel,
+      backgroundRemovalProvider,
       isHostedImageProxy,
       language,
       missingBackgroundRemovalConfig,

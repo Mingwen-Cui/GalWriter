@@ -23,6 +23,8 @@ export type CharacterSettingLibraryData = Pick<
   | 'background'
   | 'other'
   | 'avatarUrl'
+  | 'threeViewUrl'
+  | 'tagSpriteUrl'
   | 'outfits'
 >;
 
@@ -146,6 +148,8 @@ export const toCharacterSettingLibraryData = (
   background: data.background,
   other: data.other,
   avatarUrl: data.avatarUrl,
+  threeViewUrl: data.threeViewUrl,
+  tagSpriteUrl: data.tagSpriteUrl,
   outfits: data.outfits?.map((outfit) => ({ ...outfit })),
 });
 
