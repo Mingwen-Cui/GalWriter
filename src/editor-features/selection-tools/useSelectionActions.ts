@@ -245,7 +245,7 @@ export const useSelectionActions = ({
   ]);
 
   const deleteSelected = useCallback(() => {
-    const selectedNodes = nodes.filter((node) => node.selected);
+    const selectedNodes = nodes.filter((node) => node.selected && !node.data?.locked);
     const selectedEdges = edges.filter((edge) => edge.selected);
 
     if (selectedNodes.length === 0 && selectedEdges.length === 0) return;

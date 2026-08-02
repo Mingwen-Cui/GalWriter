@@ -61,6 +61,21 @@ export type AssistantWorkflowState =
   | { type: 'starter-style'; theme: string; style?: string; supplement?: string }
   | { type: 'starter-supplement'; theme: string; style: string }
   | { type: 'starter-generate'; theme: string; style: string; supplement?: string }
+  | { type: 'short-drama-awaiting-character'; request: string }
+  | {
+      type: 'short-drama-awaiting-scene';
+      request: string;
+      characterNodeId: string;
+      characterName: string;
+    }
+  | {
+      type: 'short-drama-ready';
+      request: string;
+      characterNodeId: string;
+      characterName: string;
+      sceneNodeId: string;
+      sceneName: string;
+    }
   | { type: 'revision-awaiting-opinion' }
   | { type: 'future-awaiting-count'; targetNodeId: string }
   | { type: 'future-generate-bridge'; targetNodeId: string; count: number }

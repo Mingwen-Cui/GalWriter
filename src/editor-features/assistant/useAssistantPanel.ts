@@ -8,7 +8,7 @@ import type {
   AssistantCardPlacementMode,
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
-import type { CharacterNodeData, SceneNodeData } from '../../domain/project';
+import type { CharacterNodeData } from '../../domain/project';
 import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
@@ -125,7 +125,7 @@ const createArticleRoleLibraryNodes = (
       };
     });
 
-const buildShortDramaLibraryDrafts = (items: SettingLibraryItem[], nodes: Node[]) => {
+const buildShortDramaLibraryReferenceContext = (items: SettingLibraryItem[], nodes: Node[]) => {
   const canvasNames = new Set(
     nodes
       .map((node) =>
@@ -137,58 +137,12 @@ const buildShortDramaLibraryDrafts = (items: SettingLibraryItem[], nodes: Node[]
       )
       .filter(Boolean),
   );
-  const select = (kind: 'character' | 'scene', limit: number) =>
-    items
-      .filter((item) => item.kind === kind)
-      .filter((item) => !canvasNames.has(`${kind}:${item.name.trim()}`))
-      .slice(0, limit);
-
-  return [...select('character', 3), ...select('scene', 2)].map((item) => {
-    if (item.kind === 'character') {
-      const data = item.data as CharacterNodeData;
-      return {
-        type: 'character' as const,
-        characterName: data.characterName || item.name,
-        identity: data.identity,
-        appearance: data.appearance,
-        traits: data.traits,
-        personality: data.personality,
-        habits: data.habits,
-        speechStyle: data.speechStyle,
-        experience: data.experience,
-        relationships: data.relationships,
-        notes: data.notes,
-        avatarUrl: data.avatarUrl,
-        threeViewUrl: data.threeViewUrl,
-        tagSpriteUrl: data.tagSpriteUrl,
-        outfits: data.outfits?.map((outfit) => ({ ...outfit })),
-        features: data.features,
-        background: data.background,
-        other: data.other,
-        libraryItemId: item.id,
-      } satisfies AssistantCardDraft;
-    }
-
-    const data = item.data as SceneNodeData;
-    return {
-      type: 'scene' as const,
-      sceneName: data.sceneName || item.name,
-      time: data.time,
-      weather: data.weather,
-      visual: data.visual,
-      sound: data.sound,
-      description: data.description,
-      location: data.location,
-      items: data.items,
-      atmosphere: data.atmosphere,
-      other: data.other,
-      notes: data.notes,
-      coverImageUrl: data.coverImageUrl,
-      images: data.images?.map((image) => ({ ...image })),
-      libraryItemId: item.id,
-    } satisfies AssistantCardDraft;
-  });
+  return items
+    .filter((item) => !canvasNames.has(`${item.kind}:${item.name.trim()}`))
+    .map((item) => `[${item.kind === 'character' ? 'C' : 'S'}:${item.id}] ${item.name}`)
+    .join('\n');
 };
+
 export type {
   AssistantArticleAnalysisState,
   AssistantCardPlacementResult,
@@ -255,6 +209,7 @@ interface UseAssistantPanelParams {
     completed?: boolean,
   ) => void;
   removeAssistantNodes?: (nodeIds: string[]) => void;
+  setAssistantNodesLocked?: (nodeIds: string[], locked: boolean) => void;
   onGenerateAssistantImagesRequest?: (nodeIds: string[]) => Promise<void>;
   startAgentWaiting?: (title: string, label: string, nodeIds?: string[]) => void;
   stopAgentWaiting?: () => void;
@@ -347,6 +302,7 @@ export const useAssistantPanel = ({
   createAssistantCards,
   updateStreamingAssistantCards,
   removeAssistantNodes,
+  setAssistantNodesLocked,
   onGenerateAssistantImagesRequest,
   startAgentWaiting,
   stopAgentWaiting,
@@ -1856,6 +1812,42 @@ The previous streaming response did not complete every placeholder card. Return 
         return;
       }
 
+      const isShortDramaRequest = /短剧|短劇|short drama|短編ドラマ/i.test(userText);
+      if (workflow.type === 'idle' && isShortDramaRequest) {
+        const characterLibraryItems = [...savedSettingLibraryItems, ...presetSettingLibraryItems]
+          .filter((item) => item.kind === 'character')
+          .slice(0, 12);
+        assistantWorkflowRef.current = {
+          type: 'short-drama-awaiting-character',
+          request: userText,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? '先确定短剧的主要人物。请选择设定库中的人物，或让 AI 先新建一张人物设定卡。'
+                : 'Choose the main character from the setting library, or let AI create one first.',
+            options: [
+              ...characterLibraryItems.map((item) => ({
+                id: uuidv4(),
+                label: language === 'zh' ? `使用库人物：${item.name}` : `Use library character: ${item.name}`,
+                value: `__short_drama_character_library__:${item.id}`,
+              })),
+              {
+                id: uuidv4(),
+                label: language === 'zh' ? '由 AI 新建人物设定' : 'Create a new character with AI',
+                value: '__short_drama_character_ai__',
+              },
+            ],
+          },
+        ]);
+        setAssistantLoading(false);
+        return;
+      }
+
       if (workflow.type === 'idle' && isGenericStoryIdeaRequest(userText)) {
         assistantWorkflowRef.current = { type: 'idea-awaiting' };
         setAssistantMessages((messages) => [
@@ -1957,13 +1949,18 @@ The previous streaming response did not complete every placeholder card. Return 
       let effectiveUserText = userText;
       let forcedMode: AssistantCardPlacementMode | undefined;
       let placementOptions: AssistantCardPlacementOptions | undefined;
-      const isShortDramaBundleRequest = /短剧|短劇|short drama|短編ドラマ/i.test(userText);
-      const shortDramaLibraryDrafts = isShortDramaBundleRequest
-        ? buildShortDramaLibraryDrafts(
+      const isShortDramaStoryOnly = workflow.type === 'short-drama-ready';
+      const shortDramaSetupNodeIds = workflow.type === 'short-drama-ready'
+        ? [workflow.characterNodeId, workflow.sceneNodeId]
+        : [];
+      const isShortDramaBundleRequest =
+        !isShortDramaStoryOnly && /短剧|短劇|short drama|短編ドラマ/i.test(userText);
+      const shortDramaLibraryReferenceContext = isShortDramaBundleRequest
+        ? buildShortDramaLibraryReferenceContext(
             [...savedSettingLibraryItems, ...presetSettingLibraryItems],
             nodes,
           )
-        : [];
+        : '';
       const shortDramaExistingSettingNames = nodes
         .filter((node) => node.type === 'characterNode' || node.type === 'sceneNode')
         .map((node) =>
@@ -1974,16 +1971,16 @@ The previous streaming response did not complete every placeholder card. Return 
         .filter(Boolean);
       const shortDramaUsesLibrary =
         isShortDramaBundleRequest &&
-        (shortDramaLibraryDrafts.length > 0 || shortDramaExistingSettingNames.length > 0);
-      const shortDramaSettingNames = [
-        ...shortDramaExistingSettingNames,
-        ...shortDramaLibraryDrafts.map((card) =>
-          card.type === 'character' ? card.characterName || '' : card.sceneName || '',
-        ),
-      ]
-        .filter(Boolean)
-        .join('、');
-      if (workflow.type === 'profile-ready-to-generate' && !workflow.discussing) {
+        (Boolean(shortDramaLibraryReferenceContext) || shortDramaExistingSettingNames.length > 0);
+      const shortDramaUsesLibraryReferences = Boolean(shortDramaLibraryReferenceContext);
+      const shortDramaSettingNames = shortDramaExistingSettingNames.join('、');
+      const availableSettingLibraryContext = shortDramaUsesLibraryReferences
+        ? shortDramaLibraryReferenceContext
+        : settingLibraryContext;
+      if (workflow.type === 'short-drama-ready') {
+        effectiveUserText = `Create 6 to 10 sequential story cards only for this short drama. The confirmed character is "${workflow.characterName}" and the confirmed scene is "${workflow.sceneName}". Use both names naturally in each story card so the app can link the existing setting cards. Do not return character or scene cards. Original request: ${workflow.request}`;
+        assistantWorkflowRef.current = { type: 'idle' };
+      } else if (workflow.type === 'profile-ready-to-generate' && !workflow.discussing) {
         effectiveUserText = formatLocalizedCopy(
           assistantPanelCopy(language).profileFlow.generatePrompt,
           {
@@ -2049,6 +2046,19 @@ ${templateInstruction}
 5. 剧情卡要适合 galgame 演出，短句、分步、可交互，不要把整篇文章直接塞进单张卡。
 用户补充要求：${userText}`;
         assistantWorkflowRef.current = { type: 'idle' };
+      }
+
+      if (isShortDramaBundleRequest && shortDramaUsesLibraryReferences) {
+        effectiveUserText += `
+
+Library reference placement rule:
+- Choose only the existing library cards needed for this story from this compact catalog:
+${shortDramaLibraryReferenceContext}
+- For every chosen library card, return exactly one short reference object and no setting fields, for example {"type":"character","libraryItemId":"the-character-id"} or {"type":"scene","libraryItemId":"the-scene-id"}.
+- If the catalog contains a character and a scene, you must return at least one character reference and one scene reference before the story cards.
+- Do not regenerate, summarize, or rewrite a library setting card. The app resolves its ID locally and places the real saved card.
+- Existing canvas settings (${shortDramaSettingNames || 'none'}) are already placed: mention them in story text but do not return a card for them.
+- Return 6 to 10 story cards as usual, with the selected character and scene names written naturally in each story text.`;
       }
 
       if (attachedTargetNodeIds.length > 0) {
@@ -2143,7 +2153,7 @@ ${documentContext || '无'}
 ${canvasContext || '无'}
 
 可用设定库：
-${settingLibraryContext || '无'}`;
+${availableSettingLibraryContext || '无'}`;
 
       let preparedPlacement: AssistantCardPlacementResult | null = null;
       let preparedPlaceholderCards: AssistantCardDraft[] = [];
@@ -2165,15 +2175,12 @@ ${settingLibraryContext || '无'}`;
         }
       }
 
-      if (shortDramaLibraryDrafts.length > 0) {
-        await createAssistantCards(shortDramaLibraryDrafts, 'append');
-      }
-
       try {
         if (
           wantsCards &&
           !fillSelected &&
           !isArticleTeachingWorkflow &&
+          !isShortDramaBundleRequest &&
           callAIForTextStream &&
           updateStreamingAssistantCards
         ) {
@@ -2182,7 +2189,11 @@ ${settingLibraryContext || '无'}`;
             userText: effectiveUserText,
             mode: forcedMode || 'append',
             placementOptions,
-            placeholderCards: shortDramaUsesLibrary
+            // The character and scene were already confirmed and placed in the
+            // preceding steps. While streaming this final stage, reserve only
+            // story-card slots; otherwise the generic bundle placeholder
+            // helper creates another empty character and scene above them.
+            placeholderCards: isShortDramaStoryOnly || shortDramaUsesLibrary
               ? buildAssistantPlaceholderCards(effectiveUserText, forcedMode || 'append').filter(
                   (card) => getAssistantDraftType(card) === 'story',
                 )
@@ -2241,6 +2252,9 @@ ${settingLibraryContext || '无'}`;
                 : undefined,
             },
           ]);
+          if (shortDramaSetupNodeIds.length > 0) {
+            setAssistantNodesLocked?.(shortDramaSetupNodeIds, false);
+          }
           pushAssistantHistory();
           return;
         }
@@ -2283,7 +2297,10 @@ ${settingLibraryContext || '无'}`;
             preparedPlaceholderCards,
           ),
         );
-        if (shortDramaUsesLibrary) {
+        if (
+          isShortDramaStoryOnly ||
+          (shortDramaUsesLibrary && !shortDramaUsesLibraryReferences)
+        ) {
           cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
         }
         if (isArticleTeachingWorkflow) {
@@ -2364,6 +2381,9 @@ ${settingLibraryContext || '无'}`;
             : undefined,
         };
         setAssistantMessages((messages) => [...messages, assistantMessage]);
+        if (shortDramaSetupNodeIds.length > 0) {
+          setAssistantNodesLocked?.(shortDramaSetupNodeIds, false);
+        }
       } catch (error: any) {
         if (abortController.signal.aborted) return;
         console.error('AI Assistant failed:', error);
@@ -2417,6 +2437,7 @@ ${settingLibraryContext || '无'}`;
       startAgentWaiting,
       stopAgentWaiting,
       updateStreamingAssistantCards,
+      setAssistantNodesLocked,
     ],
   );
 
@@ -2707,6 +2728,230 @@ cards 必须正好有 3 张。`);
 
   const handleAssistantOptionSelect = useCallback(
     async (value: string) => {
+      const shortDramaCharacterLibraryPrefix = '__short_drama_character_library__:';
+      const shortDramaSceneLibraryPrefix = '__short_drama_scene_library__:';
+      const allLibraryItems = [...savedSettingLibraryItems, ...presetSettingLibraryItems];
+
+      if (value.startsWith(shortDramaCharacterLibraryPrefix)) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'short-drama-awaiting-character') return;
+        const libraryItemId = value.slice(shortDramaCharacterLibraryPrefix.length);
+        const item = allLibraryItems.find(
+          (candidate) => candidate.id === libraryItemId && candidate.kind === 'character',
+        );
+        if (!item) return;
+        const placement = await createAssistantCards(
+          [{ type: 'character', libraryItemId: item.id }],
+          'append',
+          { placeLibraryReferencesDirectly: true, lockPlacedNodes: true },
+        );
+        const characterNodeId = placement.nodeIds?.[0];
+        if (!characterNodeId) return;
+        assistantWorkflowRef.current = {
+          type: 'short-drama-awaiting-scene',
+          request: workflow.request,
+          characterNodeId,
+          characterName: item.name,
+        };
+        const sceneOptions = allLibraryItems
+          .filter((candidate) => candidate.kind === 'scene')
+          .slice(0, 12)
+          .map((candidate) => ({
+            id: uuidv4(),
+            label: language === 'zh' ? `使用库场景：${candidate.name}` : `Use library scene: ${candidate.name}`,
+            value: `${shortDramaSceneLibraryPrefix}${candidate.id}`,
+          }));
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? `已放置人物设定「${item.name}」。现在选择核心场景，或让 AI 新建场景设定。`
+                : `Placed ${item.name}. Now choose a core scene or create one with AI.`,
+            cardPosition: placement.position,
+            cardNodeIds: placement.nodeIds,
+            options: [
+              ...sceneOptions,
+              {
+                id: uuidv4(),
+                label: language === 'zh' ? '由 AI 新建场景设定' : 'Create a new scene with AI',
+                value: '__short_drama_scene_ai__',
+              },
+            ],
+          },
+        ]);
+        return;
+      }
+
+      if (value.startsWith(shortDramaSceneLibraryPrefix)) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'short-drama-awaiting-scene') return;
+        const libraryItemId = value.slice(shortDramaSceneLibraryPrefix.length);
+        const item = allLibraryItems.find(
+          (candidate) => candidate.id === libraryItemId && candidate.kind === 'scene',
+        );
+        if (!item) return;
+        const placement = await createAssistantCards(
+          [{ type: 'scene', libraryItemId: item.id }],
+          'append',
+          { placeLibraryReferencesDirectly: true, lockPlacedNodes: true },
+        );
+        const sceneNodeId = placement.nodeIds?.[0];
+        if (!sceneNodeId) return;
+        assistantWorkflowRef.current = {
+          type: 'short-drama-ready',
+          request: workflow.request,
+          characterNodeId: workflow.characterNodeId,
+          characterName: workflow.characterName,
+          sceneNodeId,
+          sceneName: item.name,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content:
+              language === 'zh'
+                ? `已放置场景设定「${item.name}」。人物和场景已确定，开始生成对应剧情。`
+                : `Placed ${item.name}. Character and scene are confirmed; generating the plot next.`,
+            cardPosition: placement.position,
+            cardNodeIds: [workflow.characterNodeId, sceneNodeId],
+          },
+        ]);
+        await handleAssistantSend(workflow.request);
+        return;
+      }
+
+      if (value === '__short_drama_character_ai__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'short-drama-awaiting-character') return;
+        setAssistantLoading(true);
+        try {
+          const result = await callAIForTextResult(
+            `Create exactly one main character setting for this short drama. Return JSON only: {"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}. Do not return story or scene cards. Request: ${workflow.request}`,
+          );
+          const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
+            cards?: AssistantCardDraft[];
+          };
+          const character = parsed.cards?.find(
+            (card) => getAssistantDraftType(card) === 'character',
+          );
+          if (!character) throw new Error('Missing character setting');
+          const placement = await createAssistantCards([character], 'append', {
+            lockPlacedNodes: true,
+          });
+          const characterNodeId = placement.nodeIds?.[0];
+          if (!characterNodeId) throw new Error('Character placement failed');
+          const characterName = character.characterName || character.title || 'AI character';
+          assistantWorkflowRef.current = {
+            type: 'short-drama-awaiting-scene',
+            request: workflow.request,
+            characterNodeId,
+            characterName,
+          };
+          const sceneOptions = allLibraryItems
+            .filter((candidate) => candidate.kind === 'scene')
+            .slice(0, 12)
+            .map((candidate) => ({
+              id: uuidv4(),
+              label: language === 'zh' ? `使用库场景：${candidate.name}` : `Use library scene: ${candidate.name}`,
+              value: `${shortDramaSceneLibraryPrefix}${candidate.id}`,
+            }));
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content:
+                language === 'zh'
+                  ? `已新建人物设定「${characterName}」。现在选择核心场景，或让 AI 新建场景设定。`
+                  : `Created ${characterName}. Now choose a core scene or create one with AI.`,
+              cardPosition: placement.position,
+              cardNodeIds: placement.nodeIds,
+              options: [
+                ...sceneOptions,
+                {
+                  id: uuidv4(),
+                  label: language === 'zh' ? '由 AI 新建场景设定' : 'Create a new scene with AI',
+                  value: '__short_drama_scene_ai__',
+                },
+              ],
+            },
+          ]);
+        } catch {
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: language === 'zh' ? '人物设定生成失败，请重新选择或再试一次。' : 'Character generation failed. Please choose again.',
+            },
+          ]);
+        } finally {
+          setAssistantLoading(false);
+        }
+        return;
+      }
+
+      if (value === '__short_drama_scene_ai__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'short-drama-awaiting-scene') return;
+        setAssistantLoading(true);
+        try {
+          const result = await callAIForTextResult(
+            `Create exactly one core scene setting for this short drama and its confirmed main character "${workflow.characterName}". Return JSON only: {"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}. Do not return character or story cards. Request: ${workflow.request}`,
+          );
+          const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
+            cards?: AssistantCardDraft[];
+          };
+          const scene = parsed.cards?.find((card) => getAssistantDraftType(card) === 'scene');
+          if (!scene) throw new Error('Missing scene setting');
+          const placement = await createAssistantCards([scene], 'append', {
+            lockPlacedNodes: true,
+          });
+          const sceneNodeId = placement.nodeIds?.[0];
+          if (!sceneNodeId) throw new Error('Scene placement failed');
+          const sceneName = scene.sceneName || scene.title || 'AI scene';
+          assistantWorkflowRef.current = {
+            type: 'short-drama-ready',
+            request: workflow.request,
+            characterNodeId: workflow.characterNodeId,
+            characterName: workflow.characterName,
+            sceneNodeId,
+            sceneName,
+          };
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content:
+                language === 'zh'
+                  ? `已新建场景设定「${sceneName}」。人物和场景已确定，开始生成对应剧情。`
+                  : `Created ${sceneName}. Character and scene are confirmed; generating the plot next.`,
+              cardPosition: placement.position,
+              cardNodeIds: [workflow.characterNodeId, sceneNodeId],
+            },
+          ]);
+          await handleAssistantSend(workflow.request);
+        } catch {
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: language === 'zh' ? '场景设定生成失败，请重新选择或再试一次。' : 'Scene generation failed. Please choose again.',
+            },
+          ]);
+        } finally {
+          setAssistantLoading(false);
+        }
+        return;
+      }
+
       if (value === '__article_roles_create__') {
         assistantWorkflowRef.current = {
           type: 'article-role-awaiting',
@@ -3362,6 +3607,8 @@ cards 必须正好有 3 张。`);
     [
       askStoryProfileQuestion,
       buildArticleRoleLibraryPicker,
+      callAIForTextResult,
+      createAssistantCards,
       generateStoryProfileOpenings,
       getStoryProfileQuestionCopy,
       handleAssistantSend,
@@ -3369,6 +3616,8 @@ cards 必须正好有 3 张。`);
       onGenerateAssistantImagesRequest,
       nodes,
       requestAssistantOptions,
+      presetSettingLibraryItems,
+      savedSettingLibraryItems,
       setAssistantMessages,
       setSavedStoryProfile,
     ],

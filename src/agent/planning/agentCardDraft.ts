@@ -61,6 +61,13 @@ export type AssistantCardPlacementMode =
 export type AssistantCardPlacementOptions = {
   targetNodeId?: string;
   targetNodeIds?: string[];
+  /**
+   * A library reference already has its full card data locally. Place it as a
+   * complete setting card instead of first creating an empty Agent skeleton.
+   */
+  placeLibraryReferencesDirectly?: boolean;
+  /** Keep setup cards immutable while a dependent assistant workflow runs. */
+  lockPlacedNodes?: boolean;
   // Internal streaming flag: keep the seven-line placeholder height until
   // the final AI card content has arrived.
   keepAssistantHeightStreaming?: boolean;

@@ -1137,10 +1137,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const handleDeleteNode = useCallback(
     (id: string) => {
+      if (nodes.find((node) => node.id === id)?.data?.locked) return;
       setNodes((nds) => nds.filter((node) => node.id !== id));
       setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
     },
-    [setEdges, setNodes],
+    [nodes, setEdges, setNodes],
   );
 
   const handleDeleteNodeOutputEdges = useCallback(

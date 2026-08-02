@@ -160,7 +160,7 @@ const AssistantContextPreviewCard = ({
   onRemove,
   removeLabel,
 }: AssistantContextPreviewCardProps) => (
-  <article className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <article className="w-full overflow-hidden rounded-[1.125rem] border border-slate-200/90 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
     <header className="flex items-center justify-between gap-3 px-3.5 py-3">
       <div className="min-w-0">
         <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-indigo-500">
@@ -201,7 +201,7 @@ const AssistantContextPreviewCard = ({
       <img src={imageUrl} alt="" className="aspect-video w-full bg-slate-100 object-cover" />
     )}
     {text && (
-      <p className="m-0 whitespace-pre-wrap px-3.5 py-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
+      <p className="m-0 whitespace-pre-wrap border-t border-slate-100 bg-slate-50/80 px-3.5 py-3 text-xs leading-5 text-slate-600 dark:border-slate-800 dark:bg-slate-950/25 dark:text-slate-300">
         {text}
       </p>
     )}
@@ -213,7 +213,12 @@ type ArticleRolePickerProps = NonNullable<AssistantMessage['articleRolePicker']>
   onConfirm: () => void;
 };
 
-const ArticleRolePicker = ({ candidates, selectedId, onSelect, onConfirm }: ArticleRolePickerProps) => {
+const ArticleRolePicker = ({
+  candidates,
+  selectedId,
+  onSelect,
+  onConfirm,
+}: ArticleRolePickerProps) => {
   const [previewId, setPreviewId] = useState<string | null>(
     selectedId || candidates[0]?.nodeId || null,
   );
@@ -754,7 +759,8 @@ export function AssistantPanel({
       const isInsideMenu =
         cardGenerateMenuRef.current?.contains(target) || suggestMenuRef.current?.contains(target);
       const isMenuTrigger =
-        cardGenerateButtonRef.current?.contains(target) || suggestButtonRef.current?.contains(target);
+        cardGenerateButtonRef.current?.contains(target) ||
+        suggestButtonRef.current?.contains(target);
       if (!isInsideMenu && !isMenuTrigger) {
         setCardGenerateOpen(false);
         setSuggestMenuOpen(false);
@@ -1180,18 +1186,19 @@ export function AssistantPanel({
                     })}
                   </div>
                 </div>
-                {effectiveArticleStage === 'ready' && articleRolePickerMessage?.articleRolePicker && (
-                  <ArticleRolePicker
-                    {...articleRolePickerMessage.articleRolePicker}
-                    onSelect={(nodeId) =>
-                      void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
-                    }
-                    onConfirm={() => {
-                      closeDocumentUpload();
-                      void handleAssistantOptionSelect('__article_role_confirm__');
-                    }}
-                  />
-                )}
+                {effectiveArticleStage === 'ready' &&
+                  articleRolePickerMessage?.articleRolePicker && (
+                    <ArticleRolePicker
+                      {...articleRolePickerMessage.articleRolePicker}
+                      onSelect={(nodeId) =>
+                        void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
+                      }
+                      onConfirm={() => {
+                        closeDocumentUpload();
+                        void handleAssistantOptionSelect('__article_role_confirm__');
+                      }}
+                    />
+                  )}
               </>
             )}
           </section>
@@ -1282,12 +1289,14 @@ export function AssistantPanel({
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`assistant-message-bubble whitespace-pre-wrap text-sm leading-relaxed ${
+                  className={`whitespace-pre-wrap text-sm leading-relaxed ${
                     message.contextPreviews?.length
-                      ? 'w-full max-w-[94%]'
-                      : message.role === 'user'
-                        ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
-                        : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                      ? 'assistant-message-context-stack flex w-full max-w-[94%] flex-col gap-2'
+                      : `assistant-message-bubble ${
+                          message.role === 'user'
+                            ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
+                            : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                        }`
                   } ${message.contextPreviews?.length ? '' : 'max-w-[88%] rounded-2xl px-3.5 py-2.5'}`}
                 >
                   {message.contextPreviews && message.contextPreviews.length > 0 && (
@@ -1303,13 +1312,19 @@ export function AssistantPanel({
                       ))}
                     </div>
                   )}
-                  {message.contextPreviews?.length && !isCardReviewTask ? (
-                    <div className="mt-2 ml-auto w-fit max-w-[88%] rounded-2xl rounded-br-md bg-indigo-600 px-3.5 py-2.5 text-white">
+                  {message.contextPreviews?.length && message.content ? (
+                    <div
+                      className={`w-fit max-w-[88%] px-3.5 py-2.5 ${
+                        message.role === 'user'
+                          ? 'ml-auto rounded-2xl rounded-br-md bg-indigo-600 text-white shadow-sm'
+                          : 'rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                      }`}
+                    >
                       {message.content}
                     </div>
-                  ) : (
+                  ) : !message.contextPreviews?.length ? (
                     message.content
-                  )}
+                  ) : null}
                   {message.role === 'assistant' && message.articleRolePicker && (
                     <ArticleRolePicker
                       {...message.articleRolePicker}

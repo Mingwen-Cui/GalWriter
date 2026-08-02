@@ -713,12 +713,14 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                 <ChevronDown className="w-3 h-3" />
               )}
             </button>
-            <button
-              onClick={() => data.onDelete?.(id)}
-              className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            {!data.locked && (
+              <button
+                onClick={() => data.onDelete?.(id)}
+                className="px-1.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors flex items-center justify-center"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
           </div>
         </div>
 

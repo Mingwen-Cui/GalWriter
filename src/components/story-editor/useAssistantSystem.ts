@@ -171,7 +171,40 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         return 'story';
       };
 
+      // Library cards are selected by their short ID in the AI response. Their
+      // complete fields stay local and are restored only when the card is
+      // actually placed on the canvas.
+      const libraryItemsById = new Map(
+        [...savedSettingLibraryItems, ...presetSettingLibraryItems].map((item) => [item.id, item]),
+      );
+      const resolveLibraryReference = (card: AssistantCardDraft): AssistantCardDraft => {
+        const libraryItemId = cleanText(card.libraryItemId);
+        const item = libraryItemId ? libraryItemsById.get(libraryItemId) : undefined;
+        if (!item) return card;
+
+        if (item.kind === 'character') {
+          const libraryData = item.data as CharacterNodeData;
+          return {
+            ...libraryData,
+            ...card,
+            type: 'character',
+            characterName: cleanText(card.characterName) || libraryData.characterName || item.name,
+            libraryItemId: item.id,
+          };
+        }
+
+        const libraryData = item.data as SceneNodeData;
+        return {
+          ...libraryData,
+          ...card,
+          type: 'scene',
+          sceneName: cleanText(card.sceneName) || libraryData.sceneName || item.name,
+          libraryItemId: item.id,
+        };
+      };
+
       const validCards = cards
+        .map(resolveLibraryReference)
         .map((card) => ({
           ...card,
           type: getDraftType(card),
@@ -677,9 +710,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             id,
             type: 'characterNode',
             position,
-            selected: !card.assistantCandidateGroupId,
+            selected: !options?.lockPlacedNodes && !card.assistantCandidateGroupId,
+            deletable: !options?.lockPlacedNodes,
             data: {
               id,
+              locked: options?.lockPlacedNodes === true,
               characterName:
                 card.characterName ||
                 card.title ||
@@ -717,9 +752,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             id,
             type: 'sceneNode',
             position,
-            selected: !card.assistantCandidateGroupId,
+            selected: !options?.lockPlacedNodes && !card.assistantCandidateGroupId,
+            deletable: !options?.lockPlacedNodes,
             data: {
               id,
+              locked: options?.lockPlacedNodes === true,
               sceneName:
                 card.sceneName || card.title || (language === 'zh' ? 'AI 场景' : 'AI Scene'),
               description: card.description || card.text || '',
@@ -1200,6 +1237,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       getCenterPosition,
       getViewportZoom,
       language,
+      presetSettingLibraryItems,
+      savedSettingLibraryItems,
     ],
   );
 
@@ -1653,6 +1692,19 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       mode: AssistantCardPlacementMode = 'append',
       options?: AssistantCardPlacementOptions,
     ): Promise<AssistantCardPlacementResult> => {
+      // A library reference contains only an ID in the assistant message, but
+      // executeAssistantCardPlacement resolves that ID to the complete local
+      // setting. It must not go through the Agent skeleton/typing pipeline:
+      // that pipeline would write the short reference's empty fields back over
+      // the resolved data.
+      if (options?.placeLibraryReferencesDirectly) {
+        const placement = executeAssistantCardPlacement(cards, mode, options);
+        if (!options.keepAssistantHeightStreaming) {
+          finalizeAssistantStoryHeights(placement.nodeIds);
+        }
+        return placement;
+      }
+
       const selectedCount =
         options?.targetNodeIds?.length ??
         nodes.filter(
@@ -2007,6 +2059,25 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     [setEdges, setNodes],
   );
 
+  const setAssistantNodesLocked = useCallback(
+    (nodeIds: string[], locked: boolean) => {
+      if (nodeIds.length === 0) return;
+      const nodeIdSet = new Set(nodeIds);
+      setNodes((currentNodes) =>
+        currentNodes.map((node) =>
+          nodeIdSet.has(node.id)
+            ? {
+                ...node,
+                deletable: !locked,
+                data: { ...node.data, locked },
+              }
+            : node,
+        ),
+      );
+    },
+    [setNodes],
+  );
+
   // =========================================================================
   // useAssistantPanel integration
   // =========================================================================
@@ -2066,6 +2137,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     createAssistantCards,
     updateStreamingAssistantCards,
     removeAssistantNodes,
+    setAssistantNodesLocked,
     onGenerateAssistantImagesRequest: handleGenerateAssistantImagesForNodes,
     startAgentWaiting: skipAssistantAgentAnimation ? undefined : startAgentWaiting,
     stopAgentWaiting,
