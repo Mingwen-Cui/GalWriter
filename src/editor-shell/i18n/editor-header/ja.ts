@@ -2,6 +2,8 @@ export const editorHeaderJa = {
   save: '保存',
   projects: 'プロジェクト',
   test: 'テスト',
+  fullscreenTest: '全画面テスト',
+  windowedTest: '小窓テスト',
   saveCurrent: '現在のプロジェクトを保存',
   saveCopy: 'コピーを保存',
   exportCurrent: 'プロジェクトを書き出し',

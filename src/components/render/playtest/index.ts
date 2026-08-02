@@ -9,4 +9,4 @@ export {
 } from './model/playtestCanvasModel';
 export { PlayTestModal } from './PlayTestModal';
 export { PlaytestSettingsWorkbench } from './PlaytestSettingsWorkbench';
-export type { PlayTestProps } from './types';
+export type { PlayTestDisplayMode, PlayTestProps } from './types';

@@ -69,6 +69,7 @@ import { isTauriRuntime } from '../../lib/tauriRuntime';
 import { htmlToSpeechText } from '../../lib/tts';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
+import type { PlayTestDisplayMode } from '../render/playtest/types';
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
 import type { RenderWorkspaceLaunchIntent } from '../render/video/shared/types';
 import {
@@ -136,7 +137,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
   const [edges, setEdges] = useEdgesState<Edge>(INITIAL_EDGES);
-  const [showPlayTest, setShowPlayTest] = useState(false);
+  const [playTestDisplayMode, setPlayTestDisplayMode] = useState<PlayTestDisplayMode | null>(null);
   const [showVideoRender, setShowVideoRender] = useState(false);
   const [renderLaunchIntent, setRenderLaunchIntent] = useState<RenderWorkspaceLaunchIntent>();
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
@@ -624,6 +625,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     getViewport,
     canvasWrapperRef,
   });
+  const selectedPlaytestNodeId =
+    selectedNodes.length === 1 && selectedNodes[0].type === 'storyNode'
+      ? selectedNodes[0].id
+      : null;
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   React.useEffect(() => {
@@ -2293,7 +2298,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         canRenderVideo={canRenderVideo}
         assistantOpen={assistantOpen}
         jsonInputRef={jsonInputRef}
-        setShowPlayTest={setShowPlayTest}
+        onOpenPlayTest={setPlayTestDisplayMode}
         onOpenRenderWorkspace={(intent) => {
           setRenderLaunchIntent(intent);
           setShowVideoRender(true);
@@ -2502,11 +2507,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
       {/* 剧本测试模态弹窗*/}
       <Suspense fallback={null}>
-        {showPlayTest && (
+        {playTestDisplayMode && (
           <PlayTestModal
             nodes={nodes}
             edges={edges}
-            onClose={() => setShowPlayTest(false)}
+            displayMode={playTestDisplayMode}
+            selectedNodeId={selectedPlaytestNodeId}
+            onClose={() => setPlayTestDisplayMode(null)}
             language={language}
             onLanguageChange={onAppLanguageChange}
             isDarkMode={resolvedTheme === 'dark'}

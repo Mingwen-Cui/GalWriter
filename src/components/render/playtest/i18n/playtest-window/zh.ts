@@ -1,0 +1,12 @@
+export const playtestWindowZh = {
+  windowTitle: '测试剧本小窗',
+  followSelectedCard: '显示为当前页',
+  followSelectedCardActive: '正在跟随当前选中的剧情卡',
+  followSelectedCardInactive: '跟随当前选中的剧情卡',
+  followSelectedCardEmpty: '请先在主界面选择一张剧情卡',
+  autoScale: '悬停自动缩放',
+  autoScaleActive: '鼠标进入时自动放大，离开时自动缩小',
+  autoScaleInactive: '开启悬停自动缩放',
+  moveWindow: '拖动测试剧本小窗',
+  resizeWindow: '按固定比例调整测试剧本小窗大小',
+} as const;

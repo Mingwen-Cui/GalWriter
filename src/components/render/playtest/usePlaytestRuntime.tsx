@@ -1,7 +1,5 @@
 import type { Node as FlowNode } from '@xyflow/react';
-import {
-  ChevronRight,
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type {
@@ -35,9 +33,7 @@ import {
   normalizeStoryPresentation,
 } from '../../../lib/presentation';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
-import {
-  mergeSceneMediaStyle,
-} from '../canvas/sceneCanvasStyle';
+import { mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { selectConditionHandle } from '../code/codeExport/ir/graphSemantics';
 import { getRenderObjects } from '../video/shared/renderObjects';
 
@@ -48,7 +44,11 @@ type PlayedAudio = {
 };
 
 import { getPlaytestText } from './i18n';
-import { persistRotateHintDismissed, readRotateHintDismissed, sliceHtmlByTextLength } from './playtestUtils';
+import {
+  persistRotateHintDismissed,
+  readRotateHintDismissed,
+  sliceHtmlByTextLength,
+} from './playtestUtils';
 import type { PlayTestProps } from './types';
 export function usePlaytestRuntime({
   nodes,
@@ -1166,6 +1166,19 @@ export function usePlaytestRuntime({
     navigateToNode(rootId);
   }, [navigateToNode, restartPlaybackSession, root?.id]);
 
+  const showNodeAsCurrentPage = React.useCallback(
+    (nodeId: string) => {
+      const targetNode = nodes.find((node) => node.id === nodeId && node.type === 'storyNode');
+      if (!targetNode) return;
+
+      restartPlaybackSession();
+      autoAdvanceHoldNodeRef.current = nodeId;
+      setHistory([]);
+      navigateToNode(nodeId);
+    },
+    [navigateToNode, nodes, restartPlaybackSession],
+  );
+
   const handleRestartClick = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -1341,25 +1354,25 @@ export function usePlaytestRuntime({
   }, [currentNodeId, nodes, edges]);
 
   const emptyState = !currentNodeId ? (
-      <div
-        className={`fixed inset-0 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'} z-[100] flex flex-col items-center justify-center p-6 text-center transition-colors duration-300`}
-      >
-        <div className="max-w-md">
-          <h2 className={`text-2xl font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-            {t.noScript}
-          </h2>
-          <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-600'} mb-8`}>
-            {t.createStartNode}
-          </p>
-          <button
-            onClick={onClose}
-            className={`px-8 py-3 ${isDarkMode ? 'bg-sky-600 hover:bg-sky-700 shadow-sky-900/20' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'} text-white rounded-xl font-medium shadow-lg transition-all active:scale-95`}
-          >
-            {t.close}
-          </button>
-        </div>
+    <div
+      className={`flex h-full w-full flex-col items-center justify-center p-6 text-center transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'}`}
+    >
+      <div className="max-w-md">
+        <h2 className={`text-2xl font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+          {t.noScript}
+        </h2>
+        <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-600'} mb-8`}>
+          {t.createStartNode}
+        </p>
+        <button
+          onClick={onClose}
+          className={`px-8 py-3 ${isDarkMode ? 'bg-sky-600 hover:bg-sky-700 shadow-sky-900/20' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'} text-white rounded-xl font-medium shadow-lg transition-all active:scale-95`}
+        >
+          {t.close}
+        </button>
       </div>
-    ) : null;
+    </div>
+  ) : null;
 
   const handleChoiceClick = (targetId: string) => {
     autoAdvanceHoldNodeRef.current = null;
@@ -1482,6 +1495,192 @@ export function usePlaytestRuntime({
     </div>
   );
 
-
-  return { nodes, edges, onClose, language, onLanguageChange: _onLanguageChange, isDarkMode, choicesColumns, setChoicesColumns, videoAutoPlay, setVideoAutoPlay: _setVideoAutoPlay, layoutMode, setLayoutMode, interactionMode, setInteractionMode, typewriterSpeed, setTypewriterSpeed, choiceDelay, setChoiceDelay, choicesPosition, setChoicesPosition, blurBackground, setBlurBackground, blurText, setBlurText, skipSingleChoicePopup, setSkipSingleChoicePopup, autoAdvance, setAutoAdvance, autoAdvanceDelay, setAutoAdvanceDelay, hideCharacterTags, setHideCharacterTags: _setHideCharacterTags, hideSceneTags, setHideSceneTags: _setHideSceneTags, canvasSettings, onCanvasSettingsChange, renderStyle, updateRenderStyle, isMobile, t, root, videoRef, videoStopTimerRef, audioRef, playlistAudioRef, audioPreloadRef, choicesRef, containerRef, immersiveDialogueRef, mobileLandscapeActive, mobileImmersiveLayout, applyMobileLandscapeTransform, dismissRotateHint, showRotateHint, mobileClassicLayout, lastSystemBackRef, systemBackStateRef, typewriterTimerRef, inlineActionTimerRef, timedTimerRef, autoAdvanceTimerRef, transitionTimerRef, lastJumpedNode, autoAdvanceHoldNodeRef, playbackSessionRef, clearPendingPlaybackTimers, restartPlaybackSession, navigateToNode, currentNode, currentTitle, presentation, sceneSource, sceneData, selectedSceneImage, activeSceneSwitchAction, sceneMedia, sceneVideoUrl, sceneImageUrl, sceneVideoStartTime, sceneVideoEndTime, sceneVideoMaxDuration, presentedCharacters, rawTextHtml, textHtml, colorInputValue, withAlpha, textStroke, dialogueBackgroundStyle, renderObjects, titleObject, bodyObject, dialogObject, renderObjectSelectionClass, selectRenderObject, dialogueOffsetX, dialogueCenter, dialogWidth, dialogueRightSpace, hasBottomRightSpace, getAudioTitle, recordCurrentAudio, togglePlaylistAudio, outEdges, waitsForBranchVideo, choicesReady, autoAdvanceTarget, advanceToTarget, stopVideoLimitTimer, startVideoLimitTimer, handleSceneVideoTimeUpdate, handleTextContainerClick, renderChoices, toggleFullscreen, handleBack, restartPlaytest, handleRestartClick, handleChoiceClick, hasMedia, sceneMotion, sceneAnimationActive, activeSceneInlineAction, sceneInlineDuration, sceneMediaTransform, sceneObjectFit, sceneStyle, presentationStageAspect, renderPresentedCharacters, currentNodeId, setCurrentNodeId, history, setHistory, showSettings, setShowSettings, showAudioPlaylist, setShowAudioPlaylist, playedAudios, setPlayedAudios, playlistAudioUrl, setPlaylistAudioUrl, isPlaylistAudioPlaying, setIsPlaylistAudioPlaying, currentAudioEnded, setCurrentAudioEnded, currentVideoEnded, setCurrentVideoEnded, mediaStatusNodeId, setMediaStatusNodeId, isFullscreen, setIsFullscreen, isFocusMode, setIsFocusMode, focusButtonBottom, setFocusButtonBottom, backExitHintVisible, setBackExitHintVisible, isPortrait, setIsPortrait, rotateHintDismissed, setRotateHintDismissed, displayedHtml, setDisplayedHtml, animationCompleted, setAnimationCompleted, timeLeft, setTimeLeft, presentationVisible, setPresentationVisible, presentationExiting, setPresentationExiting, activeInlineAction, setActiveInlineAction, completedSwitchActions, setCompletedSwitchActions, completedInlineActions, setCompletedInlineActions, playbackSession, setPlaybackSession, emptyState, titleStyle, bodyStyle, dialogueShellStyle, dialogueFrameStyle, focusButtonStyle, classicMediaContainerStyle, classicMediaFrameStyle };
+  return {
+    nodes,
+    edges,
+    onClose,
+    language,
+    onLanguageChange: _onLanguageChange,
+    isDarkMode,
+    choicesColumns,
+    setChoicesColumns,
+    videoAutoPlay,
+    setVideoAutoPlay: _setVideoAutoPlay,
+    layoutMode,
+    setLayoutMode,
+    interactionMode,
+    setInteractionMode,
+    typewriterSpeed,
+    setTypewriterSpeed,
+    choiceDelay,
+    setChoiceDelay,
+    choicesPosition,
+    setChoicesPosition,
+    blurBackground,
+    setBlurBackground,
+    blurText,
+    setBlurText,
+    skipSingleChoicePopup,
+    setSkipSingleChoicePopup,
+    autoAdvance,
+    setAutoAdvance,
+    autoAdvanceDelay,
+    setAutoAdvanceDelay,
+    hideCharacterTags,
+    setHideCharacterTags: _setHideCharacterTags,
+    hideSceneTags,
+    setHideSceneTags: _setHideSceneTags,
+    canvasSettings,
+    onCanvasSettingsChange,
+    renderStyle,
+    updateRenderStyle,
+    isMobile,
+    t,
+    root,
+    videoRef,
+    videoStopTimerRef,
+    audioRef,
+    playlistAudioRef,
+    audioPreloadRef,
+    choicesRef,
+    containerRef,
+    immersiveDialogueRef,
+    mobileLandscapeActive,
+    mobileImmersiveLayout,
+    applyMobileLandscapeTransform,
+    dismissRotateHint,
+    showRotateHint,
+    mobileClassicLayout,
+    lastSystemBackRef,
+    systemBackStateRef,
+    typewriterTimerRef,
+    inlineActionTimerRef,
+    timedTimerRef,
+    autoAdvanceTimerRef,
+    transitionTimerRef,
+    lastJumpedNode,
+    autoAdvanceHoldNodeRef,
+    playbackSessionRef,
+    clearPendingPlaybackTimers,
+    restartPlaybackSession,
+    navigateToNode,
+    showNodeAsCurrentPage,
+    currentNode,
+    currentTitle,
+    presentation,
+    sceneSource,
+    sceneData,
+    selectedSceneImage,
+    activeSceneSwitchAction,
+    sceneMedia,
+    sceneVideoUrl,
+    sceneImageUrl,
+    sceneVideoStartTime,
+    sceneVideoEndTime,
+    sceneVideoMaxDuration,
+    presentedCharacters,
+    rawTextHtml,
+    textHtml,
+    colorInputValue,
+    withAlpha,
+    textStroke,
+    dialogueBackgroundStyle,
+    renderObjects,
+    titleObject,
+    bodyObject,
+    dialogObject,
+    renderObjectSelectionClass,
+    selectRenderObject,
+    dialogueOffsetX,
+    dialogueCenter,
+    dialogWidth,
+    dialogueRightSpace,
+    hasBottomRightSpace,
+    getAudioTitle,
+    recordCurrentAudio,
+    togglePlaylistAudio,
+    outEdges,
+    waitsForBranchVideo,
+    choicesReady,
+    autoAdvanceTarget,
+    advanceToTarget,
+    stopVideoLimitTimer,
+    startVideoLimitTimer,
+    handleSceneVideoTimeUpdate,
+    handleTextContainerClick,
+    renderChoices,
+    toggleFullscreen,
+    handleBack,
+    restartPlaytest,
+    handleRestartClick,
+    handleChoiceClick,
+    hasMedia,
+    sceneMotion,
+    sceneAnimationActive,
+    activeSceneInlineAction,
+    sceneInlineDuration,
+    sceneMediaTransform,
+    sceneObjectFit,
+    sceneStyle,
+    presentationStageAspect,
+    renderPresentedCharacters,
+    currentNodeId,
+    setCurrentNodeId,
+    history,
+    setHistory,
+    showSettings,
+    setShowSettings,
+    showAudioPlaylist,
+    setShowAudioPlaylist,
+    playedAudios,
+    setPlayedAudios,
+    playlistAudioUrl,
+    setPlaylistAudioUrl,
+    isPlaylistAudioPlaying,
+    setIsPlaylistAudioPlaying,
+    currentAudioEnded,
+    setCurrentAudioEnded,
+    currentVideoEnded,
+    setCurrentVideoEnded,
+    mediaStatusNodeId,
+    setMediaStatusNodeId,
+    isFullscreen,
+    setIsFullscreen,
+    isFocusMode,
+    setIsFocusMode,
+    focusButtonBottom,
+    setFocusButtonBottom,
+    backExitHintVisible,
+    setBackExitHintVisible,
+    isPortrait,
+    setIsPortrait,
+    rotateHintDismissed,
+    setRotateHintDismissed,
+    displayedHtml,
+    setDisplayedHtml,
+    animationCompleted,
+    setAnimationCompleted,
+    timeLeft,
+    setTimeLeft,
+    presentationVisible,
+    setPresentationVisible,
+    presentationExiting,
+    setPresentationExiting,
+    activeInlineAction,
+    setActiveInlineAction,
+    completedSwitchActions,
+    setCompletedSwitchActions,
+    completedInlineActions,
+    setCompletedInlineActions,
+    playbackSession,
+    setPlaybackSession,
+    emptyState,
+    titleStyle,
+    bodyStyle,
+    dialogueShellStyle,
+    dialogueFrameStyle,
+    focusButtonStyle,
+    classicMediaContainerStyle,
+    classicMediaFrameStyle,
+  };
 }

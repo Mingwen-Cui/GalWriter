@@ -1,8 +1,10 @@
 import {
+  AppWindow,
   Copy,
   FileArchive,
   FilePlus2,
   FolderOpen,
+  Maximize2,
   PlayCircle,
   Save,
   Sparkles,
@@ -12,6 +14,7 @@ import type { ChangeEvent, Dispatch, MutableRefObject, SetStateAction } from 're
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
+import type { PlayTestDisplayMode } from '../components/render/playtest/types';
 import type { RenderWorkspaceLaunchIntent } from '../components/render/video/shared/types';
 import type { BubbleStyle } from '../domain/project';
 import type { Language } from '../lib/i18n';
@@ -36,7 +39,7 @@ interface EditorHeaderProps {
   canRenderVideo: boolean;
   assistantOpen: boolean;
   jsonInputRef: MutableRefObject<HTMLInputElement | null>;
-  setShowPlayTest: Dispatch<SetStateAction<boolean>>;
+  onOpenPlayTest: (mode: PlayTestDisplayMode) => void;
   onOpenRenderWorkspace: (intent: RenderWorkspaceLaunchIntent) => void;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   openProjectHome: () => void;
@@ -69,7 +72,7 @@ export function EditorHeader({
   canRenderVideo,
   assistantOpen,
   jsonInputRef,
-  setShowPlayTest,
+  onOpenPlayTest,
   onOpenRenderWorkspace,
   setAssistantOpen,
   openProjectHome,
@@ -184,9 +187,7 @@ export function EditorHeader({
   return (
     <div
       className={`pointer-events-none z-30 md:left-6 ${
-        isMobile
-          ? 'mobile-editor-header fixed left-0 right-0 top-0'
-          : 'absolute left-4 top-3'
+        isMobile ? 'mobile-editor-header fixed left-0 right-0 top-0' : 'absolute left-4 top-3'
       }`}
     >
       {/* NOTE: 移动端单行布局：Logo + 项目名 + 操作按钮 */}
@@ -305,7 +306,7 @@ export function EditorHeader({
               )}
             </button>
             <button
-              onClick={() => setShowPlayTest(true)}
+              onClick={() => onOpenPlayTest('fullscreen')}
               className="header-glass-action header-glass-action-play mobile-editor-header-action flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
               title={t.playTest}
             >
@@ -477,16 +478,29 @@ export function EditorHeader({
                   },
                 ]}
               />
-              <button
-                onClick={() => setShowPlayTest(true)}
-                className="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
-                title={t.playTest}
-              >
-                <PlayCircle className="h-4 w-4" />
-                {showActionLabels && (
-                  <span className="editor-header-action-label">{headerCopy.test}</span>
-                )}
-              </button>
+              <HeaderActionMenu
+                icon={PlayCircle}
+                label={headerCopy.test}
+                ariaLabel={t.playTest}
+                showLabel={showActionLabels}
+                onTrigger={() => onOpenPlayTest('fullscreen')}
+                triggerClassName="header-glass-action header-glass-action-play flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-900 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-50"
+                columns={2}
+                items={[
+                  {
+                    id: 'fullscreen-playtest',
+                    label: headerCopy.fullscreenTest,
+                    icon: Maximize2,
+                    onSelect: () => onOpenPlayTest('fullscreen'),
+                  },
+                  {
+                    id: 'windowed-playtest',
+                    label: headerCopy.windowedTest,
+                    icon: AppWindow,
+                    onSelect: () => onOpenPlayTest('windowed'),
+                  },
+                ]}
+              />
               {canRenderVideo && !isMobile && (
                 <ExportQuickMenu
                   language={language}

@@ -4,10 +4,14 @@ import type { Language } from '../../../lib/i18n';
 import type { SharedCanvasSettings } from '../canvas/canvasSettings';
 import type { RenderStyle } from '../video/shared/types';
 
+export type PlayTestDisplayMode = 'fullscreen' | 'windowed';
+
 export interface PlayTestProps {
   nodes: FlowNode[];
   edges: FlowEdge[];
   onClose: () => void;
+  displayMode: PlayTestDisplayMode;
+  selectedNodeId?: string | null;
   language: Language;
   onLanguageChange: (lang: Language) => void;
   isDarkMode: boolean;

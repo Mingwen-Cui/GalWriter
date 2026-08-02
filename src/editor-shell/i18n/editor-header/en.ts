@@ -2,6 +2,8 @@ export const editorHeaderEn = {
   save: 'Save',
   projects: 'Projects',
   test: 'Test',
+  fullscreenTest: 'Fullscreen test',
+  windowedTest: 'Windowed test',
   saveCurrent: 'Save project',
   saveCopy: 'Save a copy',
   exportCurrent: 'Export project',
