@@ -59,6 +59,7 @@ import {
   getSceneGroupStyle,
   mergeSceneMediaStyle,
 } from './render/canvas/sceneCanvasStyle';
+import { selectConditionHandle } from './render/code/codeExport/ir/graphSemantics';
 import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
 import { getRenderObjects } from './render/video/shared/renderObjects';
 import type { RenderStyle } from './render/video/shared/types';
@@ -1044,15 +1045,8 @@ export function PlayTestModal({
               }
               const ranges =
                 (targetNode.data.ranges as { id: string; min: number; max: number }[]) || [];
-              let targetHandle = '';
-
-              const matchedRange = ranges.find((r) => sum >= r.min && sum <= r.max);
-              if (matchedRange) {
-                targetHandle = `out-range-${matchedRange.id}`;
-              } else {
-                const threshold = (targetNode.data.threshold as number) || 0;
-                targetHandle = sum >= threshold ? 'out-greater' : 'out-less-equal';
-              }
+              const threshold = (targetNode.data.threshold as number) || 0;
+              const targetHandle = selectConditionHandle(sum, threshold, ranges);
 
               const condEdges = edges.filter((e) => e.source === targetNode!.id);
               const condEdge = condEdges.find((e) => e.sourceHandle === targetHandle);
@@ -1453,15 +1447,8 @@ export function PlayTestModal({
         }
 
         const ranges = (node.data.ranges as { id: string; min: number; max: number }[]) || [];
-        let targetHandle = '';
-
-        const matchedRange = ranges.find((r) => sum >= r.min && sum <= r.max);
-        if (matchedRange) {
-          targetHandle = `out-range-${matchedRange.id}`;
-        } else {
-          const threshold = (node.data.threshold as number) || 0;
-          targetHandle = sum >= threshold ? 'out-greater' : 'out-less-equal';
-        }
+        const threshold = (node.data.threshold as number) || 0;
+        const targetHandle = selectConditionHandle(sum, threshold, ranges);
 
         const outEdges = edges.filter((e) => e.source === currentNodeId);
         const validEdges = outEdges.filter((e) => e.sourceHandle === targetHandle);

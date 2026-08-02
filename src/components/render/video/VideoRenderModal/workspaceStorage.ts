@@ -1,3 +1,5 @@
+import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
+import type { RenpyExportSettings } from '../../code/codeExport/types';
 import type { InteractivePreviewBounds } from '../interactive/interactivePreviewWindow';
 import { clamp } from '../shared/mediaUtils';
 import { buildDefaultRenderObjects } from '../shared/renderObjects';
@@ -5,6 +7,7 @@ import type {
   AssetCardLayout,
   ExportFormat,
   ExportSettingsMode,
+  PptExportSettings,
   RenderStyle,
   RenderWorkspaceMode,
   TimelineScaleMode,
@@ -12,7 +15,6 @@ import type {
   VideoTextScaleMode,
   WebExportSettings,
   WebHistoryState,
-  PptExportSettings,
 } from '../shared/types';
 
 export const DEFAULT_RENDER_STYLE: RenderStyle = {
@@ -151,6 +153,8 @@ export type PersistedRenderWorkspaceState = {
   pptSettings?: Partial<PptExportSettings>;
   pptPast?: PptExportSettings[];
   pptFuture?: PptExportSettings[];
+  codeSettings?: RenpyExportSettings;
+  codeTarget?: CodeExportTarget;
   savedAt?: number;
 };
 

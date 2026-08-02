@@ -2,9 +2,11 @@ import type { Node as FlowNode } from '@xyflow/react';
 import React, { useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
-import type { Language } from '../../../../lib/i18n';
+import { buildCodeProjectZip } from '../../code/codeExport/exportProject';
+import { normalizeRenpyExportSettings } from '../../code/codeExport/model';
+import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
+import type { RenpyExportSettings } from '../../code/codeExport/types';
 import { CodeWorkspace } from '../../code/CodeWorkspace';
-import { buildRenpyProjectZip } from '../../code/codeExport/renpyExport';
 import { buildPptxBuffer } from '../../ppt/pptExport';
 import { PptWorkspace } from '../../ppt/PptWorkspace';
 import { WebWorkspace } from '../../web/WebWorkspace';
@@ -39,7 +41,6 @@ import { VideoTimelinePanel } from '../panels/VideoTimelinePanel';
 import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
-  EXPORT_FORMAT_OPTIONS,
   FRAME_RATE_OPTIONS,
   HEADER_HEIGHT,
   MIN_MAIN_HEIGHT,
@@ -51,21 +52,20 @@ import {
   TIMELINE_PIXELS_PER_SECOND,
 } from '../shared/constants';
 import { clamp, isTauriRuntime } from '../shared/mediaUtils';
-import { getVideoRenderObjects } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
+import { getVideoRenderObjects } from '../shared/renderObjects';
 import { stripHtml } from '../shared/storyNodes';
 import { getNodeDisplayTitle, getOrderedStoryNodes } from '../shared/storyNodes';
 import type {
   AssetCardLayout,
   ExportFormat,
   ExportSettingsMode,
+  PptExportSettings,
+  PptHistoryState,
   RenderContextMenuState,
   RenderContextMenuTarget,
   RenderStatus,
-  RenderStyle,
   RenderWorkspaceMode,
-  PptExportSettings,
-  PptHistoryState,
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineWheelMode,
@@ -112,7 +112,6 @@ import { useWorkspaceInteractions } from './useWorkspaceInteractions';
 import { type RenderNoticeModalState, VideoNoticeModal } from './VideoNoticeModal';
 import {
   clampPersistedNumber,
-  DESKTOP_RELEASE_URL,
   isAssetCardLayout,
   isExportFormat,
   isExportSettingsMode,
@@ -174,6 +173,12 @@ export function VideoRenderModal({
   );
   const [pptFuture, setPptFuture] = useState<PptHistoryState[]>(
     () => persistedWorkspace?.pptFuture || [],
+  );
+  const [codeSettings, setCodeSettings] = useState<RenpyExportSettings>(() =>
+    normalizeRenpyExportSettings(nodes, persistedWorkspace?.codeSettings),
+  );
+  const [codeTarget, setCodeTarget] = useState<CodeExportTarget>(() =>
+    persistedWorkspace?.codeTarget === 'tyrano' || persistedWorkspace?.codeTarget === 'dialogic' || persistedWorkspace?.codeTarget === 'ir-json' ? persistedWorkspace.codeTarget : 'renpy',
   );
   const capturePptState = (): PptHistoryState => structuredClone(pptSettings);
   const pushPptHistory = () => {
@@ -301,10 +306,10 @@ export function VideoRenderModal({
   const [speed, setSpeed] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.speed, 1, 0.25, 3),
   );
-  const [defaultSeconds, setDefaultSeconds] = useState(() =>
+  const [defaultSeconds] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.defaultSeconds, 4, 1, 60),
   );
-  const [animationLeadSeconds, setAnimationLeadSeconds] = useState(() =>
+  const [animationLeadSeconds] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.animationLeadSeconds, 0, 0, 10),
   );
   const [frameRate, setFrameRate] = useState(() =>
@@ -803,6 +808,8 @@ export function VideoRenderModal({
   const captureWorkspaceState = (): PersistedRenderWorkspaceState => ({
     workspaceMode,
     pptSettings,
+    codeSettings,
+    codeTarget,
     selectedIds: [...selectedIds],
     timelineIds,
     timelineSourceById,
@@ -1321,6 +1328,8 @@ export function VideoRenderModal({
     interactivePreviewBounds,
     outputDir,
     pptSettings,
+    codeSettings,
+    codeTarget,
     renderStyle,
     resolutionHeight,
     resolutionIndex,
@@ -1795,12 +1804,6 @@ export function VideoRenderModal({
     });
   };
 
-  const updateProgress = (label: string, current: number, total: number) => {
-    const percent = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
-    setProgress(`${label} ${percent}%`);
-    setProgressValue(percent);
-  };
-
   // renderStaticFramesWithFfmpeg and ensureFfmpegForDesktopTranscode were removed.
   // Video encoding now uses mediabunny in the browser runtime.
 
@@ -1902,9 +1905,10 @@ export function VideoRenderModal({
     setError('');
     setSavedPath('');
     setProgressValue(20);
-    setProgress(isZh ? '正在生成 Ren’Py 工程…' : 'Generating Ren’Py project…');
+    const engineName = codeTarget === 'renpy' ? 'Ren’Py' : codeTarget === 'tyrano' ? 'TyranoScript' : codeTarget === 'dialogic' ? 'Godot Dialogic 2' : 'GalWriter IR JSON';
+    setProgress(isZh ? `正在生成 ${engineName} 工程…` : `Generating ${engineName} project…`);
     try {
-      const result = await buildRenpyProjectZip(nodes, edges, exportTitle);
+      const result = await buildCodeProjectZip(nodes, edges, exportTitle, codeSettings, codeTarget);
       const url = URL.createObjectURL(result.blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -1916,7 +1920,7 @@ export function VideoRenderModal({
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
       setStatus('done');
       setProgressValue(100);
-      setProgress(isZh ? 'Ren’Py 工程已导出' : 'Ren’Py project exported');
+      setProgress(isZh ? `${engineName} 工程已导出` : `${engineName} project exported`);
       setSavedPath(result.fileName);
     } catch (exportError) {
       setStatus('error');
@@ -2495,6 +2499,10 @@ export function VideoRenderModal({
               edges={edges}
               language={language}
               projectName={webProjectName || defaultWebProjectName}
+              target={codeTarget}
+              onTargetChange={setCodeTarget}
+              settings={codeSettings}
+              onSettingsChange={setCodeSettings}
               onExport={exportCodeProject}
               exporting={status === 'rendering'}
             />
