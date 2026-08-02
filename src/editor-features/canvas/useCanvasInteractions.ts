@@ -17,6 +17,8 @@ import type {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
+
 interface UseCanvasInteractionsParams {
   nodes: Node[];
   interactionMode: 'select' | 'box';
@@ -289,6 +291,8 @@ export const useCanvasInteractions = ({
             if (targetNode) {
               const x = targetNode.position.x;
               const y = targetNode.position.y;
+              const fixedStoryCardHeight =
+                targetNode.type === 'storyNode' ? MIN_STORY_CARD_HEIGHT : undefined;
               const constrainedMinHeight =
                 (targetNode.type === 'storyNode' && targetNode.data?.sizeMode !== 'custom') ||
                 targetNode.type === 'characterNode' ||
@@ -297,9 +301,11 @@ export const useCanvasInteractions = ({
                   : undefined;
               const width = change.dimensions.width;
               const height =
-                typeof constrainedMinHeight === 'number'
-                  ? Math.max(change.dimensions.height, constrainedMinHeight)
-                  : change.dimensions.height;
+                typeof fixedStoryCardHeight === 'number'
+                  ? fixedStoryCardHeight
+                  : typeof constrainedMinHeight === 'number'
+                    ? Math.max(change.dimensions.height, constrainedMinHeight)
+                    : change.dimensions.height;
               if (height !== change.dimensions.height) {
                 change = {
                   ...change,

@@ -100,6 +100,16 @@ export type AssistantMessage = {
   }>;
   cardPosition?: { x: number; y: number; zoom?: number };
   cardNodeIds?: string[];
+  articleRolePicker?: {
+    selectedId?: string;
+    candidates: Array<{
+      nodeId: string;
+      name: string;
+      identity?: string;
+      imageUrl?: string;
+      summary: string;
+    }>;
+  };
   options?: AssistantMessageOption[];
 };
 

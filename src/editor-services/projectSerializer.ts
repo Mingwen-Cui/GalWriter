@@ -277,6 +277,12 @@ const stripAutoStoryNodeRuntimeStyle = (style: Node['style'] | undefined): Node[
   return rest;
 };
 
+const normalizeStoryNodeCardStyle = (style: Node['style'] | undefined): Node['style'] => ({
+  ...style,
+  height: 60,
+  minHeight: 60,
+});
+
 const isEmbeddableMediaUrl = (value: string) =>
   value.startsWith('data:') ||
   value.startsWith('blob:') ||
@@ -732,13 +738,14 @@ const applyProjectSettings = (
 const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
   Promise.all(
     nodes.map(async (node) => {
-      const isAutoSizedStoryNode = node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
+      const isStoryNode = node.type === 'storyNode';
       const restoredNode: Node = {
         ...node,
-        ...(isAutoSizedStoryNode
+        ...(isStoryNode
           ? {
               measured: undefined,
-              style: stripAutoStoryNodeRuntimeStyle(node.style),
+              height: 60,
+              style: normalizeStoryNodeCardStyle(stripAutoStoryNodeRuntimeStyle(node.style)),
             }
           : {}),
         data: { ...node.data },
@@ -818,16 +825,18 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     activeAssistantTaskId: string;
   }) => {
     const simpleNodes = nodes.map((node) => {
-      const isAutoSizedStoryNode = node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
+      const isStoryNode = node.type === 'storyNode';
 
       return {
         id: node.id,
         position: node.position,
         type: node.type,
-        style: isAutoSizedStoryNode ? stripAutoStoryNodeRuntimeStyle(node.style) : node.style,
+        style: isStoryNode
+          ? normalizeStoryNodeCardStyle(stripAutoStoryNodeRuntimeStyle(node.style))
+          : node.style,
         data: { ...node.data },
         width: node.measured?.width || node.width,
-        height: node.measured?.height || node.height,
+        height: isStoryNode ? 60 : node.measured?.height || node.height,
         dragHandle: node.dragHandle,
       };
     }) as StoryNode[];

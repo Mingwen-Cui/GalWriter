@@ -1,7 +1,7 @@
 import {
   Handle,
   NodeProps,
-  NodeResizer,
+  NodeResizeControl,
   NodeToolbar,
   Position,
   useReactFlow,
@@ -228,14 +228,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const titleBlockRef = useRef<HTMLDivElement>(null);
   const textPanelRef = useRef<HTMLDivElement>(null);
   const lastAutoHeightRef = useRef<number | null>(null);
-  const resizeStartHeightRef = useRef<number | null>(null);
   const initialAutoSizeSyncSettledRef = useRef(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
   const [hasRichTextSelection, setHasRichTextSelection] = useState(false);
   const [isColorPopoverOpen, setIsColorPopoverOpen] = useState(false);
-  const [autoMinHeight, setAutoMinHeight] = useState(AUTO_SIZE_MIN_HEIGHT);
+  const [, setAutoMinHeight] = useState(AUTO_SIZE_MIN_HEIGHT);
   const [nodeWidthForAutoSize, setNodeWidthForAutoSize] = useState(300);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -270,7 +269,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const text = data.text || '';
   const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
-  const isAutoSizeMode = data.sizeMode !== 'custom';
+  // Story cards have a fixed minimum height. Their canvas resize controls only
+  // expose horizontal resizing, so content never changes the card's height.
+  const isAutoSizeMode = false;
   const color = data.color || COLORS[0];
   const parsedCardColor = parseColorValue(color, COLORS[0]);
   const imageUrl = data.imageUrl;
@@ -378,9 +379,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const storylineNumbers = Array.isArray(data.storylineNumbers)
     ? data.storylineNumbers.filter((number): number is number => Number.isFinite(number))
     : [];
-  const storylineLabel = storylineNumbers.length
-    ? `故事线${storylineNumbers.join(',')}`
-    : '故事线';
+  const storylineLabel = storylineNumbers.length ? `故事线${storylineNumbers.join(',')}` : '故事线';
   const { zoom } = useViewport();
   const presentationMenuScale = Math.min(zoom, 1.25);
   const storeApi = useStoreApi();
@@ -799,6 +798,39 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     [data, id],
   );
 
+  useLayoutEffect(() => {
+    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+    if (!currentNode) return;
+
+    const currentHeight =
+      getNumericSize(currentNode.style?.height) ??
+      getNumericSize((currentNode as any).height) ??
+      getNumericSize((currentNode as any).measured?.height);
+    const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
+    if (
+      Math.abs((currentHeight ?? AUTO_SIZE_MIN_HEIGHT) - AUTO_SIZE_MIN_HEIGHT) < 1 &&
+      Math.abs((currentMinHeight ?? AUTO_SIZE_MIN_HEIGHT) - AUTO_SIZE_MIN_HEIGHT) < 1
+    ) {
+      return;
+    }
+
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              style: {
+                ...node.style,
+                height: AUTO_SIZE_MIN_HEIGHT,
+                minHeight: AUTO_SIZE_MIN_HEIGHT,
+              },
+            }
+          : node,
+      ),
+    );
+    requestAnimationFrame(() => updateNodeInternals(id));
+  }, [id, setNodes, storeApi, updateNodeInternals]);
+
   const computeAutoMinHeight = useCallback(
     (candidateWidth?: number) => {
       if (!showRichTextTools) return null;
@@ -1074,46 +1106,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     };
   }, [isAutoSizeMode, syncAutoSizeHeight]);
 
-  const shouldResizeStoryNode = useCallback(
-    (_event: unknown, params: { width: number; height: number; direction?: number[] }) => {
-      if (!isAutoSizeMode) return true;
-      const isVerticalResize = !params.direction || params.direction[1] !== 0;
-      if (!isVerticalResize) return true;
-      const nextMinHeight = computeAutoMinHeight(params.width) ?? autoMinHeight;
-      return params.height >= nextMinHeight - 1;
-    },
-    [autoMinHeight, computeAutoMinHeight, isAutoSizeMode],
-  );
-
-  const handleResizeStoryNodeStart = useCallback((_event: unknown, params: { height: number }) => {
-    resizeStartHeightRef.current = params.height;
-  }, []);
-
-  const handleResizeStoryNodeEnd = useCallback(
-    (_event: unknown, params: { width: number; height: number }) => {
-      const startHeight = resizeStartHeightRef.current;
-      resizeStartHeightRef.current = null;
-      if (startHeight === null || Math.abs(params.height - startHeight) < 1) return;
-
-      // Returning a manually resized card to its current automatic minimum
-      // should opt it back into auto sizing instead of preserving a redundant
-      // custom height.
-      const automaticMinimum = computeAutoMinHeight(params.width) ?? autoMinHeight;
-      const hasReturnedToAutomaticMinimum = Math.abs(params.height - automaticMinimum) <= 1;
-
-      if (hasReturnedToAutomaticMinimum) {
-        if (data.sizeMode === 'custom') updateNodeData({ sizeMode: 'auto' });
-        return;
-      }
-
-      if (data.sizeMode !== 'custom') updateNodeData({ sizeMode: 'custom' });
-    },
-    [autoMinHeight, computeAutoMinHeight, data.sizeMode, updateNodeData],
-  );
-
   const syncImageNodeHeight = useCallback(
     (dimensions: { width: number; height: number } | null) => {
       if (
+        !isAutoSizeMode ||
         !imageUrl ||
         hasScenePresentationImage ||
         data.showTextOverlay ||
@@ -1177,6 +1173,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       hasScenePresentationImage,
       id,
       imageUrl,
+      isAutoSizeMode,
       setNodes,
       showTitleInside,
       storeApi,
@@ -2121,16 +2118,34 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           )}
         </div>
       )}
-      <NodeResizer
-        minWidth={100}
-        minHeight={isAutoSizeMode ? autoMinHeight : AUTO_SIZE_MIN_HEIGHT}
-        shouldResize={shouldResizeStoryNode}
-        onResizeStart={handleResizeStoryNodeStart}
-        onResizeEnd={handleResizeStoryNodeEnd}
-        isVisible={selected && selectionCount === 1}
-        lineClassName="!z-20 !border !border-[var(--accent)]"
-        handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
-      />
+      {selected && selectionCount === 1 && (
+        <>
+          <NodeResizeControl
+            position="top-left"
+            resizeDirection="horizontal"
+            minWidth={100}
+            className="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
+          />
+          <NodeResizeControl
+            position="top-right"
+            resizeDirection="horizontal"
+            minWidth={100}
+            className="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
+          />
+          <NodeResizeControl
+            position="bottom-left"
+            resizeDirection="horizontal"
+            minWidth={100}
+            className="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
+          />
+          <NodeResizeControl
+            position="bottom-right"
+            resizeDirection="horizontal"
+            minWidth={100}
+            className="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
+          />
+        </>
+      )}
 
       {/* Floating Toolbar for styles & actions */}
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={15}>
@@ -3634,7 +3649,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         <button
           onClick={handleGenerateImage}
           disabled={isGeneratingImage}
-            className="absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-blue-500 hover:bg-blue-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 bottom-2 right-11"
+          className="absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-blue-500 hover:bg-blue-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 bottom-2 right-11"
           title={lang === 'zh' ? '生成图片' : 'Generate Image'}
         >
           {isGeneratingImage ? (

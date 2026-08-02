@@ -7,8 +7,8 @@ export const APP_TITLE = '交互式剧本编辑器';
 export const PROJECT_TITLE_PLACEHOLDER = '新建项目';
 export const DEFAULT_PROJECT_FILE_NAME = '新建项目';
 export const AI_STORY_CARD_WIDTH = 300;
-export const AI_STORY_CARD_HEIGHT = 220;
 export const MIN_STORY_CARD_HEIGHT = 60;
+export const AI_STORY_CARD_HEIGHT = MIN_STORY_CARD_HEIGHT;
 export const AI_SETTING_CARD_LAYOUT_HEIGHT = 430;
 export const AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT = 92;
 // Character and scene setting cards deliberately share a canvas width.

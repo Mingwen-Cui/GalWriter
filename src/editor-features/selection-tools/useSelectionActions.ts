@@ -3,10 +3,10 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { TtsNarrationMode, TtsProvider } from '../../editor-state/editorConfig';
-import { useDialog } from '../../editor-shell/DialogProvider';
+import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
 import { ttsService } from '../../editor-services/ttsService';
-
+import { useDialog } from '../../editor-shell/DialogProvider';
+import type { TtsNarrationMode, TtsProvider } from '../../editor-state/editorConfig';
 import type { Language } from '../../lib/i18n';
 
 interface UseSelectionActionsParams {
@@ -219,7 +219,7 @@ export const useSelectionActions = ({
           id: newId,
           type: 'storyNode',
           position: { x: center.x - 150, y: center.y - 110 },
-          style: { width: 300, height: 220 },
+          style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
           data: {
             id: newId,
             title: '粘贴卡片',
@@ -234,7 +234,15 @@ export const useSelectionActions = ({
     } catch (error) {
       console.warn('Failed to read system clipboard', error);
     }
-  }, [getCenterPosition, language, nodeClipboard, pasteNodeClipboard, setNodeClipboard, setNodes, showToast]);
+  }, [
+    getCenterPosition,
+    language,
+    nodeClipboard,
+    pasteNodeClipboard,
+    setNodeClipboard,
+    setNodes,
+    showToast,
+  ]);
 
   const deleteSelected = useCallback(() => {
     const selectedNodes = nodes.filter((node) => node.selected);

@@ -5,11 +5,10 @@ import type {
   AssistantCardDraft,
   AssistantCardPlacementMode,
 } from '../../agent/planning/agentCardDraft';
-import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 import type { AssistantStoryProfile } from '../../domain/project';
+import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 import type { Language } from '../../lib/i18n';
 import { htmlToSpeechText } from '../../lib/tts';
-import { createArticleTeachingRoleTemplateCards } from './article-card-templates';
 
 export type AssistantSpeechRecognitionResult = {
   transcript?: string;
@@ -65,7 +64,11 @@ export type AssistantWorkflowState =
   | { type: 'revision-awaiting-opinion' }
   | { type: 'future-awaiting-count'; targetNodeId: string }
   | { type: 'future-generate-bridge'; targetNodeId: string; count: number }
-  | { type: 'article-role-awaiting'; candidateNodeIds: string[] }
+  | {
+      type: 'article-role-awaiting';
+      candidateNodeIds: string[];
+      selectedCharacterNodeId?: string;
+    }
   | {
       type: 'article-role-selected';
       characterNodeId: string;
@@ -189,9 +192,10 @@ export const LEGACY_ASSISTANT_VISUALIZE_OPTION_PREFIX = '__generate_visuals__:';
 
 export const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
 
-export const createArticleRoleCandidateCards = (): AssistantCardDraft[] => [
-  ...createArticleTeachingRoleTemplateCards(),
-];
+// PDF-to-Galgame now selects from the user's actual character-setting library
+// inside the assistant. Keep this helper empty so legacy entry points cannot
+// create duplicate preset role cards on the canvas.
+export const createArticleRoleCandidateCards = (): AssistantCardDraft[] => [];
 
 export const createArticleSelfDrawRoleCard = (): AssistantCardDraft => ({
   type: 'character',

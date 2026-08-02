@@ -2,6 +2,7 @@ import type { Node } from '@xyflow/react';
 import { useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
 import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
 import { getMediaFileKind } from '../../lib/mediaImport';
@@ -129,7 +130,7 @@ export const useCanvasDnD = ({
             x: dropX + i * 30 - displayWidth / 2,
             y: dropY + i * 30 - displayHeight / 2,
           },
-          style: { width: displayWidth, height: displayHeight + (showTitles ? titleHeight : 0) },
+          style: { width: displayWidth, height: MIN_STORY_CARD_HEIGHT },
           data: {
             id: newId,
             title,

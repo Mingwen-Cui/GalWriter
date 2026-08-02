@@ -208,6 +208,96 @@ const AssistantContextPreviewCard = ({
   </article>
 );
 
+type ArticleRolePickerProps = NonNullable<AssistantMessage['articleRolePicker']> & {
+  onSelect: (nodeId: string) => void;
+};
+
+const ArticleRolePicker = ({ candidates, selectedId, onSelect }: ArticleRolePickerProps) => {
+  const [previewId, setPreviewId] = useState<string | null>(
+    selectedId || candidates[0]?.nodeId || null,
+  );
+  const preview = candidates.find((candidate) => candidate.nodeId === previewId) || candidates[0];
+
+  if (!preview) {
+    return (
+      <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+        当前人物设定库还是空的。请先在画布中新建人物设定卡，再返回这里选择。
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border border-indigo-200 bg-white p-2.5 dark:border-indigo-900 dark:bg-slate-950">
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <span className="text-xs font-black text-slate-800 dark:text-slate-100">人物设定库</span>
+        <span className="text-[10px] text-slate-500">悬停预览 · 选择后再确认</span>
+      </div>
+      <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-2">
+        <div className="custom-scrollbar max-h-64 space-y-1.5 overflow-y-auto pr-1">
+          {candidates.map((candidate) => {
+            const selected = candidate.nodeId === selectedId;
+            return (
+              <button
+                key={candidate.nodeId}
+                type="button"
+                onMouseEnter={() => setPreviewId(candidate.nodeId)}
+                onFocus={() => setPreviewId(candidate.nodeId)}
+                onClick={() => onSelect(candidate.nodeId)}
+                className={`flex w-full items-center gap-2 rounded-xl border p-2 text-left transition-colors ${
+                  selected
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50'
+                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900'
+                }`}
+              >
+                {candidate.imageUrl ? (
+                  <img
+                    src={candidate.imageUrl}
+                    alt=""
+                    className="h-9 w-9 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 text-xs font-black text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200">
+                    {candidate.name.slice(0, 1)}
+                  </span>
+                )}
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-black text-slate-800 dark:text-slate-100">
+                    {candidate.name}
+                  </span>
+                  <span className="block truncate text-[10px] text-slate-500">
+                    {candidate.identity || '人物设定卡'}
+                  </span>
+                </span>
+                {selected && (
+                  <CheckCircle2 className="ml-auto h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <article className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
+          {preview.imageUrl && (
+            <img src={preview.imageUrl} alt="" className="aspect-[4/3] w-full object-cover" />
+          )}
+          <div className="p-2.5">
+            <h3 className="text-xs font-black text-slate-900 dark:text-slate-100">
+              {preview.name}
+            </h3>
+            {preview.identity && (
+              <p className="mt-0.5 text-[10px] text-indigo-600 dark:text-indigo-300">
+                {preview.identity}
+              </p>
+            )}
+            <p className="mt-1.5 line-clamp-5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+              {preview.summary || '此人物卡暂未填写详细设定。'}
+            </p>
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+};
+
 export function AssistantPanel({
   assistantOpen,
   isMobile,
@@ -708,7 +798,13 @@ export function AssistantPanel({
               type="button"
               onClick={handleStopAssistantGeneration}
               className="assistant-glass-action flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 text-xs font-black text-rose-600 transition-colors hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-200 dark:hover:bg-rose-500/25"
-              title={language === 'zh' ? '停止生成' : language === 'ja' ? '生成を停止' : 'Stop generation'}
+              title={
+                language === 'zh'
+                  ? '停止生成'
+                  : language === 'ja'
+                    ? '生成を停止'
+                    : 'Stop generation'
+              }
             >
               <Pause className="h-3.5 w-3.5" />
               <span>{language === 'zh' ? '停止' : language === 'ja' ? '停止' : 'Stop'}</span>
@@ -1165,6 +1261,14 @@ export function AssistantPanel({
                   ) : (
                     message.content
                   )}
+                  {message.role === 'assistant' && message.articleRolePicker && (
+                    <ArticleRolePicker
+                      {...message.articleRolePicker}
+                      onSelect={(nodeId) =>
+                        void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
+                      }
+                    />
+                  )}
                   {message.role === 'assistant' &&
                     message.options &&
                     message.options.length > 0 && (
@@ -1183,8 +1287,10 @@ export function AssistantPanel({
                           >
                             <span className="flex items-center justify-between gap-2 text-xs font-black text-indigo-700 dark:text-indigo-200">
                               <span className="flex items-center gap-1.5">
-                              {option.selected && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
-                              {option.label}
+                                {option.selected && (
+                                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                                )}
+                                {option.label}
                               </span>
                               {isCardReviewTask && (
                                 <span className="shrink-0 text-[10px] font-bold text-indigo-500 dark:text-indigo-300">

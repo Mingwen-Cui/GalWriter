@@ -3,22 +3,23 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
 import type { CharacterNodeData, SceneImageMode } from '../../domain/project';
 import { useDialog } from '../../editor-shell/DialogProvider';
 import { formatSceneNodeText } from '../../lib/export';
+import type { Language } from '../../lib/i18n';
 import {
   buildImageGenerationRequest,
   buildReferencePrompt,
   ensureImageAspectRatio,
   ensureTransparentImageBackground,
   getConnectedImageReferences,
+  type ImageReference,
   isHostedImageProxyProvider,
   isLocalStableDiffusionProvider,
   requestSubjectSegmentation,
-  type ImageReference,
   toApiImageReference,
 } from './imageGeneration';
-import type { Language } from '../../lib/i18n';
 
 interface UseMediaActionsParams {
   nodes: Node[];
@@ -51,8 +52,6 @@ interface UseMediaActionsParams {
   onMissingImageApiKeyRequest?: () => void;
   onMissingBackgroundRemovalApiRequest?: () => void;
 }
-
-const TITLE_HEIGHT = 36;
 
 const stripHtml = (html: string) => {
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
@@ -304,8 +303,7 @@ export const useMediaActions = ({
       }
 
       const wantsTransparentBackground = transparentBackground || Boolean(imageRemoveBackground);
-      const shouldRemoveBackground =
-        wantsTransparentBackground && !missingBackgroundRemovalConfig;
+      const shouldRemoveBackground = wantsTransparentBackground && !missingBackgroundRemovalConfig;
       const finalPrompt = wantsTransparentBackground
         ? `${prompt}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
         : prompt;
@@ -736,14 +734,7 @@ export const useMediaActions = ({
         });
       }
     },
-    [
-      language,
-      nodes,
-      requestGeneratedImage,
-      sceneImageMode,
-      setNodes,
-      showToast,
-    ],
+    [language, nodes, requestGeneratedImage, sceneImageMode, setNodes, showToast],
   );
 
   const handleGenerateStoryNodeImage = useCallback(
@@ -930,10 +921,9 @@ export const useMediaActions = ({
           }
         }
 
-        const currentHeight = (node.style?.height as number) || 200;
         const currentWidth = (node.style?.width as number) || 280;
         const previousImageUrl = node.data.imageUrl as string | undefined;
-        const nextHeight = Math.max(currentHeight, 260);
+        const nextHeight = MIN_STORY_CARD_HEIGHT;
 
         setNodes((nds) => {
           const nextNodes = nds.map((current) => {
@@ -965,7 +955,7 @@ export const useMediaActions = ({
               x: node.position.x + currentWidth + 40,
               y: node.position.y,
             },
-            style: { width: currentWidth, height: currentHeight },
+            style: { width: currentWidth, height: MIN_STORY_CARD_HEIGHT },
             data: {
               id: extractedId,
               title:
@@ -1193,13 +1183,12 @@ export const useMediaActions = ({
             showTextOverlay: false,
             text: cleanText,
           },
-          { height: 200 },
+          { height: MIN_STORY_CARD_HEIGHT },
         );
 
         const newNodes: Node[] = extractedMedia.map((media, index) => {
           const newId = uuidv4();
           const displayWidth = 300;
-          const displayHeight = 200;
           return {
             id: newId,
             type: 'storyNode',
@@ -1209,7 +1198,7 @@ export const useMediaActions = ({
             },
             style: {
               width: displayWidth,
-              height: displayHeight + (showTitles ? TITLE_HEIGHT : 0),
+              height: MIN_STORY_CARD_HEIGHT,
             },
             data: {
               id: newId,

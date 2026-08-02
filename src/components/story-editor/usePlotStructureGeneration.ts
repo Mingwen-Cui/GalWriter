@@ -10,6 +10,7 @@ import {
   parseGeneratedPlotCards,
 } from '../../lib/plotStructure';
 import type { PlotStructureGenerateParams } from '../PlotStructureNode';
+import { MIN_STORY_CARD_HEIGHT } from './constants';
 import { formatStoryEditorText, getStoryEditorCopy } from './i18n';
 import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
 
@@ -117,7 +118,7 @@ export function usePlotStructureGeneration({
           const sourceHeight =
             lastNode.measured?.height || (lastNode.style?.height as number) || 200;
           const cardWidth = 300;
-          const cardHeight = 200;
+          const cardHeight = MIN_STORY_CARD_HEIGHT;
           const offsetDistance = 120;
           const startPosition =
             layoutConfig.primaryAxis === 'x'

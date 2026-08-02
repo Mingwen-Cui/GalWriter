@@ -305,7 +305,7 @@ export const useNodeActions = ({
             x: center.x - displayWidth / 2 + index * 30,
             y: center.y - displayHeight / 2 + index * 30,
           },
-          style: { width: displayWidth, height: displayHeight + (showTitles ? titleHeight : 0) },
+          style: { width: displayWidth, height: MIN_STORY_CARD_HEIGHT },
           data: {
             id: newId,
             title,

@@ -19,7 +19,6 @@ import type {
   VoiceAIProfile,
 } from '../../domain/project';
 import { useAIActions } from '../../editor-features/ai/useAIActions';
-import { ttsService } from '../../editor-services/ttsService';
 import { useCanvasDnD } from '../../editor-features/canvas/useCanvasDnD';
 import { useCanvasInteractions } from '../../editor-features/canvas/useCanvasInteractions';
 import {
@@ -33,11 +32,12 @@ import {
 } from '../../editor-features/media/imageGeneration';
 import { useMediaActions } from '../../editor-features/media/useMediaActions';
 import { useNodeActions } from '../../editor-features/node-actions/useNodeActions';
-import { useSettingLibrary } from '../../editor-features/setting-library/useSettingLibrary';
 import { useSelectionActions } from '../../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../../editor-features/selection-tools/useSelectionMenu';
+import { useSettingLibrary } from '../../editor-features/setting-library/useSettingLibrary';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
 import { createProjectThumbnail } from '../../editor-services/projectThumbnail';
+import { ttsService } from '../../editor-services/ttsService';
 import { AssistantPanel } from '../../editor-shell/AssistantPanel';
 import { AutoSaveRecoveryModal } from '../../editor-shell/AutoSaveRecoveryModal';
 import { ConfirmActionModal } from '../../editor-shell/ConfirmActionModal';
@@ -680,39 +680,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       : null;
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
-  React.useEffect(() => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.type !== 'storyNode') return node;
-        const hasMedia = !!(node.data.imageUrl || node.data.videoUrl || node.data.audioUrl);
-        if (!hasMedia) return node;
-
-        const heightValue = node.style?.height ?? node.height ?? node.measured?.height;
-        const parsedHeight =
-          typeof heightValue === 'number' ? heightValue : Number.parseFloat(String(heightValue));
-        const currentHeight = Number.isFinite(parsedHeight) ? parsedHeight : 200;
-        const titleAlreadyAdded = node.data.titleHeightAdded === true;
-
-        const shouldReserveTitleHeight = showTitles && storyTitlePlacement === 'inside';
-
-        if (shouldReserveTitleHeight && !titleAlreadyAdded) {
-          return {
-            ...node,
-            style: { ...node.style, height: currentHeight + TITLE_HEIGHT },
-            data: { ...node.data, titleHeightAdded: true },
-          };
-        } else if (!shouldReserveTitleHeight && titleAlreadyAdded) {
-          return {
-            ...node,
-            style: { ...node.style, height: Math.max(50, currentHeight - TITLE_HEIGHT) },
-            data: { ...node.data, titleHeightAdded: false },
-          };
-        }
-        return node;
-      }),
-    );
-  }, [showTitles, storyTitlePlacement, setNodes]);
-
   const { history, setHistory, lastHistoryState, undo, redo } = useEditorHistory({
     edges,
     nodes,

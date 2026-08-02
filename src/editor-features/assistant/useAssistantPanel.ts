@@ -33,20 +33,20 @@ import {
   type AssistantCardPlacementResult,
   type AssistantCardStreamEvent,
   assistantCardStreamProtocol,
-  type AssistantStoryOpening,
-  type AssistantStoryProfileStep,
   type AssistantHistorySnapshot,
   type AssistantSpeechRecognitionCtor,
   type AssistantSpeechRecognitionEvent,
+  type AssistantStoryOpening,
+  type AssistantStoryProfileStep,
   type AssistantWorkflowState,
   buildAssistantPlaceholderCards,
   cloneAssistantTasks,
-  createAssistantStoryProfile,
   createArticleCustomSceneCards,
   createArticleDefaultSceneCards,
   createArticleRoleCandidateCards,
   createArticleRoleSelectionOptions,
   createArticleTeachingModeOptions,
+  createAssistantStoryProfile,
   createAssistantWelcomeMessage,
   createInitialAssistantTask,
   extractFirstJsonObject,
@@ -62,6 +62,36 @@ import {
   orderAssistantCardsForCreation,
   parseAssistantGeneratedOptions,
 } from './assistantPanelHelpers';
+
+const createArticleRoleLibraryPicker = (nodes: Node[]) => ({
+  candidates: nodes
+    .filter((node) => node.type === 'characterNode')
+    .map((node) => {
+      const data = node.data || {};
+      const summary = [
+        data.identity,
+        data.traits,
+        data.personality,
+        data.features,
+        data.background,
+        data.other,
+      ]
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .join('\n');
+      return {
+        nodeId: node.id,
+        name: String(data.characterName || '未命名人物'),
+        identity: typeof data.identity === 'string' ? data.identity : undefined,
+        imageUrl:
+          typeof data.avatarUrl === 'string'
+            ? data.avatarUrl
+            : typeof data.imageUrl === 'string'
+              ? data.imageUrl
+              : undefined,
+        summary,
+      };
+    }),
+});
 export type {
   AssistantArticleAnalysisState,
   AssistantCardPlacementResult,
@@ -919,15 +949,16 @@ ${documentContext}`);
                 role: 'assistant',
                 content:
                   language === 'zh'
-                    ? '我已经完成文章分析，并在画布上横向生成了顾遥、闻岚、老蒋和大笑奶龙 4 张候选人物卡。每张都已带入对应的预设图片；选择其中一张后，在右侧点击确认。也可以先选中你自己的已有角色卡，再点“使用当前选中的人物模板”。'
-                    : 'I finished the article analysis and placed four preset role cards on the canvas: Gu Yao, Wen Lan, Lao Jiang, and the rare laughing dragon. Each already includes its preset images. Select one and confirm from the panel.',
+                    ? '文章结构已解析完成。请直接从下方的人物设定库选择已有角色；悬停可预览真实设定，选中后再确认才会继续生成。'
+                    : 'Article analysis is complete. Choose an existing character from the setting library below, preview it on hover, then confirm to continue.',
                 cardPosition: placement.position,
                 cardNodeIds: placement.nodeIds,
+                articleRolePicker: createArticleRoleLibraryPicker(nodes),
                 options: [
                   {
                     id: uuidv4(),
                     label: '使用当前选中的人物模板',
-                    value: '__article_role_use_selected_template__',
+                    value: '__article_role_confirm__',
                   },
                   {
                     id: uuidv4(),
@@ -2535,6 +2566,49 @@ cards 必须正好有 3 张。`);
 
   const handleAssistantOptionSelect = useCallback(
     async (value: string) => {
+      if (value === '__article_roles_create__') {
+        assistantWorkflowRef.current = {
+          type: 'article-role-awaiting',
+          candidateNodeIds: [],
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: '请从当前人物设定库选择一名教学角色。悬停可查看真实设定；选中后点击确认，才会开始生成。',
+            articleRolePicker: createArticleRoleLibraryPicker(nodes),
+            options: [{ id: uuidv4(), label: '确认所选人物', value: '__article_role_confirm__' }],
+          },
+        ]);
+        return;
+      }
+
+      if (value.startsWith('__article_role_select__:')) {
+        const selectedCharacterNodeId = value.slice('__article_role_select__:'.length);
+        const selectedRole = nodes.find(
+          (node) => node.id === selectedCharacterNodeId && node.type === 'characterNode',
+        );
+        if (!selectedRole) return;
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'article-role-awaiting') return;
+        assistantWorkflowRef.current = { ...workflow, selectedCharacterNodeId };
+        setAssistantMessages((messages) =>
+          messages.map((message) =>
+            message.articleRolePicker
+              ? {
+                  ...message,
+                  articleRolePicker: {
+                    ...message.articleRolePicker,
+                    selectedId: selectedCharacterNodeId,
+                  },
+                }
+              : message,
+          ),
+        );
+        return;
+      }
+
       const cardReviewSuggestionPrefix = '__card_review_suggestion__:';
       if (value.startsWith(cardReviewSuggestionPrefix)) {
         setAssistantInput(value.slice(cardReviewSuggestionPrefix.length));
@@ -2806,9 +2880,10 @@ cards 必须正好有 3 张。`);
               id: uuidv4(),
               role: 'assistant',
               content:
-                '我已经在画布上摆出顾遥、闻岚、老蒋和大笑奶龙 4 张候选人物设定卡。每张都已带入对应的预设图片，请在右侧点击确认。',
+                '请直接从下方的人物设定库选择已有角色；悬停可预览真实设定，选中后再确认才会继续生成。',
               cardPosition: placement.position,
               cardNodeIds: placement.nodeIds,
+              articleRolePicker: createArticleRoleLibraryPicker(nodes),
               options: createArticleRoleSelectionOptions(),
             },
           ]);
@@ -2843,23 +2918,25 @@ cards 必须正好有 3 张。`);
       if (value === '__article_role_confirm__') {
         const workflow = assistantWorkflowRef.current;
         if (workflow.type !== 'article-role-awaiting') return;
-        const candidateIds = new Set(workflow.candidateNodeIds);
-        const selectedRole = selectedAssistantTargetNodes.find(
-          (node) => candidateIds.has(node.id) && node.type === 'characterNode',
-        );
+        const selectedRole = workflow.selectedCharacterNodeId
+          ? nodes.find(
+              (node) =>
+                node.id === workflow.selectedCharacterNodeId && node.type === 'characterNode',
+            )
+          : undefined;
         if (!selectedRole) {
           setAssistantMessages((messages) => [
             ...messages,
             {
               id: uuidv4(),
               role: 'assistant',
-              content: '请先在画布上选中一张候选人物设定卡，然后再确认。',
-              options: createArticleRoleSelectionOptions(),
+              content: '请先在上方的人物设定库中点击一名人物，再确认。',
+              options: [{ id: uuidv4(), label: '确认所选人物', value: '__article_role_confirm__' }],
             },
           ]);
           return;
         }
-        await continueArticleTeachingWithRole(selectedRole, workflow.candidateNodeIds);
+        await continueArticleTeachingWithRole(selectedRole);
         return;
       }
 
