@@ -62,6 +62,32 @@ export interface SettingLibraryPresetManifestItem {
 }
 
 /**
+ * Presets are copied to `dist/presets` by Vite. Resolve them from the built
+ * script rather than the site root: the web app may be hosted under a
+ * subdirectory, while the desktop bundle keeps the same assets beside it.
+ */
+const presetAssetBaseUrl = import.meta.env.DEV
+  ? '/presets/'
+  : new URL(/* @vite-ignore */ '../presets/', import.meta.url).toString();
+
+const getPresetAssetUrl = (relativePath: string) => `${presetAssetBaseUrl}${relativePath}`;
+
+const resolvePresetMediaUrls = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    return value.startsWith('/presets/')
+      ? getPresetAssetUrl(value.slice('/presets/'.length))
+      : value;
+  }
+  if (Array.isArray(value)) return value.map(resolvePresetMediaUrls);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, resolvePresetMediaUrls(child)]),
+    );
+  }
+  return value;
+};
+
+/**
  * Keep this manifest small: the editable text and its image live together in public/presets.
  * Add a JSON file beside a new image, then add one line here so it appears in the library.
  */
@@ -70,55 +96,55 @@ export const SETTING_LIBRARY_PRESETS: SettingLibraryPresetManifestItem[] = [
     id: 'preset-character-night-courier',
     kind: 'character',
     name: '夜班跑腿员',
-    dataUrl: '/presets/characters/gu-yao.json',
+    dataUrl: getPresetAssetUrl('characters/gu-yao.json'),
   },
   {
     id: 'preset-character-old-bookshop-owner',
     kind: 'character',
     name: '旧书店店主',
-    dataUrl: '/presets/characters/wen-lan.json',
+    dataUrl: getPresetAssetUrl('characters/wen-lan.json'),
   },
   {
     id: 'preset-character-micro-manager-jiang',
     kind: 'character',
     name: '老蒋（微操大师）',
-    dataUrl: '/presets/characters/jiang-jieshi.json',
+    dataUrl: getPresetAssetUrl('characters/jiang-jieshi.json'),
   },
   {
     id: 'preset-character-rare-laughing-nai-long',
     kind: 'character',
     name: '大笑奶龙（稀有变体）',
-    dataUrl: '/presets/characters/nai-long.json',
+    dataUrl: getPresetAssetUrl('characters/nai-long.json'),
   },
   {
     id: 'preset-character-lao-da-mamba',
     kind: 'character',
     name: '劳大（曼巴精神）',
-    dataUrl: '/presets/characters/lao-da.json',
+    dataUrl: getPresetAssetUrl('characters/lao-da.json'),
   },
   {
     id: 'preset-character-fei-wu-belial',
     kind: 'character',
     name: '废雾贝利亚（抽象反派）',
-    dataUrl: '/presets/characters/fei-wu-belial.json',
+    dataUrl: getPresetAssetUrl('characters/fei-wu-belial.json'),
   },
   {
     id: 'preset-scene-rainy-platform',
     kind: 'scene',
     name: '雨夜车站',
-    dataUrl: '/presets/scenes/rainy-platform.json',
+    dataUrl: getPresetAssetUrl('scenes/rainy-platform.json'),
   },
   {
     id: 'preset-scene-city-corner-plaza',
     kind: 'scene',
     name: '城市街角广场',
-    dataUrl: '/presets/scenes/city-corner-plaza.json',
+    dataUrl: getPresetAssetUrl('scenes/city-corner-plaza.json'),
   },
   {
     id: 'preset-scene-daves-front-yard',
     kind: 'scene',
     name: '戴夫的前院',
-    dataUrl: '/presets/scenes/daves-front-yard.json',
+    dataUrl: getPresetAssetUrl('scenes/daves-front-yard.json'),
   },
 ];
 
@@ -138,7 +164,9 @@ export const loadSettingLibraryPreset = async (id: string): Promise<SettingLibra
       id: manifestItem.id,
       kind: manifestItem.kind,
       name: manifestItem.name,
-      data: payload.data as CharacterSettingLibraryData | SceneSettingLibraryData,
+      data: resolvePresetMediaUrls(
+        payload.data,
+      ) as CharacterSettingLibraryData | SceneSettingLibraryData,
       createdAt: 0,
       updatedAt: 0,
     };
