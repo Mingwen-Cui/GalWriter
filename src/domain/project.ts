@@ -630,6 +630,8 @@ export interface StoryNodeData extends BaseEditorNodeData {
   shape: StoryCardVisualShape;
   color: string;
   sizeMode?: 'auto' | 'custom';
+  assistantHeightState?: 'streaming' | 'settled';
+  assistantAutoHeightNonce?: number;
   imageUrl?: string;
   videoUrl?: string;
   audioUrl?: string;
@@ -725,6 +727,9 @@ export interface BackgroundNodeData extends BaseEditorNodeData {
   title?: string;
   color?: string;
   backgroundMusic?: RegionBackgroundMusic;
+  assistantAutoFitPending?: boolean;
+  assistantAutoFitChildIds?: string[];
+  assistantAutoFitPadding?: number;
 }
 
 export interface GroupNodeData extends BaseEditorNodeData {
@@ -734,6 +739,9 @@ export interface GroupNodeData extends BaseEditorNodeData {
   gap?: number;
   hullPoints?: HullPoint[];
   backgroundMusic?: RegionBackgroundMusic;
+  assistantAutoFitPending?: boolean;
+  assistantAutoFitChildIds?: string[];
+  assistantAutoFitPadding?: number;
 }
 
 export interface TextNodeData extends BaseEditorNodeData {

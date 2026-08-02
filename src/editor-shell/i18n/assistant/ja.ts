@@ -14,7 +14,7 @@ export const assistantPanelJa = {
   suggestions: '提案',
   send: '送信',
   heroTitle: 'アイデアを作品に仕上げるお手伝いをします',
-  shortDrama: '短編ドラマを生成',
+  shortDrama: '短編ドラマをすぐ生成',
   generateCards: 'カード生成',
   inputPlaceholder:
     'AIとストーリーを相談するか、キャラクター、シーン、ストーリーカードの生成・修正を依頼してください…',

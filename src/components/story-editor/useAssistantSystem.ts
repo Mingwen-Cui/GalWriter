@@ -777,6 +777,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             shape: 'square',
             color: '#ffffff',
             sizeMode: 'auto',
+            assistantHeightState: 'streaming',
             isRoot: index === rootReplacementStoryIndex,
             nodeValue: card.nodeValue,
             assistantFutureGoal: mode === 'future-targets',
@@ -904,6 +905,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               id: backgroundId,
               title: chapterTitle,
               color: chapterColors[chapterIndex % chapterColors.length],
+              assistantAutoFitPending: true,
+              assistantAutoFitChildIds: chapterStoryIndexes
+                .map((storyIndex) => newNodes[storyIndex]?.id)
+                .filter((nodeId): nodeId is string => Boolean(nodeId)),
+              assistantAutoFitPadding: chapterPadding,
             },
           });
 
@@ -967,6 +973,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             id,
             title: group.title,
             color: batchBackgroundColors[groupIndex % batchBackgroundColors.length],
+            assistantAutoFitPending: true,
+            assistantAutoFitChildIds: group.indexes
+              .map((index) => newNodes[index]?.id)
+              .filter((nodeId): nodeId is string => Boolean(nodeId)),
+            assistantAutoFitPadding: padding,
           },
         } satisfies Node;
       });
@@ -1453,6 +1464,104 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     [applyAgentFieldValue],
   );
 
+  const finalizeAssistantStoryHeights = useCallback(
+    (nodeIds: string[] | undefined) => {
+      if (!nodeIds?.length) return;
+      const nodeIdSet = new Set(nodeIds);
+      const nonce = Date.now();
+
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => {
+          if (node.type !== 'storyNode' || !nodeIdSet.has(node.id)) return node;
+          const storyData = node.data as StoryNodeData;
+          if (storyData.assistantHeightState !== 'streaming' || storyData.sizeMode === 'custom') {
+            return node;
+          }
+          return {
+            ...node,
+            data: {
+              ...storyData,
+              assistantHeightState: 'settled',
+              assistantAutoHeightNonce: nonce,
+            },
+          };
+        }),
+      );
+
+      const fitPendingAssistantBackgrounds = () => {
+        setNodes((currentNodes) => {
+          const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
+          const readDimension = (value: unknown) => {
+            if (typeof value === 'number' && Number.isFinite(value)) return value;
+            if (typeof value === 'string') {
+              const parsed = Number.parseFloat(value);
+              return Number.isFinite(parsed) ? parsed : 0;
+            }
+            return 0;
+          };
+          return currentNodes.map((node) => {
+            if (node.type !== 'backgroundNode' && node.type !== 'groupNode') return node;
+            const regionData = node.data as Record<string, unknown>;
+            if (regionData.assistantAutoFitPending !== true) return node;
+
+            const childIds = Array.isArray(regionData.assistantAutoFitChildIds)
+              ? regionData.assistantAutoFitChildIds.filter(
+                  (childId): childId is string => typeof childId === 'string',
+                )
+              : [];
+            const children = childIds.map((childId) => nodeById.get(childId)).filter(Boolean) as Node[];
+            if (!children.length) return node;
+
+            const bounds = children.reduce(
+              (result, child) => {
+                const width =
+                  readDimension(child.style?.width) || readDimension(child.measured?.width);
+                const height =
+                  readDimension(child.style?.height) || readDimension(child.measured?.height);
+                if (!width || !height) return result;
+                return {
+                  left: Math.min(result.left, child.position.x),
+                  top: Math.min(result.top, child.position.y),
+                  right: Math.max(result.right, child.position.x + width),
+                  bottom: Math.max(result.bottom, child.position.y + height),
+                };
+              },
+              {
+                left: Number.POSITIVE_INFINITY,
+                top: Number.POSITIVE_INFINITY,
+                right: Number.NEGATIVE_INFINITY,
+                bottom: Number.NEGATIVE_INFINITY,
+              },
+            );
+            if (!Number.isFinite(bounds.left) || !Number.isFinite(bounds.top)) return node;
+
+            const padding =
+              typeof regionData.assistantAutoFitPadding === 'number'
+                ? regionData.assistantAutoFitPadding
+                : 48;
+            return {
+              ...node,
+              position: { x: bounds.left - padding, y: bounds.top - padding },
+              style: {
+                ...node.style,
+                width: Math.max(280, bounds.right - bounds.left + padding * 2),
+                height: Math.max(220, bounds.bottom - bounds.top + padding * 2),
+              },
+              data: { ...regionData, assistantAutoFitPending: false },
+            };
+          });
+        });
+      };
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          window.setTimeout(fitPendingAssistantBackgrounds, 240);
+        });
+      });
+    },
+    [setNodes],
+  );
+
   // =========================================================================
   // createAssistantCards
   // =========================================================================
@@ -1562,12 +1671,15 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         }
       }
 
+      finalizeAssistantStoryHeights(placement.nodeIds);
+
       return placement;
     },
     [
       allowAssistantImageGeneration,
       createAgentSkeletonCards,
       executeAssistantCardPlacement,
+      finalizeAssistantStoryHeights,
       getAgentFieldValue,
       getAgentDraftType,
       handleGenerateSettingNodeImage,

@@ -14,7 +14,7 @@ export const assistantPanelZh = {
   suggestions: '建议',
   send: '发送',
   heroTitle: '随时陪你把脑洞写成作品',
-  shortDrama: '快速生成一个短剧',
+  shortDrama: '快速生成短剧',
   generateCards: '生成卡片',
   inputPlaceholder: '请你给我生成一个故事',
   futureWriting: '未来写作建议',

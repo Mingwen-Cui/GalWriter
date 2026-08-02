@@ -395,6 +395,7 @@ export function AssistantPanel({
   const [assistantInputFocused, setAssistantInputFocused] = useState(false);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
   const assistantInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const assistantPanelRef = useRef<HTMLElement | null>(null);
   const cardGenerateButtonRef = useRef<HTMLButtonElement | null>(null);
   const suggestButtonRef = useRef<HTMLButtonElement | null>(null);
   const cardGenerateMenuRef = useRef<HTMLDivElement | null>(null);
@@ -447,9 +448,11 @@ export function AssistantPanel({
       return;
     }
 
-    const maxHeight = 192;
+    const minimumHeight = 120;
+    const panelHeight = assistantPanelRef.current?.clientHeight ?? window.innerHeight;
+    const maxHeight = Math.max(minimumHeight, Math.floor(panelHeight / 3));
     input.style.height = 'auto';
-    const nextHeight = Math.min(input.scrollHeight, maxHeight);
+    const nextHeight = Math.min(Math.max(input.scrollHeight, minimumHeight), maxHeight);
     input.style.height = `${nextHeight}px`;
     input.style.overflowY = input.scrollHeight > maxHeight ? 'auto' : 'hidden';
   }, [assistantInput, assistantInputExpanded, assistantOpen]);
@@ -507,7 +510,6 @@ export function AssistantPanel({
   const applyAssistantTemplate = (template: string) => {
     const cursorIndex = template.indexOf('_');
     setAssistantInput(template);
-    setShortDramaPromptIndex(null);
     setCardGenerateOpen(false);
     setSuggestMenuOpen(false);
     window.requestAnimationFrame(() => {
@@ -803,6 +805,7 @@ export function AssistantPanel({
 
   return (
     <aside
+      ref={assistantPanelRef}
       className={`${
         isMobile
           ? 'assistant-panel-mobile fixed inset-y-0 right-0 z-[220] w-[min(26rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] shadow-sm'
@@ -1602,7 +1605,7 @@ export function AssistantPanel({
                   }}
                   placeholder={ui.inputPlaceholder}
                   rows={3}
-                  className="custom-scrollbar max-h-48 min-h-[4.75rem] w-full flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
+                  className="custom-scrollbar min-h-[7.5rem] w-full flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
                 />
                 <div className="flex w-full shrink-0 items-center justify-between gap-2">
                   <button

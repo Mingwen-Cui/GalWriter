@@ -375,8 +375,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   );
   const hasDirectCardMedia = Boolean(imageUrl || videoUrl);
   const hasCardVisualContent = hasDirectCardMedia || hasPresentationVisualMedia;
+  const hasSettledAssistantHeight = data.assistantHeightState === 'settled';
   const shouldEnforceTextMinimum =
-    !hasCardVisualContent || isGeneratingImage || Boolean(data.isAILoading);
+    (!hasCardVisualContent && !hasSettledAssistantHeight) ||
+    isGeneratingImage ||
+    Boolean(data.isAILoading);
   const plainSpeechText = String(text)
     .replace(/<[^>]*>/g, '')
     .trim();
@@ -985,7 +988,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     const shouldNormalizeDefaultInitialCard =
       isDefaultInitialRoot || isDefaultInitialBranch || isEmptyStoryCard;
     const nextHeight =
-      shouldNormalizeDefaultInitialCard || initialAutoSizeSyncSettledRef.current
+      shouldNormalizeDefaultInitialCard ||
+      hasSettledAssistantHeight ||
+      initialAutoSizeSyncSettledRef.current
         ? targetHeight
         : Math.max(currentHeight, targetHeight);
     const initialBranch = isDefaultInitialRoot
@@ -1046,6 +1051,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     showTitleInside,
     storeApi,
     shouldEnforceTextMinimum,
+    hasSettledAssistantHeight,
   ]);
 
   useLayoutEffect(() => {

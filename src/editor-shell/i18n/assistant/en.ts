@@ -14,7 +14,7 @@ export const assistantPanelEn = {
   suggestions: 'Suggestions',
   send: 'Send',
   heroTitle: 'Ready to turn ideas into finished work',
-  shortDrama: 'Quick short drama',
+  shortDrama: 'Quick generate short drama',
   generateCards: 'Generate cards',
   inputPlaceholder:
     'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards…',
