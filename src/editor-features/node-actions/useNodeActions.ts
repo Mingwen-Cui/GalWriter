@@ -3,7 +3,10 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import { MIN_STORY_CARD_HEIGHT, SETTING_NODE_CARD_WIDTH } from '../../components/story-editor/constants';
+import {
+  MIN_STORY_CARD_HEIGHT,
+  SETTING_NODE_CARD_WIDTH,
+} from '../../components/story-editor/constants';
 import type { StoryCardVisualShape } from '../../domain/project';
 import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
@@ -31,7 +34,8 @@ function readNodeSize(node: Node, fallbackWidth = 300, fallbackHeight = 200) {
 
   return {
     width: typeof width === 'number' ? width : Number.parseFloat(String(width)) || fallbackWidth,
-    height: typeof height === 'number' ? height : Number.parseFloat(String(height)) || fallbackHeight,
+    height:
+      typeof height === 'number' ? height : Number.parseFloat(String(height)) || fallbackHeight,
   };
 }
 
@@ -59,21 +63,23 @@ export const useNodeActions = ({
   backgroundCardTitle,
 }: UseNodeActionsParams) => {
   const addNewShape = useCallback(
-    (shape: StoryCardVisualShape) => {
+    (shape: StoryCardVisualShape, placement?: { x: number; y: number }) => {
       const center = getCenterPosition();
-      let newX = center.x - 150;
-      let newY = center.y - 110;
+      let newX = (placement?.x ?? center.x) - 150;
+      let newY = (placement?.y ?? center.y) - 110;
 
       const isOccupied = (x: number, y: number, currentNodes: Node[]) =>
         currentNodes.some(
           (node) => Math.abs(node.position.x - x) < 50 && Math.abs(node.position.y - y) < 50,
         );
 
-      let attempts = 0;
-      while (isOccupied(newX, newY, nodes) && attempts < 10) {
-        newX += 320;
-        if (attempts > 3) newY += 220;
-        attempts += 1;
+      if (!placement) {
+        let attempts = 0;
+        while (isOccupied(newX, newY, nodes) && attempts < 10) {
+          newX += 320;
+          if (attempts > 3) newY += 220;
+          attempts += 1;
+        }
       }
 
       const newId = uuidv4();
@@ -119,43 +125,46 @@ export const useNodeActions = ({
     [getCenterPosition, language, nodes, setNodes],
   );
 
-  const addTextNode = useCallback((variant: 'body' | 'heading') => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const isHeading = variant === 'heading';
-    const newNode: Node = {
-      id: newId,
-      type: 'textNode',
-      position: { x: center.x - (isHeading ? 160 : 100), y: center.y - (isHeading ? 45 : 30) },
-      selected: true,
-      data: {
+  const addTextNode = useCallback(
+    (variant: 'body' | 'heading') => {
+      const center = getCenterPosition();
+      const newId = uuidv4();
+      const isHeading = variant === 'heading';
+      const newNode: Node = {
         id: newId,
-        content:
-          language === 'zh'
-            ? isHeading
-              ? '在此处输入标题...'
-              : '在此处输入文本?..'
-            : language === 'ja'
+        type: 'textNode',
+        position: { x: center.x - (isHeading ? 160 : 100), y: center.y - (isHeading ? 45 : 30) },
+        selected: true,
+        data: {
+          id: newId,
+          content:
+            language === 'zh'
               ? isHeading
-                ? 'ここに見出しを入力してください...'
-                : 'ここにテキストを入力してください...'
-              : isHeading
-                ? 'Enter heading here...'
-                : 'Enter text here...',
-        fontSize: isHeading ? 48 : 24,
-        color: '#334155',
-        fontFamily: 'system-ui, sans-serif',
-        isBold: isHeading,
-        textAlign: 'center',
-        initialEditing: true,
-      },
-      style: { width: isHeading ? 320 : 200, height: isHeading ? 90 : 60 },
-    };
-    setNodes((currentNodes) => [
-      ...currentNodes.map((node) => ({ ...node, selected: false })),
-      newNode,
-    ]);
-  }, [getCenterPosition, language, setNodes]);
+                ? '在此处输入标题...'
+                : '在此处输入文本?..'
+              : language === 'ja'
+                ? isHeading
+                  ? 'ここに見出しを入力してください...'
+                  : 'ここにテキストを入力してください...'
+                : isHeading
+                  ? 'Enter heading here...'
+                  : 'Enter text here...',
+          fontSize: isHeading ? 48 : 24,
+          color: '#334155',
+          fontFamily: 'system-ui, sans-serif',
+          isBold: isHeading,
+          textAlign: 'center',
+          initialEditing: true,
+        },
+        style: { width: isHeading ? 320 : 200, height: isHeading ? 90 : 60 },
+      };
+      setNodes((currentNodes) => [
+        ...currentNodes.map((node) => ({ ...node, selected: false })),
+        newNode,
+      ]);
+    },
+    [getCenterPosition, language, setNodes],
+  );
 
   const addNewTextNode = useCallback(() => addTextNode('body'), [addTextNode]);
   const addNewHeadingTextNode = useCallback(() => addTextNode('heading'), [addTextNode]);
@@ -315,29 +324,40 @@ export const useNodeActions = ({
     setShowSaveNameModal(true);
   }, [setShowSaveNameModal]);
 
+  const wrapNodesWithDynamicGroup = useCallback(
+    (nodeIds: string[]) => {
+      const childIds = nodes
+        .filter(
+          (node) =>
+            nodeIds.includes(node.id) &&
+            node.type !== 'backgroundNode' &&
+            node.type !== 'groupNode',
+        )
+        .map((node) => node.id);
+      if (childIds.length === 0) return;
+
+      const newId = uuidv4();
+      const newNode: Node = {
+        id: newId,
+        type: 'groupNode',
+        position: { x: 0, y: 0 },
+        selectable: true,
+        draggable: true,
+        data: { id: newId, title: dynamicWrapTitle, color: '#6366f1', childIds },
+        style: { width: 100, height: 100, zIndex: -2 },
+      };
+
+      setNodes((currentNodes) => [
+        ...currentNodes.map((node) => ({ ...node, selected: false })),
+        { ...newNode, selected: true },
+      ]);
+    },
+    [dynamicWrapTitle, nodes, setNodes],
+  );
+
   const wrapWithDynamicGroup = useCallback(() => {
-    const selected = nodes.filter(
-      (node) => node.selected && node.type !== 'backgroundNode' && node.type !== 'groupNode',
-    );
-    if (selected.length === 0) return;
-
-    const childIds = selected.map((node) => node.id);
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'groupNode',
-      position: { x: 0, y: 0 },
-      selectable: true,
-      draggable: true,
-      data: { id: newId, title: dynamicWrapTitle, color: '#6366f1', childIds },
-      style: { width: 100, height: 100, zIndex: -2 },
-    };
-
-    setNodes((currentNodes) => [
-      ...currentNodes.map((node) => ({ ...node, selected: false })),
-      { ...newNode, selected: true },
-    ]);
-  }, [dynamicWrapTitle, nodes, setNodes]);
+    wrapNodesWithDynamicGroup(nodes.filter((node) => node.selected).map((node) => node.id));
+  }, [nodes, wrapNodesWithDynamicGroup]);
 
   const wrapSelectedWithBackground = useCallback(() => {
     const selected = nodes.filter((node) => node.selected);
@@ -375,60 +395,76 @@ export const useNodeActions = ({
     ]);
   }, [backgroundCardTitle, nodes, setNodes]);
 
-  const addNewBackgroundCard = useCallback(() => {
-    const center = getCenterPosition();
-    const newId = uuidv4();
-    const newNode: Node = {
-      id: newId,
-      type: 'backgroundNode',
-      position: { x: center.x - 300, y: center.y - 200 },
-      dragHandle: '.custom-drag-handle',
-      selected: true,
-      style: { width: 600, height: 400, zIndex: -3 },
-      data: { id: newId, title: backgroundCardTitle, color: '#f1f5f9' },
-    };
+  const addNewBackgroundCard = useCallback(
+    (bounds?: { x: number; y: number; width: number; height: number }) => {
+      const center = getCenterPosition();
+      const backgroundBounds = bounds || {
+        x: center.x - 300,
+        y: center.y - 200,
+        width: 600,
+        height: 400,
+      };
+      const newId = uuidv4();
+      const newNode: Node = {
+        id: newId,
+        type: 'backgroundNode',
+        position: { x: backgroundBounds.x, y: backgroundBounds.y },
+        dragHandle: '.custom-drag-handle',
+        selected: true,
+        style: {
+          width: Math.max(200, backgroundBounds.width),
+          height: Math.max(150, backgroundBounds.height),
+          zIndex: -3,
+        },
+        data: { id: newId, title: backgroundCardTitle, color: '#f1f5f9' },
+      };
 
-    setNodes((currentNodes) => [
-      ...currentNodes.map((node) => ({ ...node, selected: false })),
-      newNode,
-    ]);
-  }, [backgroundCardTitle, getCenterPosition, setNodes]);
+      setNodes((currentNodes) => [
+        ...currentNodes.map((node) => ({ ...node, selected: false })),
+        newNode,
+      ]);
+    },
+    [backgroundCardTitle, getCenterPosition, setNodes],
+  );
 
-  const addNewDynamicWrap = useCallback(() => {
-    const center = getCenterPosition();
-    const contentId = uuidv4();
-    const groupId = uuidv4();
-    const contentNode: Node = {
-      id: contentId,
-      type: 'storyNode',
-      position: { x: center.x - 150, y: center.y - 110 },
-      style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
-      data: {
+  const addNewDynamicWrap = useCallback(
+    (placement?: { x: number; y: number }) => {
+      const center = placement || getCenterPosition();
+      const contentId = uuidv4();
+      const groupId = uuidv4();
+      const contentNode: Node = {
         id: contentId,
-        title: language === 'zh' ? '分支' : language === 'ja' ? '分岐' : 'Branch',
-        shape: 'square',
-        color: '#ffffff',
-        sizeMode: 'auto',
-        text: '',
-      },
-    };
-    const groupNode: Node = {
-      id: groupId,
-      type: 'groupNode',
-      position: { x: 0, y: 0 },
-      selectable: true,
-      draggable: true,
-      selected: true,
-      data: { id: groupId, title: dynamicWrapTitle, color: '#6366f1', childIds: [contentId] },
-      style: { width: 100, height: 100, zIndex: -2 },
-    };
+        type: 'storyNode',
+        position: { x: center.x - 150, y: center.y - 110 },
+        style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
+        data: {
+          id: contentId,
+          title: language === 'zh' ? '分支' : language === 'ja' ? '分岐' : 'Branch',
+          shape: 'square',
+          color: '#ffffff',
+          sizeMode: 'auto',
+          text: '',
+        },
+      };
+      const groupNode: Node = {
+        id: groupId,
+        type: 'groupNode',
+        position: { x: 0, y: 0 },
+        selectable: true,
+        draggable: true,
+        selected: true,
+        data: { id: groupId, title: dynamicWrapTitle, color: '#6366f1', childIds: [contentId] },
+        style: { width: 100, height: 100, zIndex: -2 },
+      };
 
-    setNodes((currentNodes) => [
-      ...currentNodes.map((node) => ({ ...node, selected: false })),
-      contentNode,
-      groupNode,
-    ]);
-  }, [dynamicWrapTitle, getCenterPosition, language, setNodes]);
+      setNodes((currentNodes) => [
+        ...currentNodes.map((node) => ({ ...node, selected: false })),
+        contentNode,
+        groupNode,
+      ]);
+    },
+    [dynamicWrapTitle, getCenterPosition, language, setNodes],
+  );
 
   const convertBackgroundToDynamicGroup = useCallback(
     (backgroundId: string) => {
@@ -573,6 +609,7 @@ export const useNodeActions = ({
     handleExportJSON,
     addNewBackgroundCard,
     addNewDynamicWrap,
+    wrapNodesWithDynamicGroup,
     wrapWithDynamicGroup,
     wrapSelectedWithBackground,
     convertBackgroundToDynamicGroup,

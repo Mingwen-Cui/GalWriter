@@ -23,6 +23,11 @@ export type AITextResult = {
 export type AITextStreamHandlers = {
   onDelta?: (delta: string) => void;
   onReasoningDelta?: (delta: string) => void;
+  signal?: AbortSignal;
+};
+
+export type AITextRequestOptions = {
+  signal?: AbortSignal;
 };
 
 export interface AIClientConfig {
@@ -119,7 +124,10 @@ export const createAIClient = (config: AIClientConfig) => {
     return /\/messages\/?$/i.test(url) ? url : `${url.replace(/\/$/, '')}/messages`;
   };
 
-  const callClaudeMessages = async (prompt: string): Promise<AITextResult> => {
+  const callClaudeMessages = async (
+    prompt: string,
+    options: AITextRequestOptions = {},
+  ): Promise<AITextResult> => {
     const response = await fetch(getClaudeEndpoint(), {
       method: 'POST',
       headers: {
@@ -127,6 +135,7 @@ export const createAIClient = (config: AIClientConfig) => {
         'x-api-key': key(),
         'anthropic-version': '2023-06-01',
       },
+      signal: options.signal,
       body: JSON.stringify({
         model: configuredModel() || 'claude-sonnet-4-20250514',
         max_tokens: 4096,
@@ -180,11 +189,11 @@ export const createAIClient = (config: AIClientConfig) => {
             const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning ?? '';
             if (contentDelta) {
               content += contentDelta;
-              handlers.onDelta?.(contentDelta);
+              if (!handlers.signal?.aborted) handlers.onDelta?.(contentDelta);
             }
             if (reasoningDelta) {
               reasoning += reasoningDelta;
-              handlers.onReasoningDelta?.(reasoningDelta);
+              if (!handlers.signal?.aborted) handlers.onReasoningDelta?.(reasoningDelta);
             }
           } catch {
             // Provider keepalive or non-JSON event.
@@ -205,7 +214,10 @@ export const createAIClient = (config: AIClientConfig) => {
     return { content, reasoning: reasoning || undefined };
   };
 
-  const callHostedProxy = async (prompt: string): Promise<AITextResult> => {
+  const callHostedProxy = async (
+    prompt: string,
+    options: AITextRequestOptions = {},
+  ): Promise<AITextResult> => {
     const proxyUrl = configuredUrl() || 'api/proxy.php';
     const response = await fetch(proxyUrl, {
       method: 'POST',
@@ -215,6 +227,7 @@ export const createAIClient = (config: AIClientConfig) => {
         prompt,
         options: { thinkingMode: config.thinkingMode },
       }),
+      signal: options.signal,
     });
 
     const rawText = await response.text();
@@ -241,7 +254,11 @@ export const createAIClient = (config: AIClientConfig) => {
     };
   };
 
-  const callOllama = async (prompt: string, stream: boolean): Promise<Response> => {
+  const callOllama = async (
+    prompt: string,
+    stream: boolean,
+    options: AITextRequestOptions = {},
+  ): Promise<Response> => {
     const endpoint = configuredUrl()
       ? /\/generate\/?$/i.test(configuredUrl())
         ? configuredUrl()
@@ -256,23 +273,27 @@ export const createAIClient = (config: AIClientConfig) => {
         prompt,
         stream,
       }),
+      signal: options.signal,
     });
     if (!response.ok) throw new Error(`Ollama API 错误: ${await response.text()}`);
     return response;
   };
 
-  const generateText = async (prompt: string): Promise<AITextResult> => {
+  const generateText = async (
+    prompt: string,
+    options: AITextRequestOptions = {},
+  ): Promise<AITextResult> => {
     ensureApiKey();
 
-    if (config.provider === 'hosted') return callHostedProxy(prompt);
+    if (config.provider === 'hosted') return callHostedProxy(prompt, options);
 
     if (config.provider === 'ollama') {
-      const response = await callOllama(prompt, false);
+      const response = await callOllama(prompt, false, options);
       const data = await response.json();
       return { content: data.response || '' };
     }
 
-    if (config.provider === 'claude') return callClaudeMessages(prompt);
+    if (config.provider === 'claude') return callClaudeMessages(prompt, options);
 
     if (isChatCompletionProvider(config.provider)) {
       const response = await fetch(getChatEndpoint(), {
@@ -286,6 +307,7 @@ export const createAIClient = (config: AIClientConfig) => {
           messages: [{ role: 'user', content: prompt }],
           stream: false,
         }),
+        signal: options.signal,
       });
 
       if (!response.ok) throw new Error(`AI API 错误: ${await response.text()}`);
@@ -316,8 +338,8 @@ export const createAIClient = (config: AIClientConfig) => {
     ensureApiKey();
 
     if (config.provider === 'ollama') {
-      const response = await callOllama(prompt, true);
-      if (!response.body) return generateText(prompt);
+      const response = await callOllama(prompt, true, { signal: handlers.signal });
+      if (!response.body) return generateText(prompt, { signal: handlers.signal });
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -336,7 +358,7 @@ export const createAIClient = (config: AIClientConfig) => {
             const delta = data.response || '';
             if (delta) {
               content += delta;
-              handlers.onDelta?.(delta);
+              if (!handlers.signal?.aborted) handlers.onDelta?.(delta);
             }
           } catch {
             // Partial JSON line.
@@ -349,8 +371,8 @@ export const createAIClient = (config: AIClientConfig) => {
     }
 
     if (config.provider === 'claude') {
-      const result = await callClaudeMessages(prompt);
-      handlers.onDelta?.(result.content);
+      const result = await callClaudeMessages(prompt, { signal: handlers.signal });
+      if (!handlers.signal?.aborted) handlers.onDelta?.(result.content);
       return result;
     }
 
@@ -366,14 +388,15 @@ export const createAIClient = (config: AIClientConfig) => {
           messages: [{ role: 'user', content: prompt }],
           stream: true,
         }),
+        signal: handlers.signal,
       });
       if (!response.ok) throw new Error(`AI API 错误: ${await response.text()}`);
       return readOpenAICompatibleStream(response, handlers);
     }
 
-    const result = await generateText(prompt);
-    handlers.onDelta?.(result.content);
-    if (result.reasoning) handlers.onReasoningDelta?.(result.reasoning);
+    const result = await generateText(prompt, { signal: handlers.signal });
+    if (!handlers.signal?.aborted) handlers.onDelta?.(result.content);
+    if (result.reasoning && !handlers.signal?.aborted) handlers.onReasoningDelta?.(result.reasoning);
     return result;
   };
 

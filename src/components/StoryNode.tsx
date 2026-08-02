@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react';
 import {
   Bold,
+  Bot,
   ClipboardPaste,
   Copy,
   Download,
@@ -96,7 +97,7 @@ import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 import { ZenSelect } from './zen-editor/ZenSelect';
 
-const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C', '#1EC8CF'];
+const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C'];
 const CARD_RADIUS = '12px';
 const TITLE_HEIGHT = 36;
 const AUTO_SIZE_MIN_HEIGHT = 60;
@@ -256,7 +257,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const applyRichTextFormat = useCallback(
     (command: 'bold' | 'italic' | 'underline' | 'insertUnorderedList') => {
       if (!hasRichTextSelection) return;
-      document.execCommand(command, false, '');
+      richTextRef.current?.applyCommand(command);
       updateRichTextSelectionState();
     },
     [hasRichTextSelection, updateRichTextSelectionState],
@@ -2140,7 +2141,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             onPointerMove={(event) => event.stopPropagation()}
             onWheel={(event) => event.stopPropagation()}
           >
-            <ToolbarRow className="flex-nowrap gap-1.5">
+            <ToolbarRow className="order-0 flex-nowrap gap-1.5">
               <ToolGroup>
                 <button
                   onClick={() => updateNodeData({ isRoot: true })}
@@ -2176,7 +2177,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           updateNodeData({ color: preset });
                           setIsColorPopoverOpen(false);
                         }}
-                        className={`h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)] transition-transform hover:scale-110 ${isActive ? 'ring-2 ring-violet-500 ring-offset-1 ring-offset-[var(--toolbar-bg)]' : ''}`}
+                        className={`h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)] transition-transform hover:scale-110 ${isActive ? 'scale-110 shadow-sm' : ''}`}
                         style={{ backgroundColor: preset }}
                         title="填充色"
                         aria-label="填充色"
@@ -2238,8 +2239,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 </>
               )}
             </ToolbarRow>
+            <div className="order-1 h-px w-full bg-[var(--toolbar-border)]/30" />
 
-            <ToolbarRow className="flex-nowrap gap-1.5">
+            <ToolbarRow className="order-3 flex-nowrap gap-1.5">
               <ToolGroup className="gap-1.5">
                 <span className="shrink-0 text-[10px] font-black uppercase text-[var(--text-muted)]">
                   数值
@@ -2342,6 +2344,19 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               <Separator />
               <ToolGroup>
                 <button
+                  onClick={() => (data.onSendToAssistant as Function)?.([id])}
+                  className={iconBtnBase}
+                  title={
+                    lang === 'zh'
+                      ? '发送此卡片给 AI'
+                      : lang === 'ja'
+                        ? 'このカードを AI に送信'
+                        : 'Send this card to AI'
+                  }
+                >
+                  <Bot className="w-3.5 h-3.5" />
+                </button>
+                <button
                   onClick={() => updateNodeData({ hidden: true })}
                   className={iconBtnBase}
                   title={t.hideNode}
@@ -2361,7 +2376,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             {/* 已连接人物与场景：插入对应 Tag */}
             {hasMentionToolbarItems && (
               <>
-                <ToolbarRow className="flex-nowrap justify-start gap-1">
+                <ToolbarRow className="order-2 flex-nowrap justify-start gap-1">
                   {showRichTextTools && mentionableCharacters.length > 0 && (
                     <ToolGroup className="flex-nowrap gap-1">
                       <div className="flex shrink-0 items-center">
@@ -2432,7 +2447,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     </>
                   )}
                 </ToolbarRow>
-                <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
             )}
 
@@ -2798,7 +2812,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     isAutoSizeMode || usesPlaytestPresentationLayout
                       ? 'overflow-visible'
                       : 'h-full overflow-y-auto custom-scrollbar'
-                  } resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
+                  } resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-left ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{
                     color: nodeText,
                     minHeight: hasCardVisualContent

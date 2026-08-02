@@ -126,6 +126,7 @@ interface EditorLeftToolbarProps {
   setToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setInteractionMode: Dispatch<SetStateAction<'select' | 'box'>>;
   addNewShape: (shape: StoryCardVisualShape) => void;
+  startCardPlacement: (kind: 'story' | 'background' | 'dynamicWrap') => void;
   addNewBackgroundCard: () => void;
   addNewDynamicWrap: () => void;
   addNewTextNode: () => void;
@@ -165,6 +166,7 @@ export function EditorLeftToolbar({
   setToolbarCollapsed,
   setInteractionMode,
   addNewShape,
+  startCardPlacement,
   addNewBackgroundCard,
   addNewDynamicWrap,
   addNewTextNode,
@@ -439,19 +441,19 @@ export function EditorLeftToolbar({
             id: 'standard-card',
             label: sideToolbarStrings.standardCard,
             Icon: Square,
-            onSelect: () => addNewShape('square'),
+            onSelect: () => startCardPlacement('story'),
           },
           {
             id: 'background-card',
             label: sideToolbarStrings.backgroundCard,
             Icon: Layers,
-            onSelect: addNewBackgroundCard,
+            onSelect: () => startCardPlacement('background'),
           },
           {
             id: 'dynamic-wrap',
             label: sideToolbarStrings.dynamicWrap,
             Icon: GitFork,
-            onSelect: addNewDynamicWrap,
+            onSelect: () => startCardPlacement('dynamicWrap'),
           },
         ]
       : activeQuickMenu === 'text'
@@ -604,7 +606,7 @@ export function EditorLeftToolbar({
 
             <button
               className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300"
-              onClick={() => addNewShape('square')}
+              onClick={() => (isMobile ? addNewShape('square') : startCardPlacement('story'))}
               onPointerEnter={(event) => openQuickMenu('card', event.currentTarget)}
               onPointerLeave={scheduleQuickMenuClose}
               aria-label={t.toolSquare}

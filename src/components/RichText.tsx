@@ -6,6 +6,7 @@ export type MentionPlacement = 'start' | 'end' | 'inline';
 export type RichTextHandle = {
   insertText: (text: string) => void;
   insertMention: (kind: MentionKind, name: string) => void;
+  applyCommand: (command: 'bold' | 'italic' | 'underline' | 'insertUnorderedList') => void;
   focus: () => void;
   getElement: () => HTMLDivElement | null;
 };
@@ -232,6 +233,12 @@ export const RichText = forwardRef<
       if (!editorRef.current) return;
       editorRef.current.focus();
       document.execCommand('insertHTML', false, createMentionHtml(kind, name));
+      handleInput();
+    },
+    applyCommand(command) {
+      if (!editorRef.current) return;
+      editorRef.current.focus({ preventScroll: true });
+      document.execCommand(command, false, '');
       handleInput();
     },
     focus() {

@@ -311,6 +311,55 @@ body,
   cursor: grabbing;
 }
 
+.story-canvas-flow--placing-card .react-flow__pane {
+  cursor: none;
+}
+
+.story-canvas-flow--placing-region .react-flow__pane {
+  cursor: crosshair;
+}
+
+.card-placement-preview {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  width: 300px;
+  height: 176px;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  border: 2px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  opacity: 0;
+  transform-origin: top left;
+  transition: opacity 80ms ease;
+}
+
+.card-placement-preview--visible {
+  opacity: 0.5;
+}
+
+.region-placement-preview {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  border: 2px dashed rgba(100, 116, 139, 0.8);
+  border-radius: 24px;
+  background: rgba(241, 245, 249, 0.3);
+}
+
+.region-placement-preview--dynamicWrap {
+  border-style: solid;
+  border-color: rgba(79, 70, 229, 0.85);
+  background: rgba(99, 102, 241, 0.1);
+}
+
 .interactive-segment-graph-viewport {
   background-color: color-mix(in srgb, var(--app-bg) 88%, #e0f2fe);
   background-image:

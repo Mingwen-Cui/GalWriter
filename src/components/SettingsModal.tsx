@@ -7,31 +7,25 @@ import {
   BrainCircuit,
   Check,
   Copy,
-  Diamond,
   Download,
   ExternalLink,
   EyeOff,
   GitFork,
   HelpCircle,
-  Hexagon,
   ImageIcon,
   Italic,
   Layers,
+  List,
   Mail,
   Maximize,
   MessageCircle,
   Mic,
-  Minus,
   Palette,
   Play,
   PlayCircle,
-  Plus,
-  RectangleHorizontal,
   ShieldAlert,
-  Square,
   StepForward,
   Trash2,
-  Triangle,
   Underline,
   Volume2,
   X,
@@ -1576,112 +1570,83 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="contents">
                         <div className="absolute left-1/2 top-6 z-30 w-max -translate-x-1/2">
                           <div
-                            className="flex w-[572px] origin-bottom flex-col gap-1.5 rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-2 text-[var(--text-secondary)] shadow-2xl backdrop-blur-md transition-transform duration-200"
+                            className="flex w-[420px] origin-bottom flex-col gap-1.5 rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-2 text-[var(--text-secondary)] shadow-2xl backdrop-blur-md transition-transform duration-200"
                             style={{ transform: `scale(${previewToolbarScale})` }}
                           >
-                            <div className="flex items-center justify-between gap-0 px-1">
-                              {['#ffffff', '#fe8a25', '#e64881', '#fd5c5c', '#1ec8cf'].map(
-                                (color) => (
-                                  <button
-                                    key={color}
-                                    type="button"
-                                    tabIndex={-1}
-                                    className="h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)]"
-                                    style={{ backgroundColor: color }}
-                                  />
-                                ),
-                              )}
-                              <button
-                                type="button"
-                                tabIndex={-1}
+                            <div className="flex items-center gap-1.5 px-1">
+                              <span className="flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-500">
+                                <Play className="h-3.5 w-3.5" />
+                                {s.previewStoryTitle}
+                              </span>
+                              <span className="flex items-center gap-1 px-1 text-xs font-medium text-[var(--text-secondary)]">
+                                <StepForward className="h-3.5 w-3.5" />
+                                {language === 'zh'
+                                  ? '跳过'
+                                  : language === 'ja'
+                                    ? 'スキップ'
+                                    : 'Skip'}
+                              </span>
+                              <span className="flex items-center gap-1 px-1 text-xs font-medium text-[var(--text-secondary)]">
+                                <GitFork className="h-3.5 w-3.5" />
+                                {language === 'zh'
+                                  ? '故事线'
+                                  : language === 'ja'
+                                    ? 'ストーリー'
+                                    : 'Storyline'}
+                              </span>
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              {['#ffffff', '#fe8a25', '#e64881', '#fd5c5c'].map((color) => (
+                                <span
+                                  key={color}
+                                  className="h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)]"
+                                  style={{ backgroundColor: color }}
+                                />
+                              ))}
+                              <span
                                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
                                 style={{
                                   background:
-                                    'linear-gradient(45deg, rgb(240, 147, 251), rgb(245, 87, 108))',
+                                    'conic-gradient(from 45deg, #f97316, #e879f9, #6366f1, #22d3ee, #f97316)',
                                 }}
                               >
                                 <Palette className="h-3 w-3" />
-                              </button>
+                              </span>
                               <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
-                              {[Square, RectangleHorizontal, Diamond, Triangle, Hexagon].map(
-                                (Icon, index) => (
-                                  <button
-                                    type="button"
-                                    tabIndex={-1}
-                                    key={index}
-                                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${index === 1 ? 'text-blue-400' : 'text-[var(--text-primary)]/80'}`}
-                                  >
-                                    <Icon className="h-4 w-4 fill-current" />
-                                  </button>
-                                ),
-                              )}
-                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
-                              {[Bold, Italic, Underline].map((Icon, index) => (
-                                <button
-                                  type="button"
-                                  tabIndex={-1}
-                                  key={index}
-                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
-                                >
-                                  <Icon className="h-4 w-4" />
-                                </button>
-                              ))}
-                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
-                              <button
-                                type="button"
-                                tabIndex={-1}
-                                className="flex h-7 w-7 items-center justify-center text-rose-500"
-                              >
-                                <Mic className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                tabIndex={-1}
-                                className="flex h-7 w-7 items-center justify-center text-sky-600"
-                              >
-                                <Volume2 className="h-4 w-4" />
-                              </button>
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15">
+                                <Maximize className="h-3.5 w-3.5" />
+                              </span>
                             </div>
                             <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
                             <div className="flex items-center gap-1.5 px-1">
-                              <span className="rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-500">
-                                {s.previewStoryTitle}
-                              </span>
-                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
                               <span className="shrink-0 text-[10px] font-black uppercase text-[var(--text-muted)]">
                                 {s.valueLabel}
                               </span>
-                              <button
-                                type="button"
-                                tabIndex={-1}
-                                className="rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-1.5"
-                              >
-                                <Minus className="h-3.5 w-3.5" />
-                              </button>
-                              <span className="h-1.5 min-w-[110px] flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)]" />
-                              <button
-                                type="button"
-                                tabIndex={-1}
-                                className="rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)] p-1.5"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </button>
-                              <span className="w-14 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-2 py-1.5 text-center text-sm font-bold shadow-sm">
+                              <span className="w-12 border-b border-[var(--card-border)] pb-0.5 text-center text-sm font-semibold text-[var(--text-primary)]">
                                 0
                               </span>
                               <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
-                              {[GitFork, StepForward, EyeOff, Maximize, Trash2].map(
-                                (Icon, index) => (
-                                  <button
-                                    type="button"
-                                    tabIndex={-1}
-                                    key={index}
-                                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${index === 3 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15' : index === 4 ? 'text-red-400' : ''}`}
-                                  >
-                                    <Icon className="h-3.5 w-3.5" />
-                                  </button>
-                                ),
-                              )}
+                              {[Bold, Italic, Underline, List].map((Icon, index) => (
+                                <span
+                                  key={index}
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)]"
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </span>
+                              ))}
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-rose-500">
+                                <Mic className="h-4 w-4" />
+                              </span>
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-sky-600">
+                                <Volume2 className="h-4 w-4" />
+                              </span>
+                              <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--text-secondary)]">
+                                <EyeOff className="h-3.5 w-3.5" />
+                              </span>
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-red-400">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </span>
                             </div>
                           </div>
                         </div>

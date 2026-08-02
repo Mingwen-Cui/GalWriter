@@ -9,6 +9,7 @@ import {
   Loader2,
   MapPin,
   Mic,
+  Pause,
   PencilLine,
   Plus,
   PlusCircle,
@@ -65,6 +66,7 @@ interface AssistantPanelProps {
   handleRenameAssistantTask: (taskId: string, title: string) => void;
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
+  handleStopAssistantGeneration: () => void;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
   handleStartAssistantFlow: (
     flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
@@ -210,6 +212,7 @@ export function AssistantPanel({
   handleRenameAssistantTask,
   handleCloseAssistantTask,
   handleAssistantSend,
+  handleStopAssistantGeneration,
   handleAssistantOptionSelect,
   handleStartAssistantFlow,
   handleAssistantDocumentUpload,
@@ -680,6 +683,17 @@ export function AssistantPanel({
             <PlusCircle className="h-3.5 w-3.5" />
             {ui.newConversation}
           </button>
+          {assistantLoading && (
+            <button
+              type="button"
+              onClick={handleStopAssistantGeneration}
+              className="assistant-glass-action flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 text-xs font-black text-rose-600 transition-colors hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-200 dark:hover:bg-rose-500/25"
+              title={language === 'zh' ? '停止生成' : language === 'ja' ? '生成を停止' : 'Stop generation'}
+            >
+              <Pause className="h-3.5 w-3.5" />
+              <span>{language === 'zh' ? '停止' : language === 'ja' ? '停止' : 'Stop'}</span>
+            </button>
+          )}
           <button
             onClick={handleAssistantUndo}
             disabled={!canAssistantUndo || assistantLoading}
@@ -1187,25 +1201,6 @@ export function AssistantPanel({
               </div>
             ),
           )}
-        {!showArticleUploadPage &&
-          selectedCardContexts.map((context) => (
-            <div key={`pending:${context.id}`} className="flex w-full justify-start">
-              <div className="w-full max-w-[94%]">
-                <AssistantContextPreviewCard
-                  title={context.title}
-                  contextBadge={ui.cardReview.contextBadge}
-                  imageUrl={context.previewImageUrl}
-                  text={context.previewText}
-                  onRemove={() =>
-                    setAssistantInputContexts((contexts) =>
-                      contexts.filter((item) => item.id !== context.id),
-                    )
-                  }
-                  removeLabel={ui.cardReview.removeAttachment}
-                />
-              </div>
-            </div>
-          ))}
         {!showArticleUploadPage && assistantLoading && (
           <div className="flex justify-start">
             <div className="assistant-message-bubble assistant-message-loading flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
@@ -1332,6 +1327,26 @@ export function AssistantPanel({
           >
             {assistantInputExpanded ? (
               <>
+                {selectedCardContexts.length > 0 && (
+                  <div className="custom-scrollbar flex min-w-0 gap-2 overflow-x-auto pb-1">
+                    {selectedCardContexts.map((context) => (
+                      <div key={`pending:${context.id}`} className="w-56 shrink-0">
+                        <AssistantContextPreviewCard
+                          title={context.title}
+                          contextBadge={ui.cardReview.contextBadge}
+                          imageUrl={context.previewImageUrl}
+                          text={context.previewText}
+                          onRemove={() =>
+                            setAssistantInputContexts((contexts) =>
+                              contexts.filter((item) => item.id !== context.id),
+                            )
+                          }
+                          removeLabel={ui.cardReview.removeAttachment}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {composerInputContexts.length > 0 && (
                   <div className="custom-scrollbar flex min-w-0 items-center gap-2 overflow-x-auto pb-1">
                     {composerInputContexts.map((context) => (

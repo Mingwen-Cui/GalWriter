@@ -142,17 +142,18 @@ export function useRegionAssistantContext({
         }
       });
 
+      const nextContext: AssistantInputContext = {
+        id: contextId,
+        title: regionTitle,
+        content: message,
+        cardCount: orderedIds.length,
+        source: selectedNodeIds ? 'selection' : 'region',
+        nodeIds: orderedIds,
+        assetCounts: { images: assetUrls.images.size, videos: assetUrls.videos.size },
+      };
       setAssistantInputContexts((contexts) => [
         ...contexts.filter((context) => context.id !== contextId),
-        {
-          id: contextId,
-          title: regionTitle,
-          content: message,
-          cardCount: orderedIds.length,
-          source: selectedNodeIds ? 'selection' : 'region',
-          nodeIds: orderedIds,
-          assetCounts: { images: assetUrls.images.size, videos: assetUrls.videos.size },
-        },
+        nextContext,
       ]);
     },
     [

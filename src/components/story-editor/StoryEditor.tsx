@@ -149,6 +149,17 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [renderLaunchIntent, setRenderLaunchIntent] = useState<RenderWorkspaceLaunchIntent>();
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
+  const [pendingCardPlacement, setPendingCardPlacement] = useState<
+    'story' | 'background' | 'dynamicWrap' | null
+  >(null);
+  const [cardPlacementStart, setCardPlacementStart] = useState<{
+    flow: { x: number; y: number };
+    screen: { x: number; y: number };
+  } | null>(null);
+  const [dynamicWrapDragStart, setDynamicWrapDragStart] = useState<{
+    flow: { x: number; y: number };
+    screen: { x: number; y: number };
+  } | null>(null);
   const [showTitles, setShowTitles] = useState(true);
   const [storyTitlePlacement, setStoryTitlePlacement] = useState<StoryTitlePlacement>('inside');
   const [edgeStyle, setEdgeStyle] = useState<'step' | 'bezier'>('bezier');
@@ -193,6 +204,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const flowWidth = useStore((s) => s.width);
   const flowHeight = useStore((s) => s.height);
+  const flowZoom = useStore((s) => s.transform[2]);
   const viewportWidth =
     typeof window === 'undefined' ? 1024 : window.visualViewport?.width || window.innerWidth;
   const effectiveFlowWidth = flowWidth > 0 ? flowWidth : viewportWidth;
@@ -1439,6 +1451,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleMediaUpload,
     addNewBackgroundCard,
     addNewDynamicWrap,
+    wrapNodesWithDynamicGroup,
     wrapWithDynamicGroup,
     wrapSelectedWithBackground,
     convertBackgroundToDynamicGroup,
@@ -1457,6 +1470,137 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     dynamicWrapTitle: t.dynamicWrap,
     backgroundCardTitle: t.bgCard,
   });
+
+  const startCardPlacement = useCallback((kind: 'story' | 'background' | 'dynamicWrap') => {
+    setCardPlacementStart(null);
+    setDynamicWrapDragStart(null);
+    setPendingCardPlacement(kind);
+  }, []);
+
+  const handleCardPlacement = useCallback(
+    (event: React.MouseEvent) => {
+      if (!pendingCardPlacement || isMobile) return;
+
+      const placement = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      if (pendingCardPlacement === 'story') {
+        addNewShape('square', placement);
+        setPendingCardPlacement(null);
+        return;
+      }
+
+      if (pendingCardPlacement === 'dynamicWrap') return;
+
+      if (!cardPlacementStart) {
+        setCardPlacementStart({
+          flow: placement,
+          screen: { x: event.clientX, y: event.clientY },
+        });
+        return;
+      }
+
+      const selectionRect = {
+        x: Math.min(cardPlacementStart.flow.x, placement.x),
+        y: Math.min(cardPlacementStart.flow.y, placement.y),
+        width: Math.abs(placement.x - cardPlacementStart.flow.x),
+        height: Math.abs(placement.y - cardPlacementStart.flow.y),
+      };
+
+      if (pendingCardPlacement === 'background') {
+        addNewBackgroundCard(selectionRect);
+      } else {
+        wrapNodesWithDynamicGroup(getIntersectingNodes(selectionRect, true).map((node) => node.id));
+      }
+
+      setPendingCardPlacement(null);
+      setCardPlacementStart(null);
+    },
+    [
+      addNewBackgroundCard,
+      addNewShape,
+      cardPlacementStart,
+      getIntersectingNodes,
+      isMobile,
+      pendingCardPlacement,
+      screenToFlowPosition,
+      wrapNodesWithDynamicGroup,
+    ],
+  );
+
+  const handleDynamicWrapSelectionStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (pendingCardPlacement !== 'dynamicWrap' || event.button !== 0) return;
+      const target = event.target as HTMLElement;
+      if (!target.closest('.react-flow__pane')) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setDynamicWrapDragStart({
+        flow: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+        screen: { x: event.clientX, y: event.clientY },
+      });
+    },
+    [pendingCardPlacement, screenToFlowPosition],
+  );
+
+  const handleDynamicWrapSelectionEnd = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!dynamicWrapDragStart || pendingCardPlacement !== 'dynamicWrap' || event.button !== 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const end = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const movedEnough =
+        Math.abs(event.clientX - dynamicWrapDragStart.screen.x) > 5 ||
+        Math.abs(event.clientY - dynamicWrapDragStart.screen.y) > 5;
+      if (movedEnough) {
+        wrapNodesWithDynamicGroup(
+          getIntersectingNodes(
+            {
+              x: Math.min(dynamicWrapDragStart.flow.x, end.x),
+              y: Math.min(dynamicWrapDragStart.flow.y, end.y),
+              width: Math.abs(end.x - dynamicWrapDragStart.flow.x),
+              height: Math.abs(end.y - dynamicWrapDragStart.flow.y),
+            },
+            true,
+          ).map((node) => node.id),
+        );
+        setPendingCardPlacement(null);
+      }
+      setDynamicWrapDragStart(null);
+    },
+    [
+      dynamicWrapDragStart,
+      getIntersectingNodes,
+      pendingCardPlacement,
+      screenToFlowPosition,
+      wrapNodesWithDynamicGroup,
+    ],
+  );
+
+  useEffect(() => {
+    if (isMobile) {
+      setPendingCardPlacement(null);
+      setCardPlacementStart(null);
+      setDynamicWrapDragStart(null);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!pendingCardPlacement) return;
+
+    const cancelPlacement = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPendingCardPlacement(null);
+        setCardPlacementStart(null);
+        setDynamicWrapDragStart(null);
+      }
+    };
+
+    window.addEventListener('keydown', cancelPlacement);
+    return () => window.removeEventListener('keydown', cancelPlacement);
+  }, [pendingCardPlacement]);
 
   const handleEdgeDelete = useCallback(
     (edgeId: string) => {
@@ -1796,6 +1940,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleCancelCloseAssistantTask,
     assistantTaskPendingCloseId,
     handleAssistantSend,
+    handleStopAssistantGeneration,
     handleAssistantOptionSelect,
     handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,
@@ -2091,7 +2236,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         : activeVoiceProfile;
       if (!selectedProfile) {
         requestSettingsAttention('voice');
-        showToast(language === 'zh' ? '请先在 AI 设置中配置语音 API' : 'Configure a voice API first', 'error');
+        showToast(
+          language === 'zh' ? '请先在 AI 设置中配置语音 API' : 'Configure a voice API first',
+          'error',
+        );
         return;
       }
 
@@ -2174,7 +2322,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         await playPreview(blob);
       } catch (error) {
         console.error('Character voice preview failed:', error);
-        showToast(language === 'zh' ? '音色试听失败，请检查语音 API 设置' : 'Voice preview failed', 'error');
+        showToast(
+          language === 'zh' ? '音色试听失败，请检查语音 API 设置' : 'Voice preview failed',
+          'error',
+        );
       }
     },
     [activeVoiceProfile, language, nodes, requestSettingsAttention, savedAIProfiles, showToast],
@@ -2512,6 +2663,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             setToolbarCollapsed={setToolbarCollapsed}
             setInteractionMode={setInteractionMode}
             addNewShape={addNewShape}
+            startCardPlacement={startCardPlacement}
             addNewBackgroundCard={addNewBackgroundCard}
             addNewDynamicWrap={addNewDynamicWrap}
             addNewTextNode={addNewTextNode}
@@ -2579,8 +2731,18 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             miniMapOverlayStyle={miniMapOverlayStyle}
             horizontalGuides={horizontalGuides}
             verticalGuides={verticalGuides}
+            cardPlacementPreviewKind={pendingCardPlacement}
+            cardPlacementPreviewTitle={storyEditorCopy.branchTitle}
+            cardPlacementStartScreen={
+              pendingCardPlacement === 'dynamicWrap'
+                ? dynamicWrapDragStart?.screen
+                : cardPlacementStart?.screen
+            }
+            storyCardPlacementPreviewScale={flowZoom}
+            onDynamicWrapSelectionStart={handleDynamicWrapSelectionStart}
+            onDynamicWrapSelectionEnd={handleDynamicWrapSelectionEnd}
             reactFlowProps={{
-              className: 'story-canvas-flow',
+              className: `story-canvas-flow${pendingCardPlacement === 'story' ? ' story-canvas-flow--placing-card' : pendingCardPlacement ? ' story-canvas-flow--placing-region' : ''}`,
               nodes: nodesWithCallbacks,
               edges: edgesWithData,
               onNodesChange,
@@ -2589,6 +2751,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               isValidConnection,
               onEdgeDoubleClick,
               onNodeClick: handleNodeClick,
+              onPaneClick: handleCardPlacement,
               onEdgeContextMenu,
               onNodeContextMenu: (event, node) => {
                 event.preventDefault();
@@ -2654,6 +2817,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           handleRenameAssistantTask={handleRenameAssistantTask}
           handleCloseAssistantTask={handleRequestCloseAssistantTask}
           handleAssistantSend={handleAssistantSend}
+          handleStopAssistantGeneration={handleStopAssistantGeneration}
           handleAssistantOptionSelect={handleAssistantOptionSelect}
           handleStartAssistantFlow={handleStartAssistantFlow}
           handleAssistantDocumentUpload={handleAssistantDocumentUpload}

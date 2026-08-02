@@ -9,6 +9,7 @@ import {
   SelectionMode,
 } from '@xyflow/react';
 import type { ComponentProps, CSSProperties, MouseEventHandler, RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SelectionMenu } from '../../editor-features/selection-tools/SelectionMenu';
 import { SmartGuides } from './SmartGuides';
@@ -24,6 +25,8 @@ interface StoryCanvasWorkspaceProps {
   onMouseDown: MouseEventHandler<HTMLDivElement>;
   onMouseMove: MouseEventHandler<HTMLDivElement>;
   onMouseUp: MouseEventHandler<HTMLDivElement>;
+  onDynamicWrapSelectionStart?: MouseEventHandler<HTMLDivElement>;
+  onDynamicWrapSelectionEnd?: MouseEventHandler<HTMLDivElement>;
   reactFlowProps: ReactFlowProps;
   interactionMode: 'select' | 'box';
   isRightDragging: boolean;
@@ -36,6 +39,10 @@ interface StoryCanvasWorkspaceProps {
   miniMapOverlayStyle?: CSSProperties;
   horizontalGuides: number[];
   verticalGuides: number[];
+  cardPlacementPreviewKind?: 'story' | 'background' | 'dynamicWrap' | null;
+  cardPlacementPreviewTitle?: string;
+  cardPlacementStartScreen?: { x: number; y: number };
+  storyCardPlacementPreviewScale?: number;
   selectionMenuProps?: SelectionMenuProps;
 }
 
@@ -47,6 +54,8 @@ export function StoryCanvasWorkspace({
   onMouseDown,
   onMouseMove,
   onMouseUp,
+  onDynamicWrapSelectionStart,
+  onDynamicWrapSelectionEnd,
   reactFlowProps,
   interactionMode,
   isRightDragging,
@@ -59,21 +68,90 @@ export function StoryCanvasWorkspace({
   miniMapOverlayStyle,
   horizontalGuides,
   verticalGuides,
+  cardPlacementPreviewKind = null,
+  cardPlacementPreviewTitle = '',
+  cardPlacementStartScreen,
+  storyCardPlacementPreviewScale = 1,
   selectionMenuProps,
 }: StoryCanvasWorkspaceProps) {
   const overlayPositionClass = miniMapPosition === 'left' ? 'left-4' : 'right-4';
   const footerSpacingClass = showStats ? '' : 'canvas-bottom-overlay-no-footer';
+  const placementPreviewRef = useRef<HTMLDivElement>(null);
+  const regionPlacementPreviewRef = useRef<HTMLDivElement>(null);
+  const isPlacementPreviewVisibleRef = useRef(false);
+  const [isPlacementPreviewVisible, setIsPlacementPreviewVisible] = useState(false);
+  const placementPreviewScale = Math.max(0.1, storyCardPlacementPreviewScale);
+
+  useEffect(() => {
+    if (!cardPlacementPreviewKind) {
+      isPlacementPreviewVisibleRef.current = false;
+      setIsPlacementPreviewVisible(false);
+    }
+  }, [cardPlacementPreviewKind]);
+
+  const handleCanvasMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
+    onMouseMove(event);
+    if (
+      cardPlacementPreviewKind === 'story' &&
+      !cardPlacementStartScreen &&
+      placementPreviewRef.current
+    ) {
+      placementPreviewRef.current.style.left = `${event.clientX - 150 * placementPreviewScale}px`;
+      placementPreviewRef.current.style.top = `${event.clientY - 110 * placementPreviewScale}px`;
+      if (!isPlacementPreviewVisibleRef.current) {
+        isPlacementPreviewVisibleRef.current = true;
+        setIsPlacementPreviewVisible(true);
+      }
+    }
+
+    if (cardPlacementStartScreen && regionPlacementPreviewRef.current) {
+      const left = Math.min(cardPlacementStartScreen.x, event.clientX);
+      const top = Math.min(cardPlacementStartScreen.y, event.clientY);
+      regionPlacementPreviewRef.current.style.left = `${left}px`;
+      regionPlacementPreviewRef.current.style.top = `${top}px`;
+      regionPlacementPreviewRef.current.style.width = `${Math.abs(event.clientX - cardPlacementStartScreen.x)}px`;
+      regionPlacementPreviewRef.current.style.height = `${Math.abs(event.clientY - cardPlacementStartScreen.y)}px`;
+    }
+  };
 
   return (
     <>
       <div
         ref={canvasWrapperRef}
         className={`relative h-full w-full ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
-        onMouseDownCapture={onMouseDown}
-        onMouseMoveCapture={onMouseMove}
-        onMouseUpCapture={onMouseUp}
+        onMouseDownCapture={(event) => {
+          onMouseDown(event);
+          onDynamicWrapSelectionStart?.(event);
+        }}
+        onMouseMoveCapture={handleCanvasMouseMove}
+        onMouseUpCapture={(event) => {
+          onMouseUp(event);
+          onDynamicWrapSelectionEnd?.(event);
+        }}
+        onMouseLeave={() => {
+          isPlacementPreviewVisibleRef.current = false;
+          setIsPlacementPreviewVisible(false);
+        }}
         style={{ touchAction: canvasTouchAction }}
       >
+        {cardPlacementPreviewKind === 'story' && !cardPlacementStartScreen && (
+          <div
+            ref={placementPreviewRef}
+            aria-hidden="true"
+            className={`card-placement-preview${isPlacementPreviewVisible ? ' card-placement-preview--visible' : ''}`}
+            style={{ transform: `scale(${placementPreviewScale})` }}
+          >
+            <span>{cardPlacementPreviewTitle}</span>
+          </div>
+        )}
+        {cardPlacementStartScreen && cardPlacementPreviewKind !== 'story' && (
+          <div
+            ref={regionPlacementPreviewRef}
+            aria-hidden="true"
+            className={`region-placement-preview region-placement-preview--${cardPlacementPreviewKind}`}
+            style={{ left: cardPlacementStartScreen.x, top: cardPlacementStartScreen.y }}
+          />
+        )}
         <div
           ref={selectionBoxRef}
           className="pointer-events-none fixed z-[9999] rounded-sm border-2 border-dashed border-indigo-500 bg-indigo-500/10"

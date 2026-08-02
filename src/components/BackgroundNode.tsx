@@ -1,4 +1,11 @@
-import { NodeProps, NodeResizer, NodeToolbar, Position, useStore } from '@xyflow/react';
+import {
+  NodeProps,
+  NodeResizer,
+  NodeToolbar,
+  Position,
+  useStore,
+  useViewport,
+} from '@xyflow/react';
 import { BookOpen, Bot, Lock, Replace, Repeat2, Trash2, Unlock } from 'lucide-react';
 import React, { memo } from 'react';
 
@@ -113,6 +120,8 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
     typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
       ? data.cardToolbarScale
       : 1;
+  const { zoom } = useViewport();
+  const toolbarScale = cardToolbarScale * zoom;
 
   const locked = data.locked === true;
 
@@ -197,7 +206,7 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={10}>
         <div
           className="toolbar-bubble-surface bg-[var(--toolbar-bg)] backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl border border-[var(--toolbar-border)] flex gap-2 items-center"
-          style={{ transform: `scale(${cardToolbarScale})`, transformOrigin: 'bottom center' }}
+          style={{ transform: `scale(${toolbarScale})`, transformOrigin: 'bottom center' }}
         >
           <button
             onClick={toggleLock}

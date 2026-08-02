@@ -115,7 +115,7 @@ interface UseAssistantPanelParams {
   flowWidth: number;
   selectedAssistantTargetNodes: Node[];
   nodes: Node[];
-  callAIForTextResult: (prompt: string) => Promise<AITextResult>;
+  callAIForTextResult: (prompt: string, options?: { signal?: AbortSignal }) => Promise<AITextResult>;
   callAIForTextStream?: (prompt: string, handlers?: AITextStreamHandlers) => Promise<AITextResult>;
   createAssistantCards: (
     cards: AssistantCardDraft[],
@@ -182,6 +182,7 @@ interface UseAssistantPanelResult {
   handleCancelCloseAssistantTask: () => void;
   assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
+  handleStopAssistantGeneration: () => void;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
   handleAssistantCandidateNodeSelect: (nodeId: string) => Promise<void>;
   handleStartAssistantFlow: (
@@ -276,6 +277,7 @@ export const useAssistantPanel = ({
   const [savedStoryProfile, setSavedStoryProfile] = useState<AssistantStoryProfile | null>(null);
   const assistantVisualizationRequestsRef = useRef(new Map<string, string[]>());
   const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
+  const assistantAbortControllerRef = useRef<AbortController | null>(null);
 
   const assistantPanelWidth = Math.min(
     Math.max(assistantWidth, 300),
@@ -408,6 +410,33 @@ export const useAssistantPanel = ({
     },
     [activeAssistantTaskId],
   );
+
+  const handleStopAssistantGeneration = useCallback(() => {
+    const abortController = assistantAbortControllerRef.current;
+    if (!abortController || abortController.signal.aborted) return;
+
+    abortController.abort();
+    assistantAbortControllerRef.current = null;
+    if (assistantThoughtTimerRef.current !== null) {
+      window.clearInterval(assistantThoughtTimerRef.current);
+      assistantThoughtTimerRef.current = null;
+    }
+    stopAgentWaiting?.();
+    setAssistantLoading(false);
+    setAssistantMessages((messages) => [
+      ...messages,
+      {
+        id: uuidv4(),
+        role: 'assistant',
+        content:
+          language === 'zh'
+            ? '已停止生成，已保留当前已生成的内容。'
+            : language === 'ja'
+              ? '生成を停止しました。現在までに生成された内容は保持されています。'
+              : 'Generation stopped. Any content generated so far has been kept.',
+      },
+    ]);
+  }, [language, setAssistantMessages, stopAgentWaiting]);
 
   const updateAssistantTaskMessages = useCallback(
     (
@@ -1119,11 +1148,13 @@ ${documentContext}`);
       userText,
       mode,
       placementOptions,
+      signal,
     }: {
       prompt: string;
       userText: string;
       mode: AssistantCardPlacementMode;
       placementOptions?: AssistantCardPlacementOptions;
+      signal?: AbortSignal;
     }): Promise<{
       reply: string;
       cards: AssistantCardDraft[];
@@ -1218,6 +1249,7 @@ ${documentContext}`);
 ${assistantCardStreamProtocol}
 You must fill every placeholder card index exactly once. Placeholder card plan: ${placeholderPlan}. Keep each card's type aligned with the placeholder type for that same index.`;
       const result = await callAIForTextStream(streamPrompt, {
+        signal,
         onDelta: consumeText,
         onReasoningDelta: (delta) => {
           if (!delta.trim()) return;
@@ -1270,7 +1302,9 @@ You must fill every placeholder card index exactly once. Placeholder card plan: 
         try {
           const retryResult = await callAIForTextResult(`${prompt}
 
-The previous streaming response did not complete every placeholder card. Return one normal JSON object only, with cards for this exact placeholder plan: ${placeholderPlan}.`);
+The previous streaming response did not complete every placeholder card. Return one normal JSON object only, with cards for this exact placeholder plan: ${placeholderPlan}.`, {
+            signal,
+          });
           const jsonText = extractFirstJsonObject(retryResult.content);
           const parsed = JSON.parse(jsonText) as {
             reply?: string;
@@ -1552,6 +1586,8 @@ The previous streaming response did not complete every placeholder card. Return 
       setAssistantInput('');
       setAssistantInputContexts([]);
       setAssistantLoading(true);
+      const abortController = new AbortController();
+      assistantAbortControllerRef.current = abortController;
       const attachedContextSummary = assistantInputContexts
         .map((context) => context.title)
         .join('、');
@@ -1975,7 +2011,9 @@ ${settingLibraryContext || '无'}`;
             userText: effectiveUserText,
             mode: forcedMode || 'append',
             placementOptions,
+            signal: abortController.signal,
           });
+          if (abortController.signal.aborted) return;
           const actionText =
             streamed.placement.count > 0
               ? language === 'zh'
@@ -2031,7 +2069,8 @@ ${settingLibraryContext || '无'}`;
           return;
         }
 
-        const aiResult = await callAIForTextResult(prompt);
+        const aiResult = await callAIForTextResult(prompt, { signal: abortController.signal });
+        if (abortController.signal.aborted) return;
         await playAssistantThought(aiResult.reasoning);
         const raw = aiResult.content;
         const jsonText = extractFirstJsonObject(raw);
@@ -2147,6 +2186,7 @@ ${settingLibraryContext || '无'}`;
         };
         setAssistantMessages((messages) => [...messages, assistantMessage]);
       } catch (error: any) {
+        if (abortController.signal.aborted) return;
         console.error('AI Assistant failed:', error);
         stopAgentWaiting?.();
         setAssistantMessages((messages) => [
@@ -2163,7 +2203,10 @@ ${settingLibraryContext || '无'}`;
           },
         ]);
       } finally {
-        setAssistantLoading(false);
+        if (assistantAbortControllerRef.current === abortController) {
+          assistantAbortControllerRef.current = null;
+          setAssistantLoading(false);
+        }
       }
     },
     [
@@ -3284,6 +3327,7 @@ cards 必须正好有 3 张。`);
     handleCancelCloseAssistantTask,
     assistantTaskPendingCloseId,
     handleAssistantSend,
+    handleStopAssistantGeneration,
     handleAssistantOptionSelect,
     handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,

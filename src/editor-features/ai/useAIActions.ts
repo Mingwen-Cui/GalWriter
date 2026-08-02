@@ -209,7 +209,8 @@ export const useAIActions = ({
   });
 
   const callAIForTextResult = useCallback(
-    async (prompt: string): Promise<AITextResult> => aiClient.generateText(prompt),
+    async (prompt: string, options?: { signal?: AbortSignal }): Promise<AITextResult> =>
+      aiClient.generateText(prompt, options),
     [aiClient],
   );
 
