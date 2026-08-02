@@ -10,9 +10,9 @@
   Image as ImageIcon,
   Layers,
   Link2,
+  MousePointerClick,
   MoveHorizontal,
   MoveVertical,
-  MousePointerClick,
   Palette,
   Plus,
   Radius,
@@ -23,14 +23,14 @@
   Volume2,
 } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
-import type { RenderColorStop, RenderFillType, WebMenuElement } from '../video/shared/types';
 import { parseColorValue, toHex8 } from '../video/shared/colorValue';
+import type { RenderColorStop, RenderFillType, WebMenuElement } from '../video/shared/types';
 import { normalizeGradientStops } from './webGradientStops';
 import {
   AlignButtons,
@@ -107,7 +107,7 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
   NonNullable<InspectorProps['surface']>,
   ButtonFunction[]
 > = {
-  start: ['custom', 'save', 'new', 'settings', 'link', 'volume'],
+  start: ['custom', 'continue', 'save', 'new', 'settings', 'link', 'volume'],
   archive: ['custom', 'slot', 'new', 'back', 'settings', 'link', 'volume'],
   settings: ['custom', 'back', 'auto', 'speed', 'controls', 'volume', 'link'],
   game: ['custom', 'audio', 'fullscreen', 'return', 'mainMenu', 'controlsToggle', 'volume', 'link'],
@@ -117,6 +117,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
   if (language === 'ja') {
     return {
       custom: '機能なし',
+      continue: 'ゲームを続ける',
       save: 'セーブ画面',
       new: '新規ゲーム',
       settings: '設定画面',
@@ -139,6 +140,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
   if (language === 'en') {
     return {
       custom: 'No action',
+      continue: 'Continue game',
       save: 'Open saves',
       new: 'New game',
       settings: 'Open settings',
@@ -160,6 +162,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
   }
   return {
     custom: '无功能',
+    continue: '继续游戏',
     save: '打开存档页',
     new: '新游戏',
     settings: '打开设置页',
@@ -2032,30 +2035,6 @@ function CornerRadiusIcon({
     >
       {paths[corner]}
     </svg>
-  );
-}
-
-function OutsideDismissPopover({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-[10000]"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="absolute right-5 top-[252px] w-[min(336px,calc(100vw-2.5rem))]"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
   );
 }
 

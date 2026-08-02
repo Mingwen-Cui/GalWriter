@@ -5,20 +5,20 @@ import { useRef, useState } from 'react';
 import type { Language } from '../../../lib/i18n';
 import { renderCopy } from '../video/shared/renderCopy';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
-import { WebEditableElementFrame } from './WebEditableElementFrame';
 import { GradientCanvasControl } from './GradientCanvasControl';
 import { getSurfaceBackground } from './StartMenuBackgroundInspector';
+import { WebEditableElementFrame } from './WebEditableElementFrame';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
   snapElementBoxToElementGuides,
   snapResizeBoxToElementGuides,
 } from './webElementAlignmentGuides';
 import {
-  webColorWithAlpha,
   webElementBoxStyle,
   webElementShadowStyle,
   webElementTextPaintStyle,
 } from './webElementStyle';
+import type { WebSaveSlot } from './webExport/webSaveSlots';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
@@ -33,10 +33,6 @@ const resizeCursorByHandle: Record<PlacementResizeHandle, string> = {
   sw: 'nesw-resize',
   nw: 'nwse-resize',
   se: 'nwse-resize',
-};
-
-const colorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
-  return webColorWithAlpha(color, alpha, '#000000');
 };
 
 const elementRadiusStyle = (
@@ -78,6 +74,9 @@ type WebPreviewMenuPagesProps = {
   onCloseSettings: () => void;
   onOpenSettings: () => void;
   onNewGame: () => void;
+  saveSlots?: WebSaveSlot[];
+  onContinueSave?: (slot: WebSaveSlot) => void;
+  onDeleteSave?: (slotId: string) => void;
   onToggleControls: () => void;
   onButtonFunction: (element: WebMenuElement) => boolean;
   onSelectElement?: (id: string | null) => void;
@@ -117,6 +116,9 @@ export function WebPreviewMenuPages({
   onCloseSettings,
   onOpenSettings,
   onNewGame,
+  saveSlots = [],
+  onContinueSave,
+  onDeleteSave,
   onToggleControls,
   onButtonFunction,
   onSelectElement,
@@ -443,7 +445,7 @@ export function WebPreviewMenuPages({
           />
           <MenuPageElementLayer
             page="archive"
-            elements={archiveElements}
+            elements={previewMode === 'test' ? archiveElements.filter((element) => element.role !== 'slot') : archiveElements}
             selectedElementId={selectedStartMenuElementId}
             selectedElementIds={selectedElementIds}
             previewMode={previewMode}
@@ -460,6 +462,24 @@ export function WebPreviewMenuPages({
               if (element.role === 'settings') onOpenSettings();
             }}
           />
+          {previewMode === 'test' && (
+            <div className="absolute left-1/2 top-[30%] z-30 grid w-[min(56%,680px)] -translate-x-1/2 gap-3 rounded-2xl border border-white/20 bg-slate-950/72 p-4 shadow-2xl backdrop-blur-md">
+              {saveSlots.length === 0 ? (
+                <p className="text-center text-sm text-white/65">{renderCopy(language, '尚无存档', 'セーブなし', 'No save')}</p>
+              ) : saveSlots.map((slot, index) => (
+                <article key={slot.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-xl border border-white/12 bg-white/[0.08] px-4 py-3 shadow-lg">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">{renderCopy(language, `存档 ${index + 1}`, `セーブ ${index + 1}`, `Save ${index + 1}`)}</p>
+                    <p className="mt-1 truncate text-xs text-white/55">{new Date(slot.savedAt).toLocaleString()}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button type="button" className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-400" onClick={() => onContinueSave?.(slot)}>{renderCopy(language, '继续', '続ける', 'Continue')}</button>
+                    <button type="button" className="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/18" onClick={() => onDeleteSave?.(slot.id)}>{renderCopy(language, '删除', '削除', 'Delete')}</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {settingsOpen && (

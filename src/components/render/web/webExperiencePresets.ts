@@ -145,6 +145,7 @@ const makeStartElements = (
   choiceTextColor: string,
   variant: 'center' | 'left' | 'quiet',
 ): WebMenuElement[] => {
+  const continueLabel = renderCopy(labels.language, '继续游戏', '続ける', 'Continue Game');
   const gradientButton = (
     config: Parameters<typeof buttonElement>[0],
     start: string,
@@ -180,6 +181,7 @@ const makeStartElements = (
         fontWeight: 600,
         letterSpacing: 1.2,
       },
+      gradientButton({ id: 'continue', role: 'continue', text: continueLabel, x: 9, y: 43, width: 30, height: 9, fontSize: 16, textColor: choiceTextColor, borderRadius: 18 }, '#6366f1', '#4338ca'),
       gradientButton({
         id: 'new',
         role: 'new',
@@ -236,6 +238,7 @@ const makeStartElements = (
         fontWeight: 400,
         letterSpacing: 1.6,
       },
+      gradientButton({ id: 'continue', role: 'continue', text: continueLabel, x: 31, y: 56, width: 38, height: 7, fontSize: 14, textColor: choiceTextColor, borderRadius: 4 }, '#64748b', '#334155'),
       gradientButton({
         id: 'new',
         role: 'new',
@@ -303,6 +306,7 @@ const makeStartElements = (
       shadowOffsetX: 0,
       shadowOffsetY: 2,
     },
+    gradientButton({ id: 'continue', role: 'continue', text: continueLabel, x: 30, y: 43, width: 40, height: 9, fontSize: 18, textColor: choiceTextColor, borderRadius: 12 }, '#6366f1', '#4338ca'),
     gradientButton({
       id: 'new',
       role: 'new',

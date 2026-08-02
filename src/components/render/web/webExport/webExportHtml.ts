@@ -57,6 +57,7 @@ export const makeIndexHtml = (
         <p class="start-subtitle" id="startSubtitle"></p>
       </div>
       <div class="start-actions">
+        <button class="start-action primary" id="continueGameButton" type="button"></button>
         <button class="start-action primary" id="saveSlotButton" type="button"></button>
         <button class="start-action" id="newGameButton" type="button"></button>
         <button class="start-action" id="settingsButton" type="button"></button>
@@ -90,6 +91,15 @@ export const makeIndexHtml = (
           <button class="settings-toggle" id="settingControlsButton" type="button"></button>
         </div>
       </div>
+    </div>
+  </div>
+  <div class="settings-backdrop" id="saveBackdrop">
+    <div class="settings-panel save-panel" role="dialog" aria-modal="true">
+      <div class="settings-head">
+        <div class="settings-title" id="saveTitle"></div>
+        <button class="settings-close" id="saveClose" type="button" aria-label="Close">&#10005;</button>
+      </div>
+      <div class="save-list" id="saveList"></div>
     </div>
   </div>
   </div>
@@ -517,10 +527,10 @@ export const makeIndexHtml = (
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
     const labels = content.language === "zh"
-      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", mainMenu: "\\u4e3b\\u754c\\u9762", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u58f0\\u97f3\\u56de\\u653e", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3", saveSlot: "\\u5b58\\u6863", noSave: "\\u6ca1\\u6709\\u5b58\\u6863", newGame: "\\u65b0\\u6e38\\u620f", settings: "\\u8bbe\\u7f6e", savedAt: "\\u4e0a\\u6b21\\u8fdb\\u5ea6", saved: "\\u5df2\\u5b58\\u6863", autoPlay: "\\u81ea\\u52a8\\u64ad\\u653e", textSpeed: "\\u6253\\u5b57\\u901f\\u5ea6", controls: "\\u663e\\u793a\\u63a7\\u4ef6" }
+      ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", mainMenu: "\\u4e3b\\u754c\\u9762", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed\\u6e38\\u620f", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u58f0\\u97f3\\u56de\\u653e", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3", saveSlot: "\\u5b58\\u6863", noSave: "\\u6ca1\\u6709\\u5b58\\u6863", newGame: "\\u65b0\\u6e38\\u620f", settings: "\\u8bbe\\u7f6e", savedAt: "\\u4e0a\\u6b21\\u8fdb\\u5ea6", saved: "\\u5df2\\u5b58\\u6863", archive: "\\u5b58\\u6863\\u5217\\u8868", deleteSave: "\\u5220\\u9664", autoPlay: "\\u81ea\\u52a8\\u64ad\\u653e", textSpeed: "\\u6253\\u5b57\\u901f\\u5ea6", controls: "\\u663e\\u793a\\u63a7\\u4ef6" }
       : content.language === "ja"
         ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", mainMenu: "\\u30e1\\u30a4\\u30f3", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093", playlist: "\\u97f3\\u58f0\\u518d\\u751f", playlistHint: "\\u6700\\u8fd1\\u8074\\u3044\\u305f\\u9332\\u97f3\\u3092\\u4e0a\\u306b\\u8868\\u793a", playlistEmpty: "\\u518d\\u751f\\u3057\\u305f\\u9332\\u97f3\\u304c\\u3053\\u3053\\u306b\\u8868\\u793a\\u3055\\u308c\\u307e\\u3059", untitledAudio: "\\u540d\\u79f0\\u672a\\u8a2d\\u5b9a\\u306e\\u9332\\u97f3", saveSlot: "\\u30bb\\u30fc\\u30d6", noSave: "\\u30bb\\u30fc\\u30d6\\u306a\\u3057", newGame: "\\u65b0\\u898f\\u30b2\\u30fc\\u30e0", settings: "\\u8a2d\\u5b9a", savedAt: "\\u524d\\u56de\\u306e\\u9032\\u6357", saved: "\\u30bb\\u30fc\\u30d6\\u6e08\\u307f", autoPlay: "\\u81ea\\u52d5\\u518d\\u751f", textSpeed: "\\u30c6\\u30ad\\u30b9\\u30c8\\u901f\\u5ea6", controls: "\\u64cd\\u4f5c\\u8868\\u793a" }
-        : { back: "Back", reset: "Restart", mainMenu: "Menu", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio replay", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio", saveSlot: "Save", noSave: "No save", newGame: "New Game", settings: "Settings", savedAt: "Last progress", saved: "Saved", autoPlay: "Auto play", textSpeed: "Text speed", controls: "Show controls" };
+        : { back: "Back", reset: "Restart", mainMenu: "Menu", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue Game", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio replay", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio", saveSlot: "Saves", noSave: "No save", newGame: "New Game", settings: "Settings", savedAt: "Last progress", saved: "Saved", archive: "Save slots", deleteSave: "Delete", autoPlay: "Auto play", textSpeed: "Text speed", controls: "Show controls" };
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
     let currentId = root ? root.id : null;
@@ -550,10 +560,15 @@ export const makeIndexHtml = (
     const startPanel = document.querySelector(".start-panel");
     const startLayer = document.getElementById("startLayer");
     const startMenuAudio = document.getElementById("startMenuAudio");
+    const continueGameButton = document.getElementById("continueGameButton");
     const settingsPanel = document.querySelector(".settings-panel");
     const saveSlotButton = document.getElementById("saveSlotButton");
     const newGameButton = document.getElementById("newGameButton");
     const settingsButton = document.getElementById("settingsButton");
+    const saveBackdrop = document.getElementById("saveBackdrop");
+    const saveTitle = document.getElementById("saveTitle");
+    const saveClose = document.getElementById("saveClose");
+    const saveList = document.getElementById("saveList");
     const settingsBackdrop = document.getElementById("settingsBackdrop");
     const settingsTitle = document.getElementById("settingsTitle");
     const settingsClose = document.getElementById("settingsClose");
@@ -626,28 +641,51 @@ export const makeIndexHtml = (
     let regionUnlockCleanup = null;
     let zenPositionFrame = 0;
     let zenPositionObserver = null;
-    const saveKey = "galwriter-web-save:" + encodeURIComponent(String(content.title || "GalWriter"));
+    const saveKey = "galwriter-web-saves:" + encodeURIComponent(String(content.title || "GalWriter"));
+    const legacySaveKey = "galwriter-web-save:" + encodeURIComponent(String(content.title || "GalWriter"));
+    let activeSaveId = null;
 
-    function readSave() {
+    function readSaveCollection() {
       try {
-        const raw = window.localStorage.getItem(saveKey);
+        const raw = window.localStorage.getItem(saveKey) || window.localStorage.getItem(legacySaveKey);
         if (!raw) return null;
         const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed.currentId !== "string") return null;
-        if (parsed.currentId !== "THE_END" && !nodeById.has(parsed.currentId)) return null;
-        return parsed;
+        const slots = Array.isArray(parsed?.slots) ? parsed.slots : [parsed];
+        const validSlots = slots.filter((save) => save && typeof save.currentId === "string" && (save.currentId === "THE_END" || nodeById.has(save.currentId))).map((save) => ({
+          ...save,
+          id: typeof save.id === "string" && save.id ? save.id : "save-" + (Number(save.savedAt) || Date.now()) + "-legacy",
+          createdAt: Number(save.createdAt) || Number(save.savedAt) || Date.now(),
+          savedAt: Number(save.savedAt) || Date.now(),
+        })).sort((left, right) => right.savedAt - left.savedAt);
+        if (!validSlots.length) return null;
+        const requestedActiveId = typeof parsed?.activeSaveId === "string" ? parsed.activeSaveId : null;
+        return { version: 2, activeSaveId: validSlots.some((save) => save.id === requestedActiveId) ? requestedActiveId : validSlots[0].id, slots: validSlots };
       } catch (error) {
-        console.warn("Could not read GalWriter web save:", error);
+        console.warn("Could not read GalWriter web saves:", error);
         return null;
       }
+    }
+
+    function readSave(id = activeSaveId) {
+      const collection = readSaveCollection();
+      if (!collection) return null;
+      const save = collection.slots.find((item) => item.id === id) || collection.slots.find((item) => item.id === collection.activeSaveId) || null;
+      if (save) activeSaveId = save.id;
+      return save;
+    }
+
+    function canContinueSave(save) {
+      return Boolean(save && save.currentId && save.currentId !== "THE_END" && nodeById.has(save.currentId));
     }
 
     function writeSave() {
       if (!gameStarted) return;
       if (!currentId) return;
       try {
+        const previous = readSave(activeSaveId);
         const payload = {
-          version: 1,
+          id: activeSaveId || "save-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+          createdAt: previous?.createdAt || Date.now(),
           title: content.title || "GalWriter",
           currentId,
           history: Array.isArray(history) ? history.filter((id) => nodeById.has(id)) : [],
@@ -659,7 +697,10 @@ export const makeIndexHtml = (
           playedAudios,
           savedAt: Date.now(),
         };
-        window.localStorage.setItem(saveKey, JSON.stringify(payload));
+        activeSaveId = payload.id;
+        const collection = readSaveCollection();
+        const otherSlots = (collection?.slots || []).filter((save) => save.id !== payload.id);
+        window.localStorage.setItem(saveKey, JSON.stringify({ version: 2, activeSaveId: payload.id, slots: [payload, ...otherSlots].sort((left, right) => right.savedAt - left.savedAt) }));
         updateStartMenu();
       } catch (error) {
         console.warn("Could not write GalWriter web save:", error);
@@ -692,6 +733,52 @@ export const makeIndexHtml = (
       return labels.savedAt + " " + date.toLocaleString();
     }
 
+    function saveProgressLabel(save) {
+      const node = save?.currentId && save.currentId !== "THE_END" ? nodeById.get(save.currentId) : null;
+      const text = node?.data?.title || node?.data?.text || (save?.currentId === "THE_END" ? labels.end : "");
+      return String(text || "").replace(/<[^>]*>/g, "").replace(/\\s+/g, " ").trim().slice(0, 72);
+    }
+
+    function openSaveList() {
+      const collection = readSaveCollection();
+      saveTitle.textContent = labels.archive || labels.saveSlot;
+      saveList.innerHTML = "";
+      const slots = collection?.slots || [];
+      if (!slots.length) {
+        const empty = document.createElement("p");
+        empty.textContent = labels.noSave;
+        saveList.appendChild(empty);
+      }
+      slots.forEach((save) => {
+        const row = document.createElement("div");
+        row.className = "settings-row save-slot-row";
+        const meta = document.createElement("div");
+        meta.className = "settings-label";
+        meta.textContent = saveLabel(save) + (saveProgressLabel(save) ? " · " + saveProgressLabel(save) : "");
+        const actions = document.createElement("div");
+        const continueButton = document.createElement("button");
+        continueButton.type = "button";
+        continueButton.className = "save-slot-action primary";
+        continueButton.textContent = labels.continue;
+        continueButton.addEventListener("click", () => { activeSaveId = save.id; if (applySave(save)) { saveBackdrop.classList.remove("open"); startGameFromCurrent(); } });
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "save-slot-action";
+        deleteButton.textContent = labels.deleteSave || "Delete";
+        deleteButton.addEventListener("click", () => {
+          const latest = readSaveCollection();
+          const nextSlots = (latest?.slots || []).filter((item) => item.id !== save.id);
+          activeSaveId = activeSaveId === save.id ? nextSlots[0]?.id || null : activeSaveId;
+          window.localStorage.setItem(saveKey, JSON.stringify({ version: 2, activeSaveId, slots: nextSlots }));
+          openSaveList(); updateStartMenu();
+        });
+        actions.append(continueButton, deleteButton);
+        row.append(meta, actions);
+        saveList.appendChild(row);
+      });
+      saveBackdrop.classList.add("open");
+    }
+
     function renderCustomStartMenu(save) {
       const hasCustomElements = settings.startMenuElements.length > 0;
       startPanel.hidden = hasCustomElements;
@@ -699,14 +786,17 @@ export const makeIndexHtml = (
       if (!hasCustomElements) return;
       startLayer.innerHTML = "";
       const actionByRole = {
+        continue: {
+          label: labels.continue,
+          disabled: !canContinueSave(save),
+          primary: true,
+          onClick: continueSavedGame,
+        },
         save: {
           label: labels.saveSlot,
-          disabled: !save,
+          disabled: false,
           primary: true,
-          onClick: () => {
-            const loaded = readSave();
-            if (loaded && applySave(loaded)) startGameFromCurrent();
-          },
+          onClick: openSaveList,
         },
         new: {
           label: labels.newGame,
@@ -831,8 +921,11 @@ export const makeIndexHtml = (
       const showNewGame = Boolean(settings.startMenuShowNewGame) || (!settings.startMenuShowSave && !settings.startMenuShowSettings);
       const showSettings = Boolean(settings.startMenuShowSettings);
       startSubtitle.textContent = save ? saveLabel(save) : labels.noSave;
+      continueGameButton.textContent = labels.continue;
+      continueGameButton.disabled = !canContinueSave(save);
+      continueGameButton.hidden = !canContinueSave(save);
       saveSlotButton.textContent = labels.saveSlot;
-      saveSlotButton.disabled = !save;
+      saveSlotButton.disabled = false;
       saveSlotButton.hidden = !showSave;
       newGameButton.textContent = labels.newGame;
       newGameButton.hidden = !showNewGame;
@@ -919,11 +1012,12 @@ export const makeIndexHtml = (
     }
 
     function startNewGame() {
+      if (!root) return;
       restartPlaybackSession();
       history = [];
       currentId = root ? root.id : null;
       autoAdvanceHoldId = currentId;
-      window.localStorage.removeItem(saveKey);
+      activeSaveId = "save-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
       startGameFromCurrent();
       writeSave();
     }
@@ -1861,9 +1955,14 @@ export const makeIndexHtml = (
       render();
       writeSave();
     });
-    saveSlotButton.addEventListener("click", continueSavedGame);
+    continueGameButton.addEventListener("click", continueSavedGame);
+    saveSlotButton.addEventListener("click", openSaveList);
     newGameButton.addEventListener("click", startNewGame);
     settingsButton.addEventListener("click", openSettingsPanel);
+    saveClose.addEventListener("click", () => saveBackdrop.classList.remove("open"));
+    saveBackdrop.addEventListener("click", (event) => {
+      if (event.target === saveBackdrop) saveBackdrop.classList.remove("open");
+    });
     settingsClose.addEventListener("click", closeSettingsPanel);
     settingsBackdrop.addEventListener("click", (event) => {
       if (event.target === settingsBackdrop) closeSettingsPanel();

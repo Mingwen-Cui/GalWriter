@@ -64,7 +64,7 @@ export const readStartMenuImageFile = (file: File, onReady: (value: string) => v
   reader.readAsDataURL(file);
 };
 
-export const protectedStartMenuElementRoles = new Set(['save', 'new', 'settings']);
+export const protectedStartMenuElementRoles = new Set(['continue', 'save', 'new', 'settings']);
 
 export const buildDefaultStartMenuElements = ({
   settings: _settings,

@@ -832,6 +832,13 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .settings-toggle.on { background: var(--choice-color, #0ea5e9); }
     .settings-toggle.on::before { transform: translateX(20px); }
+    .save-list { display: grid; gap: 12px; max-height: min(56vh, 460px); overflow-y: auto; padding: 2px; }
+    .save-slot-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; min-height: 64px; padding: 14px 16px; border-color: rgba(255,255,255,0.16); border-radius: 14px; background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)); box-shadow: 0 12px 28px rgba(2,6,23,0.2); }
+    .save-slot-row > div:last-child { display: flex; gap: 8px; }
+    .save-slot-action { border: 1px solid rgba(255,255,255,0.18); border-radius: 9px; background: rgba(255,255,255,0.1); color: #f8fafc; padding: 8px 12px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: background 140ms ease, transform 140ms ease; }
+    .save-slot-action:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+    .save-slot-action.primary { background: var(--choice-color, #0ea5e9); border-color: transparent; }
+    .save-slot-action.primary:hover { background: color-mix(in srgb, var(--choice-color, #0ea5e9) 82%, white); }
     @media (max-width: 720px) {
       main { padding: 0; }
       header { align-items: center; }

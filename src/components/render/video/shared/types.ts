@@ -206,6 +206,7 @@ export type WebMenuElement = {
   kind: 'button' | 'text' | 'image';
   role?:
     | 'save'
+    | 'continue'
     | 'new'
     | 'settings'
     | 'title'
