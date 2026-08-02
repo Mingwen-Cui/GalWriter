@@ -3,10 +3,13 @@ use std::{
   fs,
   io::Write,
   path::{Path, PathBuf},
-  process::{Command, Stdio},
+  process::Command,
   sync::Mutex,
   time::{SystemTime, UNIX_EPOCH},
 };
+
+#[cfg(target_os = "windows")]
+use std::process::Stdio;
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 #[cfg(target_os = "windows")]
