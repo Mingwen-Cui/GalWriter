@@ -65,11 +65,6 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
-import {
-  createCharacterPresentation,
-  createScenePresentation,
-  normalizeStoryPresentation,
-} from '../../lib/presentation';
 import { isTauriRuntime } from '../../lib/tauriRuntime';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
@@ -82,7 +77,6 @@ import {
   buildDefaultVoiceProfile,
   updateProfileList,
 } from './aiProfiles';
-import { resolveAssistantStorySceneMedia } from './assistantMentions';
 import { mixHexColor, resolveAccentColor } from './colorUtils';
 import {
   AI_STORY_CARD_HEIGHT,
@@ -107,7 +101,7 @@ import { createDefaultEdgeOptions, INITIAL_EDGES, INITIAL_NODES } from './initia
 import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
 import { getMediaDimensions, TITLE_HEIGHT } from './mediaDimensions';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
-import { getPersistedProjectName, getProjectDisplayName } from './projectNames';
+import { getPersistedProjectName } from './projectNames';
 import { StoryCanvasWorkspace } from './StoryCanvasWorkspace';
 import { StoryEditorZenOverlay } from './StoryEditorZenOverlay';
 import { resolveSystemTheme } from './theme';
@@ -122,11 +116,13 @@ import { useAssistantSystem } from './useAssistantSystem';
 import { useEditorFooterHint } from './useEditorFooterHint';
 import { useEditorHistory } from './useEditorHistory';
 import { useEditorKeyboardShortcuts } from './useEditorKeyboardShortcuts';
+import { useEditorUtilityActions } from './useEditorUtilityActions';
 import { useGraphPresentation } from './useGraphPresentation';
 import { usePlotStructureGeneration } from './usePlotStructureGeneration';
 import { useProjectManagement } from './useProjectManagement';
 import { useRegionAssistantContext } from './useRegionAssistantContext';
 import { useStoryNodeSpeechGeneration } from './useStoryNodeSpeechGeneration';
+import { useStoryPresentationBindings } from './useStoryPresentationBindings';
 import { syncCloseButtonBehavior } from './windowBehavior';
 
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
@@ -459,8 +455,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     new URLSearchParams(window.location.search).get('mobile') === '1';
   const isMobile = forceMobileUi || effectiveFlowWidth < 768;
 
-  const [qqCopied, setQqCopied] = useState(false);
-  const [emailCopied, setEmailCopied] = useState(false);
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
@@ -604,83 +598,15 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
   }, []);
 
-  const handleContactCopy = (text: string, type: 'qq' | 'email') => {
-    const performCopy = async () => {
-      // 1. 尝试使用现代 Clipboard API (需要HTTPS/localhost)
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        try {
-          await navigator.clipboard.writeText(text);
-          return true;
-        } catch (err) {
-          console.error('Modern copy failed', err);
-        }
-      }
-
-      // 2. 备选方案：传统 textarea 复制(兼容性更强
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        textArea.style.top = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        return successful;
-      } catch (err) {
-        console.error('Fallback copy failed', err);
-        return false;
-      }
-    };
-
-    performCopy().then((success) => {
-      if (success) {
-        showToast(storyEditorCopy.copySuccess);
-        if (type === 'qq') {
-          setQqCopied(true);
-          setTimeout(() => setQqCopied(false), 2000);
-        } else {
-          setEmailCopied(true);
-          setTimeout(() => setEmailCopied(false), 2000);
-        }
-      }
+  const { emailCopied, handleContactCopy, handleDownloadAssistantMemory, qqCopied } =
+    useEditorUtilityActions({
+      assistantMemoryNotes,
+      assistantMemorySkillEnabled,
+      projectTitle,
+      saveFileName,
+      showToast,
+      storyEditorCopy,
     });
-  };
-
-  const handleDownloadAssistantMemory = useCallback(() => {
-    const payload = {
-      kind: 'galwriter-assistant-memory',
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      projectTitle: getProjectDisplayName(projectTitle, saveFileName) || DEFAULT_PROJECT_FILE_NAME,
-      enabled: assistantMemorySkillEnabled,
-      notes: assistantMemoryNotes,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const safeTitle = (payload.projectTitle || 'galwriter')
-      .replace(/[\\/:*?"<>|]+/g, '-')
-      .replace(/\s+/g, '-');
-    link.href = url;
-    link.download = `${safeTitle}-assistant-memory.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast(storyEditorCopy.assistantMemoryDownloaded);
-  }, [
-    assistantMemoryNotes,
-    assistantMemorySkillEnabled,
-    projectTitle,
-    saveFileName,
-    showToast,
-    storyEditorCopy.assistantMemoryDownloaded,
-  ]);
 
   // 卡片剪贴板
   const [nodeClipboard, setNodeClipboard] = useState<{ nodes: Node[]; edges: Edge[] } | null>(null);
@@ -1185,187 +1111,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [setEdges],
   );
 
-  React.useEffect(() => {
-    setNodes((currentNodes) => {
-      const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
-      let changed = false;
-
-      const nextNodes = currentNodes.map((node) => {
-        if (node.type !== 'storyNode') return node;
-
-        const connectedEdges = edges.filter(
-          (edge) => edge.source === node.id || edge.target === node.id,
-        );
-        const connectedSceneBinding = connectedEdges
-          .map((edge) => {
-            const connectedId = edge.source === node.id ? edge.target : edge.source;
-            const connected = nodeById.get(connectedId);
-            if (connected?.type !== 'sceneNode') return null;
-
-            const sceneHandle = edge.source === connectedId ? edge.sourceHandle : edge.targetHandle;
-            const imageId = sceneHandle?.match(/^image-(?:in|out)-(.+)$/)?.[1];
-            const sceneImages = Array.isArray(connected.data.images)
-              ? (connected.data.images as Array<{
-                  id: string;
-                  imageUrl?: string;
-                  videoUrl?: string;
-                }>)
-              : [];
-            const selectedMedia = imageId
-              ? sceneImages.find(
-                  (image) => image.id === imageId && (image.imageUrl || image.videoUrl),
-                )
-              : undefined;
-            const imageUrl =
-              selectedMedia?.imageUrl ||
-              (!selectedMedia && typeof connected.data.coverImageUrl === 'string'
-                ? connected.data.coverImageUrl
-                : undefined);
-            const videoUrl = selectedMedia?.videoUrl;
-            if (!imageUrl && !videoUrl) return null;
-
-            return {
-              node: connected,
-              imageId: selectedMedia?.id,
-              imageUrl,
-              videoUrl,
-            };
-          })
-          .filter((binding): binding is NonNullable<typeof binding> => Boolean(binding))
-          .sort((a, b) => Number(Boolean(b.imageId)) - Number(Boolean(a.imageId)))[0];
-        const connectedCharacterBindings = connectedEdges
-          .map((edge) => {
-            const connectedId = edge.source === node.id ? edge.target : edge.source;
-            const connected = nodeById.get(connectedId);
-            if (connected?.type !== 'characterNode') return null;
-
-            const characterHandle =
-              edge.source === connectedId ? edge.sourceHandle : edge.targetHandle;
-            const outfitId = characterHandle?.match(/^outfit-(?:in|out)-(.+)$/)?.[1];
-            const outfits = Array.isArray(connected.data.outfits)
-              ? (connected.data.outfits as Array<{ id: string }>)
-              : [];
-
-            return {
-              node: connected,
-              outfitId:
-                outfitId && outfits.some((outfit) => outfit.id === outfitId) ? outfitId : undefined,
-            };
-          })
-          .filter((binding): binding is NonNullable<typeof binding> => Boolean(binding));
-        const connectedCharacterById = new Map<
-          string,
-          (typeof connectedCharacterBindings)[number]
-        >();
-        connectedCharacterBindings.forEach((binding) => {
-          const existing = connectedCharacterById.get(binding.node.id);
-          if (!existing || binding.outfitId) {
-            connectedCharacterById.set(binding.node.id, binding);
-          }
-        });
-        const presentation = normalizeStoryPresentation(node.data.presentation as any);
-        let nextScene = presentation.scene;
-        let nextImageUrl = node.data.imageUrl as string | undefined;
-        let nextVideoUrl = node.data.videoUrl as string | undefined;
-        let nextShowTextOverlay = node.data.showTextOverlay as boolean | undefined;
-
-        if (connectedSceneBinding) {
-          const connectedScene = connectedSceneBinding.node;
-          const previousImageUrl =
-            nextScene?.linkedByEdge && nextScene.previousImageUrl !== undefined
-              ? nextScene.previousImageUrl
-              : nextImageUrl;
-          const previousVideoUrl =
-            nextScene?.linkedByEdge && nextScene.previousVideoUrl !== undefined
-              ? nextScene.previousVideoUrl
-              : nextVideoUrl;
-          nextScene = {
-            ...(nextScene?.sourceNodeId === connectedScene.id
-              ? nextScene
-              : createScenePresentation(
-                  connectedScene.id,
-                  previousImageUrl,
-                  true,
-                  nextShowTextOverlay,
-                )),
-            sourceNodeId: connectedScene.id,
-            linkedByEdge: true,
-            imageId: connectedSceneBinding.imageId,
-            previousImageUrl,
-            previousVideoUrl,
-            previousShowTextOverlay:
-              nextScene?.linkedByEdge && nextScene.previousShowTextOverlay !== undefined
-                ? nextScene.previousShowTextOverlay
-                : nextShowTextOverlay,
-          };
-          nextImageUrl = connectedSceneBinding.imageUrl;
-          nextVideoUrl = connectedSceneBinding.videoUrl;
-          nextShowTextOverlay = true;
-        } else if (nextScene?.linkedByEdge) {
-          nextImageUrl = nextScene.previousImageUrl;
-          nextVideoUrl = nextScene.previousVideoUrl;
-          nextShowTextOverlay = nextScene.previousShowTextOverlay;
-          nextScene = undefined;
-        } else if (nextScene) {
-          const taggedSceneMedia = resolveAssistantStorySceneMedia(presentation, currentNodes);
-          if (taggedSceneMedia.imageUrl || taggedSceneMedia.videoUrl) {
-            nextImageUrl = taggedSceneMedia.imageUrl;
-            nextVideoUrl = taggedSceneMedia.videoUrl;
-            nextShowTextOverlay = taggedSceneMedia.showTextOverlay;
-          }
-        }
-
-        const connectedCharacterIds = new Set(connectedCharacterById.keys());
-        const nextCharacters = presentation.characters
-          .filter(
-            (character) =>
-              !character.linkedByEdge || connectedCharacterIds.has(character.sourceNodeId),
-          )
-          .map((character) => {
-            const binding = connectedCharacterById.get(character.sourceNodeId);
-            return binding
-              ? { ...character, linkedByEdge: true, outfitId: binding.outfitId }
-              : character;
-          });
-        connectedCharacterById.forEach((binding) => {
-          if (!nextCharacters.some((item) => item.sourceNodeId === binding.node.id)) {
-            nextCharacters.push({
-              ...createCharacterPresentation(binding.node.id, true),
-              outfitId: binding.outfitId,
-            });
-          }
-        });
-
-        const nextPresentation = {
-          scene: nextScene,
-          characters: nextCharacters,
-          inlineActions: presentation.inlineActions,
-        };
-        if (
-          nextImageUrl === node.data.imageUrl &&
-          nextVideoUrl === node.data.videoUrl &&
-          nextShowTextOverlay === node.data.showTextOverlay &&
-          JSON.stringify(nextPresentation) === JSON.stringify(presentation)
-        ) {
-          return node;
-        }
-
-        changed = true;
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            imageUrl: nextImageUrl,
-            videoUrl: nextVideoUrl,
-            showTextOverlay: nextShowTextOverlay,
-            presentation: nextPresentation,
-          },
-        };
-      });
-
-      return changed ? nextNodes : currentNodes;
-    });
-  }, [edges, nodes, setNodes]);
+  useStoryPresentationBindings({
+    edges,
+    nodes,
+    setNodes,
+  });
 
   useCanvasDnD({
     canvasWrapperRef,
