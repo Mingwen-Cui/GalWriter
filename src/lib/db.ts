@@ -62,6 +62,18 @@ export interface LocalAIProfilesState {
   activeVoiceProfileId: string | null;
 }
 
+export interface MusicLibraryItem {
+  id: string;
+  name: string;
+  blob: Blob;
+  mimeType?: string;
+  tags?: string[];
+  loop?: boolean;
+  volume?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 interface StoredAutoSaveRecord {
   timestamp: number;
   snapshot: string;
@@ -116,6 +128,13 @@ interface GalWriterDB extends DBSchema {
     key: string;
     value: StoredVoicePreviewRecord;
   };
+  musicLibrary: {
+    key: string;
+    value: MusicLibraryItem;
+    indexes: {
+      'by-updatedAt': number;
+    };
+  };
   appSettings: {
     key: string;
     value: LocalAppSettings;
@@ -131,7 +150,7 @@ interface GalWriterDB extends DBSchema {
 }
 
 const DB_NAME = 'GalWriterDB';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const APP_SETTINGS_KEY = 'current';
 const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   theme: null,
@@ -200,6 +219,11 @@ const getDB = () => {
 
         if (!db.objectStoreNames.contains('voicePreviewCache')) {
           db.createObjectStore('voicePreviewCache');
+        }
+
+        if (!db.objectStoreNames.contains('musicLibrary')) {
+          const musicLibraryStore = db.createObjectStore('musicLibrary', { keyPath: 'id' });
+          musicLibraryStore.createIndex('by-updatedAt', 'updatedAt');
         }
 
         if (!db.objectStoreNames.contains('appSettings')) {
@@ -651,6 +675,32 @@ export const listSettingLibraryItems = async (): Promise<SettingLibraryItem[]> =
 export const deleteSettingLibraryItem = async (id: string): Promise<void> => {
   const db = await getDB();
   await db.delete('settingLibrary', id);
+};
+
+export const listMusicLibraryItems = async (): Promise<MusicLibraryItem[]> => {
+  const db = await getDB();
+  const tx = db.transaction('musicLibrary');
+  const index = tx.store.index('by-updatedAt');
+  const items: MusicLibraryItem[] = [];
+  let cursor = await index.openCursor(null, 'prev');
+
+  while (cursor) {
+    items.push(cursor.value);
+    cursor = await cursor.continue();
+  }
+
+  await tx.done;
+  return items;
+};
+
+export const saveMusicLibraryItem = async (item: MusicLibraryItem): Promise<void> => {
+  const db = await getDB();
+  await db.put('musicLibrary', item);
+};
+
+export const deleteMusicLibraryItem = async (id: string): Promise<void> => {
+  const db = await getDB();
+  await db.delete('musicLibrary', id);
 };
 
 export const getVoicePreviewCache = async (key: string): Promise<Blob | null> => {

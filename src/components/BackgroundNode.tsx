@@ -6,11 +6,13 @@ import {
   useStore,
   useViewport,
 } from '@xyflow/react';
-import { BookOpen, Bot, Lock, Replace, Repeat2, Trash2, Unlock } from 'lucide-react';
+import { BookOpen, Bot, Lock, Repeat2, Replace, Trash2, Unlock } from 'lucide-react';
 import React, { memo } from 'react';
 
 import type { RegionBackgroundMusic } from '../domain/project';
+import type { Language } from '../lib/i18n';
 import { isBatchReplaceNode, isPlotStructureNode } from '../lib/regionUtils';
+import { RegionColorPicker } from './RegionColorPicker';
 import { RegionMusicMenu } from './RegionMusicControls';
 
 type Point = {
@@ -115,6 +117,7 @@ function isPlotStructureNodeLocal(node: any) {
 
 export function BackgroundNode({ id, data, selected }: NodeProps) {
   const color = (data.color as string) || '#f1f5f9';
+  const language = (data.language as Language) || 'zh';
   const title = (data.title as string) ?? '背景区域';
   const cardToolbarScale =
     typeof data.cardToolbarScale === 'number' && Number.isFinite(data.cardToolbarScale)
@@ -228,14 +231,14 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
             className="bg-transparent border-none outline-none text-xs font-bold text-[var(--text-primary)] w-24 cursor-text"
           />
 
-          <input
-            type="color"
-            value={color}
-            onChange={(event) => updateNodeData({ color: event.target.value })}
-            className="w-5 h-5 rounded-full overflow-hidden border-none p-0 cursor-pointer"
+          <RegionColorPicker
+            color={color}
+            language={language}
+            onChange={(nextColor) => updateNodeData({ color: nextColor })}
           />
 
           <RegionMusicMenu
+            language={language}
             active={Boolean(data.backgroundMusic)}
             value={data.backgroundMusic as RegionBackgroundMusic | undefined}
             onChange={(backgroundMusic) => updateNodeData({ backgroundMusic })}

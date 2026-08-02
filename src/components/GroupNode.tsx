@@ -1,8 +1,10 @@
 import { NodeProps, NodeToolbar, Position, useStore } from '@xyflow/react';
-import { Bot, Lock, Replace, Repeat2, Trash2, Unlock } from 'lucide-react';
+import { Bot, Lock, Repeat2, Replace, Trash2, Unlock } from 'lucide-react';
 import React, { memo, useCallback, useMemo } from 'react';
 
 import type { RegionBackgroundMusic } from '../domain/project';
+import type { Language } from '../lib/i18n';
+import { RegionColorPicker } from './RegionColorPicker';
 import { RegionMusicMenu } from './RegionMusicControls';
 
 /**
@@ -292,6 +294,7 @@ function isBatchToolNode(node: any) {
 export function GroupNode({ id, data, selected, width, height }: NodeProps) {
   const childIds = (data.childIds as string[]) || [];
   const color = (data.color as string) || '#6366f1';
+  const language = (data.language as Language) || 'zh';
   const title = (data.title as string) ?? '动态包裹';
   const locked = data.locked === true;
 
@@ -555,14 +558,14 @@ export function GroupNode({ id, data, selected, width, height }: NodeProps) {
               className="bg-transparent border-none outline-none text-xs font-bold text-[var(--text-primary)] w-24 cursor-text"
             />
 
-            <input
-              type="color"
-              value={color}
-              onChange={(event) => updateNodeData({ color: event.target.value })}
-              className="w-5 h-5 rounded-full overflow-hidden border-none p-0 cursor-pointer shadow-sm"
+            <RegionColorPicker
+              color={color}
+              language={language}
+              onChange={(nextColor) => updateNodeData({ color: nextColor })}
             />
 
             <RegionMusicMenu
+              language={language}
               active={Boolean(data.backgroundMusic)}
               value={data.backgroundMusic as RegionBackgroundMusic | undefined}
               onChange={(backgroundMusic) => updateNodeData({ backgroundMusic })}
