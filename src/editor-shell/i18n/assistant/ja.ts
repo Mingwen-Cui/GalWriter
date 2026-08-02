@@ -61,7 +61,7 @@ JSONのみを返してください：
     resultIntro: '選んだ好みから 3 つの物語の始まりを作りました。ひとつ選ぶか、もう一組作れます。',
     regenerate: '別の 3 つを出す',
     save: 'この端末に好みを記憶する',
-    saved: 'この端末の創作の好みとして保存しました。あとで変更・削除できます。',
+    saved: 'この端末の創作の好みとして保存しました。あとで更新できます。',
     saveFailed: 'この端末に好みを保存できませんでした。',
     chooseOpening: 'この始まりを選ぶ',
     generateCards: 'この始まりからカードを作る',
@@ -69,6 +69,8 @@ JSONのみを返してください：
     openingSelected: '「{title}」を選びました。次は何をしますか？',
     discussHint: 'この始まりのどこを調整したいか教えてください。',
     failure: '完全な始まりを 3 つ作れませんでした。もう一度試してください。',
+    profileSummary:
+      '人物の傾向：{persona}\nジャンル：{genres}\n関係性と物語の緊張：{dynamics}\n世界観：{worlds}\nプロットの方向：{plots}\n補足：{notes}',
     batchBackgrounds: {
       character: 'キャラクター設定',
       scene: '世界観とシーン',

@@ -60,7 +60,7 @@ export const assistantPanelZh = {
     resultIntro: '这是根据你的选择生成的 3 个故事开头。选一个继续发展，或再换一批。',
     regenerate: '再给我 3 个',
     save: '记住这些偏好（仅本机）',
-    saved: '已保存为本机创作偏好；之后可以随时更新或删除。',
+    saved: '已保存为本机创作偏好；之后可以随时更新。',
     saveFailed: '暂时无法把这些偏好保存在本机。',
     chooseOpening: '选这个开头',
     generateCards: '把它生成故事卡片',
@@ -68,6 +68,8 @@ export const assistantPanelZh = {
     openingSelected: '已选中「{title}」。下一步想怎么做？',
     discussHint: '说说你想调整这个开头的哪里。',
     failure: '没能生成 3 个完整的故事开头，请再试一次。',
+    profileSummary:
+      '人物倾向：{persona}\n题材偏好：{genres}\n关系与剧情张力：{dynamics}\n世界观：{worlds}\n剧情走向：{plots}\n补充说明：{notes}',
     batchBackgrounds: {
       character: '人物设定',
       scene: '世界观与场景',

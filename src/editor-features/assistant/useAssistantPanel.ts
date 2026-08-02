@@ -99,15 +99,15 @@ const updateStoryProfileValues = (
   return { ...next, persona: values };
 };
 
-const formatStoryProfileForPrompt = (profile: AssistantStoryProfile) =>
-  [
-    `persona: ${profile.persona.join(', ') || '-'}`,
-    `genres: ${profile.genres.join(', ') || '-'}`,
-    `relationship and tension: ${profile.dynamics.join(', ') || '-'}`,
-    `worldbuilding: ${profile.worlds.join(', ') || '-'}`,
-    `plot direction: ${profile.plots.join(', ') || '-'}`,
-    ...(profile.customNotes?.length ? [`notes: ${profile.customNotes.join(' | ')}`] : []),
-  ].join('\n');
+const formatStoryProfileForPrompt = (profile: AssistantStoryProfile, template: string) =>
+  formatLocalizedCopy(template, {
+    persona: profile.persona.join(', ') || '-',
+    genres: profile.genres.join(', ') || '-',
+    dynamics: profile.dynamics.join(', ') || '-',
+    worlds: profile.worlds.join(', ') || '-',
+    plots: profile.plots.join(', ') || '-',
+    notes: profile.customNotes?.join(' | ') || '-',
+  });
 
 interface UseAssistantPanelParams {
   language: Language;
@@ -1406,7 +1406,7 @@ The previous streaming response did not complete every placeholder card. Return 
       ]);
       try {
         const prompt = formatLocalizedCopy(profileCopy.openingPrompt, {
-          profile: formatStoryProfileForPrompt(profile),
+          profile: formatStoryProfileForPrompt(profile, profileCopy.profileSummary),
         });
         const result = await callAIForTextResult(prompt);
         const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
@@ -1766,7 +1766,10 @@ The previous streaming response did not complete every placeholder card. Return 
           : '';
       const savedStoryProfileContext = savedStoryProfile
         ? formatLocalizedCopy(assistantPanelCopy(language).profileFlow.persistentContext, {
-            profile: formatStoryProfileForPrompt(savedStoryProfile),
+            profile: formatStoryProfileForPrompt(
+              savedStoryProfile,
+              assistantPanelCopy(language).profileFlow.profileSummary,
+            ),
           })
         : '';
       if (assistantMemorySkillEnabled && memoryNote) {
@@ -1778,17 +1781,29 @@ The previous streaming response did not complete every placeholder card. Return 
       let placementOptions: AssistantCardPlacementOptions | undefined;
       const isShortDramaBundleRequest = /短剧|短劇|short drama|短編ドラマ/i.test(userText);
       if (workflow.type === 'profile-ready-to-generate' && !workflow.discussing) {
-        effectiveUserText = formatLocalizedCopy(assistantPanelCopy(language).profileFlow.generatePrompt, {
-          profile: formatStoryProfileForPrompt(workflow.profile),
-          opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
-        });
+        effectiveUserText = formatLocalizedCopy(
+          assistantPanelCopy(language).profileFlow.generatePrompt,
+          {
+            profile: formatStoryProfileForPrompt(
+              workflow.profile,
+              assistantPanelCopy(language).profileFlow.profileSummary,
+            ),
+            opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
+          },
+        );
         assistantWorkflowRef.current = { type: 'idle' };
       } else if (workflow.type === 'profile-ready-to-generate' && workflow.discussing) {
-        effectiveUserText = formatLocalizedCopy(assistantPanelCopy(language).profileFlow.discussPrompt, {
-          profile: formatStoryProfileForPrompt(workflow.profile),
-          opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
-          message: userText,
-        });
+        effectiveUserText = formatLocalizedCopy(
+          assistantPanelCopy(language).profileFlow.discussPrompt,
+          {
+            profile: formatStoryProfileForPrompt(
+              workflow.profile,
+              assistantPanelCopy(language).profileFlow.profileSummary,
+            ),
+            opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
+            message: userText,
+          },
+        );
         assistantWorkflowRef.current = { type: 'idle' };
       } else if (isIdeaWorkflow) {
         effectiveUserText = `请把这个新脑洞扩展成可落地的视觉小说开篇。用户脑洞：${userText}。请生成主要人物卡、核心场景卡，并生成6到10张按顺序推进的剧情卡，重点补足故事设定、角色关系、核心冲突和第一幕推进。`;

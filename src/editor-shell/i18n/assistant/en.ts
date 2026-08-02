@@ -47,8 +47,10 @@ Return JSON only:
       title: 'Get to know me',
       description: 'A few quick choices help me find story openings that feel more like you.',
     },
-    intro: 'I will ask five quick questions about your story taste. Skip anything you do not want to answer.',
-    savedIntro: 'I still remember your saved story taste. You can refresh it, or use it to create fresh openings.',
+    intro:
+      'I will ask five quick questions about your story taste. Skip anything you do not want to answer.',
+    savedIntro:
+      'I still remember your saved story taste. You can refresh it, or use it to create fresh openings.',
     progress: 'Question {current}/5',
     chooseOne: 'Choose the closest answer, or write your own.',
     chooseUpToThree: 'Pick up to 3, then tap Done. You can also write your own.',
@@ -59,10 +61,11 @@ Return JSON only:
     useSaved: 'Use my saved taste',
     refresh: 'Update my taste',
     generating: 'I am shaping three different openings for you…',
-    resultIntro: 'Here are three openings based on what you chose. Pick one to develop, or generate another set.',
+    resultIntro:
+      'Here are three openings based on what you chose. Pick one to develop, or generate another set.',
     regenerate: 'Give me three more',
     save: 'Remember these preferences on this device',
-    saved: 'Saved as your local story taste. You can change or erase it later.',
+    saved: 'Saved as your local story taste. You can update it later.',
     saveFailed: 'I could not save those preferences on this device.',
     chooseOpening: 'Use this opening',
     generateCards: 'Build this into story cards',
@@ -70,6 +73,8 @@ Return JSON only:
     openingSelected: '“{title}” is selected. What would you like to do next?',
     discussHint: 'Tell me what you would like to adjust about this opening.',
     failure: 'I could not create three complete openings. Please try again.',
+    profileSummary:
+      'persona: {persona}\ngenres: {genres}\nrelationship and tension: {dynamics}\nworldbuilding: {worlds}\nplot direction: {plots}\nnotes: {notes}',
     batchBackgrounds: {
       character: 'Characters',
       scene: 'World & Scenes',

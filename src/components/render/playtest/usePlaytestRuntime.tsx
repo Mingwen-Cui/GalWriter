@@ -54,6 +54,8 @@ export function usePlaytestRuntime({
   nodes,
   edges,
   onClose,
+  displayMode,
+  windowSettings,
   language,
   onLanguageChange: _onLanguageChange,
   isDarkMode,
@@ -95,6 +97,17 @@ export function usePlaytestRuntime({
 }: PlayTestProps) {
   const t = translations[language];
   const playtestText = getPlaytestText(language);
+  const windowContentScale =
+    displayMode === 'windowed'
+      ? Math.min(
+          1,
+          Math.max(
+            0.2,
+            (windowSettings.bounds?.width ?? 760) / Math.max(1, canvasSettings.canvasWidth),
+          ),
+        )
+      : 1;
+  const scaleWindowMetric = (value: number) => value * windowContentScale;
   const root = nodes.find((n) => n.data.isRoot) || nodes[0];
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(root?.id || null);
   const [history, setHistory] = useState<string[]>([]);
@@ -339,6 +352,7 @@ export function usePlaytestRuntime({
   const titleObject = renderObjects.title;
   const bodyObject = renderObjects.body;
   const dialogObject = renderObjects.dialogBox;
+  const dialogueCornerRadius = scaleWindowMetric(renderStyle.dialogRadius);
 
   const titleStyle: React.CSSProperties = {
     display: titleObject.visible ? undefined : 'none',
@@ -347,15 +361,18 @@ export function usePlaytestRuntime({
       colorInputValue(renderStyle.titleColor),
       (renderStyle.titleColorAlpha ?? 100) / 100,
     ),
-    WebkitTextStroke: textStroke(renderStyle.titleStrokeWidth, renderStyle.titleStrokeColor),
-    fontSize: renderStyle.titleFontSize,
-    letterSpacing: `${renderStyle.titleLetterSpacing ?? 0}px`,
+    WebkitTextStroke: textStroke(
+      scaleWindowMetric(renderStyle.titleStrokeWidth),
+      renderStyle.titleStrokeColor,
+    ),
+    fontSize: scaleWindowMetric(renderStyle.titleFontSize),
+    letterSpacing: `${scaleWindowMetric(renderStyle.titleLetterSpacing ?? 0)}px`,
     lineHeight: renderStyle.titleLineHeight,
     textAlign: renderStyle.titleAlign,
     overflowWrap: 'anywhere',
     width: `${titleObject.width}%`,
-    minHeight: `${titleObject.height}px`,
-    transform: `translate(${titleObject.x}px, ${titleObject.y}px) rotate(${titleObject.rotation}deg) scale(${titleObject.flipX ? -1 : 1}, ${titleObject.flipY ? -1 : 1})`,
+    minHeight: `${scaleWindowMetric(titleObject.height)}px`,
+    transform: `translate(${scaleWindowMetric(titleObject.x)}px, ${scaleWindowMetric(titleObject.y)}px) rotate(${titleObject.rotation}deg) scale(${titleObject.flipX ? -1 : 1}, ${titleObject.flipY ? -1 : 1})`,
   };
 
   const bodyStyle: React.CSSProperties = {
@@ -365,15 +382,18 @@ export function usePlaytestRuntime({
       colorInputValue(renderStyle.bodyColor),
       (renderStyle.bodyColorAlpha ?? 100) / 100,
     ),
-    WebkitTextStroke: textStroke(renderStyle.bodyStrokeWidth, renderStyle.bodyStrokeColor),
-    fontSize: renderStyle.bodyFontSize,
-    letterSpacing: `${renderStyle.bodyLetterSpacing ?? 0}px`,
+    WebkitTextStroke: textStroke(
+      scaleWindowMetric(renderStyle.bodyStrokeWidth),
+      renderStyle.bodyStrokeColor,
+    ),
+    fontSize: scaleWindowMetric(renderStyle.bodyFontSize),
+    letterSpacing: `${scaleWindowMetric(renderStyle.bodyLetterSpacing ?? 0)}px`,
     lineHeight: renderStyle.bodyLineHeight,
     textAlign: renderStyle.bodyAlign,
     overflowWrap: 'anywhere',
     width: `${bodyObject.width}%`,
-    minHeight: `${bodyObject.height}px`,
-    transform: `translate(${bodyObject.x}px, ${bodyObject.y}px) rotate(${bodyObject.rotation}deg) scale(${bodyObject.flipX ? -1 : 1}, ${bodyObject.flipY ? -1 : 1})`,
+    minHeight: `${scaleWindowMetric(bodyObject.height)}px`,
+    transform: `translate(${scaleWindowMetric(bodyObject.x)}px, ${scaleWindowMetric(bodyObject.y)}px) rotate(${bodyObject.rotation}deg) scale(${bodyObject.flipX ? -1 : 1}, ${bodyObject.flipY ? -1 : 1})`,
   };
 
   const dialogueShellStyle: React.CSSProperties = {
@@ -387,9 +407,11 @@ export function usePlaytestRuntime({
           boxShadow: 'none',
           backdropFilter: 'none',
         }),
-    borderRadius: renderStyle.dialogRadius,
+    borderRadius: dialogueCornerRadius,
     paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
     paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+    paddingTop: displayMode === 'windowed' ? scaleWindowMetric(16) : undefined,
+    paddingBottom: displayMode === 'windowed' ? scaleWindowMetric(16) : undefined,
     transform: `rotate(${dialogObject.rotation}deg) scale(${dialogObject.flipX ? -1 : 1}, ${dialogObject.flipY ? -1 : 1})`,
   };
   const dialogueFrameStyle: React.CSSProperties = {
@@ -955,7 +977,12 @@ export function usePlaytestRuntime({
                     borderColor: isWhite ? 'rgba(255, 255, 255, 0.25)' : nodeColor,
                   }}
                 >
-                  <span className="font-bold text-sm md:text-base tracking-wide drop-shadow-sm">
+                  <span
+                    className="font-bold text-sm md:text-base tracking-wide drop-shadow-sm"
+                    style={
+                      displayMode === 'windowed' ? { fontSize: scaleWindowMetric(16) } : undefined
+                    }
+                  >
                     {label as string}
                   </span>
                   {choicesPosition !== 'center' && (
@@ -983,7 +1010,12 @@ export function usePlaytestRuntime({
                     color: isWhite ? (isDarkMode ? '#f1f5f9' : '#334155') : '#1e293b',
                   }}
                 >
-                  <span className="font-bold text-sm md:text-base tracking-wide">
+                  <span
+                    className="font-bold text-sm md:text-base tracking-wide"
+                    style={
+                      displayMode === 'windowed' ? { fontSize: scaleWindowMetric(16) } : undefined
+                    }
+                  >
                     {label as string}
                   </span>
                   {choicesPosition !== 'center' && (
@@ -1006,7 +1038,12 @@ export function usePlaytestRuntime({
                 : 'text-left justify-between'
             }`}
           >
-            <span className="font-bold italic text-sm md:text-base">{t.draftEnded}</span>
+            <span
+              className="font-bold italic text-sm md:text-base"
+              style={displayMode === 'windowed' ? { fontSize: scaleWindowMetric(16) } : undefined}
+            >
+              {t.draftEnded}
+            </span>
             {choicesPosition !== 'center' && (
               <ChevronRight className="w-5 h-5 text-slate-400 animate-pulse" />
             )}
@@ -1020,7 +1057,12 @@ export function usePlaytestRuntime({
                 : 'text-left justify-between'
             } ${isDarkMode ? 'border-white/20 hover:border-sky-500/50 hover:bg-sky-500/10 text-slate-400' : 'border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'}`}
           >
-            <span className="font-bold italic text-base">{t.draftEnded}</span>
+            <span
+              className="font-bold italic text-base"
+              style={displayMode === 'windowed' ? { fontSize: scaleWindowMetric(16) } : undefined}
+            >
+              {t.draftEnded}
+            </span>
             {choicesPosition !== 'center' && (
               <ChevronRight
                 className={`w-6 h-6 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} animate-pulse`}
@@ -1585,6 +1627,7 @@ export function usePlaytestRuntime({
     withAlpha,
     textStroke,
     dialogueBackgroundStyle,
+    dialogueCornerRadius,
     renderObjects,
     titleObject,
     bodyObject,

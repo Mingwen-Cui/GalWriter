@@ -80,6 +80,7 @@ export function PlayTestModal(props: PlayTestProps) {
     sceneImageUrl,
     sceneVideoStartTime,
     dialogueBackgroundStyle,
+    dialogueCornerRadius,
     renderObjectSelectionClass,
     selectRenderObject,
     recordCurrentAudio,
@@ -946,8 +947,8 @@ export function PlayTestModal(props: PlayTestProps) {
                           boxShadow: 'none',
                           backdropFilter: 'none',
                         }),
-                    borderTopLeftRadius: reserveClassicMediaSlot ? 0 : renderStyle.dialogRadius,
-                    borderTopRightRadius: reserveClassicMediaSlot ? 0 : renderStyle.dialogRadius,
+                    borderTopLeftRadius: reserveClassicMediaSlot ? 0 : dialogueCornerRadius,
+                    borderTopRightRadius: reserveClassicMediaSlot ? 0 : dialogueCornerRadius,
                     paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
                     paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
                   }}
