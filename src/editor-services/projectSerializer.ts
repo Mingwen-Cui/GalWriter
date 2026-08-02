@@ -596,12 +596,8 @@ const applyProjectSettings = (
   ) {
     setters.setToolbarLayout(incomingSettings.toolbarLayout);
   }
-  if (
-    incomingSettings.selectionMenuLayout === 'horizontal' ||
-    incomingSettings.selectionMenuLayout === 'vertical'
-  ) {
-    setters.setSelectionMenuLayout(incomingSettings.selectionMenuLayout);
-  }
+  // Selection actions always use the compact vertical menu.
+  setters.setSelectionMenuLayout('vertical');
   setters.setCardToolbarScale(clampCardToolbarScale(incomingSettings.cardToolbarScale));
   if (incomingSettings.language) setters.setLanguage(incomingSettings.language);
   if (incomingSettings.theme) setters.setTheme(incomingSettings.theme);

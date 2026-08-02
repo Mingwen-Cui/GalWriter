@@ -3001,6 +3001,17 @@ input[type='range']::-moz-range-track {
   min-height: 52px !important;
 }
 
+/* The canvas selection menu is a text action list, not an icon toolbar. */
+.bubble-glass-mode .glass-toolbar.selection-menu-vertical {
+  padding: 2px !important;
+}
+
+.bubble-glass-mode .glass-toolbar.selection-menu-vertical button:not(.exclude-glass) {
+  justify-content: flex-start !important;
+  min-height: 40px !important;
+  padding: 6px 10px !important;
+}
+
 .bubble-glass-mode .glass-toolbar.flex-row button:not(.exclude-glass),
 .bubble-glass-mode .glass-toolbar.flex-row-reverse button:not(.exclude-glass) {
   height: 100% !important;

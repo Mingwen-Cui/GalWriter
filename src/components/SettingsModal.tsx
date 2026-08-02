@@ -148,8 +148,6 @@ interface SettingsModalProps {
   setStoryTitlePlacement: (placement: StoryTitlePlacement) => void;
   toolbarLayout: 'vertical' | 'horizontal';
   setToolbarLayout: (layout: 'vertical' | 'horizontal') => void;
-  selectionMenuLayout: 'horizontal' | 'vertical';
-  setSelectionMenuLayout: (layout: 'horizontal' | 'vertical') => void;
   cardToolbarScale: number;
   setCardToolbarScale: (scale: number) => void;
   edgeStyle: 'step' | 'bezier';
@@ -317,8 +315,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setStoryTitlePlacement,
   toolbarLayout,
   setToolbarLayout,
-  selectionMenuLayout,
-  setSelectionMenuLayout,
   cardToolbarScale,
   setCardToolbarScale,
   edgeStyle,
@@ -827,24 +823,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </section>
                   )}
-
-                  <section className={settingsRowClass}>
-                    <h3 className={settingsRowTitleClass}>{s.selectionMenu}</h3>
-                    <div className={segmentedControlClass}>
-                      <button
-                        onClick={() => setSelectionMenuLayout('horizontal')}
-                        className={compactSegmentButtonClass(selectionMenuLayout === 'horizontal')}
-                      >
-                        {s.menuHorizontal}
-                      </button>
-                      <button
-                        onClick={() => setSelectionMenuLayout('vertical')}
-                        className={compactSegmentButtonClass(selectionMenuLayout === 'vertical')}
-                      >
-                        {s.menuVertical}
-                      </button>
-                    </div>
-                  </section>
 
                   <section className="grid grid-cols-2 gap-x-8 gap-y-0">
                     {[

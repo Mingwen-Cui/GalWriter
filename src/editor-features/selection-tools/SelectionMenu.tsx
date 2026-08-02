@@ -26,7 +26,7 @@ const Divider = ({ horizontal, isMobile }: { horizontal: boolean; isMobile: bool
       className={`${isMobile ? 'h-3' : 'h-4'} w-px shrink-0 bg-slate-200 dark:bg-slate-700 ${isMobile ? 'mx-0.5' : 'mx-1'}`}
     />
   ) : (
-    <div className="my-0.5 h-px w-full bg-slate-200 dark:bg-slate-700" />
+    <div className="my-px h-px w-full bg-slate-200 dark:bg-slate-700" />
   );
 
 export function SelectionMenu({
@@ -54,12 +54,16 @@ export function SelectionMenu({
     : isMobileGrid
       ? 'grid w-56 grid-cols-2 gap-0.5'
       : 'flex flex-col w-40';
-  const shellSizeClass = isMobile ? 'p-1 rounded-lg' : 'p-1.5 rounded-xl';
+  const shellSizeClass = isMobile ? 'p-1 rounded-lg' : isHorizontal ? 'p-1.5 rounded-xl' : 'p-1 rounded-xl';
   const buttonSizeClass = isMobile
     ? 'px-1.5 py-1 text-[10px] gap-1 rounded-md'
-    : 'px-3 py-1.5 text-xs gap-2 rounded-lg';
+    : isHorizontal
+      ? 'px-3 py-1.5 text-xs gap-2 rounded-lg'
+      : 'px-2.5 py-1 text-xs gap-1.5 rounded-lg';
   const iconSizeClass = isMobile ? 'h-3 w-3' : 'h-4 w-4';
-  const buttonBaseClass = `${buttonSizeClass} flex items-center font-bold transition-all shrink-0 ${itemWidthClass}`;
+  const buttonBaseClass = `${buttonSizeClass} flex items-center font-bold transition-all shrink-0 ${itemWidthClass} ${
+    isHorizontal || isMobileGrid ? 'justify-center' : 'justify-start text-left'
+  }`;
 
   const dynamicWrapLabel = language === 'zh' ? '\u52a8\u6001\u5305\u88f9' : t.dynamicWrap;
   const bgCardLabel = language === 'zh' ? '\u80cc\u666f\u5361\u7247' : t.bgCard;
@@ -75,7 +79,9 @@ export function SelectionMenu({
   return (
     <div
       ref={selectionMenuRef}
-      className={`toolbar-bubble-surface glass-toolbar fixed left-0 top-0 z-[100] ${shellLayoutClass} bg-[var(--toolbar-bg)] backdrop-blur-md ${shellSizeClass} shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
+      className={`toolbar-bubble-surface glass-toolbar fixed left-0 top-0 z-[100] ${shellLayoutClass} ${
+        !isHorizontal && !isMobileGrid ? 'selection-menu-vertical' : ''
+      } bg-[var(--toolbar-bg)] backdrop-blur-md ${shellSizeClass} shadow-2xl border border-[var(--toolbar-border)] overflow-hidden`}
       style={{
         transform:
           'translate3d(var(--selection-menu-x, -9999px), var(--selection-menu-y, -9999px), 0) translate(-50%, -100%)',

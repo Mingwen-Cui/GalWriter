@@ -273,9 +273,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [closeButtonBehavior, setCloseButtonBehavior] = useState<CloseButtonBehavior>('quit');
   const [bubbleStyle, setBubbleStyle] = useState<'glass' | 'flat'>('glass');
   const [toolbarLayout, setToolbarLayout] = useState<'vertical' | 'horizontal'>('vertical');
-  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(() =>
-    effectiveFlowWidth < 768 ? 'vertical' : 'horizontal',
-  );
+  const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>('vertical');
   const [cardToolbarScale, setCardToolbarScale] = useState(1);
   const {
     playTestDarkMode,
@@ -3559,8 +3557,6 @@ ${layoutConfig.label}
           setStoryTitlePlacement={setStoryTitlePlacement}
           toolbarLayout={toolbarLayout}
           setToolbarLayout={setToolbarLayout}
-          selectionMenuLayout={selectionMenuLayout}
-          setSelectionMenuLayout={setSelectionMenuLayout}
           cardToolbarScale={cardToolbarScale}
           setCardToolbarScale={setCardToolbarScale}
           edgeStyle={edgeStyle}
