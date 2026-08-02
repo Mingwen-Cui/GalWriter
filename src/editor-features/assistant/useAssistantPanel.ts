@@ -8,7 +8,7 @@ import type {
   AssistantCardPlacementMode,
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
-import type { CharacterNodeData } from '../../domain/project';
+import type { CharacterNodeData, SceneNodeData } from '../../domain/project';
 import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
@@ -124,6 +124,71 @@ const createArticleRoleLibraryNodes = (
         },
       };
     });
+
+const buildShortDramaLibraryDrafts = (items: SettingLibraryItem[], nodes: Node[]) => {
+  const canvasNames = new Set(
+    nodes
+      .map((node) =>
+        node.type === 'characterNode'
+          ? `character:${String(node.data.characterName || '').trim()}`
+          : node.type === 'sceneNode'
+            ? `scene:${String(node.data.sceneName || '').trim()}`
+            : '',
+      )
+      .filter(Boolean),
+  );
+  const select = (kind: 'character' | 'scene', limit: number) =>
+    items
+      .filter((item) => item.kind === kind)
+      .filter((item) => !canvasNames.has(`${kind}:${item.name.trim()}`))
+      .slice(0, limit);
+
+  return [...select('character', 3), ...select('scene', 2)].map((item) => {
+    if (item.kind === 'character') {
+      const data = item.data as CharacterNodeData;
+      return {
+        type: 'character' as const,
+        characterName: data.characterName || item.name,
+        identity: data.identity,
+        appearance: data.appearance,
+        traits: data.traits,
+        personality: data.personality,
+        habits: data.habits,
+        speechStyle: data.speechStyle,
+        experience: data.experience,
+        relationships: data.relationships,
+        notes: data.notes,
+        avatarUrl: data.avatarUrl,
+        threeViewUrl: data.threeViewUrl,
+        tagSpriteUrl: data.tagSpriteUrl,
+        outfits: data.outfits?.map((outfit) => ({ ...outfit })),
+        features: data.features,
+        background: data.background,
+        other: data.other,
+        libraryItemId: item.id,
+      } satisfies AssistantCardDraft;
+    }
+
+    const data = item.data as SceneNodeData;
+    return {
+      type: 'scene' as const,
+      sceneName: data.sceneName || item.name,
+      time: data.time,
+      weather: data.weather,
+      visual: data.visual,
+      sound: data.sound,
+      description: data.description,
+      location: data.location,
+      items: data.items,
+      atmosphere: data.atmosphere,
+      other: data.other,
+      notes: data.notes,
+      coverImageUrl: data.coverImageUrl,
+      images: data.images?.map((image) => ({ ...image })),
+      libraryItemId: item.id,
+    } satisfies AssistantCardDraft;
+  });
+};
 export type {
   AssistantArticleAnalysisState,
   AssistantCardPlacementResult,
@@ -187,6 +252,7 @@ interface UseAssistantPanelParams {
   updateStreamingAssistantCards?: (
     nodeIds: string[] | undefined,
     cards: AssistantCardDraft[],
+    completed?: boolean,
   ) => void;
   removeAssistantNodes?: (nodeIds: string[]) => void;
   onGenerateAssistantImagesRequest?: (nodeIds: string[]) => Promise<void>;
@@ -1215,12 +1281,14 @@ ${documentContext}`);
       userText,
       mode,
       placementOptions,
+      placeholderCards: providedPlaceholderCards,
       signal,
     }: {
       prompt: string;
       userText: string;
       mode: AssistantCardPlacementMode;
       placementOptions?: AssistantCardPlacementOptions;
+      placeholderCards?: AssistantCardDraft[];
       signal?: AbortSignal;
     }): Promise<{
       reply: string;
@@ -1231,12 +1299,16 @@ ${documentContext}`);
         throw new Error('Streaming card generation is not available.');
       }
 
-      const placeholderCards = buildAssistantPlaceholderCards(userText, mode).slice(0, 12);
+      const placeholderCards = (providedPlaceholderCards || buildAssistantPlaceholderCards(userText, mode))
+        .slice(0, 12);
       if (placeholderCards.length === 0) {
         throw new Error('No placeholder cards available for streaming.');
       }
 
-      const placement = await createAssistantCards(placeholderCards, mode, placementOptions);
+      const placement = await createAssistantCards(placeholderCards, mode, {
+        ...placementOptions,
+        keepAssistantHeightStreaming: true,
+      });
       const nodeIds = placement.nodeIds || [];
       if (nodeIds.length === 0) {
         throw new Error('Failed to create streaming placeholder cards.');
@@ -1407,7 +1479,7 @@ The previous streaming response did not complete every placeholder card. Return 
         reply = fallbackReply || '已实时生成卡片。';
       }
 
-      updateStreamingAssistantCards(nodeIds, cards);
+      updateStreamingAssistantCards(nodeIds, cards, true);
       stopAgentWaiting?.();
       return { reply, cards, placement };
     },
@@ -1886,6 +1958,31 @@ The previous streaming response did not complete every placeholder card. Return 
       let forcedMode: AssistantCardPlacementMode | undefined;
       let placementOptions: AssistantCardPlacementOptions | undefined;
       const isShortDramaBundleRequest = /短剧|短劇|short drama|短編ドラマ/i.test(userText);
+      const shortDramaLibraryDrafts = isShortDramaBundleRequest
+        ? buildShortDramaLibraryDrafts(
+            [...savedSettingLibraryItems, ...presetSettingLibraryItems],
+            nodes,
+          )
+        : [];
+      const shortDramaExistingSettingNames = nodes
+        .filter((node) => node.type === 'characterNode' || node.type === 'sceneNode')
+        .map((node) =>
+          node.type === 'characterNode'
+            ? String(node.data.characterName || '').trim()
+            : String(node.data.sceneName || '').trim(),
+        )
+        .filter(Boolean);
+      const shortDramaUsesLibrary =
+        isShortDramaBundleRequest &&
+        (shortDramaLibraryDrafts.length > 0 || shortDramaExistingSettingNames.length > 0);
+      const shortDramaSettingNames = [
+        ...shortDramaExistingSettingNames,
+        ...shortDramaLibraryDrafts.map((card) =>
+          card.type === 'character' ? card.characterName || '' : card.sceneName || '',
+        ),
+      ]
+        .filter(Boolean)
+        .join('、');
       if (workflow.type === 'profile-ready-to-generate' && !workflow.discussing) {
         effectiveUserText = formatLocalizedCopy(
           assistantPanelCopy(language).profileFlow.generatePrompt,
@@ -1915,7 +2012,9 @@ The previous streaming response did not complete every placeholder card. Return 
         effectiveUserText = `请把这个新脑洞扩展成可落地的视觉小说开篇。用户脑洞：${userText}。请生成主要人物卡、核心场景卡，并生成6到10张按顺序推进的剧情卡，重点补足故事设定、角色关系、核心冲突和第一幕推进。`;
         assistantWorkflowRef.current = { type: 'idle' };
       } else if (isShortDramaBundleRequest) {
-        effectiveUserText = `请把这个短剧脑洞扩展成可落地的视觉小说/互动短剧开篇。用户请求：${userText}。必须像“我有一个新脑洞”一样生成完整组合卡片：先生成主要人物设定卡、核心场景设定卡，再生成 6 到 10 张按顺序推进的剧情卡。人物卡要覆盖剧情里实际出场的人，场景卡要覆盖剧情实际发生的地点，剧情卡正文要自然使用这些人物和场景，并补足故事设定、角色关系、核心冲突和第一幕推进。不要只返回剧情卡。`;
+        effectiveUserText = shortDramaUsesLibrary
+          ? `请把这个短剧脑洞扩展成可落地的视觉小说/互动短剧开篇。用户请求：${userText}。当前项目已有可直接复用的人物与场景设定：${shortDramaSettingNames}。必须直接使用这些现有设定；不要重新生成或改写人物、场景设定卡。只生成 6 到 10 张按顺序推进的剧情卡，正文自然写出这些人物和场景名称，以便系统插入对应 Tag、照片和立绘，并补足关系、冲突和第一幕推进。`
+          : `请把这个短剧脑洞扩展成可落地的视觉小说/互动短剧开篇。用户请求：${userText}。必须像“我有一个新脑洞”一样生成完整组合卡片：先生成主要人物设定卡、核心场景设定卡，再生成 6 到 10 张按顺序推进的剧情卡。人物卡要覆盖剧情里实际出场的人，场景卡要覆盖剧情实际发生的地点，剧情卡正文要自然使用这些人物和场景，并补足故事设定、角色关系、核心冲突和第一幕推进。不要只返回剧情卡。`;
       } else if (workflow.type === 'revision-awaiting-opinion') {
         effectiveUserText = `请根据用户的修改意见改写选中的卡片。保留原卡片，并返回一张同类型、已经修改好的新卡片。修改意见：${userText}`;
         forcedMode = 'adjacent-revision';
@@ -2066,6 +2165,10 @@ ${settingLibraryContext || '无'}`;
         }
       }
 
+      if (shortDramaLibraryDrafts.length > 0) {
+        await createAssistantCards(shortDramaLibraryDrafts, 'append');
+      }
+
       try {
         if (
           wantsCards &&
@@ -2079,6 +2182,11 @@ ${settingLibraryContext || '无'}`;
             userText: effectiveUserText,
             mode: forcedMode || 'append',
             placementOptions,
+            placeholderCards: shortDramaUsesLibrary
+              ? buildAssistantPlaceholderCards(effectiveUserText, forcedMode || 'append').filter(
+                  (card) => getAssistantDraftType(card) === 'story',
+                )
+              : undefined,
             signal: abortController.signal,
           });
           if (abortController.signal.aborted) return;
@@ -2175,6 +2283,9 @@ ${settingLibraryContext || '无'}`;
             preparedPlaceholderCards,
           ),
         );
+        if (shortDramaUsesLibrary) {
+          cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
+        }
         if (isArticleTeachingWorkflow) {
           cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
         }

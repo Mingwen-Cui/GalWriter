@@ -1,3 +1,5 @@
+import type { CharacterNodeData, SceneNodeData } from '../../domain/project';
+
 export type AssistantCardDraft = {
   type?: 'story' | 'character' | 'scene' | 'number-condition';
   key?: string;
@@ -19,6 +21,7 @@ export type AssistantCardDraft = {
   avatarUrl?: string;
   threeViewUrl?: string;
   tagSpriteUrl?: string;
+  outfits?: CharacterNodeData['outfits'];
   features?: string;
   background?: string;
   sceneName?: string;
@@ -31,6 +34,9 @@ export type AssistantCardDraft = {
   items?: string;
   atmosphere?: string;
   other?: string;
+  coverImageUrl?: string;
+  images?: SceneNodeData['images'];
+  libraryItemId?: string;
   threshold?: number;
   ranges?: Array<{ min: number; max: number }>;
   connectTo?: string[];
@@ -55,4 +61,7 @@ export type AssistantCardPlacementMode =
 export type AssistantCardPlacementOptions = {
   targetNodeId?: string;
   targetNodeIds?: string[];
+  // Internal streaming flag: keep the seven-line placeholder height until
+  // the final AI card content has arrived.
+  keepAssistantHeightStreaming?: boolean;
 };

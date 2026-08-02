@@ -27,7 +27,7 @@ import {
   Upload,
   WandSparkles,
 } from 'lucide-react';
-import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useLayoutEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { SceneFlowNode, SceneImage, SceneNodeData } from '../domain/project';
@@ -66,7 +66,7 @@ const getCalculatedSceneNodeMinHeight = (imagesCount: number) =>
   70 + 73 + 24 + 4 * 75 + 3 * 8 + 24 + 20 + (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8);
 
 const SCENE_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
-const SCENE_NODE_HEIGHT_SAFETY = 8;
+const SCENE_NODE_HEIGHT_RECOVERY_EXCESS = 960;
 
 export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   const { alert: showDialogAlert } = useDialog();
@@ -93,8 +93,6 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   const [copied, setCopied] = useState(false);
   const [isRollingSetting, setIsRollingSetting] = useState(false);
   const [isGeneratingSettingImage, setIsGeneratingSettingImage] = useState(false);
-  const contentFrameRef = useRef<HTMLDivElement>(null);
-  const [measuredMinHeight, setMeasuredMinHeight] = useState(getCalculatedSceneNodeMinHeight(0));
   const [expandedPanorama, setExpandedPanorama] = useState<{ url: string; title: string } | null>(
     null,
   );
@@ -149,7 +147,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   );
 
   const calculatedMinHeight = getCalculatedSceneNodeMinHeight(images.length);
-  const effectiveMinHeight = Math.max(calculatedMinHeight, measuredMinHeight);
+  const effectiveMinHeight = calculatedMinHeight;
   const hasSceneText = [name, location, time, weather, visual, sound, items, notes].some(
     (value) => typeof value === 'string' && value.trim().length > 0,
   );
@@ -170,8 +168,21 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
             getNumericSize((node as any).measured?.height);
 
           const currentMinHeight = getNumericSize(node.style?.minHeight);
+          // A previous `h-full` measurement could persist the node's own
+          // height as its minimum. Recover only clearly runaway values while
+          // leaving ordinary manual vertical resizes intact.
+          const shouldRecoverRunawayHeight =
+            currentHeight !== undefined &&
+            currentHeight >
+              Math.max(
+                heightToApply * 3,
+                heightToApply + SCENE_NODE_HEIGHT_RECOVERY_EXCESS,
+              );
           const shouldApplyHeight =
-            allowShrink || currentHeight === undefined || currentHeight < heightToApply - 1;
+            allowShrink ||
+            shouldRecoverRunawayHeight ||
+            currentHeight === undefined ||
+            currentHeight < heightToApply - 1;
           const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
 
           if (!shouldApplyHeight && !shouldUpdateMinHeight) {
@@ -196,23 +207,14 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     [effectiveMinHeight, id, isMinimized, setNodes, updateNodeInternals],
   );
 
-  const measureContentMinHeight = useCallback(() => {
-    if (isMinimized || !contentFrameRef.current) return calculatedMinHeight;
-
-    const contentHeight =
-      contentFrameRef.current.scrollHeight ||
-      contentFrameRef.current.getBoundingClientRect().height;
-    return Math.max(calculatedMinHeight, Math.ceil(contentHeight + SCENE_NODE_HEIGHT_SAFETY));
-  }, [calculatedMinHeight, isMinimized]);
-
   const shouldResizeSceneNode = useCallback(
     (_event: unknown, params: { height: number; direction?: number[] }) => {
       if (isMinimized) return true;
       const isVerticalResize = !params.direction || params.direction[1] !== 0;
       if (!isVerticalResize) return true;
-      return params.height >= measureContentMinHeight() - 1;
+      return params.height >= calculatedMinHeight - 1;
     },
-    [isMinimized, measureContentMinHeight],
+    [calculatedMinHeight, isMinimized],
   );
 
   const updateNodeData = useCallback(
@@ -251,11 +253,10 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     .join('|');
 
   useLayoutEffect(() => {
-    const nextMeasuredMinHeight = measureContentMinHeight();
-    setMeasuredMinHeight((previous) =>
-      Math.abs(previous - nextMeasuredMinHeight) < 1 ? previous : nextMeasuredMinHeight,
-    );
-    syncNodeHeightToMinimum(Math.max(calculatedMinHeight, nextMeasuredMinHeight));
+    // The visible fields have fixed minimum heights and their textareas scroll
+    // internally. Measuring the `h-full` wrapper feeds the current node height
+    // back into its min-height and can make a generated scene card grow forever.
+    syncNodeHeightToMinimum(calculatedMinHeight);
   }, [
     calculatedMinHeight,
     data.location,
@@ -267,7 +268,6 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     data.notes,
     images.length,
     isMinimized,
-    measureContentMinHeight,
     syncNodeHeightToMinimum,
   ]);
 
@@ -509,7 +509,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
           handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-blue-800 !rounded-none"
         />
 
-        <div ref={contentFrameRef} className="flex flex-col w-full h-full rounded-xl">
+        <div className="flex flex-col w-full h-full rounded-xl">
           <div className="bg-[var(--header-bg)] rounded-t-xl border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing shrink-0">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-blue-800" />

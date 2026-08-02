@@ -271,8 +271,11 @@ const restoreStoredPresentationTemplates = (templates: PresentationTemplates | u
   window.dispatchEvent(new Event('galwriter-templates-changed'));
 };
 
+const FIXED_STORY_CARD_HEIGHT = 200;
+
 const normalizeStoryNodeCardStyle = (style: Node['style'] | undefined): Node['style'] => ({
   ...style,
+  minHeight: FIXED_STORY_CARD_HEIGHT,
 });
 
 const isEmbeddableMediaUrl = (value: string) =>
@@ -825,7 +828,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
         style: isStoryNode
           ? normalizeStoryNodeCardStyle(node.style)
           : node.style,
-        data: { ...node.data },
+        data: isStoryNode ? { ...node.data, sizeMode: 'auto' } : { ...node.data },
         width: node.measured?.width || node.width,
         height: node.measured?.height || node.height,
         dragHandle: node.dragHandle,

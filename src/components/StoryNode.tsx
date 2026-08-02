@@ -106,7 +106,11 @@ const AUTO_SIZE_TEXT_VERTICAL_PADDING = 4;
 const AUTO_SIZE_MEDIA_MIN_HEIGHT = 128;
 const AUTO_SIZE_MEDIA_MAX_HEIGHT = 220;
 const CARD_MEDIA_PREVIEW_MIN_HEIGHT = 180;
-const AUTO_HEIGHT_SNAP_TOLERANCE = 2;
+const FIXED_STORY_CARD_HEIGHT = 200;
+// A completed assistant card can inherit an in-flight drag/measurement height.
+// Treat only a clearly runaway value as recoverable so an intentionally tall
+// manually resized card remains untouched.
+const ASSISTANT_HEIGHT_RECOVERY_EXCESS = 960;
 
 const getNumericSize = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -273,10 +277,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [autoCardHeight, setAutoCardHeight] = useState(MEDIA_CARD_MIN_HEIGHT);
   const [nodeWidthForAutoSize, setNodeWidthForAutoSize] = useState(300);
   const [isResizingCard, setIsResizingCard] = useState(false);
-  const [resizeMinimumHeight, setResizeMinimumHeight] = useState<number | null>(null);
-  const resizeStartHeightRef = useRef<number | null>(null);
-  const resizeMinimumHeightRef = useRef(MEDIA_CARD_MIN_HEIGHT);
-  const restoreAutoHeightFrameRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -310,10 +310,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const text = data.text || '';
   const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
-  // Text cards reserve readable copy space. As soon as they have visual media
-  // (including a character/scene tag presentation), they follow that media's
-  // size. Keep the text minimum while an AI action is still in progress.
-  const isAutoSizeMode = data.sizeMode !== 'custom';
+  // Ordinary cards have a stable readable floor, then naturally grow only
+  // when their real content no longer fits. The body never shows a scrollbar.
+  const isAutoSizeMode = true;
   const color = data.color || COLORS[0];
   const parsedCardColor = parseColorValue(color, COLORS[0]);
   const imageUrl = data.imageUrl;
@@ -850,6 +849,46 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     [data, id],
   );
 
+  // Normalize both newly generated and legacy cards on the live canvas. This
+  // is deliberately independent of card data so an in-flight AI update cannot
+  // put an old automatic content height back onto the node.
+  useLayoutEffect(() => {
+    let changed = false;
+    setNodes((nodes) =>
+      nodes.map((node) => {
+        if (node.id !== id) return node;
+        const currentHeight =
+          getNumericSize(node.style?.height) ??
+          getNumericSize((node as any).height) ??
+          getNumericSize((node as any).measured?.height);
+        const currentMinHeight = getNumericSize(node.style?.minHeight);
+        const normalizedHeight = Math.max(currentHeight ?? 0, FIXED_STORY_CARD_HEIGHT);
+        if (
+          currentHeight === normalizedHeight &&
+          currentMinHeight === FIXED_STORY_CARD_HEIGHT &&
+          node.data?.sizeMode === 'auto'
+        ) {
+          return node;
+        }
+
+        changed = true;
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            height: normalizedHeight,
+            minHeight: FIXED_STORY_CARD_HEIGHT,
+          },
+          data: {
+            ...node.data,
+            sizeMode: 'auto',
+          },
+        };
+      }),
+    );
+    if (changed) requestAnimationFrame(() => updateNodeInternals(id));
+  }, [id, setNodes, updateNodeInternals]);
+
   const computeAutoMinHeight = useCallback(
     (candidateWidth?: number) => {
       const rootElement = nodeRootRef.current;
@@ -876,6 +915,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       if (!showRichTextTools) {
         if (!hasCardVisualContent) return null;
         return Math.max(
+          FIXED_STORY_CARD_HEIGHT,
           MEDIA_CARD_MIN_HEIGHT,
           Math.ceil(titleBlockHeight + getCardMediaHeight(rootWidth)),
         );
@@ -922,7 +962,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       if (!Number.isFinite(contentHeight) || contentHeight <= 0) return null;
 
       const targetHeight = Math.max(
-        shouldEnforceTextMinimum ? 0 : MEDIA_CARD_MIN_HEIGHT,
+        FIXED_STORY_CARD_HEIGHT,
+        // Once an AI text card has finished, it should be allowed to shrink
+        // all the way to its title plus real text. Reserve a media floor only
+        // when the card actually contains visual media.
+        shouldEnforceTextMinimum || !hasCardVisualContent ? 0 : MEDIA_CARD_MIN_HEIGHT,
         Math.ceil(
           titleBlockHeight +
             mediaPreviewHeight +
@@ -1126,6 +1170,65 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     };
   }, [data.assistantAutoHeightNonce, isAutoSizeMode, syncAutoSizeHeight]);
 
+  // Older assistant runs could leave a completed card in custom-size mode
+  // after a transient measurement wrote an enormous min-height. That blocks
+  // the normal auto-size pass forever. Restore only obviously runaway cards;
+  // ordinary manually resized story cards are never affected.
+  useLayoutEffect(() => {
+    if (data.assistantHeightState !== 'settled' || data.sizeMode !== 'custom') return;
+
+    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+    if (!currentNode) return;
+
+    const currentHeight =
+      getNumericSize(currentNode.style?.height) ??
+      getNumericSize((currentNode as any).height) ??
+      getNumericSize((currentNode as any).measured?.height) ??
+      0;
+    const targetHeight = computeAutoMinHeight(
+      getNumericSize(currentNode.style?.width) ??
+        getNumericSize((currentNode as any).measured?.width) ??
+        nodeRootRef.current?.clientWidth ??
+        300,
+    );
+    if (!targetHeight) return;
+
+    const recoveryThreshold = Math.max(
+      targetHeight * 3,
+      targetHeight + ASSISTANT_HEIGHT_RECOVERY_EXCESS,
+    );
+    if (currentHeight <= recoveryThreshold) return;
+
+    setAutoCardHeight(targetHeight);
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              style: {
+                ...node.style,
+                height: targetHeight,
+                minHeight: targetHeight,
+              },
+              data: {
+                ...node.data,
+                sizeMode: 'auto',
+              },
+            }
+          : node,
+      ),
+    );
+    requestAnimationFrame(() => updateNodeInternals(id));
+  }, [
+    computeAutoMinHeight,
+    data.assistantHeightState,
+    data.sizeMode,
+    id,
+    setNodes,
+    storeApi,
+    updateNodeInternals,
+  ]);
+
   useEffect(() => {
     if (!nodeRootRef.current) return;
     let frame = 0;
@@ -1144,6 +1247,30 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       observer.disconnect();
     };
   }, [syncAutoSizeHeight]);
+
+  // RichText writes its HTML after React has rendered the card. Observe that
+  // real DOM change as well as React state, otherwise a streamed AI card can
+  // be measured while it still contains its placeholder and keep that height.
+  useEffect(() => {
+    const editorElement = richTextRef.current?.getElement();
+    if (!isAutoSizeMode || !editorElement) return;
+
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(syncAutoSizeHeight);
+    });
+    observer.observe(editorElement, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [isAutoSizeMode, syncAutoSizeHeight]);
 
   const syncImageNodeHeight = useCallback(
     (dimensions: { width: number; height: number } | null) => {
@@ -1170,6 +1297,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         getNumericSize((currentNode as any).measured?.height) ??
         200;
       const targetHeight = Math.max(
+        FIXED_STORY_CARD_HEIGHT,
         MEDIA_CARD_MIN_HEIGHT,
         Math.ceil(
           getCardMediaHeight(currentWidth) +
@@ -1228,41 +1356,21 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   }, [imageDimensions, syncImageNodeHeight]);
 
   const handleResizeStart = useCallback<OnResizeStart>(() => {
-    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
-    const currentWidth =
-      getNumericSize(currentNode?.style?.width) ??
-      getNumericSize(currentNode?.measured?.width) ??
-      nodeRootRef.current?.clientWidth ??
-      300;
-    const minimumHeight = computeAutoMinHeight(currentWidth) ?? MEDIA_CARD_MIN_HEIGHT;
-    resizeStartHeightRef.current =
-      getNumericSize(currentNode?.style?.height) ??
-      getNumericSize(currentNode?.measured?.height) ??
-      autoCardHeight;
-    resizeMinimumHeightRef.current = minimumHeight;
-    setResizeMinimumHeight(minimumHeight);
     setIsResizingCard(true);
-  }, [autoCardHeight, computeAutoMinHeight, id, storeApi]);
+  }, []);
 
   const updateResizeMinimumHeight = useCallback(
-    (width: number) => {
-      const nextMinimum = computeAutoMinHeight(width) ?? MEDIA_CARD_MIN_HEIGHT;
-      resizeMinimumHeightRef.current = nextMinimum;
-      setResizeMinimumHeight((previous) =>
-        Math.abs((previous ?? 0) - nextMinimum) < 1 ? previous : nextMinimum,
-      );
+    (_width: number) => {
+      const nextMinimum = FIXED_STORY_CARD_HEIGHT;
       return nextMinimum;
     },
-    [computeAutoMinHeight],
+    [],
   );
 
   const shouldResizeCard = useCallback<ShouldResize>(
     (_event, dimensions) => {
-      const minimumHeight = updateResizeMinimumHeight(dimensions.width);
-      // Keep width-only resizes free so the card can reflow after the width is
-      // committed. Height shrinking is constrained live at the current auto
-      // content height, for all four resize corners.
-      return dimensions.direction[1] >= 0 || dimensions.height >= minimumHeight;
+      updateResizeMinimumHeight(dimensions.width);
+      return dimensions.direction[1] === 0;
     },
     [updateResizeMinimumHeight],
   );
@@ -1276,76 +1384,17 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   const handleResizeEnd = useCallback<OnResizeEnd>(
     (_event, dimensions) => {
-      const initialHeight = resizeStartHeightRef.current;
-      resizeStartHeightRef.current = null;
-      setNodeWidthForAutoSize(dimensions.width);
       setIsResizingCard(false);
-      setResizeMinimumHeight(null);
 
-      // Horizontal resizing does not make an automatic card manual. Re-measure
-      // after the new width has been committed so wrapped text can grow/shrink.
-      if (
-        initialHeight === null ||
-        Math.abs(dimensions.height - initialHeight) < AUTO_HEIGHT_SNAP_TOLERANCE
-      ) {
-        if (isAutoSizeMode) requestAnimationFrame(syncAutoSizeHeight);
-        return;
-      }
-
-      const automaticHeight = resizeMinimumHeightRef.current;
-      const returnsToAuto =
-        dimensions.height <= automaticHeight + AUTO_HEIGHT_SNAP_TOLERANCE;
-
-      if (returnsToAuto) {
-        // XYFlow dispatches its final dimensions change *after* onResizeEnd.
-        // Wait one frame so that final drag update cannot overwrite the auto
-        // size we are about to commit.
-        if (restoreAutoHeightFrameRef.current !== null) {
-          cancelAnimationFrame(restoreAutoHeightFrameRef.current);
-        }
-        restoreAutoHeightFrameRef.current = requestAnimationFrame(() => {
-          const finalAutomaticHeight = computeAutoMinHeight(dimensions.width) ?? automaticHeight;
-          setAutoCardHeight(finalAutomaticHeight);
-          updateNodeData({ sizeMode: 'auto' });
-          setNodes((nodes) =>
-            nodes.map((node) =>
-              node.id === id
-                ? {
-                    ...node,
-                    style: {
-                      ...node.style,
-                      height: finalAutomaticHeight,
-                      minHeight: finalAutomaticHeight,
-                    },
-                  }
-                : node,
-            ),
-          );
-          requestAnimationFrame(() => updateNodeInternals(id));
-          restoreAutoHeightFrameRef.current = null;
-        });
-        return;
-      }
-
-      updateNodeData({ sizeMode: 'custom' });
+      setNodeWidthForAutoSize(dimensions.width);
+      requestAnimationFrame(syncAutoSizeHeight);
     },
-    [
-      computeAutoMinHeight,
-      id,
-      isAutoSizeMode,
-      setNodes,
-      syncAutoSizeHeight,
-      updateNodeData,
-      updateNodeInternals,
-    ],
+    [setNodeWidthForAutoSize, syncAutoSizeHeight],
   );
 
   useEffect(
     () => () => {
       if (previewFrameRef.current !== null) cancelAnimationFrame(previewFrameRef.current);
-      if (restoreAutoHeightFrameRef.current !== null) {
-        cancelAnimationFrame(restoreAutoHeightFrameRef.current);
-      }
     },
     [],
   );
@@ -2296,9 +2345,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             variant="line"
             position="top"
-            resizeDirection="vertical"
+            resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
@@ -2310,7 +2359,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             position="right"
             resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
@@ -2320,9 +2369,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             variant="line"
             position="bottom"
-            resizeDirection="vertical"
+            resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
@@ -2334,7 +2383,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             position="left"
             resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
@@ -2343,8 +2392,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="top-left"
+            resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
@@ -2353,8 +2403,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="top-right"
+            resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
@@ -2363,8 +2414,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="bottom-left"
+            resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
@@ -2373,8 +2425,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           />
           <NodeResizeControl
             position="bottom-right"
+            resizeDirection="horizontal"
             minWidth={100}
-            minHeight={resizeMinimumHeight ?? (isAutoSizeMode ? autoCardHeight : MEDIA_CARD_MIN_HEIGHT)}
+            minHeight={FIXED_STORY_CARD_HEIGHT}
             shouldResize={shouldResizeCard}
             onResizeStart={handleResizeStart}
             onResize={handleResize}

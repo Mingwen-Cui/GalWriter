@@ -30,8 +30,8 @@ import {
 } from './assistantMentions';
 import { isDefaultInitialStoryNode } from './colorUtils';
 import {
-  AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT,
-  AI_SETTING_CARD_LAYOUT_HEIGHT,
+  AI_CHARACTER_CARD_LAYOUT_HEIGHT,
+  AI_SCENE_CARD_LAYOUT_HEIGHT,
   AI_STORY_CARD_HEIGHT,
   AI_STORY_CARD_WIDTH,
   SETTING_NODE_CARD_WIDTH,
@@ -194,6 +194,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           experience: cleanText(card.experience),
           relationships: cleanText(card.relationships),
           notes: cleanText(card.notes),
+          avatarUrl: cleanText(card.avatarUrl) || undefined,
+          threeViewUrl: cleanText(card.threeViewUrl) || undefined,
+          tagSpriteUrl: cleanText(card.tagSpriteUrl) || undefined,
+          outfits: Array.isArray(card.outfits) ? card.outfits.map((outfit) => ({ ...outfit })) : undefined,
           features: cleanText(card.features),
           background: cleanText(card.background),
           sceneName: cleanText(card.sceneName),
@@ -206,6 +210,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           items: cleanText(card.items),
           atmosphere: cleanText(card.atmosphere),
           other: cleanText(card.other),
+          coverImageUrl: cleanText(card.coverImageUrl) || undefined,
+          images: Array.isArray(card.images) ? card.images.map((image) => ({ ...image })) : undefined,
+          libraryItemId: cleanText(card.libraryItemId) || undefined,
           threshold:
             typeof card.threshold === 'number' && Number.isFinite(card.threshold)
               ? card.threshold
@@ -446,28 +453,16 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       const shouldConnectToSource = mode !== 'append' || Boolean(explicitCanvasTarget);
       const getSettingCardLayoutHeight = (card: (typeof remainingCards)[number]) => {
         if (card.type === 'character') {
-          const expandedFieldCount = [
-            card.personality,
-            card.features,
-            card.background,
-            card.other,
-          ].filter(Boolean).length;
           return (
-            AI_SETTING_CARD_LAYOUT_HEIGHT +
-            Math.max(0, expandedFieldCount - 1) * AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT
+            AI_CHARACTER_CARD_LAYOUT_HEIGHT +
+            Math.max(0, (card.outfits?.length || 0) - 1) * 54
           );
         }
 
         if (card.type === 'scene') {
-          const expandedFieldCount = [
-            card.location,
-            card.items,
-            card.atmosphere,
-            card.other,
-          ].filter(Boolean).length;
           return (
-            AI_SETTING_CARD_LAYOUT_HEIGHT +
-            Math.max(0, expandedFieldCount - 1) * AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT
+            AI_SCENE_CARD_LAYOUT_HEIGHT +
+            Math.max(0, (card.images?.length || 0) - 1) * 54
           );
         }
 
@@ -483,8 +478,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             ? AI_STORY_CARD_WIDTH
             : card.type === 'number-condition'
               ? 300
-              : 280,
-        height: getSettingCardLayoutHeight(card),
+              : SETTING_NODE_CARD_WIDTH,
+        height: card.type === 'story' ? AI_STORY_CARD_HEIGHT : getSettingCardLayoutHeight(card),
       }));
       const characterIndexes = remainingCards
         .map((card, index) => (card.type === 'character' ? index : -1))
@@ -499,9 +494,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         .map((card, index) => (card.type === 'number-condition' ? index : -1))
         .filter((index) => index >= 0);
       const rootReplacementStoryIndex = shouldReplaceInitialRoot ? storyIndexes[0] : -1;
-      const columnGap = 150;
+      // Setting cards are wide and tall after their content is rendered. Keep
+      // enough breathing room that the story column cannot overlap them.
+      const columnGap = 240;
       const storyCardsPerColumn = 10;
-      const storyColumnGap = 120;
+      const storyColumnGap = 180;
       const storyColumnCount = Math.max(1, Math.ceil(storyIndexes.length / storyCardsPerColumn));
       const storyLayoutWidth =
         AI_STORY_CARD_WIDTH * storyColumnCount + storyColumnGap * (storyColumnCount - 1);
@@ -671,8 +668,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             y:
               sourceNode.position.y +
               (sourceNode.measured?.height || (sourceNode.style?.height as number) || 200) +
-              100 +
-              bridgeIndex * 280,
+              rowGap +
+              bridgeIndex * (AI_STORY_CARD_HEIGHT + rowGap),
           };
         }
         if (card.type === 'character') {
@@ -702,6 +699,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               features: card.features || '',
               background: card.background || '',
               other: card.other || '',
+              libraryItemId: card.libraryItemId,
+              outfits: card.outfits?.map((outfit) => ({ ...outfit })),
               assistantCandidateKind: card.assistantCandidateKind,
               assistantCandidateGroupId: card.assistantCandidateGroupId,
               assistantTemplateId: card.assistantTemplateId,
@@ -733,6 +732,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               notes: card.notes || card.other || card.atmosphere || '',
               atmosphere: card.atmosphere || '',
               other: card.other || '',
+              coverImageUrl: card.coverImageUrl,
+              images: card.images?.map((image) => ({ ...image })),
+              libraryItemId: card.libraryItemId,
               showLocation: !!card.location,
               showItems: !!card.items,
               showAtmosphere: !!card.atmosphere,
@@ -871,26 +873,44 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             Math.ceil(chapterStoryIndexes.length / storyCardsPerColumn),
           );
           const chapterColumnGap = storyColumnGap;
+          const chapterStoryRowGap = rowGap;
 
           chapterStoryIndexes.forEach((storyIndex, rowIndex) => {
             const node = newNodes[storyIndex];
             if (!node) return;
             const chapterColumnIndex = Math.floor(rowIndex / storyCardsPerColumn);
             const chapterRowIndex = rowIndex % storyCardsPerColumn;
+            const chapterColumnStart = chapterColumnIndex * storyCardsPerColumn;
+            const rowOffset = chapterStoryIndexes
+              .slice(chapterColumnStart, chapterColumnStart + chapterRowIndex)
+              .reduce(
+                (offset, previousStoryIndex) =>
+                  offset + cardLayouts[previousStoryIndex].height + chapterStoryRowGap,
+                0,
+              );
             node.position = {
               x: storyX + chapterColumnIndex * (AI_STORY_CARD_WIDTH + chapterColumnGap),
-              y: chapterTop + chapterPadding + chapterRowIndex * (AI_STORY_CARD_HEIGHT + 72),
+              y: chapterTop + chapterPadding + rowOffset,
             };
           });
 
-          const rowsInTallestChapterColumn = Math.min(
-            storyCardsPerColumn,
-            chapterStoryIndexes.length,
+          const chapterColumnHeights = Array.from({ length: chapterColumnCount }, (_, columnIndex) =>
+            chapterStoryIndexes
+              .slice(
+                columnIndex * storyCardsPerColumn,
+                (columnIndex + 1) * storyCardsPerColumn,
+              )
+              .reduce(
+                (height, storyIndex, rowIndex) =>
+                  height +
+                  cardLayouts[storyIndex].height +
+                  (rowIndex > 0 ? chapterStoryRowGap : 0),
+                0,
+              ),
           );
           const chapterHeight =
             chapterPadding * 2 +
-            rowsInTallestChapterColumn * AI_STORY_CARD_HEIGHT +
-            Math.max(0, rowsInTallestChapterColumn - 1) * 72;
+            Math.max(0, ...chapterColumnHeights);
           const backgroundId = uuidv4();
           const chapterColors = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fff7ed', '#fdf2f8'];
           chapterBackgroundNodes.push({
@@ -1497,7 +1517,6 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
 
       const fitPendingAssistantBackgrounds = () => {
         setNodes((currentNodes) => {
-          const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
           const readDimension = (value: unknown) => {
             if (typeof value === 'number' && Number.isFinite(value)) return value;
             if (typeof value === 'string') {
@@ -1506,7 +1525,61 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             }
             return 0;
           };
-          return currentNodes.map((node) => {
+          const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
+          const storyPositionById = new Map<string, { x: number; y: number }>();
+
+          // Initial placement uses a deliberately large estimate so streamed
+          // cards cannot collide. Once their final DOM height is available,
+          // pack each story column using the real measured height instead of
+          // leaving those estimates as permanent blank space.
+          currentNodes.forEach((region) => {
+            if (region.type !== 'backgroundNode' && region.type !== 'groupNode') return;
+            const regionData = region.data as Record<string, unknown>;
+            if (regionData.assistantAutoFitPending !== true) return;
+
+            const childIds = Array.isArray(regionData.assistantAutoFitChildIds)
+              ? regionData.assistantAutoFitChildIds.filter(
+                  (childId): childId is string => typeof childId === 'string',
+                )
+              : [];
+            const children = childIds.map((childId) => nodeById.get(childId)).filter(Boolean) as Node[];
+            if (children.length < 2 || !children.every((child) => child.type === 'storyNode')) return;
+
+            const columns: Node[][] = [];
+            [...children]
+              .sort((left, right) => left.position.x - right.position.x || left.position.y - right.position.y)
+              .forEach((child) => {
+                const column = columns.find(
+                  (items) => Math.abs(items[0].position.x - child.position.x) < 1,
+                );
+                if (column) column.push(child);
+                else columns.push([child]);
+              });
+
+            const top = Math.min(...children.map((child) => child.position.y));
+            const storyGap = 140;
+            columns.forEach((column) => {
+              let nextY = top;
+              column
+                .sort((left, right) => left.position.y - right.position.y)
+                .forEach((child) => {
+                  storyPositionById.set(child.id, { x: child.position.x, y: nextY });
+                  const measuredHeight =
+                    readDimension(child.measured?.height) ||
+                    readDimension(child.style?.height) ||
+                    AI_STORY_CARD_HEIGHT;
+                  nextY += measuredHeight + storyGap;
+                });
+            });
+          });
+
+          const reflowedNodes = currentNodes.map((node) => {
+            const position = storyPositionById.get(node.id);
+            return position ? { ...node, position } : node;
+          });
+          const reflowedNodeById = new Map(reflowedNodes.map((node) => [node.id, node]));
+
+          return reflowedNodes.map((node) => {
             if (node.type !== 'backgroundNode' && node.type !== 'groupNode') return node;
             const regionData = node.data as Record<string, unknown>;
             if (regionData.assistantAutoFitPending !== true) return node;
@@ -1516,7 +1589,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                   (childId): childId is string => typeof childId === 'string',
                 )
               : [];
-            const children = childIds.map((childId) => nodeById.get(childId)).filter(Boolean) as Node[];
+            const children = childIds
+              .map((childId) => reflowedNodeById.get(childId))
+              .filter(Boolean) as Node[];
             if (!children.length) return node;
 
             const bounds = children.reduce(
@@ -1562,7 +1637,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
 
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          window.setTimeout(fitPendingAssistantBackgrounds, 240);
+          window.setTimeout(fitPendingAssistantBackgrounds, 420);
         });
       });
     },
@@ -1678,7 +1753,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         }
       }
 
-      finalizeAssistantStoryHeights(placement.nodeIds);
+      if (!options?.keepAssistantHeightStreaming) {
+        finalizeAssistantStoryHeights(placement.nodeIds);
+      }
 
       return placement;
     },
@@ -1707,8 +1784,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
   // Streaming card updates
   // =========================================================================
   const updateStreamingAssistantCards = useCallback(
-    (nodeIds: string[] | undefined, cards: AssistantCardDraft[]) => {
+    (nodeIds: string[] | undefined, cards: AssistantCardDraft[], completed = false) => {
       if (!nodeIds || nodeIds.length === 0 || cards.length === 0) return;
+      const completionNonce = completed ? Date.now() : undefined;
       setNodes((currentNodes) =>
         currentNodes.map((node) => {
           const cardIndex = nodeIds.indexOf(node.id);
@@ -1804,6 +1882,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             ...node,
             data: {
               ...node.data,
+              // Keep the seven-line floor while text is streaming. Write the
+              // completion state and its measuring nonce in this same update
+              // so the final DOM content cannot miss the resize pass.
+              assistantHeightState: completed ? 'settled' : 'streaming',
+              ...(completed ? { assistantAutoHeightNonce: completionNonce } : {}),
               title: card.title || node.data.title,
               text: taggedStory.text,
               nodeValue: card.nodeValue,
@@ -1813,8 +1896,12 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           };
         }),
       );
+
+      if (completed) {
+        window.requestAnimationFrame(() => finalizeAssistantStoryHeights(nodeIds));
+      }
     },
-    [getAgentDraftType, setNodes],
+    [finalizeAssistantStoryHeights, getAgentDraftType, setNodes],
   );
 
   // =========================================================================

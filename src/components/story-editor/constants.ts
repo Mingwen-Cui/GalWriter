@@ -7,12 +7,14 @@ export const APP_TITLE = '交互式剧本编辑器';
 export const PROJECT_TITLE_PLACEHOLDER = '新建项目';
 export const DEFAULT_PROJECT_FILE_NAME = '新建项目';
 export const AI_STORY_CARD_WIDTH = 300;
-// A text-only story card reserves roughly seven lines of copy. Media cards
-// immediately size themselves from their media after it is available.
+// Ordinary story cards keep a readable minimum canvas height, then grow with
+// their content rather than showing an internal text scrollbar.
 export const MIN_STORY_CARD_HEIGHT = 200;
 export const AI_STORY_CARD_HEIGHT = MIN_STORY_CARD_HEIGHT;
-export const AI_SETTING_CARD_LAYOUT_HEIGHT = 430;
-export const AI_SETTING_CARD_LAYOUT_FIELD_HEIGHT = 92;
+// Conservative placement footprints for AI-generated cards. Their visible
+// setting cards can be taller than their initial React Flow measurements.
+export const AI_CHARACTER_CARD_LAYOUT_HEIGHT = 720;
+export const AI_SCENE_CARD_LAYOUT_HEIGHT = 560;
 // Character and scene setting cards deliberately share a canvas width.
 export const SETTING_NODE_CARD_WIDTH = 440;
 export const DEFAULT_LIGHT_ACCENT_COLOR = '#4f46e5';
