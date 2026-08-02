@@ -9,11 +9,19 @@ type SelectionBounds = {
   maxY: number;
 };
 
+type SelectionMenuLayout = {
+  wrapperLeft: number;
+  wrapperTop: number;
+  menuWidth: number;
+  menuHeight: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  usableRightEdge: number;
+};
+
 interface UseSelectionMenuParams {
   nodes: Node[];
-  tx: number;
-  ty: number;
-  tzoom: number;
+  getViewport: () => { x: number; y: number; zoom: number };
   canvasWrapperRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -27,9 +35,7 @@ interface UseSelectionMenuResult {
 
 export const useSelectionMenu = ({
   nodes,
-  tx,
-  ty,
-  tzoom,
+  getViewport,
   canvasWrapperRef,
 }: UseSelectionMenuParams): UseSelectionMenuResult => {
   const selectedNodes = useMemo(() => nodes.filter((node) => node.selected), [nodes]);
@@ -46,8 +52,9 @@ export const useSelectionMenu = ({
   const selectionMenuRef = useRef<HTMLDivElement>(null);
   const selectionBoundsRef = useRef<SelectionBounds | null>(null);
   const selectionMenuRafRef = useRef<number | null>(null);
-  const transformRef = useRef<[number, number, number]>([tx, ty, tzoom]);
-  transformRef.current = [tx, ty, tzoom];
+  const layoutRefreshRafRef = useRef<number | null>(null);
+  const selectionMenuLayoutRef = useRef<SelectionMenuLayout | null>(null);
+  const transformRef = useRef<[number, number, number]>([0, 0, 1]);
 
   const computeSelectionBounds = useCallback((nodesToMeasure: Node[]) => {
     if (nodesToMeasure.length < 2) return null;
@@ -69,56 +76,88 @@ export const useSelectionMenu = ({
     return { minX, minY, maxX, maxY };
   }, []);
 
+  const measureSelectionMenuLayout = useCallback(() => {
+    const element = selectionMenuRef.current;
+    const wrapper = canvasWrapperRef.current;
+    if (!element || !wrapper) {
+      selectionMenuLayoutRef.current = null;
+      return false;
+    }
+
+    const viewportPadding = 12;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const menuRect = element.getBoundingClientRect();
+    const assistantPanel = document.querySelector<HTMLElement>(
+      '.assistant-panel-desktop.assistant-panel-entered',
+    );
+    const assistantPanelRect = assistantPanel?.getBoundingClientRect();
+    const usableRightEdge =
+      assistantPanelRect &&
+      assistantPanelRect.width > 0 &&
+      assistantPanelRect.left < window.innerWidth
+        ? Math.min(window.innerWidth - viewportPadding, assistantPanelRect.left - viewportPadding)
+        : window.innerWidth - viewportPadding;
+
+    selectionMenuLayoutRef.current = {
+      wrapperLeft: wrapperRect.left,
+      wrapperTop: wrapperRect.top,
+      menuWidth: menuRect.width,
+      menuHeight: menuRect.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      usableRightEdge,
+    };
+    return true;
+  }, [canvasWrapperRef]);
+
   const updateSelectionMenuPosition = useCallback(
     (transform?: [number, number, number]) => {
       const element = selectionMenuRef.current;
       const bounds = selectionBoundsRef.current;
-      const wrapper = canvasWrapperRef.current;
-      if (!element || !bounds || !wrapper) return;
+      const layout = selectionMenuLayoutRef.current;
+      if (!element || !bounds || !layout) return;
 
       const [transformX, transformY, zoom] = transform ?? transformRef.current;
-      const wrapperRect = wrapper.getBoundingClientRect();
       const centerX = bounds.minX + (bounds.maxX - bounds.minX) / 2;
-      const menuWidth = element.offsetWidth;
-      const menuHeight = element.offsetHeight;
       const viewportPadding = 12;
-      const assistantPanel = document.querySelector<HTMLElement>(
-        '.assistant-panel-desktop.assistant-panel-entered',
-      );
-      const assistantPanelRect = assistantPanel?.getBoundingClientRect();
-      const usableRightEdge =
-        assistantPanelRect && assistantPanelRect.width > 0 && assistantPanelRect.left < window.innerWidth
-          ? Math.min(window.innerWidth - viewportPadding, assistantPanelRect.left - viewportPadding)
-          : window.innerWidth - viewportPadding;
-      const minimumMenuCenterX = viewportPadding + menuWidth / 2;
+      const minimumMenuCenterX = viewportPadding + layout.menuWidth / 2;
       const maximumMenuCenterX = Math.max(
         minimumMenuCenterX,
-        usableRightEdge - menuWidth / 2,
+        layout.usableRightEdge - layout.menuWidth / 2,
       );
       const screenX = Math.max(
         minimumMenuCenterX,
         Math.min(
           maximumMenuCenterX,
-          wrapperRect.left + centerX * zoom + transformX,
+          layout.wrapperLeft + centerX * zoom + transformX,
         ),
       );
-      const selectedTop = wrapperRect.top + bounds.minY * zoom + transformY;
-      const selectedBottom = wrapperRect.top + bounds.maxY * zoom + transformY;
+      const selectedTop = layout.wrapperTop + bounds.minY * zoom + transformY;
+      const selectedBottom = layout.wrapperTop + bounds.maxY * zoom + transformY;
       const preferredAboveY = selectedTop - viewportPadding;
-      const canPlaceAbove = preferredAboveY - menuHeight >= viewportPadding;
+      const canPlaceAbove = preferredAboveY - layout.menuHeight >= viewportPadding;
       const screenY = canPlaceAbove
         ? preferredAboveY
-        : Math.min(Math.max(viewportPadding, selectedBottom + viewportPadding), window.innerHeight - viewportPadding - menuHeight);
+        : Math.min(
+            Math.max(viewportPadding, selectedBottom + viewportPadding),
+            layout.viewportHeight - viewportPadding - layout.menuHeight,
+          );
 
       element.style.setProperty('--selection-menu-x', `${screenX}px`);
       element.style.setProperty('--selection-menu-y', `${screenY}px`);
       element.style.setProperty('--selection-menu-translate-y', canPlaceAbove ? '-100%' : '0');
     },
-    [canvasWrapperRef],
+    [],
   );
 
   const scheduleSelectionMenuPosition = useCallback(
     (transform?: [number, number, number]) => {
+      if (transform) {
+        transformRef.current = transform;
+      } else {
+        const viewport = getViewport();
+        transformRef.current = [viewport.x, viewport.y, viewport.zoom];
+      }
       if (selectionMenuRafRef.current !== null) {
         cancelAnimationFrame(selectionMenuRafRef.current);
       }
@@ -128,29 +167,61 @@ export const useSelectionMenu = ({
         updateSelectionMenuPosition(transform);
       });
     },
-    [updateSelectionMenuPosition],
+    [getViewport, updateSelectionMenuPosition],
   );
+
+  const refreshSelectionMenuLayout = useCallback(() => {
+    if (layoutRefreshRafRef.current !== null) {
+      cancelAnimationFrame(layoutRefreshRafRef.current);
+    }
+
+    layoutRefreshRafRef.current = requestAnimationFrame(() => {
+      layoutRefreshRafRef.current = null;
+      if (!measureSelectionMenuLayout()) return;
+      const viewport = getViewport();
+      const transform: [number, number, number] = [viewport.x, viewport.y, viewport.zoom];
+      transformRef.current = transform;
+      updateSelectionMenuPosition(transform);
+    });
+  }, [getViewport, measureSelectionMenuLayout, updateSelectionMenuPosition]);
 
   useLayoutEffect(() => {
     selectionBoundsRef.current = computeSelectionBounds(selectedNodes);
     if (showSelectionMenu) {
+      if (!selectionMenuLayoutRef.current) {
+        measureSelectionMenuLayout();
+      }
       scheduleSelectionMenuPosition();
+    } else {
+      selectionMenuLayoutRef.current = null;
     }
-  }, [computeSelectionBounds, scheduleSelectionMenuPosition, selectedNodes, showSelectionMenu]);
-
-  useEffect(() => {
-    if (showSelectionMenu) {
-      scheduleSelectionMenuPosition([tx, ty, tzoom]);
-    }
-  }, [scheduleSelectionMenuPosition, showSelectionMenu, tx, ty, tzoom]);
+  }, [
+    computeSelectionBounds,
+    measureSelectionMenuLayout,
+    scheduleSelectionMenuPosition,
+    selectedNodes,
+    showSelectionMenu,
+  ]);
 
   useEffect(() => {
     if (!showSelectionMenu) return;
 
-    const handleResize = () => scheduleSelectionMenuPosition();
+    const handleResize = () => refreshSelectionMenuLayout();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [scheduleSelectionMenuPosition, showSelectionMenu]);
+  }, [refreshSelectionMenuLayout, showSelectionMenu]);
+
+  useEffect(() => {
+    if (!showSelectionMenu || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(refreshSelectionMenuLayout);
+    const wrapper = canvasWrapperRef.current;
+    const menu = selectionMenuRef.current;
+    if (wrapper) observer.observe(wrapper);
+    if (menu) observer.observe(menu);
+
+    return () => observer.disconnect();
+  }, [canvasWrapperRef, refreshSelectionMenuLayout, showSelectionMenu]);
 
   useEffect(() => {
     if (!showSelectionMenu) return;
@@ -164,9 +235,9 @@ export const useSelectionMenu = ({
       );
       if (!panelVisibilityChanged) return;
 
-      scheduleSelectionMenuPosition();
+      refreshSelectionMenuLayout();
       window.clearTimeout(transitionTimer);
-      transitionTimer = window.setTimeout(scheduleSelectionMenuPosition, 520);
+      transitionTimer = window.setTimeout(refreshSelectionMenuLayout, 520);
     });
 
     observer.observe(document.body, {
@@ -179,12 +250,15 @@ export const useSelectionMenu = ({
       observer.disconnect();
       window.clearTimeout(transitionTimer);
     };
-  }, [scheduleSelectionMenuPosition, showSelectionMenu]);
+  }, [refreshSelectionMenuLayout, showSelectionMenu]);
 
   useEffect(
     () => () => {
       if (selectionMenuRafRef.current !== null) {
         cancelAnimationFrame(selectionMenuRafRef.current);
+      }
+      if (layoutRefreshRafRef.current !== null) {
+        cancelAnimationFrame(layoutRefreshRafRef.current);
       }
     },
     [],
@@ -192,6 +266,7 @@ export const useSelectionMenu = ({
 
   const handleViewportMove = useCallback(
     (_event: unknown, viewport: { x: number; y: number; zoom: number }) => {
+      transformRef.current = [viewport.x, viewport.y, viewport.zoom];
       if (selectionBoundsRef.current) {
         scheduleSelectionMenuPosition([viewport.x, viewport.y, viewport.zoom]);
       }

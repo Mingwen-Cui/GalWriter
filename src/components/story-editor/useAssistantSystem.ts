@@ -45,7 +45,7 @@ interface UseAssistantSystemParams {
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
 
   getCenterPosition: () => { x: number; y: number };
-  tzoom: number;
+  getViewportZoom: () => number;
   language: Language;
   isMobile: boolean;
   effectiveFlowWidth: number;
@@ -87,7 +87,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     setNodes,
     setEdges,
     getCenterPosition,
-    tzoom,
+    getViewportZoom,
     language,
     isMobile,
     effectiveFlowWidth,
@@ -1015,11 +1015,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
       return {
         count: filledCount + remainingCards.length,
-        position: { x: center.x, y: center.y, zoom: tzoom },
+        position: { x: center.x, y: center.y, zoom: getViewportZoom() },
         nodeIds: [...filledTargetNodeIds, ...newNodes.map((node) => node.id)],
       };
     },
-    [edges, nodes, setNodes, setEdges, getCenterPosition, language, tzoom],
+    [edges, nodes, setNodes, setEdges, getCenterPosition, getViewportZoom, language],
   );
 
   // =========================================================================
@@ -1614,11 +1614,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
 
       if (!target.position) return;
       void setCenter(target.position.x, target.position.y, {
-        zoom: target.position.zoom ?? tzoom,
+        zoom: target.position.zoom ?? getViewportZoom(),
         duration: 450,
       });
     },
-    [fitView, nodes, setCenter, setNodes, tzoom],
+    [fitView, getViewportZoom, nodes, setCenter, setNodes],
   );
 
   // =========================================================================

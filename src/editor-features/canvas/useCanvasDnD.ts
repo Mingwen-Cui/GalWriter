@@ -7,9 +7,7 @@ import type { Language } from '../../lib/i18n';
 
 interface UseCanvasDnDParams {
   canvasWrapperRef: React.RefObject<HTMLDivElement | null>;
-  tx: number;
-  ty: number;
-  tzoom: number;
+  getViewport: () => { x: number; y: number; zoom: number };
   showTitles: boolean;
   language: Language;
   titleHeight: number;
@@ -19,9 +17,7 @@ interface UseCanvasDnDParams {
 
 export const useCanvasDnD = ({
   canvasWrapperRef,
-  tx,
-  ty,
-  tzoom,
+  getViewport,
   showTitles,
   language,
   titleHeight,
@@ -68,6 +64,7 @@ export const useCanvasDnD = ({
 
       const renderer = element.querySelector('.react-flow__renderer') ?? element;
       const bounds = renderer.getBoundingClientRect();
+      const { x: tx, y: ty, zoom: tzoom } = getViewport();
       const dropX = (event.clientX - bounds.left - tx) / tzoom;
       const dropY = (event.clientY - bounds.top - ty) / tzoom;
 
@@ -163,13 +160,11 @@ export const useCanvasDnD = ({
     };
   }, [
     canvasWrapperRef,
+    getViewport,
     getMediaDimensions,
     language,
     setNodes,
     showTitles,
     titleHeight,
-    tx,
-    ty,
-    tzoom,
   ]);
 };

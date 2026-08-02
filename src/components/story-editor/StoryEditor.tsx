@@ -1,15 +1,7 @@
 import {
-  Background,
-  BackgroundVariant,
-  ConnectionMode,
-  Controls,
   Edge,
   MarkerType,
-  MiniMap,
   Node,
-  PanOnScrollMode,
-  ReactFlow,
-  SelectionMode,
   useEdgesState,
   useNodesState,
   useReactFlow,
@@ -49,7 +41,6 @@ import {
 } from '../../editor-features/media/imageGeneration';
 import { useMediaActions } from '../../editor-features/media/useMediaActions';
 import { useNodeActions } from '../../editor-features/node-actions/useNodeActions';
-import { SelectionMenu } from '../../editor-features/selection-tools/SelectionMenu';
 import { useSelectionActions } from '../../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../../editor-features/selection-tools/useSelectionMenu';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
@@ -126,6 +117,7 @@ import {
   MIN_STORY_CARD_HEIGHT,
   PROJECT_TITLE_PLACEHOLDER,
 } from './constants';
+import { EditorFooter } from './EditorFooter';
 import { edgeTypes, nodeTypes } from './flowTypes';
 import { createDefaultEdgeOptions, INITIAL_EDGES, INITIAL_NODES } from './initialGraph';
 import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
@@ -133,7 +125,7 @@ import { getMediaDimensions, TITLE_HEIGHT } from './mediaDimensions';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
 import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
 import { getPersistedProjectName, getProjectDisplayName } from './projectNames';
-import { SmartGuides } from './SmartGuides';
+import { StoryCanvasWorkspace } from './StoryCanvasWorkspace';
 import { StoryEditorZenOverlay } from './StoryEditorZenOverlay';
 import { resolveSystemTheme } from './theme';
 import type {
@@ -151,6 +143,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
   const { alert: showDialogAlert } = useDialog();
+  const { getIntersectingNodes, getViewport, screenToFlowPosition } = useReactFlow();
   const { agentState, runAgentCardPlacement, startAgentWaiting, stopAgentWaiting } =
     useAgentRuntime();
 
@@ -198,7 +191,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [opaqueAssistantMessagesInGlass, setOpaqueAssistantMessagesInGlass] = useState(false);
   const [opaqueFooterInGlass, setOpaqueFooterInGlass] = useState(false);
 
-  const [tx, ty, tzoom] = useStore((s) => s.transform);
   const flowWidth = useStore((s) => s.width);
   const flowHeight = useStore((s) => s.height);
   const viewportWidth =
@@ -206,11 +198,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const effectiveFlowWidth = flowWidth > 0 ? flowWidth : viewportWidth;
 
   const getCenterPosition = useCallback(() => {
+    const { x, y, zoom } = getViewport();
     return {
-      x: (flowWidth / 2 - tx) / tzoom,
-      y: (flowHeight / 2 - ty) / tzoom,
+      x: (flowWidth / 2 - x) / zoom,
+      y: (flowHeight / 2 - y) / zoom,
     };
-  }, [tx, ty, tzoom, flowWidth, flowHeight]);
+  }, [flowHeight, flowWidth, getViewport]);
+  const getViewportZoom = useCallback(() => getViewport().zoom, [getViewport]);
   // 右上角显示的思考过程文字，null 表示不显示
   const [, setThinkingContent] = useState<string | null>(null);
   const [generateLength, setGenerateLength] = useState<string>('2-3句话');
@@ -473,7 +467,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const [qqCopied, setQqCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const selectionBoxRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
@@ -710,9 +703,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleViewportMove,
   } = useSelectionMenu({
     nodes,
-    tx,
-    ty,
-    tzoom,
+    getViewport,
     canvasWrapperRef,
   });
 
@@ -1403,9 +1394,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   useCanvasDnD({
     canvasWrapperRef,
-    tx,
-    ty,
-    tzoom,
+    getViewport,
     showTitles: showTitles && storyTitlePlacement === 'inside',
     language,
     titleHeight: TITLE_HEIGHT,
@@ -2297,7 +2286,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setNodes,
     setEdges,
     getCenterPosition,
-    tzoom,
+    getViewportZoom,
     language,
     isMobile,
     effectiveFlowWidth,
@@ -3285,33 +3274,37 @@ ${layoutConfig.label}
             t={t}
           />
 
-          <div
-            ref={canvasWrapperRef}
-            className={`w-full h-full relative ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
-            onMouseDownCapture={handleMouseDown}
-            onMouseMoveCapture={handleMouseMove}
-            onMouseUpCapture={handleMouseUp}
-            style={{ touchAction: canvasTouchAction }}
-          >
-            {/* NOTE: 自定义框选框，仅在右键拖拽时显示 */}
-            <div
-              ref={selectionBoxRef}
-              className="fixed pointer-events-none z-[9999] border-2 border-dashed border-indigo-500 bg-indigo-500/10 rounded-sm"
-              style={{ display: 'none' }}
-            />
-            <ReactFlow
-              className="story-canvas-flow"
-              nodes={nodesWithCallbacks}
-              edges={edgesWithData}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              isValidConnection={isValidConnection}
-              onEdgeDoubleClick={onEdgeDoubleClick}
-              onNodeClick={handleNodeClick}
-              onEdgeContextMenu={onEdgeContextMenu}
-              onNodeContextMenu={(event, node) => {
-                // 默认阻止所有节点的右键菜单，除非是特定解锁逻辑
+          <StoryCanvasWorkspace
+            bubbleStyle={bubbleStyle}
+            canvasTouchAction={canvasTouchAction}
+            canvasWrapperRef={canvasWrapperRef}
+            selectionBoxRef={selectionBoxRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            interactionMode={interactionMode}
+            isRightDragging={isRightDragging}
+            scrollMode={scrollMode}
+            resolvedTheme={resolvedTheme}
+            showMiniMap={showMiniMap}
+            showControls={showControls}
+            showStats={showStats}
+            miniMapPosition={miniMapPosition}
+            miniMapOverlayStyle={miniMapOverlayStyle}
+            horizontalGuides={horizontalGuides}
+            verticalGuides={verticalGuides}
+            reactFlowProps={{
+              className: 'story-canvas-flow',
+              nodes: nodesWithCallbacks,
+              edges: edgesWithData,
+              onNodesChange,
+              onEdgesChange,
+              onConnect,
+              isValidConnection,
+              onEdgeDoubleClick,
+              onNodeClick: handleNodeClick,
+              onEdgeContextMenu,
+              onNodeContextMenu: (event, node) => {
                 event.preventDefault();
                 if (
                   node.data?.locked &&
@@ -3319,116 +3312,35 @@ ${layoutConfig.label}
                 ) {
                   handleUpdateNode(node.id, { locked: false });
                 }
-              }}
-              onPaneContextMenu={(e) => {
-                // NOTE: 阻止右键菜单，确保右键拖拽时能正常触发框选
-                e.preventDefault();
-              }}
-              onSelectionEnd={() => {
-                setIsRightDragging(false);
-              }}
-              onMove={handleViewportMove}
-              onNodeDragStop={onNodeDragStop}
-              // NOTE: 文件拖入由 canvasWrapperRef 上的原生捕获阶段监听器处理，此处无需重复
-              nodeTypes={nodeTypesMemo}
-              edgeTypes={edgeTypesMemo}
-              connectionMode={ConnectionMode.Loose}
-              defaultEdgeOptions={defaultEdgeOptions}
-              panOnDrag={isRightDragging ? false : interactionMode === 'select' ? [0] : false}
-              selectionOnDrag={false}
-              selectionMode={SelectionMode.Partial}
-              panOnScroll={scrollMode === 'pan'}
-              zoomOnScroll={scrollMode === 'zoom'}
-              panOnScrollMode={scrollMode === 'pan' ? PanOnScrollMode.Vertical : undefined}
-              selectionKeyCode="Shift"
-              deleteKeyCode={null}
-              proOptions={{ hideAttribution: true }}
-              fitView
-              fitViewOptions={{ padding: 0.45 }}
-              minZoom={0.1}
-              maxZoom={1.5}
-            >
-              <Background
-                variant={BackgroundVariant.Dots}
-                color={resolvedTheme === 'dark' ? '#334155' : '#cbd5e1'}
-                gap={24}
-                size={1}
-              />
-              {showMiniMap && (
-                <div
-                  className={`canvas-bottom-overlay ${showStats ? '' : 'canvas-bottom-overlay-no-footer'} toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300`}
-                  style={miniMapOverlayStyle}
-                >
-                  <div className="minimap-clip w-full overflow-hidden rounded-t-xl">
-                    <MiniMap
-                      pannable={true}
-                      zoomable={true}
-                      className="!static !block !bg-transparent !border-none !m-0"
-                      nodeColor={bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.38)' : '#dbeafe'}
-                      nodeStrokeColor={
-                        bubbleStyle === 'glass' ? 'rgba(255, 255, 255, 0.78)' : '#4f46e5'
-                      }
-                      nodeBorderRadius={6}
-                      maskColor={
-                        bubbleStyle === 'glass'
-                          ? resolvedTheme === 'dark'
-                            ? 'rgba(0, 0, 0, 0.3)'
-                            : 'rgba(0, 0, 0, 0.08)'
-                          : resolvedTheme === 'dark'
-                            ? 'rgba(84, 185, 251, 0.12)'
-                            : 'rgba(79, 70, 229, 0.08)'
-                      }
-                      style={{ height: 120, width: 160 }}
-                    />
-                  </div>
-                  {showControls && (
-                    <div className="minimap-controls border-t border-[var(--toolbar-border)] flex items-center h-8 w-full bg-transparent">
-                      <Controls
-                        showInteractive={false}
-                        showZoom={true}
-                        showFitView={true}
-                        orientation="horizontal"
-                        className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0 !w-full !justify-around !items-center !h-full !p-0"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              {!showMiniMap && showControls && (
-                <div
-                  className={`canvas-bottom-overlay ${showStats ? '' : 'canvas-bottom-overlay-no-footer'} toolbar-bubble-surface absolute ${miniMapPosition === 'left' ? 'left-4' : 'right-4'} bottom-4 z-[50] h-8 w-40 bg-[var(--toolbar-bg)] backdrop-blur-md border border-[var(--toolbar-border)] rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300`}
-                  style={miniMapOverlayStyle}
-                >
-                  <Controls
-                    showInteractive={false}
-                    showZoom={true}
-                    showFitView={true}
-                    orientation="horizontal"
-                    className="!static !m-0 !flex !flex-row !bg-transparent !border-none !shadow-none !gap-0 !w-full !justify-around !items-center !h-full !p-0"
-                  />
-                </div>
-              )}
-              <SmartGuides hLines={horizontalGuides} vLines={verticalGuides} />
-            </ReactFlow>
-          </div>
-
-          {showSelectionMenu && (
-            <SelectionMenu
-              selectionMenuRef={selectionMenuRef}
-              selectionMenuLayout={selectionMenuLayout}
-              isMobile={isMobile}
-              language={language}
-              ttsLoading={ttsLoading}
-              onWrapDynamicGroup={wrapWithDynamicGroup}
-              onWrapBackground={wrapSelectedWithBackground}
-              onArrange={arrangeSelected}
-              onBatchExport={connectSelectedToSummaryNode}
-              onNarrate={handleGenerateSelectedSpeech}
-              onDelete={deleteSelected}
-              onCopy={handleCopy}
-              onHide={hideSelected}
-            />
-          )}
+              },
+              onPaneContextMenu: (event) => event.preventDefault(),
+              onSelectionEnd: () => setIsRightDragging(false),
+              onMove: handleViewportMove,
+              onNodeDragStop,
+              nodeTypes: nodeTypesMemo,
+              edgeTypes: edgeTypesMemo,
+              defaultEdgeOptions,
+            }}
+            selectionMenuProps={
+              showSelectionMenu
+                ? {
+                    selectionMenuRef,
+                    selectionMenuLayout,
+                    isMobile,
+                    language,
+                    ttsLoading,
+                    onWrapDynamicGroup: wrapWithDynamicGroup,
+                    onWrapBackground: wrapSelectedWithBackground,
+                    onArrange: arrangeSelected,
+                    onBatchExport: connectSelectedToSummaryNode,
+                    onNarrate: handleGenerateSelectedSpeech,
+                    onDelete: deleteSelected,
+                    onCopy: handleCopy,
+                    onHide: hideSelected,
+                  }
+                : undefined
+            }
+          />
         </div>
 
         <AssistantPanel
@@ -3475,23 +3387,13 @@ ${layoutConfig.label}
       </div>
 
       {!isMobile && showStats && (
-        <footer className="editor-footer h-8 bg-white dark:bg-black text-slate-500 dark:text-white border-t border-slate-100 dark:border-white/5 flex items-center justify-between px-4 text-[10px] font-bold tracking-wide z-20 shrink-0 transition-colors">
-          <div className="flex gap-4">
-            <span className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.nodes}: {nodes.length}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-[var(--accent)]" /> {t.paths}: {edges.length}
-            </span>
-            {selectedNodes.length > 0 && (
-              <span className="flex items-center gap-1.5 text-[var(--text-primary)]">
-                <div className="h-1 w-1 rounded-full bg-[var(--accent)]" />
-                {t.selectedItems}: {selectedNodes.length}
-              </span>
-            )}
-          </div>
-          <div className="opacity-60 font-medium">{footerHint}</div>
-        </footer>
+        <EditorFooter
+          nodeCount={nodes.length}
+          pathCount={edges.length}
+          selectedItemCount={selectedNodes.length}
+          footerHint={footerHint}
+          labels={{ nodes: t.nodes, paths: t.paths, selectedItems: t.selectedItems }}
+        />
       )}
 
       {/* AI 操作选择弹窗 */}
