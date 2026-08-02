@@ -133,6 +133,7 @@ export function WebPreviewMenuPages({
   const archiveRootRef = useRef<HTMLDivElement>(null);
   const settingsRootRef = useRef<HTMLDivElement>(null);
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
+  const [archiveShowsSaveExample, setArchiveShowsSaveExample] = useState(false);
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
   const marqueeRef = useRef<{
     page: 'archive' | 'settings';
@@ -417,6 +418,21 @@ export function WebPreviewMenuPages({
     setActiveGuideLines([]);
     document.body.style.cursor = '';
   };
+  const editableArchiveElements = archiveShowsSaveExample
+    ? archiveElements.map((element) =>
+        element.role === 'slot'
+          ? {
+              ...element,
+              text: renderCopy(
+                language,
+                '存档 1\n最近保存：今天 15:50',
+                'セーブ 1\n最終保存：今日 15:50',
+                'Save 1\nLast saved: Today 15:50',
+              ),
+            }
+          : element,
+      )
+    : archiveElements;
   return (
     <>
       {archiveOpen && (
@@ -445,7 +461,15 @@ export function WebPreviewMenuPages({
           />
           <MenuPageElementLayer
             page="archive"
-            elements={previewMode === 'test' ? archiveElements.filter((element) => element.role !== 'slot') : archiveElements}
+            elements={
+              previewMode === 'test'
+                ? archiveElements.filter((element) => !['slot', 'slotContinue', 'slotDelete'].includes(element.role || ''))
+                : editableArchiveElements.filter(
+                    (element) =>
+                      archiveShowsSaveExample ||
+                      !['slotContinue', 'slotDelete'].includes(element.role || ''),
+                  )
+            }
             selectedElementId={selectedStartMenuElementId}
             selectedElementIds={selectedElementIds}
             previewMode={previewMode}
@@ -455,6 +479,8 @@ export function WebPreviewMenuPages({
             onSelectElement={onSelectElement}
             onUpdateElement={onUpdateArchiveElement}
             onBeginElementDrag={beginElementDrag}
+            slotPreviewActive={archiveShowsSaveExample}
+            onToggleSlotPreview={() => setArchiveShowsSaveExample((shown) => !shown)}
             onAction={(element) => {
               if (onButtonFunction(element)) return;
               if (element.role === 'back') onCloseArchive();
@@ -559,6 +585,8 @@ type MenuPageElementLayerProps = {
   ) => void;
   onAction: (element: WebMenuElement) => void;
   renderSuffix?: (element: WebMenuElement) => string;
+  slotPreviewActive?: boolean;
+  onToggleSlotPreview?: () => void;
 };
 
 function MenuPageElementLayer({
@@ -575,8 +603,16 @@ function MenuPageElementLayer({
   onBeginElementDrag,
   onAction,
   renderSuffix,
+  slotPreviewActive = false,
+  onToggleSlotPreview,
 }: MenuPageElementLayerProps) {
   const editable = previewMode === 'edit';
+  const [renamingButton, setRenamingButton] = useState<{ id: string; value: string } | null>(null);
+  const commitRename = (element: WebMenuElement) => {
+    if (renamingButton?.id !== element.id) return;
+    onUpdateElement(element.id, { text: renamingButton.value });
+    setRenamingButton(null);
+  };
 
   return (
     <div
@@ -627,6 +663,7 @@ function MenuPageElementLayer({
                 : 'center';
 
           if (element.kind === 'button') {
+            const isRenaming = renamingButton?.id === element.id;
             const background =
               element.fillEnabled === false
                 ? undefined
@@ -652,6 +689,7 @@ function MenuPageElementLayer({
                     (element.primary ? choiceColor : '#ffffff1a');
 
             return (
+              <>
               <button
                 key={element.id}
                 type="button"
@@ -678,8 +716,7 @@ function MenuPageElementLayer({
                   event.stopPropagation();
                   if (editable) {
                     if (event.detail > 1) {
-                      const next = window.prompt('', element.text);
-                      if (next !== null) onUpdateElement(element.id, { text: next });
+                      setRenamingButton({ id: element.id, value: element.text });
                       return;
                     }
                     if (event.button === 2) return;
@@ -711,6 +748,12 @@ function MenuPageElementLayer({
                     element={element}
                     onUpdateElement={onUpdateElement}
                     onBeginElementDrag={onBeginElementDrag}
+                    slotPreviewActive={slotPreviewActive}
+                    onToggleSlotPreview={
+                      page === 'archive' && element.role === 'slot'
+                        ? onToggleSlotPreview
+                        : undefined
+                    }
                   />
                 )}
                 {editable && selected && gradientEditingElement?.id === element.id && gradientEditingElement.group === 'fill' && element.backgroundType === 'gradient' && (
@@ -729,6 +772,29 @@ function MenuPageElementLayer({
                   />
                 )}
               </button>
+              {isRenaming && (
+                <input
+                  autoFocus
+                  aria-label="Rename button"
+                  className="pointer-events-auto absolute border border-indigo-300 bg-slate-950/92 px-4 text-center font-black text-white outline-none ring-2 ring-indigo-500"
+                  style={{
+                    ...commonStyle,
+                    ...contentStyle,
+                    zIndex: 3000,
+                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                    textAlign: element.textAlign || 'center',
+                  }}
+                  value={renamingButton.value}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onChange={(event) => setRenamingButton({ id: element.id, value: event.target.value })}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commitRename(element);
+                    if (event.key === 'Escape') setRenamingButton(null);
+                  }}
+                  onBlur={() => commitRename(element)}
+                />
+              )}
+              </>
             );
           }
 
@@ -785,6 +851,12 @@ function MenuPageElementLayer({
                     element={element}
                     onUpdateElement={onUpdateElement}
                     onBeginElementDrag={onBeginElementDrag}
+                    slotPreviewActive={slotPreviewActive}
+                    onToggleSlotPreview={
+                      page === 'archive' && element.role === 'slot'
+                        ? onToggleSlotPreview
+                        : undefined
+                    }
                   />
                 )}
               </button>
@@ -822,11 +894,17 @@ function MenuPageElementLayer({
                 <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>{element.text}</span>
               )}
               {selected && (
-                <SelectedElementFrame
+                  <SelectedElementFrame
                   page={page}
                   element={element}
                   onUpdateElement={onUpdateElement}
-                  onBeginElementDrag={onBeginElementDrag}
+                    onBeginElementDrag={onBeginElementDrag}
+                    slotPreviewActive={slotPreviewActive}
+                    onToggleSlotPreview={
+                      page === 'archive' && element.role === 'slot'
+                        ? onToggleSlotPreview
+                        : undefined
+                    }
                 />
               )}
               {editable && selected && gradientEditingElement?.id === element.id && gradientEditingElement.group === 'text' && element.textColorType === 'gradient' && (
@@ -851,6 +929,8 @@ function SelectedElementFrame({
   element,
   onUpdateElement,
   onBeginElementDrag,
+  onToggleSlotPreview,
+  slotPreviewActive,
 }: {
   page: 'archive' | 'settings';
   element: WebMenuElement;
@@ -862,6 +942,8 @@ function SelectedElementFrame({
     type: 'move' | 'resize' | 'rotate',
     resizeHandle?: PlacementResizeHandle,
   ) => void;
+  onToggleSlotPreview?: () => void;
+  slotPreviewActive?: boolean;
 }) {
   return (
     <WebEditableElementFrame
@@ -873,6 +955,15 @@ function SelectedElementFrame({
       }}
       onResizePointerDown={(event, handle) =>
         onBeginElementDrag(page, event, element, 'resize', handle)
+      }
+      slotPreviewActive={slotPreviewActive}
+      onToggleSlotPreview={
+        onToggleSlotPreview
+          ? (event) => {
+              event.stopPropagation();
+              onToggleSlotPreview();
+            }
+          : undefined
       }
     />
   );

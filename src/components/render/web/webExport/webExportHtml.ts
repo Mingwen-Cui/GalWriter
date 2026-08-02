@@ -749,6 +749,19 @@ export const makeIndexHtml = (
         empty.textContent = labels.noSave;
         saveList.appendChild(empty);
       }
+      const archiveControls = Array.isArray(settings.archivePageElements) ? settings.archivePageElements : [];
+      const continueControl = archiveControls.find((element) => element && element.role === "slotContinue");
+      const deleteControl = archiveControls.find((element) => element && element.role === "slotDelete");
+      function applyArchiveActionButton(button, element, fallbackLabel, fallbackColor) {
+        button.textContent = element?.text || fallbackLabel;
+        if (!element) return;
+        if (element.fillEnabled === false) button.style.background = "transparent";
+        else if (element.backgroundType === "gradient") button.style.background = gradientFromStops(element.backgroundGradientShape, Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || fallbackColor, element.backgroundGradientEnd || "#0f172a"), { startX: element.backgroundGradientStartX, startY: element.backgroundGradientStartY, endX: element.backgroundGradientEndX, endY: element.backgroundGradientEndY });
+        else if (element.backgroundColor) button.style.background = element.backgroundColor;
+        applyCustomButtonTextStyle(button, element, "#ffffff");
+        applyCustomBoxEffects(button, element);
+        applyElementRadius(button, element, 9);
+      }
       slots.forEach((save) => {
         const row = document.createElement("div");
         row.className = "settings-row save-slot-row";
@@ -759,12 +772,12 @@ export const makeIndexHtml = (
         const continueButton = document.createElement("button");
         continueButton.type = "button";
         continueButton.className = "save-slot-action primary";
-        continueButton.textContent = labels.continue;
+        applyArchiveActionButton(continueButton, continueControl, labels.continue, style.choiceColor || "#0ea5e9");
         continueButton.addEventListener("click", () => { activeSaveId = save.id; if (applySave(save)) { saveBackdrop.classList.remove("open"); startGameFromCurrent(); } });
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
         deleteButton.className = "save-slot-action";
-        deleteButton.textContent = labels.deleteSave || "Delete";
+        applyArchiveActionButton(deleteButton, deleteControl, labels.deleteSave || "Delete", "#475569");
         deleteButton.addEventListener("click", () => {
           const latest = readSaveCollection();
           const nextSlots = (latest?.slots || []).filter((item) => item.id !== save.id);

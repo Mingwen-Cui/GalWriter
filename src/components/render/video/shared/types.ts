@@ -214,6 +214,8 @@ export type WebMenuElement = {
     | 'custom'
     | 'back'
     | 'slot'
+    | 'slotContinue'
+    | 'slotDelete'
     | 'auto'
     | 'speed'
     | 'controls'

@@ -1,4 +1,4 @@
-import { Eye, EyeOff, RotateCw, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, List, RotateCw, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 export type WebEditableResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -65,6 +65,8 @@ export function WebEditableElementFrame({
   onDelete,
   onRotatePointerDown,
   onResizePointerDown,
+  onToggleSlotPreview,
+  slotPreviewActive = false,
   showAuxiliaryControls = true,
   showResizeHandles = true,
 }: {
@@ -77,6 +79,8 @@ export function WebEditableElementFrame({
     event: React.PointerEvent<HTMLElement>,
     handle: WebEditableResizeHandle,
   ) => void;
+  onToggleSlotPreview?: (event: React.MouseEvent<HTMLElement>) => void;
+  slotPreviewActive?: boolean;
   showAuxiliaryControls?: boolean;
   showResizeHandles?: boolean;
 }) {
@@ -103,6 +107,19 @@ export function WebEditableElementFrame({
       >
         {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
       </span>}
+      {onToggleSlotPreview && (
+        <span
+          tabIndex={-1}
+          className={`pointer-events-auto absolute -right-10 top-[calc(50%-40px)] z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-white shadow-lg ${slotPreviewActive ? 'bg-indigo-600' : 'bg-slate-700'}`}
+          style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={onToggleSlotPreview}
+          aria-label={slotPreviewActive ? 'Show empty archive' : 'Preview saved archive'}
+          title={slotPreviewActive ? 'Show empty archive' : 'Preview saved archive'}
+        >
+          <List className="h-4 w-4" />
+        </span>
+      )}
       {onDelete && (
         <span
           tabIndex={-1}

@@ -108,7 +108,7 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
   ButtonFunction[]
 > = {
   start: ['custom', 'continue', 'save', 'new', 'settings', 'link', 'volume'],
-  archive: ['custom', 'slot', 'new', 'back', 'settings', 'link', 'volume'],
+  archive: ['custom', 'slot', 'slotContinue', 'slotDelete', 'new', 'back', 'settings', 'link', 'volume'],
   settings: ['custom', 'back', 'auto', 'speed', 'controls', 'volume', 'link'],
   game: ['custom', 'audio', 'fullscreen', 'return', 'mainMenu', 'controlsToggle', 'volume', 'link'],
 };
@@ -123,6 +123,8 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       settings: '設定画面',
       back: '戻る',
       slot: 'セーブを読む',
+      slotContinue: 'セーブを続ける',
+      slotDelete: 'セーブを削除',
       auto: '自動再生',
       speed: '文字速度',
       controls: '操作表示',
@@ -146,6 +148,8 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       settings: 'Open settings',
       back: 'Back',
       slot: 'Load save',
+      slotContinue: 'Continue save',
+      slotDelete: 'Delete save',
       auto: 'Toggle auto play',
       speed: 'Text speed',
       controls: 'Show controls',
@@ -168,6 +172,8 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
     settings: '打开设置页',
     back: '返回',
     slot: '读取存档',
+    slotContinue: '继续此存档',
+    slotDelete: '删除此存档',
     auto: '自动播放开关',
     speed: '打字速度',
     controls: '显示控制栏',

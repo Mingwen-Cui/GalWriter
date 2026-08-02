@@ -493,6 +493,17 @@ export function WebWorkspace({
   const archivePageElements = webSettings.archivePageElements?.length
     ? webSettings.archivePageElements
     : defaultArchivePageElements;
+  useEffect(() => {
+    if (!webSettings.archivePageElements?.length) return;
+    const requiredRoles = new Set(['slotContinue', 'slotDelete']);
+    const existingRoles = new Set(webSettings.archivePageElements.map((element) => element.role));
+    const missing = defaultArchivePageElements.filter(
+      (element) => requiredRoles.has(element.role || '') && !existingRoles.has(element.role),
+    );
+    if (missing.length) {
+      updateWebSettings('archivePageElements', [...webSettings.archivePageElements, ...missing]);
+    }
+  }, [defaultArchivePageElements, updateWebSettings, webSettings.archivePageElements]);
   const settingsPageElements = webSettings.settingsPageElements?.length
     ? webSettings.settingsPageElements
     : defaultSettingsPageElements;

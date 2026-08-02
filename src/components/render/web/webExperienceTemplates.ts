@@ -114,6 +114,8 @@ export const buildRehearsalArchivePageElements = (
       choiceColor,
       choiceTextColor,
     ),
+    button('archive-slot-continue', 'slotContinue', t('继续', '続ける', 'Continue'), 56, 46, 12, 5, choiceColor, choiceTextColor, true),
+    button('archive-slot-delete', 'slotDelete', t('删除', '削除', 'Delete'), 69, 46, 7, 5, choiceColor, choiceTextColor),
     button(
       'archive-new',
       'new',
