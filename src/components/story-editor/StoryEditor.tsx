@@ -3297,6 +3297,7 @@ ${layoutConfig.label}
               deleteKeyCode={null}
               proOptions={{ hideAttribution: true }}
               fitView
+              fitViewOptions={{ padding: 0.45 }}
               minZoom={0.1}
               maxZoom={1.5}
             >

@@ -13,8 +13,8 @@
 
 .startup-splash__animation {
   display: block;
-  width: min(88vw, 88dvh, 820px);
-  height: min(88vw, 88dvh, 820px);
+  width: min(68vw, 68dvh, 620px);
+  height: min(68vw, 68dvh, 620px);
 }
 
 .startup-splash__reduced-mark {

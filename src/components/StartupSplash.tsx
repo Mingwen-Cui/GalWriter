@@ -5,7 +5,6 @@ import type { DotLottie } from '@lottiefiles/dotlottie-react';
 import startupAnimation from '../animation/startup-splash/startup-animation.lottie';
 import './StartupSplash.css';
 
-const STORAGE_KEY = 'galwriter.startupSplash.played';
 const FAIL_OPEN_AFTER_MS = 2500;
 const REDUCED_DURATION_MS = 250;
 
@@ -19,7 +18,6 @@ export function StartupSplash() {
     if (finishedRef.current) return;
     finishedRef.current = true;
     if (finishTimerRef.current) window.clearTimeout(finishTimerRef.current);
-    try { window.sessionStorage.setItem(STORAGE_KEY, '1'); } catch { /* storage is optional */ }
     setVisible(false);
   }, []);
 
@@ -32,13 +30,9 @@ export function StartupSplash() {
   }, []);
 
   useEffect(() => {
-    try {
-      if (window.sessionStorage.getItem(STORAGE_KEY) === '1') {
-        finish();
-        return undefined;
-      }
-    } catch { /* play the animation if storage is unavailable */ }
-
+    // A browser session can survive reloads, restored tabs, and even browser restarts.
+    // Do not use sessionStorage here: it caused the web app to skip the splash after
+    // its first visit, unlike the desktop and mobile app launches.
     finishTimerRef.current = window.setTimeout(finish, reducedMotion ? REDUCED_DURATION_MS : FAIL_OPEN_AFTER_MS);
     return () => {
       if (finishTimerRef.current) window.clearTimeout(finishTimerRef.current);
