@@ -799,7 +799,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             Number.parseFloat(titleBlockStyles?.marginBottom || '0')
           : 0;
       const mediaPreviewHeight = hasMediaTextLayout ? getAutoMediaHeight(rootWidth) : 0;
-      const editorCurrentWidth = editorElement.getBoundingClientRect().width || 0;
       const editorCandidateWidth = Math.max(1, rootWidth - panelPaddingLeft - panelPaddingRight);
       const editorStyles = window.getComputedStyle(editorElement);
       const editorFontSize = Number.parseFloat(editorStyles.fontSize || '14');
@@ -810,26 +809,21 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       const minimumTextHeight = hasCardVisualContent
         ? 0
         : editorLineHeight * AUTO_SIZE_TEXT_MIN_LINES;
-      let contentHeight =
-        editorElement.scrollHeight || editorElement.getBoundingClientRect().height;
-
-      if (Math.abs(editorCandidateWidth - editorCurrentWidth) > 1) {
-        const editorClone = editorElement.cloneNode(true) as HTMLElement;
-        editorClone.style.position = 'absolute';
-        editorClone.style.left = '-10000px';
-        editorClone.style.top = '0';
-        editorClone.style.width = `${editorCandidateWidth}px`;
-        editorClone.style.height = 'auto';
-        editorClone.style.minHeight = '0';
-        editorClone.style.maxHeight = 'none';
-        editorClone.style.overflow = 'visible';
-        editorClone.style.visibility = 'hidden';
-        editorClone.style.pointerEvents = 'none';
-        editorClone.style.boxSizing = window.getComputedStyle(editorElement).boxSizing;
-        document.body.appendChild(editorClone);
-        contentHeight = editorClone.scrollHeight || editorClone.getBoundingClientRect().height;
-        document.body.removeChild(editorClone);
-      }
+      const editorClone = editorElement.cloneNode(true) as HTMLElement;
+      editorClone.style.position = 'absolute';
+      editorClone.style.left = '-10000px';
+      editorClone.style.top = '0';
+      editorClone.style.width = `${editorCandidateWidth}px`;
+      editorClone.style.height = 'auto';
+      editorClone.style.minHeight = '0';
+      editorClone.style.maxHeight = 'none';
+      editorClone.style.overflow = 'visible';
+      editorClone.style.visibility = 'hidden';
+      editorClone.style.pointerEvents = 'none';
+      editorClone.style.boxSizing = window.getComputedStyle(editorElement).boxSizing;
+      document.body.appendChild(editorClone);
+      let contentHeight = editorClone.scrollHeight || editorClone.getBoundingClientRect().height;
+      document.body.removeChild(editorClone);
       contentHeight = Math.max(contentHeight, minimumTextHeight);
 
       if (!Number.isFinite(contentHeight) || contentHeight <= 0) return null;
@@ -882,13 +876,51 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       getNumericSize((currentNode as any).measured?.height) ??
       rootHeight;
     const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
-    const nextHeight = initialAutoSizeSyncSettledRef.current
+    const isDefaultInitialRoot =
+      id === 'root' &&
+      currentNode.data?.title === '开始' &&
+      ['从前有座山', '从前有一座山'].includes(String(currentNode.data?.text || ''));
+    const isDefaultInitialBranch =
+      id === 'initial-branch' &&
+      currentNode.data?.title === '分支' &&
+      currentNode.data?.text === '山里有座庙';
+    const isEmptyStoryCard =
+      String(currentNode.data?.text || '')
+        .replace(/<[^>]*>/g, '')
+        .trim() === '' &&
+      !currentNode.data?.imageUrl &&
+      !currentNode.data?.videoUrl &&
+      !currentNode.data?.audioUrl;
+    const shouldNormalizeDefaultInitialCard =
+      isDefaultInitialRoot || isDefaultInitialBranch || isEmptyStoryCard;
+    const nextHeight = shouldNormalizeDefaultInitialCard || initialAutoSizeSyncSettledRef.current
       ? targetHeight
       : Math.max(currentHeight, targetHeight);
+    const initialBranch =
+      isDefaultInitialRoot
+        ? storeApi.getState().nodes.find(
+            (node) =>
+              node.id === 'initial-branch' &&
+              node.data?.title === '分支' &&
+              node.data?.text === '山里有座庙',
+          )
+        : undefined;
+    const normalizedInitialBranchY = initialBranch
+      ? currentNode.position.y + nextHeight + 120
+      : undefined;
+    const previousInitialBranchY = currentNode.position.y + nextHeight + 60;
+    const shouldNormalizeInitialBranchPosition =
+      initialBranch !== undefined &&
+      normalizedInitialBranchY !== undefined &&
+      [280, 560, previousInitialBranchY].some(
+        (positionY) => Math.abs(initialBranch.position.y - positionY) < 1,
+      ) &&
+      Math.abs(initialBranch.position.y - normalizedInitialBranchY) >= 1;
     lastAutoHeightRef.current = targetHeight;
     const changed =
       Math.abs(currentHeight - nextHeight) >= 1 ||
-      Math.abs((currentMinHeight ?? 0) - targetHeight) >= 1;
+      Math.abs((currentMinHeight ?? 0) - targetHeight) >= 1 ||
+      shouldNormalizeInitialBranchPosition;
     if (!changed) return;
 
     setNodes((nodes) =>
@@ -902,13 +934,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 minHeight: targetHeight,
               },
             }
+          : shouldNormalizeInitialBranchPosition && node.id === initialBranch?.id
+            ? {
+                ...node,
+                position: { ...node.position, y: normalizedInitialBranchY! },
+              }
           : node,
       ),
     );
 
-    requestAnimationFrame(() => {
-      if (changed) updateNodeInternals(id);
-    });
   }, [
     computeAutoMinHeight,
     hasMediaTextLayout,
@@ -918,7 +952,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     showRichTextTools,
     showTitleInside,
     storeApi,
-    updateNodeInternals,
   ]);
 
   useLayoutEffect(() => {

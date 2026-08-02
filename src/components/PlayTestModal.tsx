@@ -9,15 +9,12 @@ import {
   ListMusic,
   Maximize2,
   Minimize2,
-  Moon,
   PlayCircle,
   RotateCcw,
   RotateCw,
   Settings,
   Sparkles,
-  Sun,
   Type,
-  Video,
   X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -57,7 +54,11 @@ import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
 import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
-import { getSceneBackgroundStyle, getSceneGroupStyle, mergeSceneMediaStyle } from './render/canvas/sceneCanvasStyle';
+import {
+  getSceneBackgroundStyle,
+  getSceneGroupStyle,
+  mergeSceneMediaStyle,
+} from './render/canvas/sceneCanvasStyle';
 import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
 import { getRenderObjects } from './render/video/shared/renderObjects';
 import type { RenderStyle } from './render/video/shared/types';
@@ -165,7 +166,6 @@ interface PlayTestProps {
   language: Language;
   onLanguageChange: (lang: Language) => void;
   isDarkMode: boolean;
-  setIsDarkMode: (val: boolean) => void;
   choicesColumns: number;
   setChoicesColumns: (val: number) => void;
   videoAutoPlay: boolean;
@@ -210,11 +210,10 @@ export function PlayTestModal({
   language,
   onLanguageChange: _onLanguageChange,
   isDarkMode,
-  setIsDarkMode,
   choicesColumns,
   setChoicesColumns,
   videoAutoPlay,
-  setVideoAutoPlay,
+  setVideoAutoPlay: _setVideoAutoPlay,
   layoutMode,
   setLayoutMode,
 
@@ -368,7 +367,8 @@ export function PlayTestModal({
       : '';
   useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
   const presentation = React.useMemo(
-    () => normalizeStoryPresentation(currentNode?.data.presentation as StoryPresentation | undefined),
+    () =>
+      normalizeStoryPresentation(currentNode?.data.presentation as StoryPresentation | undefined),
     [currentNode?.data.presentation],
   );
   const sceneSource = presentation.scene
@@ -387,8 +387,10 @@ export function PlayTestModal({
   const sceneMedia = resolveSceneMedia({
     data: sceneData,
     scene: presentation.scene,
-    fallbackImageUrl: (currentNode?.data.imageUrl as string | undefined) || selectedSceneImage?.imageUrl,
-    fallbackVideoUrl: selectedSceneImage?.videoUrl || (currentNode?.data.videoUrl as string | undefined),
+    fallbackImageUrl:
+      (currentNode?.data.imageUrl as string | undefined) || selectedSceneImage?.imageUrl,
+    fallbackVideoUrl:
+      selectedSceneImage?.videoUrl || (currentNode?.data.videoUrl as string | undefined),
     switchAction: activeSceneSwitchAction,
   });
   const sceneVideoUrl = sceneMedia.videoUrl;
@@ -425,7 +427,9 @@ export function PlayTestModal({
     const container = document.createElement('div');
     container.innerHTML = rawTextHtml;
     container.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
-    container.querySelectorAll('[data-mention-kind="scene"], [data-mention-kind="video"]').forEach((node) => node.remove());
+    container
+      .querySelectorAll('[data-mention-kind="scene"], [data-mention-kind="video"]')
+      .forEach((node) => node.remove());
     return container.innerHTML;
   }, [rawTextHtml]);
 
@@ -544,10 +548,6 @@ export function PlayTestModal({
       layoutMode === 'immersive'
         ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
         : `${renderStyle.dialogWidth}%`,
-    maxHeight:
-      layoutMode === 'immersive'
-        ? `min(${Math.max(16, Math.min(75, renderStyle.dialogHeight || 34))}%, calc(100% - 96px))`
-        : undefined,
     left:
       layoutMode === 'immersive'
         ? `${50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5}%`
@@ -560,7 +560,7 @@ export function PlayTestModal({
   };
   const renderObjectSelectionClass = (kind: keyof typeof renderObjects) =>
     showSettings && renderStyle.selectedRenderObject === kind
-      ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-transparent'
+      ? 'playtest-render-selection'
       : showSettings
         ? 'outline outline-1 outline-indigo-400/30'
         : '';
@@ -793,13 +793,19 @@ export function PlayTestModal({
       });
       setCompletedSwitchActions(
         playbackSteps
-          .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+          .filter(
+            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
+              step.kind === 'action',
+          )
           .map((step) => step.action)
           .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId)),
       );
       setCompletedInlineActions(
         playbackSteps
-          .filter((step): step is { kind: 'action'; action: InlinePresentationAction } => step.kind === 'action')
+          .filter(
+            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
+              step.kind === 'action',
+          )
           .map((step) => step.action)
           .filter(isPersistentInlineAction),
       );
@@ -839,17 +845,20 @@ export function PlayTestModal({
 
         if (step.kind === 'action') {
           setActiveInlineAction(step.action);
-          inlineActionTimerRef.current = setTimeout(() => {
-            setActiveInlineAction(null);
-            if (step.action.action === 'switch' && step.action.targetAssetId) {
-              setCompletedSwitchActions((previous) => [...previous, step.action]);
-            }
-            if (isPersistentInlineAction(step.action)) {
-              setCompletedInlineActions((previous) => [...previous, step.action]);
-            }
-            stepIndex += 1;
-            playNext();
-          }, Math.max(0, step.action.duration || 0));
+          inlineActionTimerRef.current = setTimeout(
+            () => {
+              setActiveInlineAction(null);
+              if (step.action.action === 'switch' && step.action.targetAssetId) {
+                setCompletedSwitchActions((previous) => [...previous, step.action]);
+              }
+              if (isPersistentInlineAction(step.action)) {
+                setCompletedInlineActions((previous) => [...previous, step.action]);
+              }
+              stepIndex += 1;
+              playNext();
+            },
+            Math.max(0, step.action.duration || 0),
+          );
           return;
         }
 
@@ -962,10 +971,13 @@ export function PlayTestModal({
     if (!animationCompleted) return;
 
     const sessionId = playbackSessionRef.current;
-    autoAdvanceTimerRef.current = setTimeout(() => {
-      if (sessionId !== playbackSessionRef.current) return;
-      advanceToTarget(autoAdvanceTarget);
-    }, Math.max(0, autoAdvanceDelay) * 1000);
+    autoAdvanceTimerRef.current = setTimeout(
+      () => {
+        if (sessionId !== playbackSessionRef.current) return;
+        advanceToTarget(autoAdvanceTarget);
+      },
+      Math.max(0, autoAdvanceDelay) * 1000,
+    );
 
     return () => {
       if (autoAdvanceTimerRef.current) {
@@ -1524,7 +1536,11 @@ export function PlayTestModal({
     activeInlineAction?.kind === 'scene' &&
     activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
       ? activeInlineAction
-      : latestPersistentInlineAction(completedInlineActions, 'scene', presentation.scene?.sourceNodeId);
+      : latestPersistentInlineAction(
+          completedInlineActions,
+          'scene',
+          presentation.scene?.sourceNodeId,
+        );
   const sceneInlineDuration = activeSceneInlineAction
     ? Math.max(80, activeSceneInlineAction.duration || 300)
     : 0;
@@ -1533,10 +1549,7 @@ export function PlayTestModal({
         presentation.scene.scale || 1
       })`
     : '';
-  const sceneObjectFit =
-    presentation.scene?.cropMode === 'stretch'
-        ? 'fill'
-        : 'cover';
+  const sceneObjectFit = presentation.scene?.cropMode === 'stretch' ? 'fill' : 'cover';
   const baseSceneStyle: React.CSSProperties = {
     objectFit: sceneObjectFit,
     objectPosition: '50% 50%',
@@ -1555,14 +1568,19 @@ export function PlayTestModal({
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration: `${
-      activeSceneInlineAction ? sceneInlineDuration : sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0
+      activeSceneInlineAction
+        ? sceneInlineDuration
+        : sceneMotion?.type === 'none'
+          ? 0
+          : sceneMotion?.duration || 0
     }ms`,
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
     transitionTimingFunction: 'ease-out',
   };
-  const sceneStyle = layoutMode === 'classic'
-    ? mergeSceneMediaStyle(baseSceneStyle, canvasSettings)
-    : baseSceneStyle;
+  const sceneStyle =
+    layoutMode === 'classic'
+      ? mergeSceneMediaStyle(baseSceneStyle, canvasSettings)
+      : baseSceneStyle;
   const presentationStageAspect = canvasSettings.canvasWidth / canvasSettings.canvasHeight;
   const classicMediaContainerStyle: React.CSSProperties | undefined = mobileClassicLayout
     ? undefined
@@ -1594,7 +1612,11 @@ export function PlayTestModal({
           activeInlineAction?.kind === 'character' &&
           activeInlineAction.sourceNodeId === config.sourceNodeId
             ? activeInlineAction
-            : latestPersistentInlineAction(completedInlineActions, 'character', config.sourceNodeId);
+            : latestPersistentInlineAction(
+                completedInlineActions,
+                'character',
+                config.sourceNodeId,
+              );
         const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
         return (
           <img
@@ -1628,30 +1650,28 @@ export function PlayTestModal({
     const panelTone = darkPanel
       ? 'border-white/10 bg-slate-950/45'
       : 'border-slate-200/80 bg-slate-100/70';
-    const workspaceStyle = (darkPanel
-      ? {
-          '--vr-surface': 'rgba(32, 37, 44, 0.92)',
-          '--vr-surface-strong': '#20252c',
-          '--vr-surface-soft': 'rgba(32, 37, 44, 0.86)',
-          '--vr-panel': 'rgba(20, 20, 23, 0.9)',
-          '--vr-border': 'rgba(255, 255, 255, 0.1)',
-          '--vr-border-strong': 'rgba(255, 255, 255, 0.16)',
-          '--vr-text': '#f4f4f5',
-          '--vr-text-soft': '#c7c7cc',
-          '--vr-text-muted': '#85858c',
-          '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 14%, transparent)',
-        }
-      : undefined) as React.CSSProperties | undefined;
+    const workspaceStyle = (
+      darkPanel
+        ? {
+            '--vr-surface': 'rgba(32, 37, 44, 0.92)',
+            '--vr-surface-strong': '#20252c',
+            '--vr-surface-soft': 'rgba(32, 37, 44, 0.86)',
+            '--vr-panel': 'rgba(20, 20, 23, 0.9)',
+            '--vr-border': 'rgba(255, 255, 255, 0.1)',
+            '--vr-border-strong': 'rgba(255, 255, 255, 0.16)',
+            '--vr-text': '#f4f4f5',
+            '--vr-text-soft': '#c7c7cc',
+            '--vr-text-muted': '#85858c',
+            '--vr-accent-soft': 'color-mix(in srgb, var(--accent) 14%, transparent)',
+          }
+        : undefined
+    ) as React.CSSProperties | undefined;
     return (
       <div className="video-render-workspace space-y-4" style={workspaceStyle}>
         <PlaytestPanelTitle
           icon={Layout}
           title={
-            language === 'zh'
-              ? '测试参数'
-              : language === 'ja'
-                ? 'テスト設定'
-                : 'Playtest Settings'
+            language === 'zh' ? '测试参数' : language === 'ja' ? 'テスト設定' : 'Playtest Settings'
           }
         />
 
@@ -1661,144 +1681,131 @@ export function PlayTestModal({
           onChange={onCanvasSettingsChange}
         />
 
-        <div className={`rounded-xl border p-2 ${panelTone}`}>
-          <div className="grid grid-cols-3 gap-2">
-            <PlaytestSettingCard
-              icon={Layout}
-              description={language === 'zh' ? '界面布局' : 'Layout'}
-            >
-              <PlaytestPillToggleGroup
-                value={layoutMode}
-                options={[
-                  { value: 'classic', label: t.layoutClassic, icon: <LayoutClassicGlyph /> },
-                  { value: 'immersive', label: t.layoutImmersive, icon: <LayoutImmersiveGlyph /> },
-                ]}
-                onChange={(value) => {
-                  const nextLayoutMode = value as 'classic' | 'immersive';
-                  setLayoutMode(nextLayoutMode);
-                  if (nextLayoutMode === 'immersive') {
-                    setChoicesPosition('center');
-                  }
-                }}
-              />
-            </PlaytestSettingCard>
-
-            {layoutMode === 'classic' && (
+        {false && (
+          <div className={`rounded-xl border p-2 ${panelTone}`}>
+            <div className="grid grid-cols-3 gap-2">
               <PlaytestSettingCard
-                icon={isDarkMode ? Moon : Sun}
-                description={language === 'zh' ? '测试主题' : 'Theme'}
+                icon={Layout}
+                description={language === 'zh' ? '界面布局' : 'Layout'}
               >
                 <PlaytestPillToggleGroup
-                  value={isDarkMode ? 'dark' : 'light'}
+                  value={layoutMode}
                   options={[
-                    { value: 'light', label: t.lightMode, icon: <Sun className="h-3.5 w-3.5" /> },
-                    { value: 'dark', label: t.darkMode, icon: <Moon className="h-3.5 w-3.5" /> },
+                    { value: 'classic', label: t.layoutClassic, icon: <LayoutClassicGlyph /> },
+                    {
+                      value: 'immersive',
+                      label: t.layoutImmersive,
+                      icon: <LayoutImmersiveGlyph />,
+                    },
                   ]}
-                  onChange={(value) => setIsDarkMode(value === 'dark')}
+                  onChange={(value) => {
+                    const nextLayoutMode = value as 'classic' | 'immersive';
+                    setLayoutMode(nextLayoutMode);
+                    if (nextLayoutMode === 'immersive') {
+                      setChoicesPosition('center');
+                    }
+                  }}
                 />
               </PlaytestSettingCard>
-            )}
 
-            <PlaytestSettingCard description={language === 'zh' ? '选项位置' : 'Choice position'}>
-              <PlaytestSegmentedGroup
-                value={choicesPosition}
-                options={[
-                  {
-                    value: 'aboveText',
-                    label: language === 'zh' ? '上' : 'Top',
-                    disabled: layoutMode === 'immersive',
-                  },
-                  { value: 'center', label: language === 'zh' ? '中' : 'Center' },
-                  {
-                    value: 'belowText',
-                    label: language === 'zh' ? '下' : 'Bottom',
-                    disabled: layoutMode === 'immersive',
-                  },
-                ]}
-                onChange={(value) =>
-                  setChoicesPosition(value as 'center' | 'aboveText' | 'belowText')
-                }
-              />
-            </PlaytestSettingCard>
-
-            {choicesPosition !== 'center' && (
-              <PlaytestSettingCard description={language === 'zh' ? '选项列数' : 'Columns'}>
+              <PlaytestSettingCard description={language === 'zh' ? '选项位置' : 'Choice position'}>
                 <PlaytestSegmentedGroup
-                  value={String(choicesColumns)}
-                  options={[1, 2, 3].map((cols) => ({
-                    value: String(cols),
-                    label: t[`column${cols}` as keyof typeof t] as string,
-                    icon: <ColumnDotsGlyph count={cols} />,
-                  }))}
-                  onChange={(value) => setChoicesColumns(Number(value) || 1)}
-                />
-              </PlaytestSettingCard>
-            )}
-
-            <PlaytestSettingCard icon={Sparkles} description={language === 'zh' ? '背景虚化' : 'Blur background'}>
-              <PlaytestPillToggleGroup
-                value={blurBackground ? 'on' : 'off'}
-                options={[
-                  { value: 'on', label: 'Blur', icon: <BlurGlyph /> },
-                  { value: 'off', label: 'Clear', icon: <ClearGlyph /> },
-                ]}
-                onChange={(value) => setBlurBackground(value === 'on')}
-              />
-            </PlaytestSettingCard>
-
-            {blurBackground && (
-              <PlaytestSettingCard icon={Type} description={language === 'zh' ? '文字虚化' : 'Blur text'}>
-                <PlaytestPillToggleGroup
-                  value={blurText ? 'blur' : 'clear'}
+                  value={choicesPosition}
                   options={[
-                    { value: 'blur', label: 'Blur', icon: <BlurGlyph /> },
-                    { value: 'clear', label: 'Clear', icon: <ClearGlyph /> },
+                    {
+                      value: 'aboveText',
+                      label: language === 'zh' ? '上' : 'Top',
+                      disabled: layoutMode === 'immersive',
+                    },
+                    { value: 'center', label: language === 'zh' ? '中' : 'Center' },
+                    {
+                      value: 'belowText',
+                      label: language === 'zh' ? '下' : 'Bottom',
+                      disabled: layoutMode === 'immersive',
+                    },
                   ]}
-                  onChange={(value) => setBlurText(value === 'blur')}
+                  onChange={(value) =>
+                    setChoicesPosition(value as 'center' | 'aboveText' | 'belowText')
+                  }
                 />
               </PlaytestSettingCard>
-            )}
 
-            {choicesPosition === 'center' && (
+              {choicesPosition !== 'center' && (
+                <PlaytestSettingCard description={language === 'zh' ? '选项列数' : 'Columns'}>
+                  <PlaytestSegmentedGroup
+                    value={String(choicesColumns)}
+                    options={[1, 2, 3].map((cols) => ({
+                      value: String(cols),
+                      label: t[`column${cols}` as keyof typeof t] as string,
+                      icon: <ColumnDotsGlyph count={cols} />,
+                    }))}
+                    onChange={(value) => setChoicesColumns(Number(value) || 1)}
+                  />
+                </PlaytestSettingCard>
+              )}
+
               <PlaytestSettingCard
-                icon={<SingleChoicePopupGlyph />}
-                description={language === 'zh' ? '单选弹窗' : 'Single popup'}
+                icon={Sparkles}
+                description={language === 'zh' ? '背景虚化' : 'Blur background'}
               >
                 <PlaytestPillToggleGroup
-                  value={skipSingleChoicePopup ? 'hide' : 'show'}
+                  value={blurBackground ? 'on' : 'off'}
                   options={[
-                    { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
-                    { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
+                    { value: 'on', label: 'Blur', icon: <BlurGlyph /> },
+                    { value: 'off', label: 'Clear', icon: <ClearGlyph /> },
                   ]}
-                  onChange={(value) => setSkipSingleChoicePopup(value === 'hide')}
+                  onChange={(value) => setBlurBackground(value === 'on')}
                 />
               </PlaytestSettingCard>
-            )}
 
-            <PlaytestSettingCard icon={FastForward} description={language === 'zh' ? '自动翻页' : 'Auto advance'}>
-              <PlaytestPillToggleGroup
-                value={autoAdvance ? 'on' : 'off'}
-                options={[
-                  { value: 'on', label: 'Auto', icon: <FastForward className="h-3.5 w-3.5" /> },
-                  { value: 'off', label: 'Manual', icon: <PlayCircle className="h-3.5 w-3.5" /> },
-                ]}
-                onChange={(value) => setAutoAdvance(value === 'on')}
-              />
-            </PlaytestSettingCard>
+              {blurBackground && (
+                <PlaytestSettingCard
+                  icon={Type}
+                  description={language === 'zh' ? '文字虚化' : 'Blur text'}
+                >
+                  <PlaytestPillToggleGroup
+                    value={blurText ? 'blur' : 'clear'}
+                    options={[
+                      { value: 'blur', label: 'Blur', icon: <BlurGlyph /> },
+                      { value: 'clear', label: 'Clear', icon: <ClearGlyph /> },
+                    ]}
+                    onChange={(value) => setBlurText(value === 'blur')}
+                  />
+                </PlaytestSettingCard>
+              )}
 
-            <PlaytestSettingCard icon={Video} description={t.videoAutoPlay}>
-              <PlaytestPillToggleGroup
-                value={videoAutoPlay ? 'auto' : 'manual'}
-                options={[
-                  { value: 'auto', label: 'Auto', icon: <FastForward className="h-3.5 w-3.5" /> },
-                  { value: 'manual', label: 'Manual', icon: <PlayCircle className="h-3.5 w-3.5" /> },
-                ]}
-                onChange={(value) => setVideoAutoPlay(value === 'auto')}
-              />
-            </PlaytestSettingCard>
+              {choicesPosition === 'center' && (
+                <PlaytestSettingCard
+                  icon={<SingleChoicePopupGlyph />}
+                  description={language === 'zh' ? '单选弹窗' : 'Single popup'}
+                >
+                  <PlaytestPillToggleGroup
+                    value={skipSingleChoicePopup ? 'hide' : 'show'}
+                    options={[
+                      { value: 'hide', label: 'Hide', icon: <EyeOff className="h-3.5 w-3.5" /> },
+                      { value: 'show', label: 'Show', icon: <Eye className="h-3.5 w-3.5" /> },
+                    ]}
+                    onChange={(value) => setSkipSingleChoicePopup(value === 'hide')}
+                  />
+                </PlaytestSettingCard>
+              )}
 
+              <PlaytestSettingCard
+                icon={FastForward}
+                description={language === 'zh' ? '自动翻页' : 'Auto advance'}
+              >
+                <PlaytestPillToggleGroup
+                  value={autoAdvance ? 'on' : 'off'}
+                  options={[
+                    { value: 'on', label: 'Auto', icon: <FastForward className="h-3.5 w-3.5" /> },
+                    { value: 'off', label: 'Manual', icon: <PlayCircle className="h-3.5 w-3.5" /> },
+                  ]}
+                  onChange={(value) => setAutoAdvance(value === 'on')}
+                />
+              </PlaytestSettingCard>
+            </div>
           </div>
-        </div>
+        )}
 
         <PlaytestPanelTitle
           icon={Settings}
@@ -2071,532 +2078,543 @@ export function PlayTestModal({
             : 'border-transparent'
         }`}
       >
-      {/* Header */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className={`playtest-header shrink-0 z-50 px-4 transition-all duration-300 md:px-6 ${
-          hideEntireHeaderInFocusMode ? 'hidden' : ''
-        } ${
-          mobileClassicLayout
-            ? 'playtest-header--classic-mobile flex flex-col gap-2 py-2'
-            : mobileImmersiveLayout
-              ? 'playtest-header--immersive-mobile flex flex-col gap-2 py-2'
-            : 'playtest-header--compact-row flex min-h-14 items-center justify-between'
-        } ${playtestHeaderToneClass}`}
-      >
-        {mobileClassicLayout ? (
-          <>
-            <div className="playtest-header-primary flex w-full min-h-10 items-center justify-between gap-2">
-              {renderPlaytestTitle()}
-              {renderPlaytestBackButton(classicFocusHidden)}
-            </div>
-            <div
-              className={`playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-center gap-2 md:gap-4 ${classicFocusHidden}`}
-            >
-              {renderPlaytestSecondaryActions()}
-            </div>
-          </>
-        ) : mobileImmersiveLayout ? (
-          <>
-            <div className="playtest-header-primary flex w-full min-h-10 items-center justify-between gap-2">
-              {renderPlaytestTitle()}
-              {renderPlaytestCloseButton()}
-            </div>
-            <div className="playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-start gap-3">
-              {renderPlaytestBackButton()}
-              {renderPlaytestSecondaryActions({ includeClose: false })}
-            </div>
-          </>
-        ) : (
-          <>
-            {renderPlaytestTitle()}
-            <div className="playtest-header-actions flex shrink-0 items-center gap-2 md:gap-4">
-              {renderPlaytestBackButton()}
-              {renderPlaytestSecondaryActions()}
-            </div>
-          </>
-        )}
-      </div>
-
-      {backExitHintVisible && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[320] flex justify-center px-4">
-          <div className="rounded-full bg-slate-950/88 px-4 py-2 text-xs font-bold text-white shadow-xl backdrop-blur-md">
-            {language === 'zh'
-              ? '再按一次返回退出测试'
-              : language === 'ja'
-                ? 'もう一度戻るとテストを終了します'
-                : 'Press Back again to exit preview'}
-          </div>
-        </div>
-      )}
-
-      {playlistAudioUrl && (
-        <audio
-          ref={playlistAudioRef}
-          src={playlistAudioUrl}
-          preload="auto"
-          onPlay={() => setIsPlaylistAudioPlaying(true)}
-          onPause={() => setIsPlaylistAudioPlaying(false)}
-          onEnded={() => setIsPlaylistAudioPlaying(false)}
-          className="hidden"
-        />
-      )}
-
-      {/* Novel Container */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        {/* Header */}
         <div
-          className={`w-full h-full flex flex-col ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}
+          onClick={(e) => e.stopPropagation()}
+          className={`playtest-header shrink-0 z-50 px-4 transition-all duration-300 md:px-6 ${
+            hideEntireHeaderInFocusMode ? 'hidden' : ''
+          } ${
+            mobileClassicLayout
+              ? 'playtest-header--classic-mobile flex flex-col gap-2 py-2'
+              : mobileImmersiveLayout
+                ? 'playtest-header--immersive-mobile flex flex-col gap-2 py-2'
+                : 'playtest-header--compact-row flex min-h-14 items-center justify-between'
+          } ${playtestHeaderToneClass}`}
         >
-          {currentNodeId === 'THE_END' ? (
-            layoutMode === 'immersive' ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500 relative w-full h-full">
-                {/* 全景背景渐变 */}
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 z-0" />
+          {mobileClassicLayout ? (
+            <>
+              <div className="playtest-header-primary flex w-full min-h-10 items-center justify-between gap-2">
+                {renderPlaytestTitle()}
+                {renderPlaytestBackButton(classicFocusHidden)}
+              </div>
+              <div
+                className={`playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-center gap-2 md:gap-4 ${classicFocusHidden}`}
+              >
+                {renderPlaytestSecondaryActions()}
+              </div>
+            </>
+          ) : mobileImmersiveLayout ? (
+            <>
+              <div className="playtest-header-primary flex w-full min-h-10 items-center justify-between gap-2">
+                {renderPlaytestTitle()}
+                {renderPlaytestCloseButton()}
+              </div>
+              <div className="playtest-header-actions playtest-header-actions-secondary flex w-full min-h-10 items-center justify-start gap-3">
+                {renderPlaytestBackButton()}
+                {renderPlaytestSecondaryActions({ includeClose: false })}
+              </div>
+            </>
+          ) : (
+            <>
+              {renderPlaytestTitle()}
+              <div className="playtest-header-actions flex shrink-0 items-center gap-2 md:gap-4">
+                {renderPlaytestBackButton()}
+                {renderPlaytestSecondaryActions()}
+              </div>
+            </>
+          )}
+        </div>
 
-                <div className="relative z-10 flex flex-col items-center max-w-md p-8 rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 shadow-2xl">
-                  <div className="w-20 h-20 mb-6 rounded-full flex items-center justify-center bg-white/10 border border-white/20 text-sky-400 animate-pulse">
+        {backExitHintVisible && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[320] flex justify-center px-4">
+            <div className="rounded-full bg-slate-950/88 px-4 py-2 text-xs font-bold text-white shadow-xl backdrop-blur-md">
+              {language === 'zh'
+                ? '再按一次返回退出测试'
+                : language === 'ja'
+                  ? 'もう一度戻るとテストを終了します'
+                  : 'Press Back again to exit preview'}
+            </div>
+          </div>
+        )}
+
+        {playlistAudioUrl && (
+          <audio
+            ref={playlistAudioRef}
+            src={playlistAudioUrl}
+            preload="auto"
+            onPlay={() => setIsPlaylistAudioPlaying(true)}
+            onPause={() => setIsPlaylistAudioPlaying(false)}
+            onEnded={() => setIsPlaylistAudioPlaying(false)}
+            className="hidden"
+          />
+        )}
+
+        {/* Novel Container */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+          <div
+            className={`w-full h-full flex flex-col ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}
+          >
+            {currentNodeId === 'THE_END' ? (
+              layoutMode === 'immersive' ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500 relative w-full h-full">
+                  {/* 全景背景渐变 */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 z-0" />
+
+                  <div className="relative z-10 flex flex-col items-center max-w-md p-8 rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 shadow-2xl">
+                    <div className="w-20 h-20 mb-6 rounded-full flex items-center justify-center bg-white/10 border border-white/20 text-sky-400 animate-pulse">
+                      <PlayCircle className="w-10 h-10" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">
+                      {t.storyEnd}
+                    </h2>
+                    <p className="text-slate-300 mb-8 max-w-sm">{t.branchEnded}</p>
+                    <button
+                      onClick={handleRestartClick}
+                      className="px-10 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-95 hover:scale-[1.03]"
+                    >
+                      {t.restart}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500">
+                  <div
+                    className={`w-20 h-20 mb-6 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-sky-500/20 text-sky-400' : 'bg-indigo-100 text-indigo-600'}`}
+                  >
                     <PlayCircle className="w-10 h-10" />
                   </div>
-                  <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">
+                  <h2
+                    className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} mb-4 tracking-tight`}
+                  >
                     {t.storyEnd}
                   </h2>
-                  <p className="text-slate-300 mb-8 max-w-sm">{t.branchEnded}</p>
+                  <p
+                    className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-8 max-w-sm`}
+                  >
+                    {t.branchEnded}
+                  </p>
                   <button
                     onClick={handleRestartClick}
-                    className="px-10 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-95 hover:scale-[1.03]"
+                    className={`px-10 py-3 ${isDarkMode ? 'bg-sky-600 hover:bg-sky-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl shadow-lg transition-all active:scale-95`}
                   >
                     {t.restart}
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500">
-                <div
-                  className={`w-20 h-20 mb-6 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-sky-500/20 text-sky-400' : 'bg-indigo-100 text-indigo-600'}`}
-                >
-                  <PlayCircle className="w-10 h-10" />
-                </div>
-                <h2
-                  className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} mb-4 tracking-tight`}
-                >
-                  {t.storyEnd}
-                </h2>
-                <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-8 max-w-sm`}>
-                  {t.branchEnded}
-                </p>
-                <button
-                  onClick={handleRestartClick}
-                  className={`px-10 py-3 ${isDarkMode ? 'bg-sky-600 hover:bg-sky-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl shadow-lg transition-all active:scale-95`}
-                >
-                  {t.restart}
-                </button>
-              </div>
-            )
-          ) : layoutMode === 'immersive' ? (
-            <div className="flex-1 flex flex-col min-h-0 relative w-full h-full">
-              <div className="absolute inset-0 z-0 overflow-hidden">
-                <div className="absolute inset-0 overflow-hidden w-full h-full select-none pointer-events-none">
-                  {sceneImageUrl ? (
-                    <img
-                      src={sceneImageUrl}
-                      draggable={false}
-                      onDragStart={(event) => event.preventDefault()}
-                      className="preview-media-safe w-full h-full"
-                      style={sceneStyle}
-                      alt="Scene Background"
-                    />
-                  ) : sceneVideoUrl ? (
-                    <video
-                      key={currentNodeId}
-                      ref={videoRef}
-                      src={sceneVideoUrl}
-                      playsInline
-                      muted
-                      loop={false}
-                      autoPlay={videoAutoPlay || waitsForBranchVideo}
-                      onLoadedMetadata={(event) => {
-                        event.currentTarget.currentTime = Math.min(
-                          sceneVideoStartTime,
-                          Math.max(0, event.currentTarget.duration || 0),
-                        );
-                      }}
-                      onPlay={startVideoLimitTimer}
-                      onPause={stopVideoLimitTimer}
-                      onTimeUpdate={handleSceneVideoTimeUpdate}
-                      onEnded={() => {
-                        stopVideoLimitTimer();
-                        setCurrentVideoEnded(true);
-                      }}
-                      className="w-full h-full"
-                      style={sceneStyle}
-                    />
-                  ) : (
-                    <div
-                      className={`w-full h-full ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-sky-950/40 to-slate-950' : 'bg-gradient-to-br from-indigo-50 via-slate-100 to-indigo-100'}`}
-                    />
-                  )}
-                </div>
-                {renderPresentedCharacters()}
-              </div>
-
-              {/* 2. 悬浮的选项与对话框 */}
-              <div
-                className={`absolute inset-0 pointer-events-none ${
-                  choicesPosition === 'center' && choicesReady && blurBackground
-                    ? blurText
-                      ? 'z-20'
-                      : 'z-40'
-                    : 'z-20'
-                }`}
-              >
-                <div
-                  className="pointer-events-auto absolute flex flex-col items-stretch justify-end gap-4"
-                  style={dialogueFrameStyle}
-                >
-                  {/* 选项区域 - 文字上方 */}
-                  {choicesPosition === 'aboveText' && renderChoices(true)}
-
-                  {useInlineFocusButton &&
-                    renderPlaytestFocusButton(
-                      'playtest-focus-button-inline pointer-events-auto relative z-[30] mb-1 self-end',
-                    )}
-
-                  {/* 透明半透明对话框 */}
-                  <div
-                    ref={immersiveDialogueRef}
-                    onClick={(event) => {
-                      if (showSettings) {
-                        selectRenderObject(event, 'dialogBox');
-                        return;
-                      }
-                      handleTextContainerClick();
-                    }}
-                    className={`pointer-events-auto relative w-full ${showSettings ? 'overflow-visible' : 'overflow-y-auto'} rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500 ${renderObjectSelectionClass('dialogBox')}`}
-                    style={dialogueShellStyle}
-                  >
-                    {currentNode?.data.audioUrl && (
-                      <audio
-                        key={currentNodeId}
-                        ref={audioRef}
-                        src={currentNode.data.audioUrl as string}
-                        preload="auto"
-                        onPlay={recordCurrentAudio}
-                        onEnded={() => setCurrentAudioEnded(true)}
-                        className="hidden"
-                      />
-                    )}
-
-                    {renderStyle.titleVisible && currentTitle && (
-                      <div
-                        className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
-                        style={titleStyle}
-                        onClick={(event) => selectRenderObject(event, 'title')}
-                      >
-                        {currentTitle}
-                      </div>
-                    )}
-
-                    <div
-                      className={`whitespace-pre-wrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] max-h-[150px] overflow-y-auto pr-1 ${renderObjectSelectionClass('body')}`}
-                      style={bodyStyle}
-                      onClick={(event) => selectRenderObject(event, 'body')}
-                    >
-                      <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
-                    </div>
-
-                    {false && !animationCompleted && (
-                      <div className="absolute right-4 bottom-2 text-[10px] text-white/50 animate-pulse select-none">
-                        {interactionMode === 'typewriter' &&
-                          (language === 'zh' ? '点击跳过打字...' : 'Click to skip...')}
-                        {interactionMode === 'timed' &&
-                          (language === 'zh'
-                            ? `选项将在 ${timeLeft}s 后出现`
-                            : `Choices in ${timeLeft}s`)}
-                        {interactionMode === 'clickToShow' &&
-                          (language === 'zh'
-                            ? '点击文本显示选项...'
-                            : 'Click text to show options...')}
-                      </div>
-                    )}
-
-                    {!animationCompleted && interactionMode === 'timed' && (
-                      <div
-                        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-100"
-                        style={{ width: `${(timeLeft / choiceDelay) * 100}%` }}
-                      />
-                    )}
-                  </div>
-
-                  {/* 选项区域 - 文字下方 */}
-                  {choicesPosition === 'belowText' && renderChoices(true)}
-                </div>
-              </div>
-
-              {/* 选项区域 - 画面中间 */}
-              {choicesPosition === 'center' &&
-                choicesReady &&
-                !(skipSingleChoicePopup && outEdges.length <= 1) && (
-                  <div
-                    className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
-                  >
-                    <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto">
-                      {renderChoices(true)}
-                    </div>
-                  </div>
-                )}
-            </div>
-          ) : (
-            // 经典排版
-            <div
-              className={`flex-1 flex flex-col min-h-0 relative ${
-                hasMedia
-                  ? `m-2 md:m-5 overflow-hidden rounded-xl border shadow-2xl ${
-                      isDarkMode
-                        ? 'border-white/12 bg-slate-950/75 shadow-black/30'
-                        : 'border-slate-200 bg-white/85 shadow-slate-900/10'
-                    }`
-                  : ''
-              }`}
-            >
-              {/* 1. Media Area */}
-              {hasMedia && (
-                <div
-                  className={`${
-                    mobileClassicLayout
-                      ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
-                      : 'flex-1 min-h-0 p-2 md:p-4'
-                  } flex items-center justify-center relative group overflow-hidden ${showSettings && !renderStyle.selectedRenderObject ? 'ring-2 ring-inset ring-indigo-500' : ''} ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
-                  style={{ ...classicMediaContainerStyle, ...getSceneBackgroundStyle(canvasSettings) }}
-                  onClick={() => { if (showSettings) updateRenderStyle('selectedRenderObject', undefined); }}
-                >
-                  {/* Ambient Background Layer */}
-                  <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-all duration-1000">
+              )
+            ) : layoutMode === 'immersive' ? (
+              <div className="flex-1 flex flex-col min-h-0 relative w-full h-full">
+                <div className="absolute inset-0 z-0 overflow-hidden">
+                  <div className="absolute inset-0 overflow-hidden w-full h-full select-none pointer-events-none">
                     {sceneImageUrl ? (
                       <img
                         src={sceneImageUrl}
                         draggable={false}
                         onDragStart={(event) => event.preventDefault()}
-                        className="preview-media-safe w-full h-full object-cover blur-[60px] opacity-20 scale-125"
-                        alt=""
+                        className="preview-media-safe w-full h-full"
+                        style={sceneStyle}
+                        alt="Scene Background"
+                      />
+                    ) : sceneVideoUrl ? (
+                      <video
+                        key={currentNodeId}
+                        ref={videoRef}
+                        src={sceneVideoUrl}
+                        playsInline
+                        muted
+                        loop={false}
+                        autoPlay={videoAutoPlay || waitsForBranchVideo}
+                        onLoadedMetadata={(event) => {
+                          event.currentTarget.currentTime = Math.min(
+                            sceneVideoStartTime,
+                            Math.max(0, event.currentTarget.duration || 0),
+                          );
+                        }}
+                        onPlay={startVideoLimitTimer}
+                        onPause={stopVideoLimitTimer}
+                        onTimeUpdate={handleSceneVideoTimeUpdate}
+                        onEnded={() => {
+                          stopVideoLimitTimer();
+                          setCurrentVideoEnded(true);
+                        }}
+                        className="w-full h-full"
+                        style={sceneStyle}
                       />
                     ) : (
                       <div
-                        className={`w-full h-full ${isDarkMode ? 'bg-gradient-radial from-sky-500/10' : 'bg-gradient-radial from-indigo-500/5'} to-transparent`}
+                        className={`w-full h-full ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-sky-950/40 to-slate-950' : 'bg-gradient-to-br from-indigo-50 via-slate-100 to-indigo-100'}`}
                       />
                     )}
                   </div>
-
-                  {/* Shared 1920x1080 presentation stage */}
-                  <div
-                    className={`relative z-10 ${
-                      mobileClassicLayout ? 'h-full w-full' : 'max-h-full max-w-full'
-                    } animate-in zoom-in-95 duration-500`}
-                    style={classicMediaFrameStyle}
-                  >
-                    <VirtualPresentationStage
-                      fit={mobileClassicLayout ? 'width' : 'cover'}
-                      className="h-full w-full"
-                      width={canvasSettings.canvasWidth}
-                      height={canvasSettings.canvasHeight}
-                    >
-                      <div className="absolute inset-0 overflow-hidden">
-                        <div className="absolute inset-0" style={getSceneGroupStyle(canvasSettings)}>
-                        {sceneImageUrl && (
-                          <img
-                            src={sceneImageUrl}
-                            alt="Scene"
-                            draggable={false}
-                            onDragStart={(event) => event.preventDefault()}
-                            className="preview-media-safe h-full w-full"
-                            style={{
-                              ...sceneStyle,
-                            }}
-                          />
-                        )}
-                        {sceneVideoUrl && (
-                          <video
-                            key={currentNodeId}
-                            ref={videoRef}
-                            src={sceneVideoUrl}
-                            controls
-                            playsInline
-                            draggable={false}
-                            onDragStart={(e) => e.preventDefault()}
-                            autoPlay={videoAutoPlay || waitsForBranchVideo}
-                            onLoadedMetadata={(event) => {
-                              event.currentTarget.currentTime = Math.min(
-                                sceneVideoStartTime,
-                                Math.max(0, event.currentTarget.duration || 0),
-                              );
-                            }}
-                            onPlay={startVideoLimitTimer}
-                            onPause={stopVideoLimitTimer}
-                            onTimeUpdate={handleSceneVideoTimeUpdate}
-                            onEnded={() => {
-                              stopVideoLimitTimer();
-                              setCurrentVideoEnded(true);
-                            }}
-                            className="h-full w-full"
-                            style={sceneStyle}
-                          />
-                        )}
-                        {renderPresentedCharacters()}
-                        </div>
-                      </div>
-                    </VirtualPresentationStage>
-                  </div>
-
-                  {/* 选项区域 - 画面的中间（非全屏且有媒体时挂载在画面内） */}
-                  {choicesPosition === 'center' &&
-                    !isFullscreen &&
-                    choicesReady &&
-                    !(skipSingleChoicePopup && outEdges.length <= 1) && (
-                      <div
-                        className={`absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
-                      >
-                        <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto p-4 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl">
-                          {renderChoices(false)}
-                        </div>
-                      </div>
-                    )}
+                  {renderPresentedCharacters()}
                 </div>
-              )}
 
-              {/* 选项区域 - 文字上方 */}
-              {choicesPosition === 'aboveText' && choicesReady && (
+                {/* 2. 悬浮的选项与对话框 */}
                 <div
-                  ref={choicesRef}
-                  className={`p-4 md:p-6 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-b shrink-0 z-40 shadow-sm`}
-                >
-                  {renderChoices(false)}
-                </div>
-              )}
-
-              {/* 2. Text Area */}
-              <div
-                onClick={(event) => {
-                  if (showSettings) {
-                    selectRenderObject(event, 'dialogBox');
-                    return;
-                  }
-                  handleTextContainerClick();
-                }}
-                className={`${
-                  !hasMedia
-                    ? 'flex-1'
-                    : mobileClassicLayout
-                      ? 'playtest-classic-mobile-text flex-1 min-h-[42vh] shrink-0'
-                      : 'h-32 md:h-48 shrink-0'
-                } ${showSettings ? 'overflow-visible' : 'overflow-y-auto'} py-4 md:py-8 ${
-                  mobileClassicLayout ? 'px-4' : 'px-6 md:px-12 lg:px-48 xl:px-64'
-                } ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 transition-all duration-300 relative ${
-                  choicesPosition === 'center' && choicesReady && blurBackground
-                    ? isFullscreen
+                  className={`absolute inset-0 pointer-events-none ${
+                    choicesPosition === 'center' && choicesReady && blurBackground
                       ? blurText
                         ? 'z-20'
                         : 'z-40'
-                      : blurText
-                        ? 'z-20 blur-[5px] opacity-80'
-                        : 'z-20'
-                    : 'z-20'
-                } ${renderObjectSelectionClass('dialogBox')}`}
-                style={{
-                  ...(renderStyle.dialogVisible
-                    ? dialogueBackgroundStyle()
-                    : {
-                        background: 'transparent',
-                        backgroundColor: 'transparent',
-                        backgroundImage: 'none',
-                        borderColor: 'transparent',
-                        boxShadow: 'none',
-                        backdropFilter: 'none',
-                      }),
-                  borderTopLeftRadius: hasMedia ? 0 : renderStyle.dialogRadius,
-                  borderTopRightRadius: hasMedia ? 0 : renderStyle.dialogRadius,
-                  paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-                  paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-                }}
-              >
-                {currentNode?.data.audioUrl && (
-                  <audio
-                    key={currentNodeId}
-                    ref={audioRef}
-                    src={currentNode.data.audioUrl as string}
-                    preload="auto"
-                    onPlay={recordCurrentAudio}
-                    onEnded={() => setCurrentAudioEnded(true)}
-                    className="hidden"
-                  />
-                )}
-                {renderStyle.titleVisible && currentTitle && (
-                  <div
-                    className={`mb-2 drop-shadow-sm ${renderObjectSelectionClass('title')}`}
-                    style={titleStyle}
-                    onClick={(event) => selectRenderObject(event, 'title')}
-                  >
-                    {currentTitle}
-                  </div>
-                )}
-                <div
-                  className={`whitespace-pre-wrap drop-shadow-sm ${renderObjectSelectionClass('body')}`}
-                  style={bodyStyle}
-                  onClick={(event) => selectRenderObject(event, 'body')}
+                      : 'z-20'
+                  }`}
                 >
-                  <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
-                </div>
-
-                {false && !animationCompleted && (
-                  <div className="absolute right-4 bottom-2 text-[10px] opacity-40 animate-pulse select-none">
-                    {interactionMode === 'typewriter' &&
-                      (language === 'zh' ? '点击跳过打字...' : 'Click to skip...')}
-                    {interactionMode === 'timed' &&
-                      (language === 'zh'
-                        ? `选项将在 ${timeLeft}s 后出现`
-                        : `Choices in ${timeLeft}s`)}
-                    {interactionMode === 'clickToShow' &&
-                      (language === 'zh' ? '点击文本显示选项...' : 'Click text to show options...')}
-                  </div>
-                )}
-
-                {!animationCompleted && interactionMode === 'timed' && (
                   <div
-                    className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-100"
-                    style={{ width: `${(timeLeft / choiceDelay) * 100}%` }}
-                  />
-                )}
-              </div>
-
-              {/* 3. Choices Area - 文字下方 */}
-              {choicesPosition === 'belowText' && choicesReady && (
-                <div
-                  ref={choicesRef}
-                  className={`p-4 md:p-6 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-t shrink-0 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]`}
-                >
-                  {renderChoices(false)}
-                </div>
-              )}
-
-              {/* 选项区域 - 屏幕的中间（当全屏，或无媒体文件时挂载在整个视口中央） */}
-              {choicesPosition === 'center' &&
-                (isFullscreen || !hasMedia) &&
-                choicesReady &&
-                !(skipSingleChoicePopup && outEdges.length <= 1) && (
-                  <div
-                    className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
+                    className="pointer-events-auto absolute flex flex-col items-stretch justify-end gap-4"
+                    style={dialogueFrameStyle}
                   >
-                    <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto p-4 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl">
-                      {renderChoices(false)}
+                    {/* 选项区域 - 文字上方 */}
+                    {choicesPosition === 'aboveText' && renderChoices(true)}
+
+                    {useInlineFocusButton &&
+                      renderPlaytestFocusButton(
+                        'playtest-focus-button-inline pointer-events-auto relative z-[30] mb-1 self-end',
+                      )}
+
+                    {/* 透明半透明对话框 */}
+                  <div
+                    ref={immersiveDialogueRef}
+                      onClick={(event) => {
+                        if (showSettings) {
+                          selectRenderObject(event, 'dialogBox');
+                          return;
+                        }
+                        handleTextContainerClick();
+                      }}
+                    className={`pointer-events-auto relative w-full overflow-visible rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500 ${renderObjectSelectionClass('dialogBox')}`}
+                      style={dialogueShellStyle}
+                    >
+                      {currentNode?.data.audioUrl && (
+                        <audio
+                          key={currentNodeId}
+                          ref={audioRef}
+                          src={currentNode.data.audioUrl as string}
+                          preload="auto"
+                          onPlay={recordCurrentAudio}
+                          onEnded={() => setCurrentAudioEnded(true)}
+                          className="hidden"
+                        />
+                      )}
+
+                      {renderStyle.titleVisible && currentTitle && (
+                        <div
+                          className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
+                          style={titleStyle}
+                          onClick={(event) => selectRenderObject(event, 'title')}
+                        >
+                          {currentTitle}
+                        </div>
+                      )}
+
+                      <div
+                        className={`whitespace-pre-wrap break-words drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('body')}`}
+                        style={bodyStyle}
+                        onClick={(event) => selectRenderObject(event, 'body')}
+                      >
+                        <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
+                      </div>
+
+                      {false && !animationCompleted && (
+                        <div className="absolute right-4 bottom-2 text-[10px] text-white/50 animate-pulse select-none">
+                          {interactionMode === 'typewriter' &&
+                            (language === 'zh' ? '点击跳过打字...' : 'Click to skip...')}
+                          {interactionMode === 'timed' &&
+                            (language === 'zh'
+                              ? `选项将在 ${timeLeft}s 后出现`
+                              : `Choices in ${timeLeft}s`)}
+                          {interactionMode === 'clickToShow' &&
+                            (language === 'zh'
+                              ? '点击文本显示选项...'
+                              : 'Click text to show options...')}
+                        </div>
+                      )}
+
+                      {!animationCompleted && interactionMode === 'timed' && (
+                        <div
+                          className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-100"
+                          style={{ width: `${(timeLeft / choiceDelay) * 100}%` }}
+                        />
+                      )}
                     </div>
+
+                    {/* 选项区域 - 文字下方 */}
+                    {choicesPosition === 'belowText' && renderChoices(true)}
+                  </div>
+                </div>
+
+                {/* 选项区域 - 画面中间 */}
+                {choicesPosition === 'center' &&
+                  choicesReady &&
+                  !(skipSingleChoicePopup && outEdges.length <= 1) && (
+                    <div
+                      className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
+                    >
+                      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto">
+                        {renderChoices(true)}
+                      </div>
+                    </div>
+                  )}
+              </div>
+            ) : (
+              // 经典排版
+              <div
+                className={`flex-1 flex flex-col min-h-0 relative ${
+                  hasMedia
+                    ? `m-2 md:m-5 overflow-hidden rounded-xl border shadow-2xl ${
+                        isDarkMode
+                          ? 'border-white/12 bg-slate-950/75 shadow-black/30'
+                          : 'border-slate-200 bg-white/85 shadow-slate-900/10'
+                      }`
+                    : ''
+                }`}
+              >
+                {/* 1. Media Area */}
+                {hasMedia && (
+                  <div
+                    className={`${
+                      mobileClassicLayout
+                        ? 'playtest-classic-mobile-media w-full shrink-0 aspect-video p-0'
+                        : 'flex-1 min-h-0 p-2 md:p-4'
+                    } flex items-center justify-center relative group overflow-hidden ${showSettings && !renderStyle.selectedRenderObject ? 'ring-2 ring-inset ring-indigo-500' : ''} ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}
+                    style={{
+                      ...classicMediaContainerStyle,
+                      ...getSceneBackgroundStyle(canvasSettings),
+                    }}
+                    onClick={() => {
+                      if (showSettings) updateRenderStyle('selectedRenderObject', undefined);
+                    }}
+                  >
+                    {/* Ambient Background Layer */}
+                    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-all duration-1000">
+                      {sceneImageUrl ? (
+                        <img
+                          src={sceneImageUrl}
+                          draggable={false}
+                          onDragStart={(event) => event.preventDefault()}
+                          className="preview-media-safe w-full h-full object-cover blur-[60px] opacity-20 scale-125"
+                          alt=""
+                        />
+                      ) : (
+                        <div
+                          className={`w-full h-full ${isDarkMode ? 'bg-gradient-radial from-sky-500/10' : 'bg-gradient-radial from-indigo-500/5'} to-transparent`}
+                        />
+                      )}
+                    </div>
+
+                    {/* Shared 1920x1080 presentation stage */}
+                    <div
+                      className={`relative z-10 ${
+                        mobileClassicLayout ? 'h-full w-full' : 'max-h-full max-w-full'
+                      } animate-in zoom-in-95 duration-500`}
+                      style={classicMediaFrameStyle}
+                    >
+                      <VirtualPresentationStage
+                        fit={mobileClassicLayout ? 'width' : 'cover'}
+                        className="h-full w-full"
+                        width={canvasSettings.canvasWidth}
+                        height={canvasSettings.canvasHeight}
+                      >
+                        <div className="absolute inset-0 overflow-hidden">
+                          <div
+                            className="absolute inset-0"
+                            style={getSceneGroupStyle(canvasSettings)}
+                          >
+                            {sceneImageUrl && (
+                              <img
+                                src={sceneImageUrl}
+                                alt="Scene"
+                                draggable={false}
+                                onDragStart={(event) => event.preventDefault()}
+                                className="preview-media-safe h-full w-full"
+                                style={{
+                                  ...sceneStyle,
+                                }}
+                              />
+                            )}
+                            {sceneVideoUrl && (
+                              <video
+                                key={currentNodeId}
+                                ref={videoRef}
+                                src={sceneVideoUrl}
+                                controls
+                                playsInline
+                                draggable={false}
+                                onDragStart={(e) => e.preventDefault()}
+                                autoPlay={videoAutoPlay || waitsForBranchVideo}
+                                onLoadedMetadata={(event) => {
+                                  event.currentTarget.currentTime = Math.min(
+                                    sceneVideoStartTime,
+                                    Math.max(0, event.currentTarget.duration || 0),
+                                  );
+                                }}
+                                onPlay={startVideoLimitTimer}
+                                onPause={stopVideoLimitTimer}
+                                onTimeUpdate={handleSceneVideoTimeUpdate}
+                                onEnded={() => {
+                                  stopVideoLimitTimer();
+                                  setCurrentVideoEnded(true);
+                                }}
+                                className="h-full w-full"
+                                style={sceneStyle}
+                              />
+                            )}
+                            {renderPresentedCharacters()}
+                          </div>
+                        </div>
+                      </VirtualPresentationStage>
+                    </div>
+
+                    {/* 选项区域 - 画面的中间（非全屏且有媒体时挂载在画面内） */}
+                    {choicesPosition === 'center' &&
+                      !isFullscreen &&
+                      choicesReady &&
+                      !(skipSingleChoicePopup && outEdges.length <= 1) && (
+                        <div
+                          className={`absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
+                        >
+                          <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto p-4 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl">
+                            {renderChoices(false)}
+                          </div>
+                        </div>
+                      )}
                   </div>
                 )}
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* 沉浸式模式切换按钮 */}
-      {!useInlineFocusButton &&
-        renderPlaytestFocusButton('fixed z-[260]', focusButtonStyle)}
+                {/* 选项区域 - 文字上方 */}
+                {choicesPosition === 'aboveText' && choicesReady && (
+                  <div
+                    ref={choicesRef}
+                    className={`p-4 md:p-6 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-b shrink-0 z-40 shadow-sm`}
+                  >
+                    {renderChoices(false)}
+                  </div>
+                )}
+
+                {/* 2. Text Area */}
+              <div
+                  onClick={(event) => {
+                    if (showSettings) {
+                      selectRenderObject(event, 'dialogBox');
+                      return;
+                    }
+                    handleTextContainerClick();
+                  }}
+                  className={`${
+                    !hasMedia
+                      ? 'flex-1'
+                      : mobileClassicLayout
+                        ? 'playtest-classic-mobile-text flex-1 min-h-[42vh] shrink-0'
+                        : 'h-32 md:h-48 shrink-0'
+                  } ${showSettings ? 'overflow-visible' : 'overflow-y-auto'} py-4 md:py-8 ${
+                    mobileClassicLayout ? 'px-4' : 'px-6 md:px-12 lg:px-48 xl:px-64'
+                  } ${isDarkMode ? 'bg-slate-950/90' : 'bg-white/90'} backdrop-blur-xl border-t border-white/5 transition-all duration-300 relative ${
+                    choicesPosition === 'center' && choicesReady && blurBackground
+                      ? isFullscreen
+                        ? blurText
+                          ? 'z-20'
+                          : 'z-40'
+                        : blurText
+                          ? 'z-20 blur-[5px] opacity-80'
+                          : 'z-20'
+                      : 'z-20'
+                  } ${renderObjectSelectionClass('dialogBox')}`}
+                  style={{
+                    ...(renderStyle.dialogVisible
+                      ? dialogueBackgroundStyle()
+                      : {
+                          background: 'transparent',
+                          backgroundColor: 'transparent',
+                          backgroundImage: 'none',
+                          borderColor: 'transparent',
+                          boxShadow: 'none',
+                          backdropFilter: 'none',
+                        }),
+                    borderTopLeftRadius: hasMedia ? 0 : renderStyle.dialogRadius,
+                    borderTopRightRadius: hasMedia ? 0 : renderStyle.dialogRadius,
+                    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+                    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+                  }}
+                >
+                  {currentNode?.data.audioUrl && (
+                    <audio
+                      key={currentNodeId}
+                      ref={audioRef}
+                      src={currentNode.data.audioUrl as string}
+                      preload="auto"
+                      onPlay={recordCurrentAudio}
+                      onEnded={() => setCurrentAudioEnded(true)}
+                      className="hidden"
+                    />
+                  )}
+                  {renderStyle.titleVisible && currentTitle && (
+                    <div
+                      className={`mb-2 drop-shadow-sm ${renderObjectSelectionClass('title')}`}
+                      style={titleStyle}
+                      onClick={(event) => selectRenderObject(event, 'title')}
+                    >
+                      {currentTitle}
+                    </div>
+                  )}
+                  <div
+                    className={`whitespace-pre-wrap drop-shadow-sm ${renderObjectSelectionClass('body')}`}
+                    style={bodyStyle}
+                    onClick={(event) => selectRenderObject(event, 'body')}
+                  >
+                    <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
+                  </div>
+
+                  {false && !animationCompleted && (
+                    <div className="absolute right-4 bottom-2 text-[10px] opacity-40 animate-pulse select-none">
+                      {interactionMode === 'typewriter' &&
+                        (language === 'zh' ? '点击跳过打字...' : 'Click to skip...')}
+                      {interactionMode === 'timed' &&
+                        (language === 'zh'
+                          ? `选项将在 ${timeLeft}s 后出现`
+                          : `Choices in ${timeLeft}s`)}
+                      {interactionMode === 'clickToShow' &&
+                        (language === 'zh'
+                          ? '点击文本显示选项...'
+                          : 'Click text to show options...')}
+                    </div>
+                  )}
+
+                  {!animationCompleted && interactionMode === 'timed' && (
+                    <div
+                      className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-100"
+                      style={{ width: `${(timeLeft / choiceDelay) * 100}%` }}
+                    />
+                  )}
+                </div>
+
+                {/* 3. Choices Area - 文字下方 */}
+                {choicesPosition === 'belowText' && choicesReady && (
+                  <div
+                    ref={choicesRef}
+                    className={`p-4 md:p-6 lg:px-48 xl:px-64 ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-t shrink-0 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]`}
+                  >
+                    {renderChoices(false)}
+                  </div>
+                )}
+
+                {/* 选项区域 - 屏幕的中间（当全屏，或无媒体文件时挂载在整个视口中央） */}
+                {choicesPosition === 'center' &&
+                  (isFullscreen || !hasMedia) &&
+                  choicesReady &&
+                  !(skipSingleChoicePopup && outEdges.length <= 1) && (
+                    <div
+                      className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
+                    >
+                      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto p-4 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl">
+                        {renderChoices(false)}
+                      </div>
+                    </div>
+                  )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 沉浸式模式切换按钮 */}
+        {!useInlineFocusButton && renderPlaytestFocusButton('fixed z-[260]', focusButtonStyle)}
       </div>
 
       {showSettings && (
@@ -2605,9 +2623,7 @@ export function PlayTestModal({
           className={`z-[130] shadow-2xl ${
             isMobile
               ? `playtest-settings-mobile fixed inset-0 flex flex-col ${
-                  isDarkMode
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-white text-slate-800'
+                  isDarkMode ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'
                 }`
               : `absolute bottom-0 right-0 top-0 w-[25vw] min-w-[360px] max-w-[520px] border-l p-4 ${
                   isDarkMode
@@ -2623,7 +2639,11 @@ export function PlayTestModal({
               }`}
             >
               <span className="text-sm font-bold">
-                {language === 'zh' ? '测试设置' : language === 'ja' ? 'テスト設定' : 'Playtest Settings'}
+                {language === 'zh'
+                  ? '测试设置'
+                  : language === 'ja'
+                    ? 'テスト設定'
+                    : 'Playtest Settings'}
               </span>
               <button
                 type="button"
@@ -2639,7 +2659,11 @@ export function PlayTestModal({
               </button>
             </div>
           )}
-          <div className={`video-render-scroll flex-1 overflow-y-auto ${isMobile ? 'p-4' : 'h-full pr-1'}`}>
+          <div
+            className={`video-render-scroll web-workspace-inspector-scroll min-h-0 flex-1 overflow-y-auto ${
+              isMobile ? 'p-4' : 'pr-1'
+            }`}
+          >
             {renderPlaytestSettingsPanel()}
           </div>
         </aside>
@@ -2676,13 +2700,98 @@ export function PlayTestModal({
   );
 }
 
-function PlaytestPanelTitle({
-  icon: Icon,
-  title,
+/*
+function PlaytestRenderObjectFrame({
+  kind,
+  object,
+  onUpdate,
 }: {
-  icon: LucideIcon;
-  title: string;
+  kind: RenderEditableObjectKind;
+  object: RenderEditableObject;
+  onUpdate: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
 }) {
+  const beginResize = (event: React.PointerEvent<HTMLElement>, handle: WebEditableResizeHandle) => {
+    event.preventDefault();
+    event.stopPropagation();
+    document.body.style.cursor =
+      handle === 'n' || handle === 's'
+        ? 'ns-resize'
+        : handle === 'e' || handle === 'w'
+          ? 'ew-resize'
+          : handle === 'ne' || handle === 'sw'
+            ? 'nesw-resize'
+            : 'nwse-resize';
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initial = object;
+    const target = event.currentTarget.closest<HTMLElement>('[data-render-object]');
+    const targetRect = target?.getBoundingClientRect();
+    const widthUnitPerPx =
+      targetRect && targetRect.width > 0 ? initial.width / targetRect.width : 1;
+    const heightUnitPerPx =
+      targetRect && targetRect.height > 0 ? initial.height / targetRect.height : 1;
+    const minWidth = kind === 'dialogBox' ? 35 : 8;
+    const minHeight = kind === 'dialogBox' ? 16 : 8;
+
+    const move = (moveEvent: PointerEvent) => {
+      const widthDelta = (moveEvent.clientX - startX) * widthUnitPerPx;
+      const heightDelta = (moveEvent.clientY - startY) * heightUnitPerPx;
+      let nextX = initial.x;
+      let nextY = initial.y;
+      let nextWidth = initial.width;
+      let nextHeight = initial.height;
+
+      if (handle.includes('e')) nextWidth = initial.width + widthDelta;
+      if (handle.includes('s')) nextHeight = initial.height + heightDelta;
+      if (handle.includes('w')) {
+        nextX = initial.x + (moveEvent.clientX - startX);
+        nextWidth = initial.width - widthDelta;
+      }
+      if (handle.includes('n')) {
+        nextY = initial.y + (moveEvent.clientY - startY);
+        nextHeight = initial.height - heightDelta;
+      }
+      if (nextWidth < minWidth) {
+        if (handle.includes('w')) nextX = initial.x + (initial.width - minWidth) / widthUnitPerPx;
+        nextWidth = minWidth;
+      }
+      if (nextHeight < minHeight) {
+        if (handle.includes('n'))
+          nextY = initial.y + (initial.height - minHeight) / heightUnitPerPx;
+        nextHeight = minHeight;
+      }
+
+      onUpdate(kind, {
+        x: Math.round(nextX),
+        y: Math.round(nextY),
+        width: Math.round(nextWidth),
+        height: Math.round(nextHeight),
+      });
+    };
+    const end = () => {
+      document.body.style.cursor = '';
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+  };
+
+  return (
+    <WebEditableElementFrame
+      visible={object.visible}
+      showAuxiliaryControls={false}
+      onToggleVisible={() => undefined}
+      onRotatePointerDown={(event) => event.stopPropagation()}
+      onResizePointerDown={beginResize}
+    />
+  );
+}
+
+*/
+
+function PlaytestPanelTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return (
     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
       <Icon className="h-3.5 w-3.5 shrink-0 text-[var(--vr-accent)]" />
@@ -2704,9 +2813,7 @@ function PlaytestSettingCard({
   return (
     <div className="space-y-1">
       {description && (
-        <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-          {description}
-        </div>
+        <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>
       )}
       <div
         className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${
@@ -2745,7 +2852,9 @@ function PlaytestPillToggleGroup({
   columns?: string;
 }) {
   return (
-    <div className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+    <div
+      className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -2782,7 +2891,9 @@ function PlaytestSegmentedGroup({
   columns?: string;
 }) {
   return (
-    <div className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}>
+    <div
+      className={`web-segment-control grid h-9 w-full min-w-0 overflow-hidden rounded-lg ${columns}`}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -2798,7 +2909,7 @@ function PlaytestSegmentedGroup({
                 ? 'bg-[var(--vr-accent)] text-white'
                 : option.disabled
                   ? 'text-[var(--vr-text-muted)] opacity-35 grayscale'
-                : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
+                  : 'text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-text)]'
             }`}
             title={option.label}
             aria-pressed={active}

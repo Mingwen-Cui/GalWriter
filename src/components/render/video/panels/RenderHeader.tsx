@@ -4,6 +4,7 @@ import {
   ChevronUp,
   Download,
   FileText,
+  FileCode2,
   Film,
   Gamepad2,
   Loader2,
@@ -118,7 +119,7 @@ export function RenderHeader({
         </div>
         <h2 className="truncate text-sm font-black">渲染脚本</h2>
         <div className={`render-workspace-switcher render-workspace-switcher--${workspaceMode}`}>
-          {(['video', 'web', 'ppt'] as RenderWorkspaceMode[]).map((mode) => (
+          {(['video', 'web', 'ppt', 'code'] as RenderWorkspaceMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -137,9 +138,10 @@ export function RenderHeader({
               aria-pressed={workspaceMode === mode}
               title={mode === 'video' ? '切换到视频导出' : '切换到网页导出'}
             >
-              {mode === 'video' ? <Film className="h-3.5 w-3.5" /> : mode === 'web' ? <FileText className="h-3.5 w-3.5" /> : <Presentation className="h-3.5 w-3.5" />}
+              {mode === 'video' ? <Film className="h-3.5 w-3.5" /> : mode === 'web' ? <FileText className="h-3.5 w-3.5" /> : mode === 'ppt' ? <Presentation className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
               {mode === 'ppt' ? 'PPT' : null}
-              {mode !== 'ppt' && <>
+              {mode === 'code' ? '代码' : null}
+              {mode !== 'ppt' && mode !== 'code' && <>
               {mode === 'video' ? '视频' : '网页'}
               </>}
             </button>
@@ -387,7 +389,7 @@ export function RenderHeader({
           disabled={
             isRendering ||
             (workspaceMode === 'video' && selectedNodes.length === 0) ||
-            ((workspaceMode === 'web' || workspaceMode === 'ppt') &&
+            ((workspaceMode === 'web' || workspaceMode === 'ppt' || workspaceMode === 'code') &&
               nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length === 0)
           }
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"

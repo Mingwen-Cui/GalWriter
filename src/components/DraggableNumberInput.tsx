@@ -8,6 +8,7 @@ export function DraggableNumberInput({
   step = 1,
   decimals,
   unit = 'PX',
+  disabled = false,
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -16,6 +17,7 @@ export function DraggableNumberInput({
   step?: number;
   decimals?: number;
   unit?: string | null;
+  disabled?: boolean;
 }) {
   const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
   const resolvedDecimals =
@@ -34,10 +36,11 @@ export function DraggableNumberInput({
         max={max}
         step={step}
         value={Number(value).toFixed(resolvedDecimals)}
+        disabled={disabled}
         title="可直接输入，或按住鼠标左右拖动调整"
         onChange={(event) => commitValue(Number(event.target.value))}
         onPointerDown={(event) => {
-          if (event.button !== 0) return;
+          if (disabled || event.button !== 0) return;
           dragRef.current = {
             pointerId: event.pointerId,
             startX: event.clientX,
@@ -62,7 +65,7 @@ export function DraggableNumberInput({
         onPointerCancel={() => {
           dragRef.current = null;
         }}
-        className="min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none focus:border-0 focus:outline-none focus-visible:outline-none"
+        className="min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none disabled:cursor-not-allowed disabled:opacity-40 focus:border-0 focus:outline-none focus-visible:outline-none"
       />
       {unit && <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">{unit}</span>}
     </div>

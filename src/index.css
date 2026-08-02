@@ -2753,8 +2753,14 @@ input[type='range']::-moz-range-track {
 }
 
 .video-render-scroll {
+  color-scheme: light;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--vr-accent) transparent;
+}
+
+[data-theme='dark'] .video-render-scroll {
+  color-scheme: dark;
 }
 
 /* Keep the web inspector's content width fixed while its scroll range changes. */
@@ -2769,6 +2775,12 @@ input[type='range']::-moz-range-track {
 
 .video-render-scroll::-webkit-scrollbar-track {
   background: transparent;
+}
+
+.video-render-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .video-render-scroll::-webkit-scrollbar-thumb {
@@ -2790,6 +2802,21 @@ input[type='range']::-moz-range-track {
 .video-render-scroll-hidden::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+/* Keep the editor selection frame square even when the selected object is rounded. */
+.playtest-render-selection {
+  position: relative;
+}
+
+.playtest-render-selection::after {
+  position: absolute;
+  z-index: 50;
+  inset: -4px;
+  border: 2px solid #6366f1;
+  border-radius: 0;
+  pointer-events: none;
+  content: '';
 }
 
 .video-render-preview-stage {
@@ -3830,7 +3857,7 @@ button.web-segment-button:first-child {
   border-bottom-left-radius: 0 !important;
 }
 
-/* The primary Video / Web / PPT switch uses one moving selection surface, so
+/* The primary Video / Web / PPT / Code switch uses one moving selection surface, so
    the active colour travels as a single unit instead of fading button by button. */
 .render-workspace-switcher {
   --workspace-switch-gap: 2px;
@@ -3839,9 +3866,9 @@ button.web-segment-button:first-child {
   --workspace-switch-ease: cubic-bezier(0.22, 0.9, 0.25, 1);
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   height: 36px;
-  min-width: 228px;
+  min-width: 292px;
   overflow: hidden;
   border: 1px solid var(--vr-border);
   border-radius: var(--workspace-switch-radius);
@@ -3853,7 +3880,7 @@ button.web-segment-button:first-child {
   content: '';
   position: absolute;
   inset: var(--workspace-switch-gap) auto var(--workspace-switch-gap) var(--workspace-switch-gap);
-  width: calc((100% - var(--workspace-switch-gap) - var(--workspace-switch-gap)) / 3);
+  width: calc((100% - var(--workspace-switch-gap) - var(--workspace-switch-gap)) / 4);
   border-radius: calc(var(--workspace-switch-radius) - 2px);
   background: var(--vr-accent);
   box-shadow:
@@ -3872,6 +3899,10 @@ button.web-segment-button:first-child {
 
 .render-workspace-switcher--ppt::before {
   transform: translateX(200%);
+}
+
+.render-workspace-switcher--code::before {
+  transform: translateX(300%);
 }
 
 .render-workspace-tab {

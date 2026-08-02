@@ -17,7 +17,7 @@ export type TimelineScaleMode = 'seconds' | 'frames';
 export type TimelineWheelMode = 'vertical' | 'horizontal';
 export type AssetCardLayout = 'row' | 'grid';
 export type ExportSettingsMode = 'video' | 'audio';
-export type RenderWorkspaceMode = 'video' | 'web' | 'ppt';
+export type RenderWorkspaceMode = 'video' | 'web' | 'ppt' | 'code';
 export type VideoTextScaleMode = 'literal' | 'webRatio';
 export type TimelineSegmentMetric = {
   node: FlowNode;
@@ -581,6 +581,11 @@ export type PptObjectAnimation = {
     | 'opacity'
     | 'brightness'
     | 'switch';
+  /** A PPT-native dialogue preset expanded to editable line text boxes at export. */
+  textBuild?: {
+    mode: 'line-wipe';
+    lineGapMs: number;
+  };
   /** Missing phase means a legacy entrance animation. */
   phase?: PptAnimationPhase;
   effect: PptAnimationEffect;

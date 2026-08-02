@@ -3,6 +3,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
 import type { Language } from '../../../../lib/i18n';
+import { CodeWorkspace } from '../../code/CodeWorkspace';
+import { buildRenpyProjectZip } from '../../code/codeExport/renpyExport';
 import { buildPptxBuffer } from '../../ppt/pptExport';
 import { PptWorkspace } from '../../ppt/PptWorkspace';
 import { WebWorkspace } from '../../web/WebWorkspace';
@@ -125,7 +127,7 @@ import {
 
 type VideoWorkspaceMode = 'timeline' | 'interactive';
 
-const WORKSPACE_MODE_ORDER: RenderWorkspaceMode[] = ['video', 'web', 'ppt'];
+const WORKSPACE_MODE_ORDER: RenderWorkspaceMode[] = ['video', 'web', 'ppt', 'code'];
 
 export function VideoRenderModal({
   nodes,
@@ -1772,6 +1774,7 @@ export function VideoRenderModal({
         else redoPpt();
         return;
       }
+      if (workspaceMode === 'code') return;
       if (key === 'z' && event.shiftKey) redoTimeline();
       else if (key === 'z') undoTimeline();
       else redoTimeline();
@@ -1892,6 +1895,34 @@ export function VideoRenderModal({
     setProgress,
     setProgressValue,
   });
+  const exportCodeProject = async () => {
+    if (status === 'rendering') return;
+    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter';
+    setStatus('rendering');
+    setError('');
+    setSavedPath('');
+    setProgressValue(20);
+    setProgress(isZh ? '正在生成 Ren’Py 工程…' : 'Generating Ren’Py project…');
+    try {
+      const result = await buildRenpyProjectZip(nodes, edges, exportTitle);
+      const url = URL.createObjectURL(result.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = result.fileName;
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      setStatus('done');
+      setProgressValue(100);
+      setProgress(isZh ? 'Ren’Py 工程已导出' : 'Ren’Py project exported');
+      setSavedPath(result.fileName);
+    } catch (exportError) {
+      setStatus('error');
+      setError(exportError instanceof Error ? exportError.message : (isZh ? '代码工程导出失败' : 'Code project export failed'));
+    }
+  };
   const exportPptProject = async (requestedTitle?: string) => {
     if (status === 'rendering') return;
     if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
@@ -2138,6 +2169,10 @@ export function VideoRenderModal({
             }
             if (workspaceMode === 'ppt') {
               setIsPptExportDialogOpen(true);
+              return;
+            }
+            if (workspaceMode === 'code') {
+              exportCodeProject();
               return;
             }
             setIsExportDialogOpen(true);
@@ -2453,6 +2488,15 @@ export function VideoRenderModal({
               updateWebChoiceColor={updateWebChoiceColor}
               updateWebRenderStyle={updateRenderStyle}
               callAIForTextResult={callAIForTextResult}
+            />
+          ) : workspaceMode === 'code' ? (
+            <CodeWorkspace
+              nodes={nodes}
+              edges={edges}
+              language={language}
+              projectName={webProjectName || defaultWebProjectName}
+              onExport={exportCodeProject}
+              exporting={status === 'rendering'}
             />
           ) : (
             <PptWorkspace

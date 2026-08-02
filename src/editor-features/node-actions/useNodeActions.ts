@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
+import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
 
 interface UseNodeActionsParams {
   nodes: Node[];
@@ -78,7 +79,7 @@ export const useNodeActions = ({
         id: newId,
         type: 'storyNode',
         position: { x: newX, y: newY },
-        style: { width: 300, height: 220 },
+        style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
         data: {
           id: newId,
           title: shape === 'square' ? '分支' : shape === 'diamond' ? '判断' : '状态',

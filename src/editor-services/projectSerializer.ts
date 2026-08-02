@@ -51,6 +51,7 @@ const DEFAULT_EDGE_COLOR = '#6366f1';
 const DEFAULT_ARROW_SIZE = 20;
 const DEFAULT_ARROW_CORNER_RADIUS = 2;
 const DEFAULT_ARROW_TIP_ANGLE = 60;
+const DEFAULT_NODE_SPACING = 120;
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 const normalizeEdgeColor = (value: unknown) =>
@@ -462,6 +463,8 @@ const applyProjectSettings = (
     setters.setArrowSize(DEFAULT_ARROW_SIZE);
     setters.setArrowCornerRadius(DEFAULT_ARROW_CORNER_RADIUS);
     setters.setArrowTipAngle(DEFAULT_ARROW_TIP_ANGLE);
+    setters.setNodeHorizontalSpacing(DEFAULT_NODE_SPACING);
+    setters.setNodeVerticalSpacing(DEFAULT_NODE_SPACING);
     setters.setPlotStructureGenerateDirection('down');
     setters.setAiGenerationBalance('dialogue');
     return;
@@ -480,6 +483,12 @@ const applyProjectSettings = (
   setters.setArrowSize(clampArrowSize(incomingSettings.arrowSize));
   setters.setArrowCornerRadius(clampArrowCornerRadius(incomingSettings.arrowCornerRadius));
   setters.setArrowTipAngle(clampArrowTipAngle(incomingSettings.arrowTipAngle));
+  const clampNodeSpacing = (value: unknown) => {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    return Number.isFinite(parsed) ? Math.min(360, Math.max(40, parsed)) : DEFAULT_NODE_SPACING;
+  };
+  setters.setNodeHorizontalSpacing(clampNodeSpacing(incomingSettings.nodeHorizontalSpacing));
+  setters.setNodeVerticalSpacing(clampNodeSpacing(incomingSettings.nodeVerticalSpacing));
   if (incomingSettings.pasteAsPlainText !== undefined) {
     setters.setPasteAsPlainText(incomingSettings.pasteAsPlainText);
   }

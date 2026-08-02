@@ -1,9 +1,9 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import {
-  AI_STORY_CARD_HEIGHT,
   DEFAULT_ROOT_STORY_TEXT,
   DEFAULT_ROOT_STORY_TITLE,
+  MIN_STORY_CARD_HEIGHT,
 } from './constants';
 
 export const createDefaultEdgeOptions = (edgeColor: string, arrowSize: number) => ({
@@ -22,7 +22,7 @@ export const INITIAL_NODES: Node[] = [
     id: 'root',
     type: 'storyNode',
     position: { x: 200, y: 100 },
-    style: { width: 300, height: AI_STORY_CARD_HEIGHT },
+    style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
     data: {
       id: 'root',
       title: DEFAULT_ROOT_STORY_TITLE,
@@ -37,7 +37,7 @@ export const INITIAL_NODES: Node[] = [
     id: 'initial-branch',
     type: 'storyNode',
     position: { x: 200, y: 560 },
-    style: { width: 300, height: AI_STORY_CARD_HEIGHT },
+    style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
     data: {
       id: 'initial-branch',
       title: '分支',

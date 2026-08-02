@@ -121,6 +121,7 @@ import {
   DEFAULT_TTS_API_URL,
   DEFAULT_TTS_MODEL,
   DEFAULT_TTS_VOICE,
+  MIN_STORY_CARD_HEIGHT,
   PROJECT_TITLE_PLACEHOLDER,
 } from './constants';
 import { edgeTypes, nodeTypes } from './flowTypes';
@@ -164,6 +165,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [arrowSize, setArrowSize] = useState(DEFAULT_ARROW_SIZE);
   const [arrowCornerRadius, setArrowCornerRadius] = useState(DEFAULT_ARROW_CORNER_RADIUS);
   const [arrowTipAngle, setArrowTipAngle] = useState(DEFAULT_ARROW_TIP_ANGLE);
+  const [nodeHorizontalSpacing, setNodeHorizontalSpacing] = useState(120);
+  const [nodeVerticalSpacing, setNodeVerticalSpacing] = useState(120);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [settingsAttentionTarget, setSettingsAttentionTarget] = useState<
@@ -816,6 +819,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       arrowSize,
       arrowCornerRadius,
       arrowTipAngle,
+      nodeHorizontalSpacing,
+      nodeVerticalSpacing,
       pasteAsPlainText,
       showNodeActions,
       showStats,
@@ -889,6 +894,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       arrowSize,
       arrowCornerRadius,
       arrowTipAngle,
+      nodeHorizontalSpacing,
+      nodeVerticalSpacing,
       accentColor,
       allowAssistantImageGeneration,
       assistantMemoryNotes,
@@ -963,6 +970,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setArrowSize,
       setArrowCornerRadius,
       setArrowTipAngle,
+      setNodeHorizontalSpacing,
+      setNodeVerticalSpacing,
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
@@ -1027,6 +1036,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setArrowSize,
       setArrowCornerRadius,
       setArrowTipAngle,
+      setNodeHorizontalSpacing,
+      setNodeVerticalSpacing,
       setPasteAsPlainText,
       setShowNodeActions,
       setShowStats,
@@ -1742,7 +1753,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       // NOTE: 全部在 setNodes 函数式更新内部读取最新节点，消除对外部 nodes 的依赖，
       // 防止 nodes 变化导致此回调重建，进而引发 nodesWithCallbacks 重算的无限循环
       const newId = uuidv4();
-      const offsetDist = 120;
+      const horizontalSpacing = showNodeActions ? nodeHorizontalSpacing : 120;
+      const verticalSpacing = showNodeActions ? nodeVerticalSpacing : 120;
 
       let targetHandle = 'left';
 
@@ -1757,17 +1769,32 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         let newY = sourceNode.position.y;
 
         if (side === 'top') {
-          newY -= AI_STORY_CARD_HEIGHT + offsetDist;
+          newY -= AI_STORY_CARD_HEIGHT + verticalSpacing;
           targetHandle = 'bottom';
         } else if (side === 'bottom') {
-          newY += srcH + offsetDist;
+          newY += srcH + verticalSpacing;
           targetHandle = 'top';
         } else if (side === 'left') {
-          newX -= 300 + offsetDist;
+          newX -= 300 + horizontalSpacing;
           targetHandle = 'right';
         } else if (side === 'right') {
-          newX += srcW + offsetDist;
+          newX += srcW + horizontalSpacing;
           targetHandle = 'left';
+        }
+
+        const initialBranch =
+          sourceId === 'root' && side === 'bottom'
+            ? nds.find((node) => node.id === 'initial-branch')
+            : undefined;
+        if (initialBranch) {
+          const initialBranchWidthValue =
+            initialBranch.measured?.width ?? initialBranch.style?.width ?? 300;
+          const initialBranchWidth =
+            typeof initialBranchWidthValue === 'number'
+              ? initialBranchWidthValue
+              : Number.parseFloat(initialBranchWidthValue) || 300;
+          newX = initialBranch.position.x + initialBranchWidth + horizontalSpacing;
+          newY = initialBranch.position.y;
         }
 
         const isOccupied = (x: number, y: number) =>
@@ -1776,9 +1803,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         let attempts = 0;
         while (isOccupied(newX, newY) && attempts < 10) {
           if (side === 'bottom' || side === 'top') {
-            newX += 320;
+            newX += 300 + horizontalSpacing;
           } else {
-            newY += 220;
+            newY += AI_STORY_CARD_HEIGHT + verticalSpacing;
           }
           attempts++;
         }
@@ -1787,7 +1814,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           id: newId,
           type: 'storyNode',
           position: { x: newX, y: newY },
-          style: { width: 300, height: AI_STORY_CARD_HEIGHT },
+          style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
           data: {
             id: newId,
             title: '分支',
@@ -1826,7 +1853,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         },
       ]);
     },
-    [setNodes, setEdges],
+    [nodeHorizontalSpacing, nodeVerticalSpacing, setNodes, setEdges, showNodeActions],
   );
 
   const {
@@ -3466,8 +3493,7 @@ ${layoutConfig.label}
             onClose={() => setShowPlayTest(false)}
             language={language}
             onLanguageChange={onAppLanguageChange}
-            isDarkMode={playTestDarkMode}
-            setIsDarkMode={setPlayTestDarkMode}
+            isDarkMode={resolvedTheme === 'dark'}
             choicesColumns={playTestChoicesColumns}
             setChoicesColumns={setPlayTestChoicesColumns}
             videoAutoPlay={sharedCanvas.settings.videoAutoPlay}
@@ -3573,6 +3599,10 @@ ${layoutConfig.label}
           setArrowCornerRadius={setArrowCornerRadius}
           arrowTipAngle={arrowTipAngle}
           setArrowTipAngle={setArrowTipAngle}
+          nodeHorizontalSpacing={nodeHorizontalSpacing}
+          setNodeHorizontalSpacing={setNodeHorizontalSpacing}
+          nodeVerticalSpacing={nodeVerticalSpacing}
+          setNodeVerticalSpacing={setNodeVerticalSpacing}
           pasteAsPlainText={pasteAsPlainText}
           setPasteAsPlainText={setPasteAsPlainText}
           showNodeActions={showNodeActions}

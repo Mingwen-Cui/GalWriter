@@ -213,7 +213,7 @@ export const clampPersistedNumber = (value: unknown, fallback: number, min: numb
   typeof value === 'number' && Number.isFinite(value) ? clamp(value, min, max) : fallback;
 
 export const isRenderWorkspaceMode = (value: unknown): value is RenderWorkspaceMode =>
-  value === 'video' || value === 'web' || value === 'ppt';
+  value === 'video' || value === 'web' || value === 'ppt' || value === 'code';
 
 export const isExportFormat = (value: unknown): value is ExportFormat =>
   value === 'mp4' || value === 'mov' || value === 'mkv';

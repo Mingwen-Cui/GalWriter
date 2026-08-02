@@ -230,6 +230,8 @@ export interface ProjectSettings extends PlaytestSettings {
   arrowSize: number;
   arrowCornerRadius: number;
   arrowTipAngle: number;
+  nodeHorizontalSpacing: number;
+  nodeVerticalSpacing: number;
   pasteAsPlainText: boolean;
   showNodeActions: boolean;
   showStats: boolean;
@@ -287,6 +289,8 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setArrowSize: Dispatch<SetStateAction<number>>;
   setArrowCornerRadius: Dispatch<SetStateAction<number>>;
   setArrowTipAngle: Dispatch<SetStateAction<number>>;
+  setNodeHorizontalSpacing: Dispatch<SetStateAction<number>>;
+  setNodeVerticalSpacing: Dispatch<SetStateAction<number>>;
   setPasteAsPlainText: Dispatch<SetStateAction<boolean>>;
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;

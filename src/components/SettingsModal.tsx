@@ -160,6 +160,10 @@ interface SettingsModalProps {
   setArrowCornerRadius: (radius: number) => void;
   arrowTipAngle: number;
   setArrowTipAngle: (angle: number) => void;
+  nodeHorizontalSpacing: number;
+  setNodeHorizontalSpacing: (spacing: number) => void;
+  nodeVerticalSpacing: number;
+  setNodeVerticalSpacing: (spacing: number) => void;
   pasteAsPlainText: boolean;
   setPasteAsPlainText: (val: boolean) => void;
   showNodeActions: boolean;
@@ -327,6 +331,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setArrowCornerRadius,
   arrowTipAngle,
   setArrowTipAngle,
+  nodeHorizontalSpacing,
+  setNodeHorizontalSpacing,
+  nodeVerticalSpacing,
+  setNodeVerticalSpacing,
   pasteAsPlainText,
   setPasteAsPlainText,
   showNodeActions,
@@ -1056,7 +1064,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>{s.arrowStyle}</h3>
-                    <div className="flex min-w-0 flex-1 items-center gap-5">
+                    <div className="flex min-w-0 flex-1 items-center gap-5 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/35 p-4">
                       <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex h-9 w-16 shrink-0 items-center">
@@ -1156,7 +1164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
                         </div>
                       </div>
-                      <div className="flex h-20 w-28 shrink-0 items-center justify-center rounded-lg bg-[var(--app-bg)]/40">
+                      <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)]/70">
                         <svg
                           className="h-12 w-24 overflow-visible"
                           viewBox="0 0 96 48"
@@ -1191,6 +1199,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             markerEnd="url(#settings-arrow-preview)"
                           />
                         </svg>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className={settingsRowClass}>
+                    <h3 className={settingsRowTitleClass}>卡片间距</h3>
+                    <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/35 p-4">
+                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowNodeActions(!showNodeActions)}
+                          className={`col-span-2 flex items-center justify-between rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${showNodeActions ? 'border-[var(--accent)]/35 bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--card-border)] text-[var(--text-muted)]'}`}
+                        >
+                          <span>显示卡片上下左右的 + 按钮</span>
+                          <span
+                            className={`relative h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors ${
+                              showNodeActions
+                                ? 'bg-[var(--accent)] shadow-md'
+                                : 'bg-[var(--card-border)]'
+                            }`}
+                          >
+                            <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-[left] ${showNodeActions ? 'left-6' : 'left-1'}`} />
+                          </span>
+                        </button>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`w-12 shrink-0 text-xs font-bold ${showNodeActions ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'}`}>横向</span>
+                          <div className="min-w-0 flex-1">
+                            <DraggableNumberInput value={nodeHorizontalSpacing} onChange={setNodeHorizontalSpacing} min={40} max={360} step={5} unit="PX" disabled={!showNodeActions} />
+                          </div>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`w-12 shrink-0 text-xs font-bold ${showNodeActions ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'}`}>纵向</span>
+                          <div className="min-w-0 flex-1">
+                            <DraggableNumberInput value={nodeVerticalSpacing} onChange={setNodeVerticalSpacing} min={40} max={360} step={5} unit="PX" disabled={!showNodeActions} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`relative h-24 w-32 shrink-0 overflow-hidden rounded-lg border bg-[var(--app-bg)]/40 transition-opacity ${showNodeActions ? 'border-[var(--card-border)]' : 'border-[var(--card-border)] opacity-35 grayscale'}`}>
+                        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 128 96" fill="none" aria-hidden="true">
+                          <path d="M 25 29 L 25 64" stroke="var(--accent)" strokeWidth="1.5" />
+                          <path d="M 38 76 C 55 76, 62 76, 82 76" stroke="var(--accent)" strokeWidth="1.5" />
+                        </svg>
+                        <span className="absolute left-2 top-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
+                        <span className="absolute bottom-2 left-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
+                        <span className="absolute bottom-2 right-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
+                        <span className="absolute left-8 top-[39px] rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">{nodeVerticalSpacing}px</span>
+                        <span className="absolute left-[49px] bottom-8 rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">{nodeHorizontalSpacing}px</span>
                       </div>
                     </div>
                   </section>

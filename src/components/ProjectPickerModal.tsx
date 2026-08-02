@@ -291,6 +291,8 @@ export function ProjectPickerModal({
 
   const getProjectThumbnail = (project: LocalProjectSummary) =>
     stripExternalTextFromSvgDataUrl(project.thumbnailDataUrl);
+  const isProjectActionMenuTarget = (target: EventTarget | null) =>
+    target instanceof Element && target.closest('[data-project-action-menu]') !== null;
   const actionButtonClass = `flex w-full items-center gap-3 rounded-xl text-left text-sm font-bold text-slate-900 transition-all duration-300 hover:bg-white/70 hover:text-indigo-600 dark:text-slate-100 dark:hover:bg-slate-800/70 dark:hover:text-indigo-300 ${
     isMobile
       ? 'min-h-[58px] flex-col justify-center px-2 py-2 text-center'
@@ -682,10 +684,14 @@ export function ProjectPickerModal({
                         onOpenProject(project.id);
                       }}
                       onMouseEnter={(event) => {
-                        if (!isMobile) updateHoverPreview(project, event);
+                        if (!isMobile && !isProjectActionMenuTarget(event.target)) {
+                          updateHoverPreview(project, event);
+                        }
                       }}
                       onMouseMove={(event) => {
-                        if (!isMobile) updateHoverPreview(project, event);
+                        if (!isMobile && !isProjectActionMenuTarget(event.target)) {
+                          updateHoverPreview(project, event);
+                        }
                       }}
                       onMouseLeave={() => setHoverPreview(null)}
                       onKeyDown={(event) => {
@@ -777,6 +783,7 @@ export function ProjectPickerModal({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
+                              setHoverPreview(null);
                               setActionMenuProjectId((current) =>
                                 current === project.id ? null : project.id,
                               );
@@ -847,9 +854,12 @@ export function ProjectPickerModal({
                             }}
                           />
                           <div
+                            data-project-action-menu
                             className={`absolute z-[440] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 ${
                               isMobile ? 'bottom-3 right-3 w-44' : 'right-3 top-12 w-44'
                             }`}
+                            onMouseEnter={() => setHoverPreview(null)}
+                            onMouseMove={() => setHoverPreview(null)}
                             onClick={(event) => event.stopPropagation()}
                           >
                             {onExportProject && (
@@ -922,7 +932,7 @@ export function ProjectPickerModal({
           </section>
         </div>
       </div>
-      {hoverPreview?.project.thumbnailDataUrl && (
+      {!actionMenuProjectId && hoverPreview?.project.thumbnailDataUrl && (
         <div
           className="pointer-events-none fixed z-[420] w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
           style={{

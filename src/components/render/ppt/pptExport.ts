@@ -9,7 +9,12 @@ import {
 } from '../../../lib/presentation';
 import { resolvePresentationDialogueLayout } from '../video/shared/presentationLayout';
 import { getRenderObjects } from '../video/shared/renderObjects';
-import type { PptExportSettings, PptManualSlide, RenderStyle, WebExportSettings } from '../video/shared/types';
+import type {
+  PptExportSettings,
+  PptManualSlide,
+  RenderStyle,
+  WebExportSettings,
+} from '../video/shared/types';
 import {
   getPptImageDimensions,
   toPptImageData,
@@ -18,6 +23,7 @@ import {
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
+import { splitPptTextLines } from './pptTextLines';
 import {
   finalizePptxForPowerPoint,
   type PptAnimationExportTarget,
@@ -88,17 +94,19 @@ export async function buildPptxBuffer({
 }): Promise<ArrayBuffer> {
   const pptx = new PptxGenJS();
   pptx.layout = toPptxGenLayout(pptSettings.layout);
-  const generatedBy = language === 'zh'
-    ? '由旮旯作家 · GalWriter 生成'
-    : language === 'ja'
-      ? 'GalWriter で作成'
-      : 'Created with GalWriter';
+  const generatedBy =
+    language === 'zh'
+      ? '由旮旯作家 · GalWriter 生成'
+      : language === 'ja'
+        ? 'GalWriter で作成'
+        : 'Created with GalWriter';
   pptx.author = `${language === 'zh' ? '旮旯作家 · GalWriter' : 'GalWriter'} (Mingwen Cui)`;
   pptx.subject = 'Interactive story presentation';
   pptx.title = projectName;
   const page = createPptPageMapper(pptSettings.layout);
   const fullContentFrame = page.frame(0, 0, WIDE_PAGE_WIDTH, WIDE_PAGE_HEIGHT);
-  const authorNote = 'Independent design and development: Mingwen Cui (崔铭文)\nhttps://mingwencui.com/AIwriter/?lang=zh';
+  const authorNote =
+    'Independent design and development: Mingwen Cui (崔铭文)\nhttps://mingwencui.com/AIwriter/?lang=zh';
   let authorNoteWritten = false;
 
   const scenes = resolvePptScenes(nodes, edges, settings);
@@ -126,14 +134,18 @@ export async function buildPptxBuffer({
     ...(pptSettings.includeCover ? ['cover'] : []),
     ...scenes.flatMap((scene) => [
       scene.id,
-      ...(pptSettings.branchMode !== 'linear' && scene.choices.length > 1 ? [`choice:${scene.id}`] : []),
+      ...(pptSettings.branchMode !== 'linear' && scene.choices.length > 1
+        ? [`choice:${scene.id}`]
+        : []),
     ]),
   ];
   const knownSlideIds = new Set([...automaticSlideIds, ...manualSlides.map((slide) => slide.id)]);
   const orderedSlideIds = [
     ...(pptSettings.slideOrder || []).filter((id) => knownSlideIds.has(id)),
     ...automaticSlideIds.filter((id) => !(pptSettings.slideOrder || []).includes(id)),
-    ...manualSlides.map((slide) => slide.id).filter((id) => !(pptSettings.slideOrder || []).includes(id)),
+    ...manualSlides
+      .map((slide) => slide.id)
+      .filter((id) => !(pptSettings.slideOrder || []).includes(id)),
   ];
   const slideByNodeId = new Map<string, number>();
   const slideNumberById = new Map(orderedSlideIds.map((id, index) => [id, index + 1]));
@@ -180,18 +192,23 @@ export async function buildPptxBuffer({
         });
         continue;
       }
-      const targetSlide = element.targetSlideId ? slideNumberById.get(element.targetSlideId) : undefined;
-      const hyperlink = element.action === 'slide' && targetSlide
-        ? { slide: targetSlide }
-        : element.action === 'url' && element.url
-          ? { url: element.url }
-          : undefined;
+      const targetSlide = element.targetSlideId
+        ? slideNumberById.get(element.targetSlideId)
+        : undefined;
+      const hyperlink =
+        element.action === 'slide' && targetSlide
+          ? { slide: targetSlide }
+          : element.action === 'url' && element.url
+            ? { url: element.url }
+            : undefined;
       const isPrimary = element.variant === 'primary';
       const isSecondary = element.variant === 'secondary';
       slide.addShape(pptx.ShapeType.roundRect, {
         ...frame,
         rectRadius: 0.08,
-        fill: isPrimary ? { color: '4F46E5' } : { color: 'FFFFFF', transparency: isSecondary ? 0 : 100 },
+        fill: isPrimary
+          ? { color: '4F46E5' }
+          : { color: 'FFFFFF', transparency: isSecondary ? 0 : 100 },
         line: isSecondary ? { color: '4F46E5', width: 1.4 } : { transparency: 100 },
         hyperlink,
       });
@@ -276,7 +293,11 @@ export async function buildPptxBuffer({
             target === 'character' && animation.phase === 'enter' && animation.start === 'onClick'
               ? { ...animation, start: 'withPrevious' as const }
               : animation;
-          animationTargets.push({ slideNumber: sceneSlideNumber, objectName, animation: exportAnimation });
+          animationTargets.push({
+            slideNumber: sceneSlideNumber,
+            objectName,
+            animation: exportAnimation,
+          });
         });
     };
     const addNativeSwitch = (
@@ -491,26 +512,72 @@ export async function buildPptxBuffer({
       addAnimationTargets(objectName, 'dialog-title');
     }
     if (body.visible) {
-      const objectName = `ppt-dialog-body-${scene.id}`;
-      slide.addText(scene.text || ' ', {
-        objectName,
-        ...page.frame(
-          panelX + panelPaddingX + body.x / 144,
-          panelY + panelPaddingY + (hasTitle ? title.height / 144 + 0.08 : 0) + body.y / 144,
-          Math.min(panelW - panelPaddingX * 2, (panelW * body.width) / 100),
-          Math.max(0.2, body.height / 144),
-        ),
-        fontFace: toPptFontFace(body.fontFamily),
-        fontSize: Math.max(8 * page.scale, body.fontSize * 0.75 * page.scale),
-        bold: body.fontWeight >= 700,
-        color: hex(body.fill.color),
-        align: body.textAlign,
-        breakLine: false,
-        margin: 0,
-        valign: 'middle',
-        rotate: body.rotation,
-      });
-      addAnimationTargets(objectName, 'dialog-body');
+      const bodyX = panelX + panelPaddingX + body.x / 144;
+      const bodyY =
+        panelY + panelPaddingY + (hasTitle ? title.height / 144 + 0.08 : 0) + body.y / 144;
+      const bodyW = Math.min(panelW - panelPaddingX * 2, (panelW * body.width) / 100);
+      const bodyH = Math.max(0.2, body.height / 144);
+      const bodyFontSize = Math.max(8 * page.scale, body.fontSize * 0.75 * page.scale);
+      const lineWipe = sceneAnimations.find(
+        (animation) =>
+          animation.target === 'dialog-body' &&
+          (animation.phase || 'enter') === 'enter' &&
+          animation.effect === 'wipe' &&
+          animation.textBuild?.mode === 'line-wipe',
+      );
+      if (lineWipe) {
+        const lines = splitPptTextLines(scene.text || ' ', bodyW * 72, bodyFontSize);
+        const lineHeight = Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45));
+        lines.forEach((line, index) => {
+          const objectName = `ppt-dialog-body-${scene.id}-line-${index + 1}`;
+          slide.addText(line, {
+            objectName,
+            ...page.frame(
+              bodyX,
+              bodyY + index * lineHeight,
+              bodyW,
+              Math.min(lineHeight + 0.04, bodyH),
+            ),
+            fontFace: toPptFontFace(body.fontFamily),
+            fontSize: bodyFontSize,
+            bold: body.fontWeight >= 700,
+            color: hex(body.fill.color),
+            align: body.textAlign,
+            breakLine: false,
+            margin: 0,
+            valign: 'middle',
+            rotate: body.rotation,
+          });
+          if (sceneSlideNumber) {
+            animationTargets.push({
+              slideNumber: sceneSlideNumber,
+              objectName,
+              animation: {
+                ...lineWipe,
+                textBuild: undefined,
+                start: index === 0 ? lineWipe.start : 'afterPrevious',
+                delayMs: index === 0 ? lineWipe.delayMs : lineWipe.textBuild.lineGapMs,
+              },
+            });
+          }
+        });
+      } else {
+        const objectName = `ppt-dialog-body-${scene.id}`;
+        slide.addText(scene.text || ' ', {
+          objectName,
+          ...page.frame(bodyX, bodyY, bodyW, bodyH),
+          fontFace: toPptFontFace(body.fontFamily),
+          fontSize: bodyFontSize,
+          bold: body.fontWeight >= 700,
+          color: hex(body.fill.color),
+          align: body.textAlign,
+          breakLine: false,
+          margin: 0,
+          valign: 'middle',
+          rotate: body.rotation,
+        });
+        addAnimationTargets(objectName, 'dialog-body');
+      }
     }
     if (style.nameplateVisible && nameplate.visible) {
       const name = scene.characters.find((character) => character.name)?.name || scene.title;

@@ -47,6 +47,7 @@ import {
 import { PptManualSlideCanvas } from './PptManualSlideCanvas';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
+import { splitPptTextLines } from './pptTextLines';
 import { AnimationRibbon, SlideList, SlideSorter } from './PptWorkspaceControls';
 import { PlayerOverlay, PptFooterBar } from './PptWorkspaceFooter';
 import {
@@ -646,6 +647,20 @@ export function PptWorkspace({
               setPhase={setSelectedPhase}
               animation={getAnimation()}
               onApply={applyEffect}
+              onApplyLineWipe={() => {
+                if (!selectedObject || selectedObject.target !== 'dialog-body') return;
+                setSelectedPhase('enter');
+                const nextTimeline = updateSelectedAnimation({
+                  phase: 'enter',
+                  effect: 'wipe',
+                  start: currentAnimations.length ? 'afterPrevious' : 'onClick',
+                  durationMs: 1200,
+                  delayMs: 0,
+                  direction: 'left',
+                  textBuild: { mode: 'line-wipe', lineGapMs: 350 },
+                });
+                if (nextTimeline) preview(nextTimeline);
+              }}
               onPreview={preview}
               onUpdate={updateSelectedAnimation}
               transition={currentTransition}
@@ -958,7 +973,9 @@ function CoverPreview({
           previewAtMs={previewAtMs}
           onSelect={onSelect}
         >
-          <h1 className="text-4xl font-black text-white">{projectName || '旮旯作家 · GalWriter'}</h1>
+          <h1 className="text-4xl font-black text-white">
+            {projectName || '旮旯作家 · GalWriter'}
+          </h1>
         </Selectable>
         <Selectable
           selection={{ target: 'cover-subtitle', label: '封面副标题' }}
@@ -1008,6 +1025,10 @@ function ScenePreview({
   const body = objects.body;
   const panel = objects.dialogBox;
   const nameplate = objects.nameplate;
+  const bodyAnimations = findAnimation(animations, 'dialog-body');
+  const bodyAnimation = bodyAnimations.find(
+    (animation) => animation.textBuild?.mode === 'line-wipe',
+  );
   const hasTitle = title.visible && Boolean(scene.title.trim());
   // Match the web preview's logical 720px-canvas text sizing on the 1080px stage.
   const titlePaint = textPaint(title, true);
@@ -1138,7 +1159,7 @@ function ScenePreview({
           label="对话正文"
           object={body}
           selected={selected}
-          animation={findAnimation(animations, 'dialog-body')}
+          animation={bodyAnimation ? [] : bodyAnimations}
           previewing={previewing}
           previewAtMs={previewAtMs}
           editable={editable}
@@ -1153,7 +1174,18 @@ function ScenePreview({
             ...bodyPaint,
           }}
         >
-          {scene.text}
+          {bodyAnimation?.textBuild?.mode === 'line-wipe' ? (
+            <PptLineWipePreview
+              text={scene.text}
+              widthPercent={body.width}
+              fontSize={body.fontSize * 0.75}
+              animation={bodyAnimation}
+              previewing={previewing}
+              previewAtMs={previewAtMs}
+            />
+          ) : (
+            scene.text
+          )}
         </PptEditableObject>
       </PptEditableObject>
       {nameplate.visible && renderStyle.nameplateVisible ? (
@@ -1187,6 +1219,54 @@ function ScenePreview({
         </PptEditableObject>
       ) : null}
     </>
+  );
+}
+
+function PptLineWipePreview({
+  text,
+  widthPercent,
+  fontSize,
+  animation,
+  previewing,
+  previewAtMs,
+}: {
+  text: string;
+  widthPercent: number;
+  fontSize: number;
+  animation: PptObjectAnimation;
+  previewing: boolean;
+  previewAtMs?: number;
+}) {
+  const lines = splitPptTextLines(
+    text || ' ',
+    Math.max(72, widthPercent * 7.2),
+    Math.max(8, fontSize),
+  );
+  const baseStart =
+    (animation as PptObjectAnimation & { timelineStartMs?: number }).timelineStartMs ??
+    animation.delayMs;
+  const gap = animation.textBuild?.lineGapMs || 0;
+  return (
+    <span className="block">
+      {lines.map((line, index) => {
+        const start = baseStart + index * (animation.durationMs + gap);
+        const elapsed = previewAtMs === undefined ? undefined : previewAtMs - start;
+        const progress =
+          elapsed === undefined ? 1 : Math.max(0, Math.min(1, elapsed / animation.durationMs));
+        const style = previewing
+          ? {
+              animation: `ppt-wipe-${animation.direction} ${animation.durationMs}ms ease ${start}ms both`,
+            }
+          : previewAtMs === undefined
+            ? undefined
+            : { clipPath: `inset(0 ${100 - progress * 100}% 0 0)` };
+        return (
+          <span key={`${index}-${line}`} className="block overflow-hidden" style={style}>
+            {line || ' '}
+          </span>
+        );
+      })}
+    </span>
   );
 }
 

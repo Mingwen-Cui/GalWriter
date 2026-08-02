@@ -37,6 +37,7 @@ export function AnimationRibbon({
   setPhase,
   animation,
   onApply,
+  onApplyLineWipe,
   onPreview,
   onUpdate,
   transition,
@@ -49,6 +50,7 @@ export function AnimationRibbon({
   setPhase: (phase: PptAnimationPhase) => void;
   animation?: PptObjectAnimation;
   onApply: (effect: PptAnimationEffect) => void;
+  onApplyLineWipe: () => void;
   onPreview: () => void;
   onUpdate: (patch: Partial<PptObjectAnimation>) => void;
   transition: PptSlideTransition;
@@ -112,15 +114,27 @@ export function AnimationRibbon({
                   </button>
                 ))
               ) : (
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onApply('line')}
-                  className={`ppt-effect-button min-w-[72px] ${animation?.effect === 'line' ? 'is-active' : ''}`}
-                >
-                  <span className="text-lg leading-none">↔</span>
-                  <span>{copy.line}</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onApply('line')}
+                    className={`ppt-effect-button min-w-[72px] ${animation?.effect === 'line' ? 'is-active' : ''}`}
+                  >
+                    <span className="text-lg leading-none">↔</span>
+                    <span>{copy.line}</span>
+                  </button>
+                  {selected?.target === 'dialog-body' && phase === 'enter' ? (
+                    <button
+                      type="button"
+                      onClick={onApplyLineWipe}
+                      className={`ppt-effect-button min-w-[72px] ${animation?.textBuild?.mode === 'line-wipe' ? 'is-active' : ''}`}
+                    >
+                      <span className="text-lg leading-none">▤</span>
+                      <span>逐行打字</span>
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
           </RibbonGroup>
@@ -199,6 +213,29 @@ export function AnimationRibbon({
                 }
                 className="render-field h-7 text-[11px]"
               />
+              {animation?.textBuild?.mode === 'line-wipe' ? (
+                <>
+                  <label>行间停顿</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value={animation.textBuild.lineGapMs / 1000}
+                    onChange={(event) =>
+                      onUpdate({
+                        textBuild: {
+                          ...animation.textBuild,
+                          lineGapMs: Math.round(
+                            Math.max(0, Number(event.target.value || 0)) * 1000,
+                          ),
+                        },
+                      })
+                    }
+                    className="render-field h-7 text-[11px]"
+                  />
+                </>
+              ) : null}
             </div>
           </RibbonGroup>
         </div>
