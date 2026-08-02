@@ -19,6 +19,24 @@ export const assistantPanelEn = {
   inputPlaceholder:
     'Discuss the story with AI, or ask it to generate or revise characters, scenes, and story cards…',
   futureWriting: 'Future writing plan',
+  shortDramaFlow: {
+    storyOnlyPrompt:
+      'Create 6 to 10 sequential story cards only for this short drama. The confirmed character is "{characterName}" and the confirmed scene is "{sceneName}". Use both names naturally in each story card so the app can link the existing setting cards. Do not return character or scene cards. Original request: {request}',
+    createCharacterPrompt:
+      'Create exactly one main character setting for this short drama. Return JSON only: {"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}. Do not return story or scene cards. Request: {request}',
+    createScenePrompt:
+      'Create exactly one core scene setting for this short drama and its confirmed main character "{characterName}". Return JSON only: {"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}. Do not return character or story cards. Request: {request}',
+    useLibraryScene: 'Use library scene: {name}',
+    createScene: 'Create a new scene with AI',
+    characterPlaced: 'Placed {name}. Now choose a core scene or create one with AI.',
+    scenePlaced: 'Placed {name}. Character and scene are confirmed; generating the plot next.',
+    characterCreated: 'Created {name}. Now choose a core scene or create one with AI.',
+    sceneCreated: 'Created {name}. Character and scene are confirmed; generating the plot next.',
+    characterGenerationFailed: 'Character generation failed. Please choose again.',
+    sceneGenerationFailed: 'Scene generation failed. Please choose again.',
+    fallbackCharacterName: 'AI character',
+    fallbackSceneName: 'AI scene',
+  },
   cardReview: {
     taskTitlePrefix: 'Review',
     requestText:

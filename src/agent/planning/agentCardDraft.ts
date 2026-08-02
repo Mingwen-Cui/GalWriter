@@ -61,6 +61,14 @@ export type AssistantCardPlacementMode =
 export type AssistantCardPlacementOptions = {
   targetNodeId?: string;
   targetNodeIds?: string[];
+  /** Mark the first generated story card as the playtest starting point. */
+  setFirstStoryAsRoot?: boolean;
+  /**
+   * Existing character and scene cards that belong to a staged assistant
+   * generation. When the story cards arrive, they are reflowed into their
+   * own setup columns before the story column.
+   */
+  setupNodeIds?: string[];
   /**
    * A library reference already has its full card data locally. Place it as a
    * complete setting card instead of first creating an empty Agent skeleton.

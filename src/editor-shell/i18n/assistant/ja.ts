@@ -19,6 +19,24 @@ export const assistantPanelJa = {
   inputPlaceholder:
     'AIとストーリーを相談するか、キャラクター、シーン、ストーリーカードの生成・修正を依頼してください…',
   futureWriting: '将来の執筆提案',
+  shortDramaFlow: {
+    storyOnlyPrompt:
+      'この短編ドラマ用に、順番に進むストーリーカードだけを 6〜10 枚作成してください。確定した人物は「{characterName}」、シーンは「{sceneName}」です。既存の設定カードと関連付けられるよう、各ストーリーカードに両方の名前を自然に含めてください。人物カードとシーンカードは返さないでください。元の依頼：{request}',
+    createCharacterPrompt:
+      'この短編ドラマ用に、主要人物の設定カードを 1 枚だけ作成してください。JSON のみを返してください：{"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}。ストーリーカードとシーンカードは返さないでください。依頼：{request}',
+    createScenePrompt:
+      'この短編ドラマと確定済みの主要人物「{characterName}」用に、中心となるシーン設定カードを 1 枚だけ作成してください。JSON のみを返してください：{"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}。人物カードとストーリーカードは返さないでください。依頼：{request}',
+    useLibraryScene: 'ライブラリのシーンを使う：{name}',
+    createScene: 'AI で新しいシーンを作成',
+    characterPlaced: '人物設定「{name}」を配置しました。中心となるシーンを選ぶか、AI で新しく作成してください。',
+    scenePlaced: 'シーン設定「{name}」を配置しました。人物とシーンが確定したため、プロットを生成します。',
+    characterCreated: '人物設定「{name}」を作成しました。中心となるシーンを選ぶか、AI で新しく作成してください。',
+    sceneCreated: 'シーン設定「{name}」を作成しました。人物とシーンが確定したため、プロットを生成します。',
+    characterGenerationFailed: '人物設定を生成できませんでした。選び直すか、もう一度試してください。',
+    sceneGenerationFailed: 'シーン設定を生成できませんでした。選び直すか、もう一度試してください。',
+    fallbackCharacterName: 'AI キャラクター',
+    fallbackSceneName: 'AI シーン',
+  },
   cardReview: {
     taskTitlePrefix: '提案',
     requestText: 'このカードと前後の物語に基づいて、具体的な修正案を出してください。',

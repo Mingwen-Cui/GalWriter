@@ -121,8 +121,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     requestSettingsAttention,
   } = params;
   const assistantCopy = assistantPanelCopy(language);
+  const streamingHeightReflowTimerRef = React.useRef<number | null>(null);
 
-  const { fitView, setCenter } = useReactFlow();
+  const { fitView, getNodes, setCenter } = useReactFlow();
 
   // =========================================================================
   // executeAssistantCardPlacement
@@ -203,6 +204,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         };
       };
 
+      const cardTypePriority = { character: 0, scene: 1, story: 2, 'number-condition': 3 } as const;
       const validCards = cards
         .map(resolveLibraryReference)
         .map((card) => ({
@@ -315,7 +317,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             );
           }
           return card.text || card.title;
-        });
+        })
+        // Every generated batch is shown as three uninterrupted sections:
+        // character settings, scene settings, and finally story cards.
+        .sort((left, right) => cardTypePriority[left.type] - cardTypePriority[right.type]);
 
       if (validCards.length === 0) return { count: 0 };
 
@@ -325,15 +330,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           (explicitFillTargetIds.size > 0 ? explicitFillTargetIds.has(n.id) : n.selected) &&
           (n.type === 'storyNode' || n.type === 'characterNode' || n.type === 'sceneNode'),
       );
-      const defaultInitialRootNode = nodes.find(isDefaultInitialStoryNode);
-      const hasNonDefaultStoryNode = nodes.some(
-        (node) => node.type === 'storyNode' && !isDefaultInitialStoryNode(node),
-      );
-      const shouldReplaceInitialRoot =
+      const shouldSetGeneratedRoot =
         mode === 'append' &&
-        edges.length === 0 &&
-        Boolean(defaultInitialRootNode) &&
-        !hasNonDefaultStoryNode &&
+        options?.setFirstStoryAsRoot === true &&
         validCards.some((draft) => draft.type === 'story');
       const usedDraftIndexes = new Set<number>();
       const usedTargetIds = new Set<string>();
@@ -450,6 +449,17 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               node.type === 'sceneNode'),
         );
       const center = getCenterPosition();
+      const currentCanvasNodes = options?.setupNodeIds?.length ? getNodes() : nodes;
+      const setupNodeIdSet = new Set(options?.setupNodeIds || []);
+      const stagedSetupNodes = currentCanvasNodes.filter(
+        (node) =>
+          setupNodeIdSet.has(node.id) &&
+          (node.type === 'characterNode' || node.type === 'sceneNode'),
+      );
+      const stagedCharacterNodes = stagedSetupNodes.filter(
+        (node) => node.type === 'characterNode',
+      );
+      const stagedSceneNodes = stagedSetupNodes.filter((node) => node.type === 'sceneNode');
       const targetNode =
         mode === 'bridge-to-target' && options?.targetNodeId
           ? nodes.find((node) => node.id === options.targetNodeId) || null
@@ -458,7 +468,6 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         (node) =>
           node.type === 'storyNode' &&
           node.id !== targetNode?.id &&
-          !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node)) &&
           node.data?.assistantFutureGoal !== true &&
           !edges.some(
             (edge) =>
@@ -473,9 +482,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           ? selectedCanvasTarget
           : null) ||
         selectedStories.find(
-          (node) =>
-            node.id !== targetNode?.id &&
-            !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node)),
+          (node) => node.id !== targetNode?.id,
         ) ||
         terminalStories[terminalStories.length - 1] ||
         null;
@@ -526,7 +533,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       const numberConditionIndexes = remainingCards
         .map((card, index) => (card.type === 'number-condition' ? index : -1))
         .filter((index) => index >= 0);
-      const rootReplacementStoryIndex = shouldReplaceInitialRoot ? storyIndexes[0] : -1;
+      const rootReplacementStoryIndex = shouldSetGeneratedRoot ? storyIndexes[0] : -1;
       // Setting cards are wide and tall after their content is rendered. Keep
       // enough breathing room that the story column cannot overlap them.
       const columnGap = 240;
@@ -831,6 +838,135 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         };
       });
 
+      const stagedSetupPositions = new Map<string, { x: number; y: number }>();
+      const stagedSetupRegionUpdates = new Map<
+        string,
+        { position: { x: number; y: number }; style: Record<string, unknown> }
+      >();
+      const hasStagedSetupLayout =
+        stagedSetupNodes.length > 0 && storyIndexes.length > 0 && mode === 'append';
+      if (hasStagedSetupLayout) {
+        const setupColumnGap = 180;
+        const setupRowGap = 120;
+        const getExistingNodeSize = (node: Node) => ({
+          width:
+            Number(node.measured?.width) ||
+            Number(node.style?.width) ||
+            (node.type === 'storyNode' ? AI_STORY_CARD_WIDTH : SETTING_NODE_CARD_WIDTH),
+          height:
+            Number(node.measured?.height) ||
+            Number(node.style?.height) ||
+            (node.type === 'characterNode'
+              ? AI_CHARACTER_CARD_LAYOUT_HEIGHT
+              : node.type === 'sceneNode'
+                ? AI_SCENE_CARD_LAYOUT_HEIGHT
+                : AI_STORY_CARD_HEIGHT),
+        });
+        const getSetupColumnHeight = (columnNodes: Node[]) =>
+          columnNodes.reduce(
+            (height, node, index) =>
+              height + getExistingNodeSize(node).height + (index > 0 ? setupRowGap : 0),
+            0,
+          );
+        const storyColumnHeight = getColumnHeight(storyIndexes, 'story');
+        const setupColumns = [
+          { type: 'character', nodes: stagedCharacterNodes, width: SETTING_NODE_CARD_WIDTH },
+          { type: 'scene', nodes: stagedSceneNodes, width: SETTING_NODE_CARD_WIDTH },
+          { type: 'story', nodes: [], width: storyLayoutWidth },
+        ].filter((column) => column.nodes.length > 0 || column.type === 'story');
+        const setupTotalWidth =
+          setupColumns.reduce((width, column) => width + column.width, 0) +
+          Math.max(0, setupColumns.length - 1) * setupColumnGap;
+        const setupTop =
+          center.y -
+          Math.max(
+            storyColumnHeight,
+            getSetupColumnHeight(stagedCharacterNodes),
+            getSetupColumnHeight(stagedSceneNodes),
+          ) /
+            2;
+        const setupColumnX = new Map<string, number>();
+        setupColumns.reduce((x, column) => {
+          setupColumnX.set(column.type, x);
+          return x + column.width + setupColumnGap;
+        }, center.x - setupTotalWidth / 2);
+
+        const stagedSetupColumns: Array<[string, Node[]]> = [
+          ['character', stagedCharacterNodes],
+          ['scene', stagedSceneNodes],
+        ];
+        stagedSetupColumns.forEach(([type, columnNodes]) => {
+          let y = setupTop;
+          columnNodes.forEach((node) => {
+            const size = getExistingNodeSize(node);
+            stagedSetupPositions.set(node.id, {
+              x: setupColumnX.get(type) ?? center.x - size.width / 2,
+              y,
+            });
+            y += size.height + setupRowGap;
+          });
+        });
+
+        const storyX = setupColumnX.get('story') ?? center.x - AI_STORY_CARD_WIDTH / 2;
+        storyIndexes.forEach((cardIndex) => {
+          const storyIndex = storyIndexes.indexOf(cardIndex);
+          const columnIndex = Math.floor(storyIndex / storyCardsPerColumn);
+          const rowIndex = storyIndex % storyCardsPerColumn;
+          const columnStart = columnIndex * storyCardsPerColumn;
+          const y =
+            setupTop +
+            storyIndexes
+              .slice(columnStart, columnStart + rowIndex)
+              .reduce(
+                (offset, previousIndex) =>
+                  offset + cardLayouts[previousIndex].height + rowGap,
+                0,
+              );
+          newNodes[cardIndex].position = {
+            x: storyX + columnIndex * (AI_STORY_CARD_WIDTH + storyColumnGap),
+            y,
+          };
+        });
+
+        currentCanvasNodes.forEach((node) => {
+          if (node.type !== 'backgroundNode' && node.type !== 'groupNode') return;
+          const childIds = Array.isArray(node.data?.assistantAutoFitChildIds)
+            ? node.data.assistantAutoFitChildIds.filter(
+                (childId): childId is string => typeof childId === 'string',
+              )
+            : [];
+          const children = childIds
+            .map((childId) => {
+              const child = stagedSetupNodes.find((item) => item.id === childId);
+              const position = stagedSetupPositions.get(childId);
+              return child && position ? { child, position } : null;
+            })
+            .filter((item): item is { child: Node; position: { x: number; y: number } } => Boolean(item));
+          if (!children.length) return;
+          const padding = Number(node.data?.assistantAutoFitPadding) || 48;
+          const bounds = children.reduce(
+            (result, { child, position }) => {
+              const size = getExistingNodeSize(child);
+              return {
+                left: Math.min(result.left, position.x),
+                top: Math.min(result.top, position.y),
+                right: Math.max(result.right, position.x + size.width),
+                bottom: Math.max(result.bottom, position.y + size.height),
+              };
+            },
+            { left: Number.POSITIVE_INFINITY, top: Number.POSITIVE_INFINITY, right: 0, bottom: 0 },
+          );
+          stagedSetupRegionUpdates.set(node.id, {
+            position: { x: bounds.left - padding, y: bounds.top - padding },
+            style: {
+              ...node.style,
+              width: Math.max(280, bounds.right - bounds.left + padding * 2),
+              height: Math.max(220, bounds.bottom - bounds.top + padding * 2),
+            },
+          });
+        });
+      }
+
       const storyNodesToLink = newNodes.filter((node) => node.type === 'storyNode');
       const numberConditionNodesToLink = newNodes.filter(
         (node) => node.type === 'numberConditionNode',
@@ -949,24 +1085,29 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             chapterPadding * 2 +
             Math.max(0, ...chapterColumnHeights);
           const backgroundId = uuidv4();
-          const chapterColors = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fff7ed', '#fdf2f8'];
+          // Dynamic wrappers use a saturated color because GroupNode renders
+          // its fill translucently; pastel background colors become nearly
+          // invisible against the canvas.
+          const chapterWrapperColor = '#4f46e5';
           chapterBackgroundNodes.push({
             id: backgroundId,
-            type: 'backgroundNode',
-            position: { x: storyX - chapterPadding, y: chapterTop },
+            type: 'groupNode',
+            position: { x: 0, y: 0 },
             dragHandle: '.custom-drag-handle',
             style: {
-              width:
-                chapterColumnCount * AI_STORY_CARD_WIDTH +
-                Math.max(0, chapterColumnCount - 1) * chapterColumnGap +
-                chapterPadding * 2,
-              height: chapterHeight,
-              zIndex: -3,
+              width: 100,
+              height: 100,
+              zIndex: -2,
             },
             data: {
               id: backgroundId,
               title: chapterTitle,
-              color: chapterColors[chapterIndex % chapterColors.length],
+              color: chapterWrapperColor,
+              language,
+              gap: chapterPadding,
+              childIds: chapterStoryIndexes
+                .map((storyIndex) => newNodes[storyIndex]?.id)
+                .filter((nodeId): nodeId is string => Boolean(nodeId)),
               assistantAutoFitPending: true,
               assistantAutoFitChildIds: chapterStoryIndexes
                 .map((storyIndex) => newNodes[storyIndex]?.id)
@@ -994,18 +1135,22 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       const chapterStoryIndexes = new Set(
         storyIndexes.filter((index) => Boolean(remainingCards[index].chapterTitle)),
       );
-      const batchGroups = new Map<string, { title: string; indexes: number[] }>();
+      const batchGroups = new Map<
+        string,
+        { title: string; type: (typeof remainingCards)[number]['type']; indexes: number[] }
+      >();
       remainingCards.forEach((card, index) => {
         if (card.type === 'story' && chapterStoryIndexes.has(index)) return;
         const title = card.batchTitle || defaultBatchTitle(card.type);
         const key = `${card.type}:${title}`;
-        const group = batchGroups.get(key) || { title, indexes: [] };
+        const group = batchGroups.get(key) || { title, type: card.type, indexes: [] };
         group.indexes.push(index);
         batchGroups.set(key, group);
       });
       const batchBackgroundColors = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fff7ed', '#fdf2f8'];
       const batchBackgroundNodes = Array.from(batchGroups.values()).map((group, groupIndex) => {
         const padding = 48;
+        const isStoryGroup = group.type === 'story';
         const bounds = group.indexes.reduce(
           (result, index) => {
             const node = newNodes[index];
@@ -1023,18 +1168,27 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         const id = uuidv4();
         return {
           id,
-          type: 'backgroundNode',
-          position: { x: bounds.left - padding, y: bounds.top - padding },
+          type: isStoryGroup ? 'groupNode' : 'backgroundNode',
+          position: isStoryGroup ? { x: 0, y: 0 } : { x: bounds.left - padding, y: bounds.top - padding },
           dragHandle: '.custom-drag-handle',
           style: {
-            width: Math.max(280, bounds.right - bounds.left + padding * 2),
-            height: Math.max(220, bounds.bottom - bounds.top + padding * 2),
-            zIndex: -3,
+            width: isStoryGroup ? 100 : Math.max(280, bounds.right - bounds.left + padding * 2),
+            height: isStoryGroup ? 100 : Math.max(220, bounds.bottom - bounds.top + padding * 2),
+            zIndex: isStoryGroup ? -2 : -3,
           },
           data: {
             id,
             title: group.title,
-            color: batchBackgroundColors[groupIndex % batchBackgroundColors.length],
+            color: isStoryGroup ? '#4f46e5' : batchBackgroundColors[groupIndex % batchBackgroundColors.length],
+            ...(isStoryGroup
+              ? {
+                  language,
+                  gap: padding,
+                  childIds: group.indexes
+                    .map((index) => newNodes[index]?.id)
+                    .filter((nodeId): nodeId is string => Boolean(nodeId)),
+                }
+              : {}),
             assistantAutoFitPending: true,
             assistantAutoFitChildIds: group.indexes
               .map((index) => newNodes[index]?.id)
@@ -1210,17 +1364,157 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           .map((node) => ({
             ...node,
             selected: false,
-            data: shouldReplaceInitialRoot ? { ...node.data, isRoot: false } : node.data,
+            data: shouldSetGeneratedRoot ? { ...node.data, isRoot: false } : node.data,
             position:
-              bridgeTargetPosition && node.id === targetNode?.id
+              stagedSetupRegionUpdates.get(node.id)?.position ||
+              stagedSetupPositions.get(node.id) ||
+              (bridgeTargetPosition && node.id === targetNode?.id
                 ? bridgeTargetPosition
-                : node.position,
-          }))
-          .filter((node) => !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node))),
+                : node.position),
+            style: stagedSetupRegionUpdates.get(node.id)?.style || node.style,
+          })),
         ...newNodes,
         ...chapterBackgroundNodes,
         ...batchBackgroundNodes,
       ]);
+      // Character and scene setup cards are created in earlier short-drama
+      // steps. Re-read the actual canvas state after this story batch has
+      // been appended, then align all three sections from the same top edge.
+      // This avoids retaining the scene card's old, independently centered
+      // position when React commits the preceding step asynchronously.
+      if (options?.setupNodeIds?.length && storyNodesToLink.length > 0 && mode === 'append') {
+        const storyNodeIdSet = new Set(storyNodesToLink.map((node) => node.id));
+        const setupNodeIds = new Set(options.setupNodeIds);
+        setNodes((currentNodes) => {
+          const getNodeSize = (node: Node) => ({
+            width:
+              Number(node.measured?.width) ||
+              Number(node.style?.width) ||
+              (node.type === 'storyNode' ? AI_STORY_CARD_WIDTH : SETTING_NODE_CARD_WIDTH),
+            height:
+              Number(node.measured?.height) ||
+              Number(node.style?.height) ||
+              (node.type === 'characterNode'
+                ? AI_CHARACTER_CARD_LAYOUT_HEIGHT
+                : node.type === 'sceneNode'
+                  ? AI_SCENE_CARD_LAYOUT_HEIGHT
+                  : AI_STORY_CARD_HEIGHT),
+          });
+          const characterNodes = currentNodes.filter(
+            (node) => setupNodeIds.has(node.id) && node.type === 'characterNode',
+          );
+          const sceneNodes = currentNodes.filter(
+            (node) => setupNodeIds.has(node.id) && node.type === 'sceneNode',
+          );
+          const storyNodes = currentNodes.filter(
+            (node) => storyNodeIdSet.has(node.id) && node.type === 'storyNode',
+          );
+          if (!characterNodes.length || !sceneNodes.length || !storyNodes.length) return currentNodes;
+
+          const settingRowGap = 120;
+          const storyRowGap = 140;
+          const columnGap = 200;
+          const storyColumns = Math.max(1, Math.ceil(storyNodes.length / storyCardsPerColumn));
+          const storyWidth =
+            storyColumns * AI_STORY_CARD_WIDTH + Math.max(0, storyColumns - 1) * storyColumnGap;
+          const getColumnHeight = (items: Node[], gap: number) =>
+            items.reduce(
+              (height, node, index) => height + getNodeSize(node).height + (index ? gap : 0),
+              0,
+            );
+          const storyColumnHeight = Math.max(
+            ...Array.from({ length: storyColumns }, (_, index) =>
+              getColumnHeight(
+                storyNodes.slice(index * storyCardsPerColumn, (index + 1) * storyCardsPerColumn),
+                storyRowGap,
+              ),
+            ),
+          );
+          const layoutHeight = Math.max(
+            getColumnHeight(characterNodes, settingRowGap),
+            getColumnHeight(sceneNodes, settingRowGap),
+            storyColumnHeight,
+          );
+          const layoutTop = center.y - layoutHeight / 2;
+          const layoutLeft =
+            center.x - (SETTING_NODE_CARD_WIDTH * 2 + storyWidth + columnGap * 2) / 2;
+          const positions = new Map<string, { x: number; y: number }>();
+          const positionColumn = (items: Node[], x: number, gap: number) => {
+            let y = layoutTop;
+            items.forEach((node) => {
+              positions.set(node.id, { x, y });
+              y += getNodeSize(node).height + gap;
+            });
+          };
+          positionColumn(characterNodes, layoutLeft, settingRowGap);
+          positionColumn(sceneNodes, layoutLeft + SETTING_NODE_CARD_WIDTH + columnGap, settingRowGap);
+          storyNodes.forEach((node, index) => {
+            const columnIndex = Math.floor(index / storyCardsPerColumn);
+            const rowIndex = index % storyCardsPerColumn;
+            const earlierStories = storyNodes.slice(
+              columnIndex * storyCardsPerColumn,
+              columnIndex * storyCardsPerColumn + rowIndex,
+            );
+            positions.set(node.id, {
+              x:
+                layoutLeft +
+                SETTING_NODE_CARD_WIDTH * 2 +
+                columnGap * 2 +
+                columnIndex * (AI_STORY_CARD_WIDTH + storyColumnGap),
+              y:
+                layoutTop +
+                earlierStories.reduce(
+                  (offset, item) => offset + getNodeSize(item).height + storyRowGap,
+                  0,
+                ),
+            });
+          });
+
+          return currentNodes.map((node) => {
+            const position = positions.get(node.id);
+            if (position) return { ...node, position };
+            if (node.type !== 'backgroundNode' && node.type !== 'groupNode') return node;
+            const childIds = Array.isArray(node.data?.assistantAutoFitChildIds)
+              ? node.data.assistantAutoFitChildIds.filter(
+                  (childId): childId is string => typeof childId === 'string',
+                )
+              : [];
+            const children = childIds
+              .map((childId) => {
+                const child = currentNodes.find((item) => item.id === childId);
+                const childPosition = positions.get(childId);
+                return child && childPosition ? { child, childPosition } : null;
+              })
+              .filter(
+                (item): item is { child: Node; childPosition: { x: number; y: number } } =>
+                  Boolean(item),
+              );
+            if (!children.length) return node;
+            const padding = Number(node.data?.assistantAutoFitPadding) || 48;
+            const bounds = children.reduce(
+              (result, { child, childPosition }) => {
+                const size = getNodeSize(child);
+                return {
+                  left: Math.min(result.left, childPosition.x),
+                  top: Math.min(result.top, childPosition.y),
+                  right: Math.max(result.right, childPosition.x + size.width),
+                  bottom: Math.max(result.bottom, childPosition.y + size.height),
+                };
+              },
+              { left: Number.POSITIVE_INFINITY, top: Number.POSITIVE_INFINITY, right: 0, bottom: 0 },
+            );
+            return {
+              ...node,
+              position: { x: bounds.left - padding, y: bounds.top - padding },
+              style: {
+                ...node.style,
+                width: Math.max(280, bounds.right - bounds.left + padding * 2),
+                height: Math.max(220, bounds.bottom - bounds.top + padding * 2),
+              },
+            };
+          });
+        });
+      }
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
       return {
         count: filledCount + remainingCards.length,
@@ -1235,6 +1529,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       setNodes,
       setEdges,
       getCenterPosition,
+      getNodes,
       getViewportZoom,
       language,
       presetSettingLibraryItems,
@@ -1531,7 +1826,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
   );
 
   const finalizeAssistantStoryHeights = useCallback(
-    (nodeIds: string[] | undefined) => {
+    (nodeIds: string[] | undefined, keepStreaming = false) => {
       if (!nodeIds?.length) return;
       const nodeIdSet = new Set(nodeIds);
       const nonce = Date.now();
@@ -1540,7 +1835,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         currentNodes.map((node) => {
           if (node.type !== 'storyNode' || !nodeIdSet.has(node.id)) return node;
           const storyData = node.data as StoryNodeData;
-          if (storyData.assistantHeightState !== 'streaming' || storyData.sizeMode === 'custom') {
+          if (
+            keepStreaming ||
+            storyData.assistantHeightState !== 'streaming' ||
+            storyData.sizeMode === 'custom'
+          ) {
             return node;
           }
           return {
@@ -1574,13 +1873,15 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           currentNodes.forEach((region) => {
             if (region.type !== 'backgroundNode' && region.type !== 'groupNode') return;
             const regionData = region.data as Record<string, unknown>;
-            if (regionData.assistantAutoFitPending !== true) return;
-
             const childIds = Array.isArray(regionData.assistantAutoFitChildIds)
               ? regionData.assistantAutoFitChildIds.filter(
                   (childId): childId is string => typeof childId === 'string',
                 )
               : [];
+            const shouldReflowRegion =
+              regionData.assistantAutoFitPending === true ||
+              childIds.some((childId) => nodeIdSet.has(childId));
+            if (!shouldReflowRegion) return;
             const children = childIds.map((childId) => nodeById.get(childId)).filter(Boolean) as Node[];
             if (children.length < 2 || !children.every((child) => child.type === 'storyNode')) return;
 
@@ -1621,13 +1922,15 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           return reflowedNodes.map((node) => {
             if (node.type !== 'backgroundNode' && node.type !== 'groupNode') return node;
             const regionData = node.data as Record<string, unknown>;
-            if (regionData.assistantAutoFitPending !== true) return node;
-
             const childIds = Array.isArray(regionData.assistantAutoFitChildIds)
               ? regionData.assistantAutoFitChildIds.filter(
                   (childId): childId is string => typeof childId === 'string',
                 )
               : [];
+            const shouldReflowRegion =
+              regionData.assistantAutoFitPending === true ||
+              childIds.some((childId) => nodeIdSet.has(childId));
+            if (!shouldReflowRegion) return node;
             const children = childIds
               .map((childId) => reflowedNodeById.get(childId))
               .filter(Boolean) as Node[];
@@ -1668,7 +1971,12 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                 width: Math.max(280, bounds.right - bounds.left + padding * 2),
                 height: Math.max(220, bounds.bottom - bounds.top + padding * 2),
               },
-              data: { ...regionData, assistantAutoFitPending: false },
+              data: {
+                ...regionData,
+                assistantAutoFitPending: keepStreaming
+                  ? regionData.assistantAutoFitPending
+                  : false,
+              },
             };
           });
         });
@@ -1951,6 +2259,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
 
       if (completed) {
         window.requestAnimationFrame(() => finalizeAssistantStoryHeights(nodeIds));
+      } else if (streamingHeightReflowTimerRef.current === null) {
+        streamingHeightReflowTimerRef.current = window.setTimeout(() => {
+          streamingHeightReflowTimerRef.current = null;
+          finalizeAssistantStoryHeights(nodeIds, true);
+        }, 100);
       }
     },
     [finalizeAssistantStoryHeights, getAgentDraftType, setNodes],

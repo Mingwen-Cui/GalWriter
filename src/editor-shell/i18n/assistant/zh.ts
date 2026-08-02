@@ -18,6 +18,24 @@ export const assistantPanelZh = {
   generateCards: '生成卡片',
   inputPlaceholder: '请你给我生成一个故事',
   futureWriting: '未来写作建议',
+  shortDramaFlow: {
+    storyOnlyPrompt:
+      '只为这个短剧生成 6 到 10 张按顺序推进的剧情卡。已确认的人物是“{characterName}”，场景是“{sceneName}”。每张剧情卡都要自然写到这两者，以便应用关联已有设定卡。不要返回人物或场景卡。原始请求：{request}',
+    createCharacterPrompt:
+      '为这个短剧只创建一张主要人物设定卡。只返回 JSON：{"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}。不要返回剧情或场景卡。请求：{request}',
+    createScenePrompt:
+      '为这个短剧及已确认的主要人物“{characterName}”只创建一张核心场景设定卡。只返回 JSON：{"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}。不要返回人物或剧情卡。请求：{request}',
+    useLibraryScene: '使用库场景：{name}',
+    createScene: '由 AI 新建场景设定',
+    characterPlaced: '已放置人物设定「{name}」。现在选择核心场景，或让 AI 新建场景设定。',
+    scenePlaced: '已放置场景设定「{name}」。人物和场景已确定，开始生成对应剧情。',
+    characterCreated: '已新建人物设定「{name}」。现在选择核心场景，或让 AI 新建场景设定。',
+    sceneCreated: '已新建场景设定「{name}」。人物和场景已确定，开始生成对应剧情。',
+    characterGenerationFailed: '人物设定生成失败，请重新选择或再试一次。',
+    sceneGenerationFailed: '场景设定生成失败，请重新选择或再试一次。',
+    fallbackCharacterName: 'AI 人物',
+    fallbackSceneName: 'AI 场景',
+  },
   cardReview: {
     taskTitlePrefix: '建议',
     requestText: '请结合这张卡片及相邻剧情，给出具体修改建议。',

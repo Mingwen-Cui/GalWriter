@@ -1255,8 +1255,13 @@ ${documentContext}`);
         throw new Error('Streaming card generation is not available.');
       }
 
-      const placeholderCards = (providedPlaceholderCards || buildAssistantPlaceholderCards(userText, mode))
-        .slice(0, 12);
+      // Keep the live placeholder sequence aligned with the canvas groups:
+      // finish character setup first, then scene setup, then story cards.
+      // This also prevents a model-returned mixed order from putting story
+      // placeholders between the two setting sections.
+      const placeholderCards = orderAssistantCardsForCreation(
+        providedPlaceholderCards || buildAssistantPlaceholderCards(userText, mode),
+      ).slice(0, 12);
       if (placeholderCards.length === 0) {
         throw new Error('No placeholder cards available for streaming.');
       }
@@ -1953,8 +1958,15 @@ The previous streaming response did not complete every placeholder card. Return 
       const shortDramaSetupNodeIds = workflow.type === 'short-drama-ready'
         ? [workflow.characterNodeId, workflow.sceneNodeId]
         : [];
+      const shortDramaCopy = assistantPanelCopy(language).shortDramaFlow;
+      if (shortDramaSetupNodeIds.length > 0) {
+        placementOptions = { setupNodeIds: shortDramaSetupNodeIds };
+      }
       const isShortDramaBundleRequest =
         !isShortDramaStoryOnly && /短剧|短劇|short drama|短編ドラマ/i.test(userText);
+      if (isShortDramaStoryOnly || isShortDramaBundleRequest) {
+        placementOptions = { ...placementOptions, setFirstStoryAsRoot: true };
+      }
       const shortDramaLibraryReferenceContext = isShortDramaBundleRequest
         ? buildShortDramaLibraryReferenceContext(
             [...savedSettingLibraryItems, ...presetSettingLibraryItems],
@@ -1978,7 +1990,11 @@ The previous streaming response did not complete every placeholder card. Return 
         ? shortDramaLibraryReferenceContext
         : settingLibraryContext;
       if (workflow.type === 'short-drama-ready') {
-        effectiveUserText = `Create 6 to 10 sequential story cards only for this short drama. The confirmed character is "${workflow.characterName}" and the confirmed scene is "${workflow.sceneName}". Use both names naturally in each story card so the app can link the existing setting cards. Do not return character or scene cards. Original request: ${workflow.request}`;
+        effectiveUserText = formatLocalizedCopy(shortDramaCopy.storyOnlyPrompt, {
+          characterName: workflow.characterName,
+          sceneName: workflow.sceneName,
+          request: workflow.request,
+        });
         assistantWorkflowRef.current = { type: 'idle' };
       } else if (workflow.type === 'profile-ready-to-generate' && !workflow.discussing) {
         effectiveUserText = formatLocalizedCopy(
@@ -2731,6 +2747,7 @@ cards 必须正好有 3 张。`);
       const shortDramaCharacterLibraryPrefix = '__short_drama_character_library__:';
       const shortDramaSceneLibraryPrefix = '__short_drama_scene_library__:';
       const allLibraryItems = [...savedSettingLibraryItems, ...presetSettingLibraryItems];
+      const shortDramaCopy = assistantPanelCopy(language).shortDramaFlow;
 
       if (value.startsWith(shortDramaCharacterLibraryPrefix)) {
         const workflow = assistantWorkflowRef.current;
@@ -2758,7 +2775,7 @@ cards 必须正好有 3 张。`);
           .slice(0, 12)
           .map((candidate) => ({
             id: uuidv4(),
-            label: language === 'zh' ? `使用库场景：${candidate.name}` : `Use library scene: ${candidate.name}`,
+            label: formatLocalizedCopy(shortDramaCopy.useLibraryScene, { name: candidate.name }),
             value: `${shortDramaSceneLibraryPrefix}${candidate.id}`,
           }));
         setAssistantMessages((messages) => [
@@ -2766,17 +2783,14 @@ cards 必须正好有 3 张。`);
           {
             id: uuidv4(),
             role: 'assistant',
-            content:
-              language === 'zh'
-                ? `已放置人物设定「${item.name}」。现在选择核心场景，或让 AI 新建场景设定。`
-                : `Placed ${item.name}. Now choose a core scene or create one with AI.`,
+            content: formatLocalizedCopy(shortDramaCopy.characterPlaced, { name: item.name }),
             cardPosition: placement.position,
             cardNodeIds: placement.nodeIds,
             options: [
               ...sceneOptions,
               {
                 id: uuidv4(),
-                label: language === 'zh' ? '由 AI 新建场景设定' : 'Create a new scene with AI',
+                label: shortDramaCopy.createScene,
                 value: '__short_drama_scene_ai__',
               },
             ],
@@ -2813,10 +2827,7 @@ cards 必须正好有 3 张。`);
           {
             id: uuidv4(),
             role: 'assistant',
-            content:
-              language === 'zh'
-                ? `已放置场景设定「${item.name}」。人物和场景已确定，开始生成对应剧情。`
-                : `Placed ${item.name}. Character and scene are confirmed; generating the plot next.`,
+            content: formatLocalizedCopy(shortDramaCopy.scenePlaced, { name: item.name }),
             cardPosition: placement.position,
             cardNodeIds: [workflow.characterNodeId, sceneNodeId],
           },
@@ -2831,7 +2842,7 @@ cards 必须正好有 3 张。`);
         setAssistantLoading(true);
         try {
           const result = await callAIForTextResult(
-            `Create exactly one main character setting for this short drama. Return JSON only: {"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}. Do not return story or scene cards. Request: ${workflow.request}`,
+            formatLocalizedCopy(shortDramaCopy.createCharacterPrompt, { request: workflow.request }),
           );
           const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
             cards?: AssistantCardDraft[];
@@ -2845,7 +2856,8 @@ cards 必须正好有 3 张。`);
           });
           const characterNodeId = placement.nodeIds?.[0];
           if (!characterNodeId) throw new Error('Character placement failed');
-          const characterName = character.characterName || character.title || 'AI character';
+          const characterName =
+            character.characterName || character.title || shortDramaCopy.fallbackCharacterName;
           assistantWorkflowRef.current = {
             type: 'short-drama-awaiting-scene',
             request: workflow.request,
@@ -2857,7 +2869,7 @@ cards 必须正好有 3 张。`);
             .slice(0, 12)
             .map((candidate) => ({
               id: uuidv4(),
-              label: language === 'zh' ? `使用库场景：${candidate.name}` : `Use library scene: ${candidate.name}`,
+              label: formatLocalizedCopy(shortDramaCopy.useLibraryScene, { name: candidate.name }),
               value: `${shortDramaSceneLibraryPrefix}${candidate.id}`,
             }));
           setAssistantMessages((messages) => [
@@ -2865,17 +2877,14 @@ cards 必须正好有 3 张。`);
             {
               id: uuidv4(),
               role: 'assistant',
-              content:
-                language === 'zh'
-                  ? `已新建人物设定「${characterName}」。现在选择核心场景，或让 AI 新建场景设定。`
-                  : `Created ${characterName}. Now choose a core scene or create one with AI.`,
+              content: formatLocalizedCopy(shortDramaCopy.characterCreated, { name: characterName }),
               cardPosition: placement.position,
               cardNodeIds: placement.nodeIds,
               options: [
                 ...sceneOptions,
                 {
                   id: uuidv4(),
-                  label: language === 'zh' ? '由 AI 新建场景设定' : 'Create a new scene with AI',
+                  label: shortDramaCopy.createScene,
                   value: '__short_drama_scene_ai__',
                 },
               ],
@@ -2887,7 +2896,7 @@ cards 必须正好有 3 张。`);
             {
               id: uuidv4(),
               role: 'assistant',
-              content: language === 'zh' ? '人物设定生成失败，请重新选择或再试一次。' : 'Character generation failed. Please choose again.',
+              content: shortDramaCopy.characterGenerationFailed,
             },
           ]);
         } finally {
@@ -2902,7 +2911,10 @@ cards 必须正好有 3 张。`);
         setAssistantLoading(true);
         try {
           const result = await callAIForTextResult(
-            `Create exactly one core scene setting for this short drama and its confirmed main character "${workflow.characterName}". Return JSON only: {"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}. Do not return character or story cards. Request: ${workflow.request}`,
+            formatLocalizedCopy(shortDramaCopy.createScenePrompt, {
+              characterName: workflow.characterName,
+              request: workflow.request,
+            }),
           );
           const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
             cards?: AssistantCardDraft[];
@@ -2914,7 +2926,7 @@ cards 必须正好有 3 张。`);
           });
           const sceneNodeId = placement.nodeIds?.[0];
           if (!sceneNodeId) throw new Error('Scene placement failed');
-          const sceneName = scene.sceneName || scene.title || 'AI scene';
+          const sceneName = scene.sceneName || scene.title || shortDramaCopy.fallbackSceneName;
           assistantWorkflowRef.current = {
             type: 'short-drama-ready',
             request: workflow.request,
@@ -2928,10 +2940,7 @@ cards 必须正好有 3 张。`);
             {
               id: uuidv4(),
               role: 'assistant',
-              content:
-                language === 'zh'
-                  ? `已新建场景设定「${sceneName}」。人物和场景已确定，开始生成对应剧情。`
-                  : `Created ${sceneName}. Character and scene are confirmed; generating the plot next.`,
+              content: formatLocalizedCopy(shortDramaCopy.sceneCreated, { name: sceneName }),
               cardPosition: placement.position,
               cardNodeIds: [workflow.characterNodeId, sceneNodeId],
             },
@@ -2943,7 +2952,7 @@ cards 必须正好有 3 张。`);
             {
               id: uuidv4(),
               role: 'assistant',
-              content: language === 'zh' ? '场景设定生成失败，请重新选择或再试一次。' : 'Scene generation failed. Please choose again.',
+              content: shortDramaCopy.sceneGenerationFailed,
             },
           ]);
         } finally {
