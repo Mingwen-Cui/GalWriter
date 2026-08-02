@@ -1,4 +1,9 @@
+import { ClipboardPaste, Copy, Scissors } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+
+import type { Language } from '../../../lib/i18n';
 import type { CodeExportTarget } from './codeExport/targets/targetTypes';
+import { getCodeText } from './i18n';
 
 type TokenKind =
   | 'comment'
@@ -51,8 +56,8 @@ const patternsFor = (target: CodeExportTarget, path: string): TokenPattern[] => 
       { kind: 'label', pattern: /^\s*(?:label\s+)?[A-Za-z_]\w*(?=:)/g },
       { kind: 'tag', pattern: /\[[^\]\s]+/g },
       ...commonPatterns,
-      { kind: 'variable', pattern: /\{?[A-Za-z_][\w.]*\}?/g },
       { kind: 'keyword', pattern: /\b(?:join|leave|update|jump|label|if|elif|else|set|return)\b/g },
+      { kind: 'variable', pattern: /\{?[A-Za-z_][\w.]*\}?/g },
       { kind: 'operator', pattern: /^\s*-/g },
     ];
   return [
@@ -107,35 +112,138 @@ export function CodePreview({
   content,
   path,
   target,
+  language,
 }: {
   content: string;
   path: string;
   target: CodeExportTarget;
+  language: Language;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [selectionMenu, setSelectionMenu] = useState<{
+    text: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const lines = content.replace(/\r\n?/g, '\n').split('\n');
   const numberWidth = String(lines.length).length;
+
+  useEffect(() => {
+    const close = () => setSelectionMenu(null);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    document.addEventListener('mousedown', close);
+    return () => {
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+      document.removeEventListener('mousedown', close);
+    };
+  }, []);
+
+  const openSelectionMenu = (clientX?: number, clientY?: number) => {
+    const selection = window.getSelection();
+    const text = selection?.toString() || '';
+    if (!selection || selection.rangeCount === 0 || !text.trim()) {
+      setSelectionMenu(null);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!rootRef.current?.contains(range.commonAncestorContainer)) {
+      setSelectionMenu(null);
+      return;
+    }
+    const rect = range.getBoundingClientRect();
+    setSelectionMenu({
+      text,
+      x: Math.min(clientX ?? rect.left, window.innerWidth - 190),
+      y: Math.min(clientY ?? rect.bottom + 8, window.innerHeight - 150),
+    });
+  };
+
+  const copySelection = async () => {
+    if (!selectionMenu) return;
+    await navigator.clipboard.writeText(selectionMenu.text);
+    setSelectionMenu(null);
+  };
+
   return (
-    <div className="min-w-max font-mono text-[12px] leading-6 text-[#d7dae0]" aria-label={path}>
-      {lines.map((line, lineIndex) => (
-        <div key={`${lineIndex}-${line}`} className="group flex min-h-6 hover:bg-white/[0.035]">
-          <span
-            className="mr-4 w-10 shrink-0 select-none border-r border-white/[0.06] pr-3 text-right text-[#53606d] group-hover:text-[#7f8c98]"
-            aria-hidden="true"
+    <>
+      <div
+        ref={rootRef}
+        className="min-w-max font-mono text-[12px] leading-6 text-[#d7dae0]"
+        aria-label={path}
+        onMouseUp={(event) => openSelectionMenu(event.clientX, event.clientY)}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openSelectionMenu(event.clientX, event.clientY);
+        }}
+      >
+        {lines.map((line, lineIndex) => (
+          <div key={`${lineIndex}-${line}`} className="group flex min-h-6 hover:bg-white/[0.035]">
+            <span
+              className="mr-4 w-10 shrink-0 select-none border-r border-white/[0.06] pr-3 text-right text-[#53606d] group-hover:text-[#7f8c98]"
+              aria-hidden="true"
+            >
+              {String(lineIndex + 1).padStart(numberWidth, ' ')}
+            </span>
+            <code className="whitespace-pre pr-8">
+              {tokenizeCodeLine(line, target, path).map((token, tokenIndex) => (
+                <span
+                  key={`${lineIndex}-${tokenIndex}-${token.value}`}
+                  className={token.kind ? tokenClass[token.kind] : undefined}
+                >
+                  {token.value}
+                </span>
+              ))}
+            </code>
+          </div>
+        ))}
+      </div>
+      {selectionMenu && (
+        <div
+          role="menu"
+          aria-label={getCodeText(language, 'Read-only file')}
+          className="fixed z-[500] w-44 overflow-hidden rounded-xl border border-white/10 bg-[#202631] p-1.5 text-xs text-slate-200 shadow-2xl"
+          style={{ left: selectionMenu.x, top: selectionMenu.y }}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={copySelection}
+            className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left hover:bg-white/10"
           >
-            {String(lineIndex + 1).padStart(numberWidth, ' ')}
-          </span>
-          <code className="whitespace-pre pr-8">
-            {tokenizeCodeLine(line, target, path).map((token, tokenIndex) => (
-              <span
-                key={`${lineIndex}-${tokenIndex}-${token.value}`}
-                className={token.kind ? tokenClass[token.kind] : undefined}
-              >
-                {token.value}
-              </span>
-            ))}
-          </code>
+            <Copy className="h-3.5 w-3.5" />
+            {getCodeText(language, 'Copy selection')}
+            <span className="ml-auto text-[10px] text-slate-500">Ctrl+C</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled
+            title={getCodeText(language, 'Read-only file')}
+            className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left opacity-35"
+          >
+            <Scissors className="h-3.5 w-3.5" />
+            {getCodeText(language, 'Cut')}
+            <span className="ml-auto text-[10px]">Ctrl+X</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled
+            title={getCodeText(language, 'Read-only file')}
+            className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left opacity-35"
+          >
+            <ClipboardPaste className="h-3.5 w-3.5" />
+            {getCodeText(language, 'Paste')}
+            <span className="ml-auto text-[10px]">Ctrl+V</span>
+          </button>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }

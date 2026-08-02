@@ -9,6 +9,7 @@ import { selectConditionHandle } from '../src/components/render/code/codeExport/
 import { normalizeProjectToIr } from '../src/components/render/code/codeExport/ir/normalizeProjectToIr';
 import { normalizeRenpyExportSettings } from '../src/components/render/code/codeExport/model';
 import type { CodeExportTarget } from '../src/components/render/code/codeExport/targets/targetTypes';
+import { tokenizeCodeLine } from '../src/components/render/code/CodePreview';
 
 const assert = (value: unknown, message: string): asserts value => {
   if (!value) throw new Error(message);
@@ -165,6 +166,28 @@ const expected: Record<CodeExportTarget, { extensions: string[]; tokens: string[
     tokens: ['"format": "galwriter-story-ir"', '"edgeId": "edge-loop"', '"kind": "range"'],
   },
 };
+
+type PreviewTokenKind = NonNullable<ReturnType<typeof tokenizeCodeLine>[number]['kind']>;
+const hasToken = (
+  line: string,
+  target: CodeExportTarget,
+  path: string,
+  kind: PreviewTokenKind,
+) => tokenizeCodeLine(line, target, path).some((token) => token.kind === kind);
+
+assert(hasToken('label start:', 'renpy', 'game/script.rpy', 'label'), 'RenPy label highlighting');
+assert(
+  hasToken('[jump storage="story.ks" target="*start"]', 'tyrano', 'data/scenario/first.ks', 'tag'),
+  'Tyrano tag highlighting',
+);
+assert(
+  hasToken('join Alice', 'dialogic', 'timelines/start.dtl', 'keyword'),
+  'Dialogic keyword highlighting',
+);
+assert(
+  hasToken('"entryId": 3', 'ir-json', 'galwriter_project.ir.json', 'label'),
+  'JSON property highlighting',
+);
 
 for (const target of ['renpy', 'tyrano', 'dialogic', 'ir-json'] as const) {
   const preview = buildCodeProjectPreview(nodes, edges, 'multi-engine-fixture', settings, target);

@@ -451,6 +451,30 @@ export function RenderHeader({
             </button>
           </div>
         )}
+        {workspaceMode === 'code' && (
+          <div className="mr-1 flex items-center gap-1 border-r border-[var(--vr-border)] pr-2">
+            <button
+              type="button"
+              onClick={() => document.execCommand('undo')}
+              disabled={isRendering}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
+              title={getCodeText(language, 'Undo')}
+              aria-label={getCodeText(language, 'Undo')}
+            >
+              <Undo2 className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => document.execCommand('redo')}
+              disabled={isRendering}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
+              title={getCodeText(language, 'Redo')}
+              aria-label={getCodeText(language, 'Redo')}
+            >
+              <Redo2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={onExportClick}

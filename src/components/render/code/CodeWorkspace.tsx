@@ -1,4 +1,13 @@
-import { AlertCircle, AlertTriangle, CheckCircle2, FileCode2, Info, Plus } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Copy,
+  FileCode2,
+  Info,
+  Plus,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
@@ -39,6 +48,7 @@ export function CodeWorkspace({
     settings.variables[0]?.id || 'gw_score',
   );
   const [selectedNodeId, setSelectedNodeId] = useState('');
+  const [copiedFilePath, setCopiedFilePath] = useState('');
   const preview = useMemo(
     () => buildCodeProjectPreview(nodes, edges, projectName, settings, target),
     [nodes, edges, projectName, settings, target],
@@ -64,6 +74,15 @@ export function CodeWorkspace({
   }, [preview.files, selectedFile]);
 
   const setSettings = (next: RenpyExportSettings) => onSettingsChange(next);
+  const copySelectedFile = async () => {
+    if (!selected) return;
+    await navigator.clipboard.writeText(selected.content);
+    setCopiedFilePath(selected.path);
+    window.setTimeout(
+      () => setCopiedFilePath((current) => (current === selected.path ? '' : current)),
+      1_600,
+    );
+  };
   const fileTree = (
     <aside className="w-64 shrink-0 overflow-y-auto border-r border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
       <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-[var(--vr-text-muted)]">
@@ -103,19 +122,31 @@ export function CodeWorkspace({
         {fileTree}
         <section className="min-w-0 flex-1 overflow-auto">
           {tab === 'project' && (
-            <div className="h-full bg-[#10151f] p-4">
+            <div className="min-h-full min-w-full bg-[#10151f] p-4">
               <div className="mb-3 flex items-center justify-between text-[11px] text-slate-400">
                 <span>{selected?.path}</span>
-                <span>
-                  {selected?.generated === false
-                    ? getCodeText(language, 'User file (preserved on regeneration)')
-                    : getCodeText(language, 'Generated (read-only)')}
-                </span>
+                <button
+                  type="button"
+                  onClick={copySelectedFile}
+                  disabled={!selected}
+                  className="flex h-7 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-300 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+                >
+                  {copiedFilePath === selected?.path ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                  {getCodeText(
+                    language,
+                    copiedFilePath === selected?.path ? 'Copied' : 'Copy code',
+                  )}
+                </button>
               </div>
               <CodePreview
                 content={selected?.content || ''}
                 path={selected?.path || ''}
                 target={target}
+                language={language}
               />
             </div>
           )}
