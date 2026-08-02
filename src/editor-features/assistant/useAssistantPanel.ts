@@ -1345,7 +1345,7 @@ ${templateInstruction}
         effectiveUserText += articleTeachingSelectionInstruction;
       }
 
-      const prompt = `你是 GalWriter AI 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
+      const prompt = `你是旮旯作家 · GalWriter 的右侧创作助手，帮助用户构思视觉小说/互动剧本，并且可以规划节点卡片。
 ${numberLogicInstruction}
 请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
 如果用户只说“重新生成”“再来一次”“重写”等简短指令，请结合最近对话理解要重新生成的内容，不要把它当成缺少上下文的新请求。

@@ -485,7 +485,7 @@ export function PptWorkspace({
       phase: selectedPhase,
       effect: selectedPhase === 'emphasis' ? 'pulse' : 'line',
       source: 'manual',
-      start: currentAnimations.length ? 'afterPrevious' : 'onClick',
+      start: currentAnimations.length ? 'afterPrevious' : 'withPrevious',
       durationMs: 500,
       delayMs: 0,
       direction: 'left',
@@ -958,7 +958,7 @@ function CoverPreview({
           previewAtMs={previewAtMs}
           onSelect={onSelect}
         >
-          <h1 className="text-4xl font-black text-white">{projectName || 'GalWriter AI'}</h1>
+          <h1 className="text-4xl font-black text-white">{projectName || '旮旯作家 · GalWriter'}</h1>
         </Selectable>
         <Selectable
           selection={{ target: 'cover-subtitle', label: '封面副标题' }}
@@ -968,7 +968,7 @@ function CoverPreview({
           previewAtMs={previewAtMs}
           onSelect={onSelect}
         >
-          <p className="mt-4 text-sm text-white/75">由 GalWriter AI 生成</p>
+          <p className="mt-4 text-sm text-white/75">由旮旯作家 · GalWriter 生成</p>
         </Selectable>
       </div>
     </div>

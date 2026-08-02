@@ -173,7 +173,6 @@ const actionForMention = (scene: PptScene, mention: Mention) => {
  */
 export const resolvePptTagAnimations = (scene: PptScene): PptObjectAnimation[] => {
   const entries: PptObjectAnimation[] = [];
-  let hasEntrance = false;
   const pushMotion = (
     id: string,
     target: PptObjectAnimation['target'],
@@ -187,31 +186,23 @@ export const resolvePptTagAnimations = (scene: PptScene): PptObjectAnimation[] =
     return Boolean(entry);
   };
 
-  if (
-    pushMotion(
-      `tag:${scene.id}:background:enter`,
-      'background',
-      undefined,
-      'enter',
-      scene.presentation.scene?.enter,
-      'onClick',
-    )
-  ) {
-    hasEntrance = true;
-  }
+  pushMotion(
+    `tag:${scene.id}:background:enter`,
+    'background',
+    undefined,
+    'enter',
+    scene.presentation.scene?.enter,
+    'withPrevious',
+  );
   scene.presentation.characters.forEach((character) => {
-    if (
-      pushMotion(
-        `tag:${scene.id}:character:${character.sourceNodeId}:enter`,
-        'character',
-        character.sourceNodeId,
-        'enter',
-        character.enter,
-        hasEntrance ? 'withPrevious' : 'onClick',
-      )
-    ) {
-      hasEntrance = true;
-    }
+    pushMotion(
+      `tag:${scene.id}:character:${character.sourceNodeId}:enter`,
+      'character',
+      character.sourceNodeId,
+      'enter',
+      character.enter,
+      'withPrevious',
+    );
   });
 
   mentionsInDocumentOrder(scene.rawText).forEach((mention, index) => {

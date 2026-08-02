@@ -1,6 +1,8 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import PptxGenJS from 'pptxgenjs';
 
+import type { Language } from '../../../lib/i18n';
+
 import {
   CHARACTER_STAGE_MAX_HEIGHT_PERCENT,
   CHARACTER_STAGE_MAX_WIDTH_PERCENT,
@@ -74,6 +76,7 @@ export async function buildPptxBuffer({
   settings,
   style,
   pptSettings,
+  language,
 }: {
   nodes: FlowNode[];
   edges: FlowEdge[];
@@ -81,10 +84,16 @@ export async function buildPptxBuffer({
   settings: WebExportSettings;
   style: RenderStyle;
   pptSettings: PptExportSettings;
+  language: Language;
 }): Promise<ArrayBuffer> {
   const pptx = new PptxGenJS();
   pptx.layout = toPptxGenLayout(pptSettings.layout);
-  pptx.author = 'GalWriter AI (Mingwen Cui)';
+  const generatedBy = language === 'zh'
+    ? '由旮旯作家 · GalWriter 生成'
+    : language === 'ja'
+      ? 'GalWriter で作成'
+      : 'Created with GalWriter';
+  pptx.author = `${language === 'zh' ? '旮旯作家 · GalWriter' : 'GalWriter'} (Mingwen Cui)`;
   pptx.subject = 'Interactive story presentation';
   pptx.title = projectName;
   const page = createPptPageMapper(pptSettings.layout);
@@ -227,7 +236,7 @@ export async function buildPptxBuffer({
       align: 'center',
       margin: 0,
     });
-    slide.addText('由 GalWriter AI 生成', {
+    slide.addText(generatedBy, {
       ...page.frame(0.9, 3.62, 11.5, 0.3),
       fontSize: 15 * page.scale,
       color: hex(colors.body),
@@ -259,9 +268,16 @@ export async function buildPptxBuffer({
             animation.targetId === targetId &&
             !(animation.action === 'switch' && animation.switchImageUrl),
         )
-        .forEach((animation) =>
-          animationTargets.push({ slideNumber: sceneSlideNumber, objectName, animation }),
-        );
+        .forEach((animation) => {
+          // Character entrances are part of the scene opening: export legacy
+          // click-triggered entries as automatic even when they were created
+          // before the automatic PPT defaults were introduced.
+          const exportAnimation =
+            target === 'character' && animation.phase === 'enter' && animation.start === 'onClick'
+              ? { ...animation, start: 'withPrevious' as const }
+              : animation;
+          animationTargets.push({ slideNumber: sceneSlideNumber, objectName, animation: exportAnimation });
+        });
     };
     const addNativeSwitch = (
       outgoingObjectName: string,
@@ -307,7 +323,10 @@ export async function buildPptxBuffer({
       }
       addAnimationTargets(objectName, 'background');
     }
-    if (backgroundImage) {
+    // `cover` belongs to the video object and is shown by PowerPoint before
+    // playback. Do not add it as another full-slide image afterwards: that
+    // image is stacked above the media object and hides the video controls.
+    if (!backgroundVideo && backgroundImage) {
       const objectName = `ppt-scene-${scene.id}`;
       slide.addImage({
         data: backgroundImage,
@@ -334,7 +353,7 @@ export async function buildPptxBuffer({
         addNativeSwitch(currentBackgroundObjectName, nextObjectName, animation);
         currentBackgroundObjectName = nextObjectName;
       }
-    } else {
+    } else if (!backgroundVideo) {
       const objectName = `ppt-scene-${scene.id}`;
       slide.addShape(pptx.ShapeType.rect, {
         objectName,

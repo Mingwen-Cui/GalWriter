@@ -1,15 +1,15 @@
 <div align="center">
 
-# GalWriter AI
+# GalWriter
 
-### ビジュアルノベル、ギャルゲー、分岐型インタラクティブストーリー向けの AI 制作ワークスペース
+### ひとつのひらめきから、ひとつの世界へ。
 
 [![Version](https://img.shields.io/github/v/release/Mingwen-Cui/GalWriter?color=blue&label=version)](https://github.com/Mingwen-Cui/GalWriter/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web%20%7C%20Android-lightgrey.svg)](https://github.com/Mingwen-Cui/GalWriter/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
 [![Frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20TypeScript-61dafb.svg)](https://react.dev/)
 
-<img src="./public/icon.png" alt="GalWriter AI" width="96" />
+<img src="./public/icon.png" alt="GalWriter" width="96" />
 
 [中文](README.md) | [English](README.en.md) | 日本語
 
@@ -19,7 +19,7 @@
 
 ## プロジェクトの位置づけ
 
-GalWriter AI は、プロット構造、キャラクター設定、シーン設定、AI 生成、メディア素材、プレイテスト、書き出しまでを 1 枚のキャンバスにまとめるストーリー制作ワークスペースです。単なるテキストエディタでも、汎用ホワイトボードでもなく、ビジュアルノベルとインタラクティブ叙事の制作フローそのものに合わせて組み立てられています。
+GalWriter は、ビジュアルノベルとインタラクティブストーリーのための制作ワークスペースです。プロット、キャラクター、シーンを組み立て、AI で創作を支援し、プレイテストを経て Web・動画・プレゼンテーションへ書き出せます。
 
 現在のリポジトリには、エディタ本体、ローカルプロジェクトライブラリ、AI Profile 管理、Assistant / Agent、メディア機能、Playtest、Web 書き出し、動画書き出し、そして Windows / Android 向けの Tauri ネイティブ連携が含まれています。
 
@@ -44,7 +44,7 @@ GalWriter AI は、プロット構造、キャラクター設定、シーン設�
 
 ## クイックスタート
 
-1. GalWriter AI を開き、新規プロジェクトを作成するか既存の ZIP を読み込みます。
+1. GalWriter を開き、新規プロジェクトを作成するか既存の ZIP を読み込みます。
 2. ストーリー、キャラクター、シーン、条件、背景 / グループノードを配置して分岐を接続します。
 3. `設定 > AI` からテキスト、画像、背景除去、音声 Profile を設定します。
 4. 追加コンテキストが必要なら、Assistant に `PDF / DOCX / XLSX / PPTX / TXT / MD / CSV / JSON / XML / HTML / RTF` をアップロードします。

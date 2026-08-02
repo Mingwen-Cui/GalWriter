@@ -26,6 +26,7 @@ import {
 } from '../interactive/interactiveSegments';
 import { exportInteractiveSegmentZip } from '../interactive/interactiveSegmentZipExport';
 import { ExportDialog } from '../panels/ExportDialog';
+import { PptExportDialog } from '../panels/PptExportDialog';
 import { RenderContextMenu } from '../panels/RenderContextMenu';
 import { RenderHeader } from '../panels/RenderHeader';
 import { RenderProgressModal } from '../panels/RenderProgressModal';
@@ -426,6 +427,7 @@ export function VideoRenderModal({
   const [savedPath, setSavedPath] = useState('');
   // NOTE: 控制导出确认弹窗的显示状态
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isPptExportDialogOpen, setIsPptExportDialogOpen] = useState(false);
   const [interactiveSegments, setInteractiveSegments] = useState<InteractiveSegmentDraft[]>(() =>
     buildInteractiveSegments(nodes, edges),
   );
@@ -1890,14 +1892,14 @@ export function VideoRenderModal({
     setProgress,
     setProgressValue,
   });
-  const exportPptProject = async () => {
+  const exportPptProject = async (requestedTitle?: string) => {
     if (status === 'rendering') return;
     if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
       setStatus('error');
       setError(isZh ? '没有可导出的剧情节点' : 'No story nodes to export');
       return;
     }
-    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter-presentation';
+    const exportTitle = requestedTitle?.trim() || webProjectName.trim() || defaultWebProjectName || 'galwriter-presentation';
     setStatus('rendering');
     setError('');
     setSavedPath('');
@@ -1911,6 +1913,7 @@ export function VideoRenderModal({
         settings: webSettings,
         style: renderStyle,
         pptSettings,
+        language,
       });
       setProgressValue(80);
       if (isTauriRuntime()) {
@@ -1928,12 +1931,24 @@ export function VideoRenderModal({
         const anchor = document.createElement('a');
         anchor.href = url;
         anchor.download = `${exportTitle}-ppt.pptx`;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
         anchor.click();
-        URL.revokeObjectURL(url);
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
         setSavedPath(`${exportTitle}-ppt.pptx`);
       }
       setStatus('done');
       setProgressValue(100);
+      setNoticeModal({
+        title: isZh ? 'PPTX 已导出' : 'PPTX exported',
+        description: isTauriRuntime()
+          ? (isZh ? `文件已保存：${exportTitle}-ppt.pptx` : `Saved: ${exportTitle}-ppt.pptx`)
+          : (isZh ? '下载已交给浏览器处理。' : 'The download was handed to your browser.'),
+        primaryLabel: isZh ? '完成' : 'Done',
+        secondaryLabel: isZh ? '关闭' : 'Close',
+        onPrimary: () => setNoticeModal(null),
+      });
       setProgress(isZh ? 'PPTX 已导出' : 'PPTX exported');
     } catch (exportError) {
       setStatus('error');
@@ -1944,6 +1959,13 @@ export function VideoRenderModal({
             ? 'PPTX 导出失败'
             : 'PPTX export failed',
       );
+      setNoticeModal({
+        title: isZh ? 'PPTX 导出失败' : 'PPTX export failed',
+        description: exportError instanceof Error ? exportError.message : (isZh ? '请检查素材后重试。' : 'Please check the project assets and try again.'),
+        primaryLabel: isZh ? '知道了' : 'OK',
+        secondaryLabel: isZh ? '关闭' : 'Close',
+        onPrimary: () => setNoticeModal(null),
+      });
     }
   };
 
@@ -2115,7 +2137,7 @@ export function VideoRenderModal({
               return;
             }
             if (workspaceMode === 'ppt') {
-              exportPptProject();
+              setIsPptExportDialogOpen(true);
               return;
             }
             setIsExportDialogOpen(true);
@@ -2528,6 +2550,25 @@ export function VideoRenderModal({
           setVideoOutputDirError={setOutputDirError}
           setWebOutputDirError={setWebOutputDirError}
           setWebProjectName={setWebProjectName}
+        />
+      )}
+      {isPptExportDialogOpen && (
+        <PptExportDialog
+          language={language}
+          isDesktopApp={isDesktopApp}
+          defaultProjectName={defaultWebProjectName}
+          projectName={webProjectName}
+          outputDir={webOutputDir}
+          outputDirError={webOutputDirError}
+          settings={pptSettings}
+          onClose={() => setIsPptExportDialogOpen(false)}
+          onConfirm={(projectName) => {
+            setIsPptExportDialogOpen(false);
+            exportPptProject(projectName);
+          }}
+          onProjectNameChange={setWebProjectName}
+          onSettingsChange={updatePptSettings}
+          onChooseOutputDir={chooseWebOutputDir}
         />
       )}
       <VideoNoticeModal notice={noticeModal} onClose={() => setNoticeModal(null)} />

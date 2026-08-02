@@ -131,20 +131,20 @@ export const settingsModalJa = {
   qqPersonal: 'QQグループ',
   visitAuthorWebsite: '開発者のウェブサイトを訪問',
   helpUsageNotice: 'ヘルプと利用規約',
-  aboutProductTitle: 'インタラクティブAI小説執筆ツール',
+  aboutProductTitle: 'GalWriter',
   aboutProductDesc:
-    '次世代のAIインタラクティブ小説創作インフラの構築を目指し、想像力のすべての種が花を咲かせるよう支援します。',
+    'ビジュアルノベルとインタラクティブストーリーのための制作ワークスペース。AI 支援、プレイテスト、Web・動画・プレゼンテーションへの書き出しに対応します。',
   desktopCloseButton: 'デスクトップ閉じるボタンの挙動',
   minimizeToTray: 'タスクトレイに最小化',
   quitApp: 'アプリを終了',
   desktopCloseDesc:
     'この設定はTauriデスクトップアプリにのみ適用されます。ブラウザでのプレビュー動作には影響しません。',
   forceQuitTitle: 'アプリを強制終了',
-  forceCloseApp: 'GalWriter AIを強制終了',
+  forceCloseApp: 'GalWriterを強制終了',
   forceCloseDesc:
     'ウィンドウの閉じるボタンが最小化として動作する場合に、このボタンで直接アプリを終了できます。',
   backToAbout: 'バージョン情報に戻る',
-  responsibleUseTitle: 'GalWriter AIの適切な利用について',
+  responsibleUseTitle: 'GalWriterの適切な利用について',
   responsibleUseDesc:
     '本ツールは個人の創作活動、学習、およびプロトタイピングの支援を目的としています。現地の法律、プラットフォーム利用規約、および基本的な創作倫理を遵守してご利用ください。',
   responsibleUseRule1:

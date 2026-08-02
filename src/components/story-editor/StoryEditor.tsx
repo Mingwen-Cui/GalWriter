@@ -3720,10 +3720,10 @@ ${layoutConfig.label}
         }
         description={
           language === 'zh'
-            ? '确定要关闭 GalWriter AI 吗？'
+            ? '确定要关闭旮旯作家 · GalWriter 吗？'
             : language === 'ja'
-              ? 'GalWriter AI を終了しますか？'
-              : 'Are you sure you want to quit GalWriter AI?'
+              ? 'GalWriter を終了しますか？'
+              : 'Are you sure you want to quit GalWriter?'
         }
         confirmLabel={language === 'zh' ? '退出应用' : language === 'ja' ? '終了' : 'Quit'}
         cancelLabel={language === 'zh' ? '取消' : language === 'ja' ? 'キャンセル' : 'Cancel'}

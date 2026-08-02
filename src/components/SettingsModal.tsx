@@ -2210,7 +2210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {s.aboutProductTitle}
                     </h4>
                     <p className="text-indigo-600/40 dark:text-sky-400/40 text-xs font-bold uppercase tracking-[0.4em] mb-6 relative z-10">
-                      GalWriter AI
+                      旮旯作家 · GalWriter
                     </p>
                     <div className="h-px bg-slate-200 dark:bg-white/10 w-24 mx-auto mb-6 relative z-10" />
                     <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed max-w-[320px] mx-auto relative z-10 font-medium">

@@ -182,8 +182,14 @@ export async function toPptVideoData(url?: string): Promise<string | undefined> 
     blob = await toPowerPointMp4Blob(blob);
   }
   const data = await readBlobAsDataUrl(blob);
-  if (!isPptSafeVideoDataUrl(data)) throw new Error('Could not encode the video for PPT export.');
-  return data.replace(/^data:video\/x-m4v/i, 'data:video/mp4');
+  // A video can be recognised from its bytes even when the original Blob was
+  // registered as application/octet-stream. FileReader preserves that generic
+  // MIME header, which made a valid MP4 fail the data-URL validation below.
+  // We have either identified an MP4 container above or just produced one with
+  // FFmpeg, so normalise only the data-URL header while keeping its bytes.
+  const mp4Data = data.replace(/^data:[^;,]+/i, 'data:video/mp4');
+  if (!isPptSafeVideoDataUrl(mp4Data)) throw new Error('Could not encode the video for PPT export.');
+  return mp4Data;
 }
 
 /**

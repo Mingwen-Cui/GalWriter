@@ -1,15 +1,15 @@
 <div align="center">
 
-# GalWriter AI
+# GalWriter
 
-### An AI writing workspace for visual novels, galgames, and branching interactive stories
+### Build stories. Share worlds.
 
 [![Version](https://img.shields.io/github/v/release/Mingwen-Cui/GalWriter?color=blue&label=version)](https://github.com/Mingwen-Cui/GalWriter/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web%20%7C%20Android-lightgrey.svg)](https://github.com/Mingwen-Cui/GalWriter/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
 [![Frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20TypeScript-61dafb.svg)](https://react.dev/)
 
-<img src="./public/icon.png" alt="GalWriter AI" width="96" />
+<img src="./public/icon.png" alt="GalWriter" width="96" />
 
 [中文](README.md) | English | [日本語](README.ja.md)
 
@@ -19,7 +19,7 @@
 
 ## Project Positioning
 
-GalWriter AI is a story workspace that puts plot structure, character setup, scene setup, AI generation, media assets, playtesting, and export delivery onto the same canvas. It is not just a text editor and not just a generic whiteboard. It is organized around the actual production flow of visual novels and interactive storytelling.
+GalWriter is a visual workspace for branching stories: plan plots, characters, and scenes; create with AI; playtest; and publish your work for the web, video, and presentations. It is built around the production flow of visual novels and interactive storytelling, not just text editing.
 
 The current repository already covers the editor, local project library, AI profile management, assistant and agent workflows, media tooling, playtest, web export, video export, and native Windows / Android integrations through Tauri.
 
@@ -44,7 +44,7 @@ The current repository already covers the editor, local project library, AI prof
 
 ## Quick Start
 
-1. Open GalWriter AI and create a new project or import an existing project ZIP.
+1. Open GalWriter and create a new project or import an existing project ZIP.
 2. Add story, character, scene, condition, or background/group nodes and connect them into routes.
 3. Open `Settings > AI` and configure text, image, background-removal, and voice profiles.
 4. If you need extra context, upload `PDF / DOCX / XLSX / PPTX / TXT / MD / CSV / JSON / XML / HTML / RTF` files to the Assistant.

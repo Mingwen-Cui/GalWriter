@@ -1,15 +1,15 @@
 <div align="center">
 
-# GalWriter AI
+# 旮旯作家 · GalWriter
 
-### 面向视觉小说、Galgame 与分支互动叙事的 AI 创作工作台
+### 从旮旯的灵感，写到辽阔的世界。
 
 [![Version](https://img.shields.io/github/v/release/Mingwen-Cui/GalWriter?color=blue&label=version)](https://github.com/Mingwen-Cui/GalWriter/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web%20%7C%20Android-lightgrey.svg)](https://github.com/Mingwen-Cui/GalWriter/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-orange.svg)](https://tauri.app/)
 [![Frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20TypeScript-61dafb.svg)](https://react.dev/)
 
-<img src="./public/icon.png" alt="GalWriter AI" width="96" />
+<img src="./public/icon.png" alt="旮旯作家 · GalWriter" width="96" />
 
 中文 | [English](README.en.md) | [日本語](README.ja.md)
 
@@ -19,7 +19,7 @@
 
 ## 项目定位
 
-GalWriter AI 是一个把“剧情结构、角色设定、场景设定、AI 生成、媒体素材、测试预演、导出交付”放到同一张画布里的故事编辑器。它不是单纯的文本编辑器，也不是通用白板，而是围绕视觉小说与互动叙事生产流程组织的本地优先工作台。
+旮旯作家 · GalWriter 是一个把“剧情结构、角色设定、场景设定、AI 生成、媒体素材、测试预演、导出交付”放到同一张画布里的故事编辑器。它不是单纯的文本编辑器，也不是通用白板，而是围绕视觉小说与互动叙事生产流程组织的本地优先工作台。
 
 当前仓库已经覆盖编辑器、项目库、AI Profile 管理、助手与 Agent、媒体工作流、Playtest、Web 导出、视频导出，以及 Windows / Android 的 Tauri 原生桥接能力。
 
@@ -44,7 +44,7 @@ GalWriter AI 是一个把“剧情结构、角色设定、场景设定、AI 生�
 
 ## 快速开始
 
-1. 打开 GalWriter AI，创建新项目或导入已有项目 ZIP。
+1. 打开旮旯作家 · GalWriter，创建新项目或导入已有项目 ZIP。
 2. 在画布中添加剧情、角色、场景、条件或背景分组节点，并用连线组织分支。
 3. 进入 `设置 > AI`，配置文本、图片、去背景、语音 Profile。
 4. 如需助手上下文，可向 Assistant 上传 `PDF / DOCX / XLSX / PPTX / TXT / MD / CSV / JSON / XML / HTML / RTF`。

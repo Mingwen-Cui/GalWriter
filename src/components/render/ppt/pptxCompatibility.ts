@@ -45,6 +45,8 @@ const nodeType = (animation: PptObjectAnimation) =>
     : animation.start === 'afterPrevious'
       ? 'afterEffect'
       : 'clickEffect';
+const startDelay = (animation: PptObjectAnimation) =>
+  animation.start === 'onClick' ? 'indefinite' : '0';
 const phaseOf = (animation: PptObjectAnimation) => animation.phase || 'enter';
 
 const shapeTarget = (shapeId: string) => `<p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl>`;
@@ -172,7 +174,7 @@ const animationXml = (shapeId: string, animation: PptObjectAnimation, index: num
             : 0;
   const visibility = phase === 'enter' ? visibilitySet(baseId + 1, shapeId, true) : '';
   const hideAfter = phase === 'exit' ? visibilitySet(baseId + 2, shapeId, false) : '';
-  return `<p:par><p:cTn id="${baseId}" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 3}" fill="hold"><p:stCondLst><p:cond delay="${delay(
+  return `<p:par><p:cTn id="${baseId}" fill="hold"><p:stCondLst><p:cond delay="${startDelay(animation)}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 3}" fill="hold"><p:stCondLst><p:cond delay="${delay(
     animation,
   )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 4}" presetID="${presetId}" presetClass="${presetClass}" presetSubtype="0" fill="hold" grpId="0" nodeType="${nodeType(
     animation,
@@ -186,7 +188,7 @@ const animationXml = (shapeId: string, animation: PptObjectAnimation, index: num
 const videoPlaybackXml = (shapeId: string, id: number, loop: boolean) =>
   `<p:video><p:cMediaNode vol="80000"><p:cTn id="${id}"${
     loop ? ' repeatCount="indefinite"' : ''
-  } fill="hold" display="0"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>${shapeTarget(
+  } fill="hold" display="0" nodeType="withEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>${shapeTarget(
     shapeId,
   )}</p:cMediaNode></p:video>`;
 

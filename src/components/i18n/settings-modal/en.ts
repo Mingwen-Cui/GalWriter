@@ -130,19 +130,19 @@ export const settingsModalEn = {
   qqPersonal: 'QQ Group',
   visitAuthorWebsite: 'Visit Author Website',
   helpUsageNotice: 'Help & Usage Notice',
-  aboutProductTitle: 'Interactive AI Fiction Creation Tool',
+  aboutProductTitle: 'GalWriter',
   aboutProductDesc:
-    'Dedicated to building next-gen AI narrative infrastructure, making every seed of imagination bloom.',
+    'A visual workspace for branching stories: create with AI, playtest your work, and publish it for the web, video, and presentations.',
   desktopCloseButton: 'Desktop Close Button',
   minimizeToTray: 'Minimize',
   quitApp: 'Quit',
   desktopCloseDesc:
     'This only affects the packaged Tauri app; browser preview behavior is unchanged.',
   forceQuitTitle: 'Force quit app',
-  forceCloseApp: 'Force Close GalWriter AI',
+  forceCloseApp: 'Force Close GalWriter',
   forceCloseDesc: 'Use this when the window close button only minimizes the app.',
   backToAbout: 'Back to About & Feedback',
-  responsibleUseTitle: 'Use GalWriter AI Responsibly',
+  responsibleUseTitle: 'Use GalWriter Responsibly',
   responsibleUseDesc:
     'This tool is intended for personal creation, learning, and prototyping. Use it in accordance with applicable laws, platform rules, and basic creative ethics.',
   responsibleUseRule1:

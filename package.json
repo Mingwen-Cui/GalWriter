@@ -3,8 +3,8 @@
   "private": true,
   "version": "1.2.7",
   "type": "module",
-  "description": "交互式剧本编辑器 - GalWriter AI",
-  "author": "GalWriter AI (Mingwen Cui)",
+  "description": "AI 互动叙事创作工作台 - 旮旯作家 · GalWriter",
+  "author": "旮旯作家 · GalWriter (Mingwen Cui)",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",

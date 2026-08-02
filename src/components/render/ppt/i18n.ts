@@ -14,4 +14,13 @@ const copy = {
 
 export type PptCopy = { [Key in keyof typeof copy.en]: string };
 
-export const getPptCopy = (language: Language): PptCopy => copy[language === 'zh' ? 'zh' : language === 'ja' ? 'ja' : 'en'];
+const generatedBy = {
+  zh: '由旮旯作家 · GalWriter 生成',
+  ja: 'GalWriter で作成',
+  en: 'Created with GalWriter',
+} as const;
+
+export const getPptCopy = (language: Language): PptCopy => {
+  const locale = language === 'zh' ? 'zh' : language === 'ja' ? 'ja' : 'en';
+  return { ...copy[locale], generatedBy: generatedBy[locale] };
+};

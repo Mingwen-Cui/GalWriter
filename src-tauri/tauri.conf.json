@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "GalWriter AI",
+  "productName": "旮旯作家 · GalWriter",
   "version": "1.2.7",
   "identifier": "com.galwriter.ai",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "GalWriter AI 多结局AI剧本生成器",
+        "title": "旮旯作家 · GalWriter｜AI互动叙事创作工作台",
         "width": 1200,
         "height": 900,
         "resizable": true,
