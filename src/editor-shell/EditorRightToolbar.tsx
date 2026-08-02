@@ -1,12 +1,4 @@
-import {
-  Captions,
-  CaptionsOff,
-  ChevronDown,
-  Redo2,
-  Settings,
-  Sparkles,
-  Undo2,
-} from 'lucide-react';
+import { Captions, CaptionsOff, ChevronDown, Redo2, Settings, Sparkles, Undo2 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -90,6 +82,7 @@ export function EditorRightToolbar({
   const titleMenuCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTitleMenu, setShowTitleMenu] = useState(false);
   const [titleMenuPosition, setTitleMenuPosition] = useState({ left: 0, top: 0 });
+  const [hoveredTitleMenuItemId, setHoveredTitleMenuItemId] = useState<string | null>(null);
 
   const cancelTitleMenuClose = () => {
     if (titleMenuCloseTimerRef.current !== null) {
@@ -100,6 +93,7 @@ export function EditorRightToolbar({
 
   const openTitleMenu = () => {
     cancelTitleMenuClose();
+    setHoveredTitleMenuItemId(null);
     if (titleButtonRef.current) {
       const rect = titleButtonRef.current.getBoundingClientRect();
       const menuWidth = 420;
@@ -125,6 +119,7 @@ export function EditorRightToolbar({
     cancelTitleMenuClose();
     titleMenuCloseTimerRef.current = setTimeout(() => {
       setShowTitleMenu(false);
+      setHoveredTitleMenuItemId(null);
       titleMenuCloseTimerRef.current = null;
     }, 180);
   };
@@ -143,11 +138,16 @@ export function EditorRightToolbar({
 
     const closeOnOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (titleButtonRef.current?.contains(target) || titleMenuRef.current?.contains(target)) return;
+      if (titleButtonRef.current?.contains(target) || titleMenuRef.current?.contains(target))
+        return;
       setShowTitleMenu(false);
+      setHoveredTitleMenuItemId(null);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShowTitleMenu(false);
+      if (event.key === 'Escape') {
+        setShowTitleMenu(false);
+        setHoveredTitleMenuItemId(null);
+      }
     };
 
     document.addEventListener('pointerdown', closeOnOutsidePointer);
@@ -257,45 +257,43 @@ export function EditorRightToolbar({
             )}
           </button>
 
-              <button
-                ref={titleButtonRef}
-                onClick={() => setShowTitles((visible) => !visible)}
-                onPointerEnter={openTitleMenu}
-                onPointerLeave={scheduleTitleMenuClose}
-                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                aria-label={showTitles ? t.hideTitles : t.showTitles}
-                aria-haspopup="dialog"
-                aria-expanded={showTitleMenu}
-              >
-                {showTitles ? (
-                  <CaptionsOff className="h-5 w-5" />
-                ) : (
-                  <Captions className="h-5 w-5" />
-                )}
-                {renderToolbarLabel(sideToolbarStrings.titles)}
-              </button>
+          <button
+            ref={titleButtonRef}
+            onClick={() => setShowTitles((visible) => !visible)}
+            onPointerEnter={openTitleMenu}
+            onPointerLeave={scheduleTitleMenuClose}
+            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300"
+            aria-label={showTitles ? t.hideTitles : t.showTitles}
+            aria-haspopup="dialog"
+            aria-expanded={showTitleMenu}
+          >
+            {showTitles ? <CaptionsOff className="h-5 w-5" /> : <Captions className="h-5 w-5" />}
+            {renderToolbarLabel(sideToolbarStrings.titles)}
+          </button>
 
-              <div className={`my-1 h-px w-full bg-[var(--toolbar-border)]/50 ${toolbarLayout === 'horizontal' ? 'hidden' : ''}`} />
+          <div
+            className={`my-1 h-px w-full bg-[var(--toolbar-border)]/50 ${toolbarLayout === 'horizontal' ? 'hidden' : ''}`}
+          />
 
-              <button
-                onClick={undo}
-                disabled={historyPastLength === 0}
-                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
-                title="撤销 (Ctrl+Z)"
-              >
-                <Undo2 className="h-5 w-5" />
-                {renderToolbarLabel(sideToolbarStrings.undo)}
-              </button>
+          <button
+            onClick={undo}
+            disabled={historyPastLength === 0}
+            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
+            title="撤销 (Ctrl+Z)"
+          >
+            <Undo2 className="h-5 w-5" />
+            {renderToolbarLabel(sideToolbarStrings.undo)}
+          </button>
 
-              <button
-                onClick={redo}
-                disabled={historyFutureLength === 0}
-                className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
-                title="重做 (Ctrl+Y)"
-              >
-                <Redo2 className="h-5 w-5" />
-                {renderToolbarLabel(sideToolbarStrings.redo)}
-              </button>
+          <button
+            onClick={redo}
+            disabled={historyFutureLength === 0}
+            className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors disabled:opacity-30 hover:bg-slate-100 dark:hover:bg-slate-700"
+            title="重做 (Ctrl+Y)"
+          >
+            <Redo2 className="h-5 w-5" />
+            {renderToolbarLabel(sideToolbarStrings.redo)}
+          </button>
 
           {!isMobile && showPresetColors && (
             <>
@@ -332,7 +330,10 @@ export function EditorRightToolbar({
             role="dialog"
             aria-label={t.showTitles}
             onPointerEnter={cancelTitleMenuClose}
-            onPointerLeave={scheduleTitleMenuClose}
+            onPointerLeave={() => {
+              setHoveredTitleMenuItemId(null);
+              scheduleTitleMenuClose();
+            }}
             className="animate-in fade-in zoom-in-95 fixed z-[10050] w-[420px] rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)]/95 p-2 shadow-2xl shadow-slate-950/20 backdrop-blur-xl duration-150 dark:shadow-black/40"
             style={{ left: titleMenuPosition.left, top: titleMenuPosition.top }}
           >
@@ -347,6 +348,9 @@ export function EditorRightToolbar({
                   item.id === 'hidden'
                     ? !showTitles
                     : showTitles && storyTitlePlacement === item.id;
+                const emphasized = hoveredTitleMenuItemId
+                  ? hoveredTitleMenuItemId === item.id
+                  : active;
                 return (
                   <button
                     key={item.id}
@@ -359,12 +363,16 @@ export function EditorRightToolbar({
                         setStoryTitlePlacement(item.id as StoryTitlePlacement);
                       }
                       setShowTitleMenu(false);
+                      setHoveredTitleMenuItemId(null);
                     }}
+                    onPointerEnter={() => setHoveredTitleMenuItemId(item.id)}
+                    onFocus={() => setHoveredTitleMenuItemId(item.id)}
                     className={`flex min-w-0 flex-col items-center gap-1.5 rounded-xl px-1.5 py-2 text-center transition-colors ${
-                      active
-                        ? 'bg-[var(--accent)]/10 text-[var(--accent)] ring-1 ring-[var(--accent)]/25'
-                        : 'text-[var(--text-muted)] hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]'
+                      emphasized
+                        ? 'bg-indigo-500/12 text-indigo-600 dark:bg-indigo-400/15 dark:text-indigo-300'
+                        : 'text-[var(--text-muted)] hover:bg-indigo-500/12 hover:text-indigo-600 focus-visible:bg-indigo-500/12 focus-visible:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300 dark:focus-visible:bg-indigo-400/15 dark:focus-visible:text-indigo-300'
                     }`}
+                    aria-current={active ? 'true' : undefined}
                   >
                     {item.id === 'hidden' ? (
                       <div className="flex h-12 items-center justify-center">
@@ -396,18 +404,45 @@ export function EditorRightToolbar({
                           opacity="0.45"
                         />
                         {item.id === 'inside' && (
-                          <path d="M24 27H52" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                          <path
+                            d="M24 27H52"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                          />
                         )}
                         {item.id === 'outside-left' && (
                           <>
-                            <path d="M13 8H41" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-                            <path d="M13 12V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+                            <path
+                              d="M13 8H41"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M13 12V17"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              opacity="0.55"
+                            />
                           </>
                         )}
                         {item.id === 'outside-right' && (
                           <>
-                            <path d="M47 8H75" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-                            <path d="M75 12V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+                            <path
+                              d="M47 8H75"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M75 12V17"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              opacity="0.55"
+                            />
                           </>
                         )}
                       </svg>

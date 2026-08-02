@@ -498,7 +498,11 @@ export function EditorLeftToolbar({
       <div
         className={`toolbar-bubble-surface glass-toolbar ${showDesktopLabels ? 'side-toolbar-with-labels w-[64px]' : 'w-[52px]'} absolute left-6 top-20 z-20 flex flex-col rounded-2xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-1 shadow-xl backdrop-blur transition-all duration-500 ease-in-out ${
           // NOTE: 移动端折叠时保留3个按钮（选择+框选+最小化），高度约156px；桌面端仅显示最小化按钮52px
-          isMobile && toolbarCollapsed ? 'h-[156px] overflow-hidden' : !isMobile && toolbarCollapsed ? 'h-[52px] overflow-hidden' : 'overflow-visible'
+          isMobile && toolbarCollapsed
+            ? 'h-[156px] overflow-hidden'
+            : !isMobile && toolbarCollapsed
+              ? 'h-[52px] overflow-hidden'
+              : 'overflow-visible'
         }`}
       >
         {/* 桌面端：最小化按钮在最顶部（原始位置） */}
@@ -556,11 +560,7 @@ export function EditorLeftToolbar({
               }`}
               onClick={() => setInteractionMode('box')}
               title={
-                language === 'zh'
-                  ? '框选卡片'
-                  : language === 'ja'
-                    ? '範囲選択'
-                    : 'Box select cards'
+                language === 'zh' ? '框选卡片' : language === 'ja' ? '範囲選択' : 'Box select cards'
               }
             >
               <SquareDashedMousePointer strokeWidth={2.5} className="h-5 w-5" />
@@ -568,7 +568,7 @@ export function EditorLeftToolbar({
             {/* 移动端：最小化按钮在框选下方 */}
             <button
               onClick={() => setToolbarCollapsed((value) => !value)}
-            className="side-toolbar-collapse-button mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
+              className="side-toolbar-collapse-button mx-auto flex shrink-0 items-center justify-center p-2.5 text-slate-400 transition-colors duration-300 hover:text-slate-600 dark:text-slate-200 dark:hover:text-white"
               title={
                 toolbarCollapsed
                   ? language === 'zh'
@@ -598,7 +598,7 @@ export function EditorLeftToolbar({
             {isMobile && <div className="my-1 h-px w-full bg-[var(--toolbar-border)]/50" />}
 
             <button
-              className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+              className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300"
               onClick={() => addNewShape('square')}
               onPointerEnter={(event) => openQuickMenu('card', event.currentTarget)}
               onPointerLeave={scheduleQuickMenuClose}
@@ -612,7 +612,7 @@ export function EditorLeftToolbar({
 
             {!isMobile && (
               <button
-                className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300"
                 onClick={addNewTextNode}
                 onPointerEnter={(event) => openQuickMenu('text', event.currentTarget)}
                 onPointerLeave={scheduleQuickMenuClose}
@@ -641,7 +641,7 @@ export function EditorLeftToolbar({
             </button>
 
             <button
-              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+              className="flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300"
               onClick={addNewSceneNode}
               onMouseEnter={(event) => showCardHoverGuide('scene', event.currentTarget)}
               onMouseLeave={(event) => hideCardHoverGuide(event.currentTarget)}
@@ -725,7 +725,6 @@ export function EditorLeftToolbar({
               <ImageIcon strokeWidth={2.5} className="h-5 w-5" />
               {renderToolbarLabel(sideToolbarStrings.media)}
             </button>
-
           </div>
         )}
 
@@ -832,7 +831,7 @@ export function EditorLeftToolbar({
                   onSelect();
                   setActiveQuickMenu(null);
                 }}
-                className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[var(--text-muted)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 focus-visible:bg-indigo-500/12 focus-visible:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300 dark:focus-visible:bg-indigo-400/15 dark:focus-visible:text-indigo-300"
               >
                 <Icon className="h-7 w-7" strokeWidth={1.9} />
                 <span className="truncate text-[10px] font-black leading-3">{label}</span>

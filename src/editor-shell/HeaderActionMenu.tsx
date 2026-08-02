@@ -109,12 +109,10 @@ export function HeaderActionMenu({
     item.onSelect();
   };
 
-  useEffect(
-    () => () => {
-      clearOpenTimer();
-      clearCloseTimer();
-    },
-  );
+  useEffect(() => () => {
+    clearOpenTimer();
+    clearCloseTimer();
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -198,7 +196,7 @@ export function HeaderActionMenu({
                   type="button"
                   role="menuitem"
                   onClick={() => selectItem(item)}
-                  className="flex h-16 min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 text-[var(--text-muted)] transition-colors hover:bg-slate-100 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70 dark:hover:bg-slate-800"
+                  className="flex h-16 min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 text-[var(--text-muted)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 focus-visible:bg-indigo-500/12 focus-visible:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300 dark:focus-visible:bg-indigo-400/15 dark:focus-visible:text-indigo-300"
                 >
                   <Icon className="h-5 w-5" strokeWidth={1.9} />
                   <span className="w-full truncate text-[10px] font-black leading-3">
