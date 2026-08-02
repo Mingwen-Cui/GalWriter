@@ -7,6 +7,7 @@ import type { SharedCanvasSettings } from '../canvas/canvasSettings';
 import type { RenderStyle } from '../video/shared/types';
 
 export type PlayTestDisplayMode = 'fullscreen' | 'windowed';
+export type PlaytestWindowLayer = 'workspace' | 'above-settings';
 
 export interface PlayTestProps {
   nodes: FlowNode[];
@@ -14,6 +15,7 @@ export interface PlayTestProps {
   onClose: () => void;
   displayMode: PlayTestDisplayMode;
   onDisplayModeChange: (mode: PlayTestDisplayMode) => void;
+  windowLayer: PlaytestWindowLayer;
   windowSettings: PlaytestWindowSettings;
   setWindowSettings: Dispatch<SetStateAction<PlaytestWindowSettings>>;
   selectedNodeId?: string | null;

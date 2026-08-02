@@ -69,7 +69,7 @@ import { isTauriRuntime } from '../../lib/tauriRuntime';
 import { htmlToSpeechText } from '../../lib/tts';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
-import type { PlayTestDisplayMode } from '../render/playtest/types';
+import type { PlayTestDisplayMode, PlaytestWindowLayer } from '../render/playtest/types';
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
 import type { RenderWorkspaceLaunchIntent } from '../render/video/shared/types';
 import {
@@ -138,6 +138,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [nodes, setNodes] = useNodesState<Node>(INITIAL_NODES);
   const [edges, setEdges] = useEdgesState<Edge>(INITIAL_EDGES);
   const [playTestDisplayMode, setPlayTestDisplayMode] = useState<PlayTestDisplayMode | null>(null);
+  const [playTestWindowLayer, setPlayTestWindowLayer] = useState<PlaytestWindowLayer>('workspace');
+  const [settingsPlaytestWindowSession, setSettingsPlaytestWindowSession] = useState<
+    'none' | 'raised-existing' | 'opened-from-settings'
+  >('none');
   const [showVideoRender, setShowVideoRender] = useState(false);
   const [renderLaunchIntent, setRenderLaunchIntent] = useState<RenderWorkspaceLaunchIntent>();
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
@@ -152,6 +156,12 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [nodeHorizontalSpacing, setNodeHorizontalSpacing] = useState(120);
   const [nodeVerticalSpacing, setNodeVerticalSpacing] = useState(120);
   const [showSettings, setShowSettings] = useState(false);
+  useEffect(() => {
+    if (!showSettings) {
+      setPlayTestWindowLayer('workspace');
+      setSettingsPlaytestWindowSession('none');
+    }
+  }, [showSettings]);
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [settingsAttentionTarget, setSettingsAttentionTarget] = useState<
     'text' | 'image' | 'background-removal' | 'voice' | null
@@ -2304,7 +2314,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         canRenderVideo={canRenderVideo}
         assistantOpen={assistantOpen}
         jsonInputRef={jsonInputRef}
-        onOpenPlayTest={setPlayTestDisplayMode}
+        onOpenPlayTest={(mode) => {
+          setSettingsPlaytestWindowSession('none');
+          setPlayTestWindowLayer('workspace');
+          setPlayTestDisplayMode(mode);
+        }}
         onOpenRenderWorkspace={(intent) => {
           setRenderLaunchIntent(intent);
           setShowVideoRender(true);
@@ -2518,11 +2532,22 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             nodes={nodes}
             edges={edges}
             displayMode={playTestDisplayMode}
-            onDisplayModeChange={setPlayTestDisplayMode}
+            onDisplayModeChange={(mode) => {
+              if (mode !== 'windowed') {
+                setSettingsPlaytestWindowSession('none');
+                setPlayTestWindowLayer('workspace');
+              }
+              setPlayTestDisplayMode(mode);
+            }}
+            windowLayer={playTestWindowLayer}
             windowSettings={playTestWindowSettings}
             setWindowSettings={setPlayTestWindowSettings}
             selectedNodeId={selectedPlaytestNodeId}
-            onClose={() => setPlayTestDisplayMode(null)}
+            onClose={() => {
+              setSettingsPlaytestWindowSession('none');
+              setPlayTestWindowLayer('workspace');
+              setPlayTestDisplayMode(null);
+            }}
             language={language}
             onLanguageChange={onAppLanguageChange}
             isDarkMode={resolvedTheme === 'dark'}
@@ -2738,8 +2763,22 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           setPlayTestHideSceneTags={setPlayTestHideSceneTags}
           playtestCanvasSettings={sharedCanvas.settings}
           onPlaytestCanvasSettingsChange={sharedCanvas.update}
-          playtestNodes={nodes}
-          playtestEdges={edges}
+          windowedPlaytestRaised={settingsPlaytestWindowSession !== 'none'}
+          onToggleWindowedPlaytest={() => {
+            if (settingsPlaytestWindowSession !== 'none' && playTestDisplayMode === 'windowed') {
+              const shouldClose = settingsPlaytestWindowSession === 'opened-from-settings';
+              setSettingsPlaytestWindowSession('none');
+              setPlayTestWindowLayer('workspace');
+              if (shouldClose) setPlayTestDisplayMode(null);
+              return;
+            }
+
+            setSettingsPlaytestWindowSession(
+              playTestDisplayMode === 'windowed' ? 'raised-existing' : 'opened-from-settings',
+            );
+            setPlayTestWindowLayer('above-settings');
+            setPlayTestDisplayMode('windowed');
+          }}
           renderStyle={sharedRenderStyle}
           updateRenderStyle={updateSharedRenderStyle}
           onApplySettingsToOtherProjects={handleApplySettingsToOtherProjects}

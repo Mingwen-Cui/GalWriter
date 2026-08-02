@@ -1,4 +1,3 @@
-import type { Edge, Node } from '@xyflow/react';
 import {
   ArrowDown,
   ArrowLeft,
@@ -10,8 +9,8 @@ import {
   Copy,
   Diamond,
   Download,
-  EyeOff,
   ExternalLink,
+  EyeOff,
   GitFork,
   HelpCircle,
   Hexagon,
@@ -24,8 +23,8 @@ import {
   Mic,
   Minus,
   Palette,
-  PlayCircle,
   Play,
+  PlayCircle,
   Plus,
   RectangleHorizontal,
   ShieldAlert,
@@ -292,8 +291,8 @@ interface SettingsModalProps {
   setPlayTestHideSceneTags: (val: boolean) => void;
   playtestCanvasSettings: SharedCanvasSettings;
   onPlaytestCanvasSettingsChange: (patch: Partial<SharedCanvasSettings>) => void;
-  playtestNodes: Node[];
-  playtestEdges: Edge[];
+  windowedPlaytestRaised: boolean;
+  onToggleWindowedPlaytest: () => void;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   onApplySettingsToOtherProjects?: (targetProjectIds: string[]) => void | Promise<void>;
@@ -468,8 +467,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setPlayTestHideSceneTags,
   playtestCanvasSettings,
   onPlaytestCanvasSettingsChange,
-  playtestNodes,
-  playtestEdges,
+  windowedPlaytestRaised,
+  onToggleWindowedPlaytest,
   renderStyle,
   updateRenderStyle,
   onApplySettingsToOtherProjects,
@@ -1988,8 +1987,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onRuntimeSettingsChange={updatePlaytestRuntimeSettings}
                     renderStyle={renderStyle}
                     updateRenderStyle={updateRenderStyle}
-                    nodes={playtestNodes}
-                    edges={playtestEdges}
+                    windowedPlaytestRaised={windowedPlaytestRaised}
+                    onToggleWindowedPlaytest={onToggleWindowedPlaytest}
                   />
                   {false && (
                     <>

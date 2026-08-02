@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlaytestWindowBounds } from '../../../domain/project';
 import type { Language } from '../../../lib/i18n';
 import { getPlaytestWindowText } from './i18n/playtest-window';
+import type { PlaytestWindowLayer } from './types';
 
 type ResizeEdge =
   | 'top'
@@ -124,6 +125,7 @@ interface PlaytestFloatingWindowProps {
   aspectRatio: number;
   initialBounds: PlaytestWindowBounds | null;
   autoScaleOnHover: boolean;
+  layer: PlaytestWindowLayer;
   onBoundsChange: (bounds: PlaytestWindowBounds) => void;
   children: ReactNode;
 }
@@ -133,6 +135,7 @@ export function PlaytestFloatingWindow({
   aspectRatio,
   initialBounds,
   autoScaleOnHover,
+  layer,
   onBoundsChange,
   children,
 }: PlaytestFloatingWindowProps) {
@@ -296,7 +299,11 @@ export function PlaytestFloatingWindow({
   };
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[100]">
+    <div
+      className={`pointer-events-none fixed inset-0 ${
+        layer === 'above-settings' ? 'z-[400]' : 'z-[100]'
+      }`}
+    >
       <div
         role="dialog"
         aria-label={text.windowTitle}

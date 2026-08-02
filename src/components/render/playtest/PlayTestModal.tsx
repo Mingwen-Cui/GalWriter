@@ -32,8 +32,6 @@ import { usePlaytestRuntime } from './usePlaytestRuntime';
 
 export function PlayTestModal(props: PlayTestProps) {
   const {
-    nodes,
-    edges,
     onClose,
     language,
     isDarkMode,
@@ -157,6 +155,7 @@ export function PlayTestModal(props: PlayTestProps) {
         aspectRatio={canvasSettings.canvasWidth / canvasSettings.canvasHeight}
         initialBounds={props.windowSettings.bounds}
         autoScaleOnHover={autoScaleOnHover}
+        layer={props.windowLayer}
         onBoundsChange={(bounds) => props.setWindowSettings((current) => ({ ...current, bounds }))}
       >
         {content}
@@ -204,9 +203,7 @@ export function PlayTestModal(props: PlayTestProps) {
         onRuntimeSettingsChange={updateRuntimeSettings}
         renderStyle={renderStyle}
         updateRenderStyle={updateRenderStyle}
-        nodes={nodes}
-        edges={edges}
-        showPreview={false}
+        layout="sidebar"
       />
     );
   };
