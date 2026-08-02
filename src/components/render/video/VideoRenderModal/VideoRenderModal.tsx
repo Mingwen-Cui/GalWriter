@@ -178,7 +178,9 @@ export function VideoRenderModal({
     normalizeRenpyExportSettings(nodes, persistedWorkspace?.codeSettings),
   );
   const [codeTarget, setCodeTarget] = useState<CodeExportTarget>(() =>
-    persistedWorkspace?.codeTarget === 'tyrano' || persistedWorkspace?.codeTarget === 'dialogic' || persistedWorkspace?.codeTarget === 'ir-json' ? persistedWorkspace.codeTarget : 'renpy',
+    persistedWorkspace?.codeTarget === 'tyrano' || persistedWorkspace?.codeTarget === 'dialogic'
+      ? persistedWorkspace.codeTarget
+      : 'renpy',
   );
   const capturePptState = (): PptHistoryState => structuredClone(pptSettings);
   const pushPptHistory = () => {
@@ -1905,7 +1907,14 @@ export function VideoRenderModal({
     setError('');
     setSavedPath('');
     setProgressValue(20);
-    const engineName = codeTarget === 'renpy' ? 'Ren’Py' : codeTarget === 'tyrano' ? 'TyranoScript' : codeTarget === 'dialogic' ? 'Godot Dialogic 2' : 'GalWriter IR JSON';
+    const engineName =
+      codeTarget === 'renpy'
+        ? 'Ren’Py'
+        : codeTarget === 'tyrano'
+          ? 'TyranoScript'
+          : codeTarget === 'dialogic'
+            ? 'Godot Dialogic 2'
+            : 'GalWriter IR JSON';
     setProgress(isZh ? `正在生成 ${engineName} 工程…` : `Generating ${engineName} project…`);
     try {
       const result = await buildCodeProjectZip(nodes, edges, exportTitle, codeSettings, codeTarget);
@@ -1924,7 +1933,13 @@ export function VideoRenderModal({
       setSavedPath(result.fileName);
     } catch (exportError) {
       setStatus('error');
-      setError(exportError instanceof Error ? exportError.message : (isZh ? '代码工程导出失败' : 'Code project export failed'));
+      setError(
+        exportError instanceof Error
+          ? exportError.message
+          : isZh
+            ? '代码工程导出失败'
+            : 'Code project export failed',
+      );
     }
   };
   const exportPptProject = async (requestedTitle?: string) => {
@@ -1934,7 +1949,11 @@ export function VideoRenderModal({
       setError(isZh ? '没有可导出的剧情节点' : 'No story nodes to export');
       return;
     }
-    const exportTitle = requestedTitle?.trim() || webProjectName.trim() || defaultWebProjectName || 'galwriter-presentation';
+    const exportTitle =
+      requestedTitle?.trim() ||
+      webProjectName.trim() ||
+      defaultWebProjectName ||
+      'galwriter-presentation';
     setStatus('rendering');
     setError('');
     setSavedPath('');
@@ -1978,8 +1997,12 @@ export function VideoRenderModal({
       setNoticeModal({
         title: isZh ? 'PPTX 已导出' : 'PPTX exported',
         description: isTauriRuntime()
-          ? (isZh ? `文件已保存：${exportTitle}-ppt.pptx` : `Saved: ${exportTitle}-ppt.pptx`)
-          : (isZh ? '下载已交给浏览器处理。' : 'The download was handed to your browser.'),
+          ? isZh
+            ? `文件已保存：${exportTitle}-ppt.pptx`
+            : `Saved: ${exportTitle}-ppt.pptx`
+          : isZh
+            ? '下载已交给浏览器处理。'
+            : 'The download was handed to your browser.',
         primaryLabel: isZh ? '完成' : 'Done',
         secondaryLabel: isZh ? '关闭' : 'Close',
         onPrimary: () => setNoticeModal(null),
@@ -1996,7 +2019,12 @@ export function VideoRenderModal({
       );
       setNoticeModal({
         title: isZh ? 'PPTX 导出失败' : 'PPTX export failed',
-        description: exportError instanceof Error ? exportError.message : (isZh ? '请检查素材后重试。' : 'Please check the project assets and try again.'),
+        description:
+          exportError instanceof Error
+            ? exportError.message
+            : isZh
+              ? '请检查素材后重试。'
+              : 'Please check the project assets and try again.',
         primaryLabel: isZh ? '知道了' : 'OK',
         secondaryLabel: isZh ? '关闭' : 'Close',
         onPrimary: () => setNoticeModal(null),
@@ -2132,6 +2160,7 @@ export function VideoRenderModal({
           videoWorkspaceMode={videoWorkspaceMode}
           status={status}
           isFullscreen={isFullscreen}
+          codeTarget={codeTarget}
           assetPanelCollapsed={assetPanelCollapsed}
           exportPanelCollapsed={exportPanelCollapsed}
           timelinePast={timelinePast}
@@ -2150,6 +2179,7 @@ export function VideoRenderModal({
           }
           nodes={nodes}
           setWorkspaceMode={switchWorkspaceMode}
+          setCodeTarget={setCodeTarget}
           setVideoWorkspaceMode={setVideoWorkspaceMode}
           setError={setError}
           setProgress={setProgress}
@@ -2500,7 +2530,6 @@ export function VideoRenderModal({
               language={language}
               projectName={webProjectName || defaultWebProjectName}
               target={codeTarget}
-              onTargetChange={setCodeTarget}
               settings={codeSettings}
               onSettingsChange={setCodeSettings}
               onExport={exportCodeProject}

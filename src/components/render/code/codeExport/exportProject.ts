@@ -54,11 +54,23 @@ export const buildCodeProjectPreview = (
   const diagnostics = [...normalized.diagnostics, ...irDiagnostics, ...build.diagnostics].filter(
     (item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index,
   );
-  const files = build.files.map((file) =>
+  const targetFiles = build.files.map((file) =>
     file.path === 'CODE_EXPORT_REPORT.md'
       ? reportFile(target, normalized.ir, diagnostics, build.capabilities)
       : file,
   );
+  const files =
+    target === 'ir-json'
+      ? targetFiles
+      : [
+          ...targetFiles.filter((file) => file.path !== 'CODE_EXPORT_REPORT.md'),
+          {
+            path: 'galwriter_project.ir.json',
+            content: `${JSON.stringify(normalized.ir, null, 2)}\n`,
+            generated: true,
+          },
+          ...targetFiles.filter((file) => file.path === 'CODE_EXPORT_REPORT.md'),
+        ];
   return {
     target,
     files,

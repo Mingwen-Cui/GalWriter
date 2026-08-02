@@ -3,8 +3,8 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  FileText,
   FileCode2,
+  FileText,
   Film,
   Gamepad2,
   Loader2,
@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
+import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
+import { type CodeTextKey, getCodeText } from '../../code/i18n';
 import { getPptCopy } from '../../ppt/i18n';
 import { renderCopy } from '../shared/renderCopy';
 import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
@@ -33,6 +35,7 @@ type RenderHeaderProps = {
   videoWorkspaceMode: 'timeline' | 'interactive';
   status: RenderStatus;
   isFullscreen: boolean;
+  codeTarget: CodeExportTarget;
   assetPanelCollapsed: boolean;
   exportPanelCollapsed: boolean;
   timelinePast: unknown[];
@@ -47,6 +50,7 @@ type RenderHeaderProps = {
   selectedNodes: unknown[];
   nodes: FlowNode[];
   setWorkspaceMode: (mode: RenderWorkspaceMode) => void;
+  setCodeTarget: (target: CodeExportTarget) => void;
   setVideoWorkspaceMode: (mode: 'timeline' | 'interactive') => void;
   setError: (value: string) => void;
   setProgress: (value: string) => void;
@@ -74,6 +78,7 @@ export function RenderHeader({
   videoWorkspaceMode,
   status,
   isFullscreen,
+  codeTarget,
   assetPanelCollapsed,
   exportPanelCollapsed,
   timelinePast,
@@ -88,6 +93,7 @@ export function RenderHeader({
   selectedNodes,
   nodes,
   setWorkspaceMode,
+  setCodeTarget,
   setVideoWorkspaceMode,
   setError,
   setProgress,
@@ -110,6 +116,11 @@ export function RenderHeader({
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const pptCopy = getPptCopy(language);
   const isRendering = status === 'rendering';
+  const codeEngineTabs = [
+    ['renpy', 'RenPy'],
+    ['tyrano', 'TyranoScript'],
+    ['dialogic', 'Godot Dialogic 2'],
+  ] as const satisfies ReadonlyArray<readonly [Exclude<CodeExportTarget, 'ir-json'>, CodeTextKey]>;
 
   return (
     <header className="relative flex h-14 items-center justify-between border-b border-transparent bg-[var(--vr-surface-strong)]/90 px-4 backdrop-blur-xl">
@@ -130,20 +141,22 @@ export function RenderHeader({
                 setProgress('');
                 setSavedPath('');
               }}
-              className={`render-workspace-tab ${
-                workspaceMode === mode
-                  ? 'is-active'
-                  : ''
-              }`}
+              className={`render-workspace-tab ${workspaceMode === mode ? 'is-active' : ''}`}
               aria-pressed={workspaceMode === mode}
               title={mode === 'video' ? '切换到视频导出' : '切换到网页导出'}
             >
-              {mode === 'video' ? <Film className="h-3.5 w-3.5" /> : mode === 'web' ? <FileText className="h-3.5 w-3.5" /> : mode === 'ppt' ? <Presentation className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
+              {mode === 'video' ? (
+                <Film className="h-3.5 w-3.5" />
+              ) : mode === 'web' ? (
+                <FileText className="h-3.5 w-3.5" />
+              ) : mode === 'ppt' ? (
+                <Presentation className="h-3.5 w-3.5" />
+              ) : (
+                <FileCode2 className="h-3.5 w-3.5" />
+              )}
               {mode === 'ppt' ? 'PPT' : null}
               {mode === 'code' ? '代码' : null}
-              {mode !== 'ppt' && mode !== 'code' && <>
-              {mode === 'video' ? '视频' : '网页'}
-              </>}
+              {mode !== 'ppt' && mode !== 'code' && <>{mode === 'video' ? '视频' : '网页'}</>}
             </button>
           ))}
         </div>
@@ -168,65 +181,131 @@ export function RenderHeader({
           title={isFullscreen ? '退出全屏' : '全屏'}
           aria-label={isFullscreen ? '退出全屏' : '全屏'}
         >
-          {isFullscreen ? <Minimize2 className="mx-auto h-4 w-4" /> : <Maximize2 className="mx-auto h-4 w-4" />}
+          {isFullscreen ? (
+            <Minimize2 className="mx-auto h-4 w-4" />
+          ) : (
+            <Maximize2 className="mx-auto h-4 w-4" />
+          )}
         </button>
+        {workspaceMode === 'code' && (
+          <div
+            className="ml-2 flex h-full items-end"
+            role="tablist"
+            aria-label={getCodeText(language, 'Target engine')}
+          >
+            {codeEngineTabs.map(([value, labelKey]) => {
+              const active = codeTarget === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  disabled={isRendering}
+                  onClick={() => setCodeTarget(value)}
+                  className={`relative -mb-px flex items-center justify-center whitespace-nowrap border px-5 text-xs font-black transition-[height,color,background-color,border-color] duration-150 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)]/40 ${
+                    active
+                      ? 'z-10 h-11 rounded-t-[16px] border-[var(--vr-accent)]/60 border-b-[var(--vr-bg)] bg-[var(--vr-bg)] text-[var(--vr-accent-strong)] after:absolute after:-bottom-px after:left-0 after:right-0 after:h-px after:bg-[var(--vr-bg)]'
+                      : 'h-9 border-transparent bg-transparent text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                  }`}
+                >
+                  {getCodeText(language, labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {workspaceMode === 'ppt' && (
           <>
-          <div className="render-context-tabs render-context-tabs--ppt ml-1" aria-label={t('PPT 编辑工具', 'PPT 編集ツール', 'PPT editing tools')}>
+            <div
+              className="render-context-tabs render-context-tabs--ppt ml-1"
+              aria-label={t('PPT 编辑工具', 'PPT 編集ツール', 'PPT editing tools')}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setPptRibbonTab('insert');
+                  setPptRibbonCollapsed(false);
+                }}
+                className={`render-context-tab ${pptRibbonTab === 'insert' ? 'is-active' : ''}`}
+                aria-pressed={pptRibbonTab === 'insert'}
+                title={pptCopy.insert}
+              >
+                <PlusSquare className="h-3.5 w-3.5" />
+                {pptCopy.insert}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPptRibbonTab('transition');
+                  setPptRibbonCollapsed(false);
+                }}
+                className={`render-context-tab ${pptRibbonTab === 'transition' ? 'is-active' : ''}`}
+                aria-pressed={pptRibbonTab === 'transition'}
+                title={t('切换', '画面切り替え', 'Transitions')}
+              >
+                <PanelsTopLeft className="h-3.5 w-3.5" />
+                {t('切换', '切り替え', 'Transitions')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPptRibbonTab('animation');
+                  setPptRibbonCollapsed(false);
+                }}
+                className={`render-context-tab ${pptRibbonTab === 'animation' ? 'is-active' : ''}`}
+                aria-pressed={pptRibbonTab === 'animation'}
+                title={t('动画', 'アニメーション', 'Animations')}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {t('动画', 'アニメ', 'Animations')}
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => {
-                setPptRibbonTab('insert');
-                setPptRibbonCollapsed(false);
-              }}
-              className={`render-context-tab ${pptRibbonTab === 'insert' ? 'is-active' : ''}`}
-              aria-pressed={pptRibbonTab === 'insert'}
-              title={pptCopy.insert}
+              onClick={() => setPptRibbonCollapsed(!pptRibbonCollapsed)}
+              className="ml-1 h-8 w-8 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
+              title={
+                pptRibbonCollapsed
+                  ? t(
+                      '\u5c55\u5f00\u5de5\u5177\u680f',
+                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b',
+                      'Expand ribbon',
+                    )
+                  : t(
+                      '\u6536\u8d77\u5de5\u5177\u680f',
+                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080',
+                      'Collapse ribbon',
+                    )
+              }
+              aria-label={
+                pptRibbonCollapsed
+                  ? t(
+                      '\u5c55\u5f00\u5de5\u5177\u680f',
+                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b',
+                      'Expand ribbon',
+                    )
+                  : t(
+                      '\u6536\u8d77\u5de5\u5177\u680f',
+                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080',
+                      'Collapse ribbon',
+                    )
+              }
+              aria-expanded={!pptRibbonCollapsed}
             >
-              <PlusSquare className="h-3.5 w-3.5" />
-              {pptCopy.insert}
+              {pptRibbonCollapsed ? (
+                <ChevronDown className="mx-auto h-4 w-4" />
+              ) : (
+                <ChevronUp className="mx-auto h-4 w-4" />
+              )}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPptRibbonTab('transition');
-                setPptRibbonCollapsed(false);
-              }}
-              className={`render-context-tab ${pptRibbonTab === 'transition' ? 'is-active' : ''}`}
-              aria-pressed={pptRibbonTab === 'transition'}
-              title={t('切换', '画面切り替え', 'Transitions')}
-            >
-              <PanelsTopLeft className="h-3.5 w-3.5" />
-              {t('切换', '切り替え', 'Transitions')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPptRibbonTab('animation');
-                setPptRibbonCollapsed(false);
-              }}
-              className={`render-context-tab ${pptRibbonTab === 'animation' ? 'is-active' : ''}`}
-              aria-pressed={pptRibbonTab === 'animation'}
-              title={t('动画', 'アニメーション', 'Animations')}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              {t('动画', 'アニメ', 'Animations')}
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPptRibbonCollapsed(!pptRibbonCollapsed)}
-            className="ml-1 h-8 w-8 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-            title={pptRibbonCollapsed ? t('\u5c55\u5f00\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b', 'Expand ribbon') : t('\u6536\u8d77\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080', 'Collapse ribbon')}
-            aria-label={pptRibbonCollapsed ? t('\u5c55\u5f00\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b', 'Expand ribbon') : t('\u6536\u8d77\u5de5\u5177\u680f', '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080', 'Collapse ribbon')}
-            aria-expanded={!pptRibbonCollapsed}
-          >
-            {pptRibbonCollapsed ? <ChevronDown className="mx-auto h-4 w-4" /> : <ChevronUp className="mx-auto h-4 w-4" />}
-          </button>
           </>
         )}
         {workspaceMode === 'web' && (
-          <div className="render-context-tabs render-context-tabs--web ml-1" aria-label={t('网页启动方式', 'Web 起動方法', 'Web launch mode')}>
+          <div
+            className="render-context-tabs render-context-tabs--web ml-1"
+            aria-label={t('网页启动方式', 'Web 起動方法', 'Web launch mode')}
+          >
             <button
               type="button"
               onClick={() => {
@@ -234,11 +313,7 @@ export function RenderHeader({
                 setWebShowStartMenu(true);
               }}
               disabled={isRendering}
-              className={`render-context-tab ${
-                webShowStartMenu
-                  ? 'is-active'
-                  : ''
-              }`}
+              className={`render-context-tab ${webShowStartMenu ? 'is-active' : ''}`}
               title={t('启用主界面入口', 'メイン画面を有効化', 'Enable menu entry')}
               aria-pressed={webShowStartMenu}
             >
@@ -252,11 +327,7 @@ export function RenderHeader({
                 setWebShowStartMenu(false);
               }}
               disabled={isRendering}
-              className={`render-context-tab ${
-                !webShowStartMenu
-                  ? 'is-active'
-                  : ''
-              }`}
+              className={`render-context-tab ${!webShowStartMenu ? 'is-active' : ''}`}
               title={t('直接进入剧情', '直接シナリオへ', 'Start directly')}
               aria-pressed={!webShowStartMenu}
             >
@@ -266,7 +337,10 @@ export function RenderHeader({
           </div>
         )}
         {workspaceMode === 'video' && (
-          <div className={`render-context-tabs render-context-tabs--video render-context-tabs--video-${videoWorkspaceMode} mx-1`} aria-label={t('视频导出模式', '動画書き出しモード', 'Video export mode')}>
+          <div
+            className={`render-context-tabs render-context-tabs--video render-context-tabs--video-${videoWorkspaceMode} mx-1`}
+            aria-label={t('视频导出模式', '動画書き出しモード', 'Video export mode')}
+          >
             {[
               {
                 value: 'timeline' as const,
@@ -289,9 +363,7 @@ export function RenderHeader({
                 }}
                 disabled={isRendering}
                 className={`render-context-tab ${
-                  videoWorkspaceMode === mode.value
-                    ? 'is-active'
-                    : ''
+                  videoWorkspaceMode === mode.value ? 'is-active' : ''
                 }`}
                 aria-pressed={videoWorkspaceMode === mode.value}
                 title={mode.label}
@@ -394,11 +466,17 @@ export function RenderHeader({
           }
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
         >
-          {isRendering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {isRendering ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
           {workspaceMode === 'ppt' ? <span className="hidden sm:inline">导出 PPTX</span> : null}
-          {workspaceMode !== 'ppt' && <>
-          <span className="hidden sm:inline">{isRendering ? '渲染中...' : '导出'}</span>
-          </>}
+          {workspaceMode !== 'ppt' && (
+            <>
+              <span className="hidden sm:inline">{isRendering ? '渲染中...' : '导出'}</span>
+            </>
+          )}
         </button>
         <button
           type="button"

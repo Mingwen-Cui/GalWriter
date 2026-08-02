@@ -85,7 +85,7 @@ export function CharacterInspector({
       </Field>
       <div>
         <div className="mb-1 text-[10px] font-bold text-[var(--vr-text-muted)]">
-          {tr(language, '表情 → 立绘', '表情 → 立ち絵', 'Expression → sprite')}
+          {getCodeText(language, 'Expression to sprite')}
         </div>
         {Object.entries(character.expressions).map(([name, url]) => (
           <div key={name} className="mb-1 grid grid-cols-[90px_1fr_28px] gap-1">
@@ -341,12 +341,7 @@ export function NodeInspector({
           </button>
         </div>
         <p className="text-[10px] leading-4 text-[var(--vr-text-muted)]">
-          {tr(
-            language,
-            '范围优先，其次判断大于等于阈值，否则进入小于分支。',
-            '範囲を優先し、次にしきい値以上、それ以外は小さい側へ進みます。',
-            'Ranges are checked first, then ≥ threshold, otherwise the lower branch.',
-          )}
+          {getCodeText(language, 'Condition semantics help')}
         </p>
       </div>
     );

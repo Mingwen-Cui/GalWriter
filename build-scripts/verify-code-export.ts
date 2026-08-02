@@ -186,6 +186,12 @@ for (const target of ['renpy', 'tyrano', 'dialogic', 'ir-json'] as const) {
     `${target}: target script file missing`,
   );
   assert(paths.includes('CODE_EXPORT_REPORT.md'), `${target}: report missing`);
+  if (target !== 'ir-json') {
+    assert(
+      paths.includes('galwriter_project.ir.json'),
+      `${target}: shared GalWriter IR interface missing`,
+    );
+  }
   const manifestPath = paths.find((path) => path.endsWith('galwriter_manifest.json'));
   assert(manifestPath, `${target}: manifest missing`);
   const manifest = JSON.parse(

@@ -1,4 +1,4 @@
-import { AlertTriangle, Braces, CheckCircle2, FileCode2, Plus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileCode2, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
@@ -16,7 +16,6 @@ type CodeWorkspaceProps = {
   language: Language;
   projectName: string;
   target: CodeExportTarget;
-  onTargetChange: (target: CodeExportTarget) => void;
   settings: RenpyExportSettings;
   onSettingsChange: (settings: RenpyExportSettings) => void;
   onExport: () => void;
@@ -32,7 +31,6 @@ export function CodeWorkspace({
   language,
   projectName,
   target,
-  onTargetChange,
   settings,
   onSettingsChange,
   onExport,
@@ -99,35 +97,13 @@ export function CodeWorkspace({
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--vr-bg)] text-[var(--vr-text)]">
-      <div className="flex shrink-0 items-center gap-3 border-b border-[var(--vr-border)] bg-[var(--vr-surface-strong)] px-4 py-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]">
-          <Braces className="h-4 w-4" />
-        </div>
-        <div>
-          <div className="text-xs font-black">
-            {tr(language, '代码工程', 'コードプロジェクト', 'Code project')}
-          </div>
-          <div className="text-[10px] text-[var(--vr-text-muted)]">
-            {target === 'renpy'
-              ? 'Ren’Py'
-              : target === 'tyrano'
-                ? 'TyranoScript'
-                : target === 'dialogic'
-                  ? 'Godot Dialogic 2'
-                  : 'GalWriter IR JSON'}{' '}
-            · {projectName || 'galwriter'}
-          </div>
-        </div>
-      </div>
       <CodeRibbon
         language={language}
         tab={tab}
-        target={target}
         splitMode={settings.splitMode}
         exporting={exporting}
         disabled={errors.length > 0}
         onTab={setTab}
-        onTarget={onTargetChange}
         onSplitMode={(splitMode) => setSettings({ ...settings, splitMode })}
         onRepairCodes={() => setSettings(repairRenpyCodeNames(settings))}
         onExport={onExport}
