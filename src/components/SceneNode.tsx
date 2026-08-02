@@ -35,6 +35,7 @@ import { registerBlobAsset } from '../lib/blobAssetRegistry';
 import { formatSceneNodeText } from '../lib/export';
 import { Language } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
+import { getMediaFileKind } from '../lib/mediaImport';
 import { PanoramaModal, PanoramaViewer } from './PanoramaViewer';
 import { SettingLibraryMenu } from './SettingLibraryMenu';
 import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
@@ -44,6 +45,7 @@ const SCENE_TEXTAREA_CLASS =
 const SCENE_FIELD_CLASS = 'flex min-w-0 flex-col gap-1';
 const DETAIL_TEXTAREA_CLASS = SCENE_TEXTAREA_CLASS;
 const DETAIL_FIELD_CLASS = SCENE_FIELD_CLASS;
+const SCENE_MEDIA_ACCEPT = 'image/*,video/*,.mov,video/quicktime';
 
 const getNumericSize = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -346,19 +348,21 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const kind = getMediaFileKind(file);
+    if (!kind) return;
     const url = registerBlobAsset(URL.createObjectURL(file), file);
 
     if (imageId) {
       updateNodeData({
         images: images.map((img) =>
           img.id === imageId
-            ? file.type.startsWith('video/')
+            ? kind === 'video'
               ? { ...img, imageUrl: undefined, videoUrl: url, isPanorama: false }
               : { ...img, imageUrl: url, videoUrl: undefined }
             : img,
         ),
       });
-    } else if (asCover && file.type.startsWith('image/')) {
+    } else if (asCover && kind === 'image') {
       updateNodeData({
         coverImageUrl: url,
         images: syncPrimarySceneImage(images, url),
@@ -956,7 +960,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                               )}
                               <input
                                 type="file"
-                                accept="image/*,video/*"
+                                accept={SCENE_MEDIA_ACCEPT}
                                 className="hidden"
                                 onChange={(e) => handleMediaUpload(e, image.id)}
                               />
@@ -988,7 +992,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                             <Upload className="w-3 h-3" />
                             <input
                               type="file"
-                              accept="image/*,video/*"
+                              accept={SCENE_MEDIA_ACCEPT}
                               className="hidden"
                               onChange={(e) => handleMediaUpload(e, image.id)}
                             />

@@ -4,9 +4,9 @@ import { ARTICLE_TEACHING_ROLE_TEMPLATES } from './teachingRoleTemplates';
 export type { ArticleTeachingRoleTemplate } from './types';
 
 export const createArticleTeachingRoleTemplateCards = (): AssistantCardDraft[] =>
-  ARTICLE_TEACHING_ROLE_TEMPLATES.slice(0, 3).map((template) => ({
+  ARTICLE_TEACHING_ROLE_TEMPLATES.map((template) => ({
     ...template.card,
-    generateImage: true,
+    generateImage: false,
     assistantTemplateId: template.id,
     assistantTemplateName: template.name,
     assistantTemplateInstruction: template.generationInstruction,

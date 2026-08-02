@@ -16,6 +16,9 @@ export type AssistantCardDraft = {
   experience?: string;
   relationships?: string;
   notes?: string;
+  avatarUrl?: string;
+  threeViewUrl?: string;
+  tagSpriteUrl?: string;
   features?: string;
   background?: string;
   sceneName?: string;

@@ -31,6 +31,7 @@ import sceneSettingCardAnimation from '../animation/scence setting card.lottie';
 import textSummaryAnimation from '../animation/test summary.lottie';
 import type { StoryCardVisualShape } from '../domain/project';
 import type { Language } from '../lib/i18n';
+import { MEDIA_FILE_ACCEPT, VIDEO_FILE_ACCEPT } from '../lib/mediaImport';
 import { getSideToolbarStrings } from './i18n/side-toolbar';
 
 type HoverGuideKind =
@@ -247,11 +248,11 @@ export function EditorLeftToolbar({
 
     input.accept =
       kind === 'all'
-        ? 'image/*,video/*,audio/*'
+        ? MEDIA_FILE_ACCEPT
         : kind === 'image'
           ? 'image/*'
           : kind === 'video'
-            ? 'video/*'
+            ? VIDEO_FILE_ACCEPT
             : 'audio/*';
     setActiveQuickMenu(null);
     input.click();
@@ -730,7 +731,7 @@ export function EditorLeftToolbar({
 
         <input
           type="file"
-          accept="image/*,video/*,audio/*"
+          accept={MEDIA_FILE_ACCEPT}
           className="hidden"
           ref={fileInputRef}
           onChange={handleMediaUpload}

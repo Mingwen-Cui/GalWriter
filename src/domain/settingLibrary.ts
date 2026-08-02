@@ -85,6 +85,12 @@ export const SETTING_LIBRARY_PRESETS: SettingLibraryPresetManifestItem[] = [
     dataUrl: '/presets/characters/jiang-jieshi.json',
   },
   {
+    id: 'preset-character-rare-laughing-nai-long',
+    kind: 'character',
+    name: '大笑奶龙（稀有变体）',
+    dataUrl: '/presets/characters/nai-long.json',
+  },
+  {
     id: 'preset-scene-rainy-platform',
     kind: 'scene',
     name: '雨夜车站',

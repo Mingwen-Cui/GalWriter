@@ -7,6 +7,7 @@ import { MIN_STORY_CARD_HEIGHT, SETTING_NODE_CARD_WIDTH } from '../../components
 import type { StoryCardVisualShape } from '../../domain/project';
 import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
+import { getMediaFileKind } from '../../lib/mediaImport';
 
 interface UseNodeActionsParams {
   nodes: Node[];
@@ -252,6 +253,8 @@ export const useNodeActions = ({
 
       for (let index = 0; index < fileArray.length; index += 1) {
         const file = fileArray[index];
+        const kind = getMediaFileKind(file);
+        if (!kind) continue;
         const url = registerBlobAsset(URL.createObjectURL(file), file);
         const newId = uuidv4();
 
@@ -267,13 +270,13 @@ export const useNodeActions = ({
           displayWidth = (width / height) * displayHeight;
         }
 
-        if (file.type.startsWith('image/')) {
+        if (kind === 'image') {
           mediaData = { imageUrl: url };
           title = language === 'zh' ? '图片' : language === 'ja' ? '画像' : 'Image';
-        } else if (file.type.startsWith('video/')) {
+        } else if (kind === 'video') {
           mediaData = { videoUrl: url };
           title = language === 'zh' ? '视频' : language === 'ja' ? '動画' : 'Video';
-        } else if (file.type.startsWith('audio/')) {
+        } else if (kind === 'audio') {
           mediaData = { audioUrl: url };
           title = language === 'zh' ? '音频' : language === 'ja' ? '音声' : 'Audio';
           displayWidth = 300;

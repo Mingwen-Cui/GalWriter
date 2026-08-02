@@ -191,7 +191,6 @@ export const DEFAULT_ROOT_STORY_TEXT = '从前有座山';
 
 export const createArticleRoleCandidateCards = (): AssistantCardDraft[] => [
   ...createArticleTeachingRoleTemplateCards(),
-  createArticleSelfDrawRoleCard(),
 ];
 
 export const createArticleSelfDrawRoleCard = (): AssistantCardDraft => ({

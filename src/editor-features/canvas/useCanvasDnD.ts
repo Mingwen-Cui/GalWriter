@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import type { Language } from '../../lib/i18n';
+import { getMediaFileKind } from '../../lib/mediaImport';
 
 interface UseCanvasDnDParams {
   canvasWrapperRef: React.RefObject<HTMLDivElement | null>;
@@ -70,13 +71,8 @@ export const useCanvasDnD = ({
 
       for (let i = 0; i < files.length; i += 1) {
         const file = files[i];
-        if (
-          !file.type.startsWith('image/') &&
-          !file.type.startsWith('video/') &&
-          !file.type.startsWith('audio/')
-        ) {
-          continue;
-        }
+        const kind = getMediaFileKind(file);
+        if (!kind) continue;
 
         const url = registerBlobAsset(URL.createObjectURL(file), file);
         const newId = uuidv4();
@@ -98,7 +94,7 @@ export const useCanvasDnD = ({
           displayWidth = (width / height) * displayHeight;
         }
 
-        if (file.type.startsWith('image/')) {
+        if (kind === 'image') {
           mediaData = { imageUrl: url };
           title =
             language === 'zh'
@@ -106,7 +102,7 @@ export const useCanvasDnD = ({
               : language === 'ja'
                 ? '画像をインポート'
                 : 'Import Image';
-        } else if (file.type.startsWith('video/')) {
+        } else if (kind === 'video') {
           mediaData = { videoUrl: url };
           title =
             language === 'zh'
@@ -114,7 +110,7 @@ export const useCanvasDnD = ({
               : language === 'ja'
                 ? '動画をインポート'
                 : 'Import Video';
-        } else if (file.type.startsWith('audio/')) {
+        } else if (kind === 'audio') {
           mediaData = { audioUrl: url };
           title =
             language === 'zh'

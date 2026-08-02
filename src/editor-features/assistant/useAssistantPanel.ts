@@ -884,8 +884,8 @@ ${documentContext}`);
                 role: 'assistant',
                 content:
                   language === 'zh'
-                    ? '我已经完成文章分析，并在画布上横向生成了 4 张候选人物模板卡。前三张会自动生成对应人物图；第 4 张是空白自填卡，你可以填写设定或上传图片后，在右侧点击确认。也可以先选中你自己的已有角色卡，再点“使用当前选中的人物模板”。'
-                    : 'I finished the article analysis and placed four role template cards on the canvas. The first three will generate matching character images; the fourth is blank for your own settings or uploaded image. Select a card and confirm from the panel.',
+                    ? '我已经完成文章分析，并在画布上横向生成了顾遥、闻岚、老蒋和大笑奶龙 4 张候选人物卡。每张都已带入对应的预设图片；选择其中一张后，在右侧点击确认。也可以先选中你自己的已有角色卡，再点“使用当前选中的人物模板”。'
+                    : 'I finished the article analysis and placed four preset role cards on the canvas: Gu Yao, Wen Lan, Lao Jiang, and the rare laughing dragon. Each already includes its preset images. Select one and confirm from the panel.',
                 cardPosition: placement.position,
                 cardNodeIds: placement.nodeIds,
                 options: [
@@ -2756,7 +2756,7 @@ cards 必须正好有 3 张。`);
               id: uuidv4(),
               role: 'assistant',
               content:
-                '我已经在画布上摆出 4 张候选人物设定卡。前三张会自动生成对应人物图；第 4 张是空白自填卡，填写设定或上传图片后，请在右侧点击确认。',
+                '我已经在画布上摆出顾遥、闻岚、老蒋和大笑奶龙 4 张候选人物设定卡。每张都已带入对应的预设图片，请在右侧点击确认。',
               cardPosition: placement.position,
               cardNodeIds: placement.nodeIds,
               options: createArticleRoleSelectionOptions(),

@@ -3,6 +3,7 @@ import { FileText, Grid2X2, Image, Layers, ListPlus, Plus, Rows3 } from 'lucide-
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { MEDIA_FILE_ACCEPT } from '../../../../lib/mediaImport';
 import { renderCopy } from '../shared/renderCopy';
 import type { AssetCardLayout, AssetRegionOption } from '../shared/types';
 
@@ -247,7 +248,7 @@ export function VideoAssetSidebar({
           ref={assetUploadInputRef}
           type="file"
           multiple
-          accept="image/*,video/*,audio/*"
+          accept={MEDIA_FILE_ACCEPT}
           onChange={handleAssetUploadInputChange}
           className="hidden"
         />
