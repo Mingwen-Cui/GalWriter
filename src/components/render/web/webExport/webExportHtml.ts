@@ -1,10 +1,11 @@
+import type { Language } from '../../../../lib/i18n';
+import { formatWebText, getWebSettingsCopy } from '../i18n';
 import { WEB_EXPORT_STYLES } from './webExportStyles';
 
-export const makeIndexHtml = (
-  title: string,
-  language: string,
-  faviconPath: string,
-) => `<!doctype html>
+export const makeIndexHtml = (title: string, language: Language, faviconPath: string) => {
+  const settingsCopy = getWebSettingsCopy(language);
+  const authorWebsite = formatWebText(language, 'webExportAuthorWebsite');
+  return `<!doctype html>
 <html lang="${language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : 'en'}">
 <head>
   <meta charset="utf-8" />
@@ -627,9 +628,9 @@ export const makeIndexHtml = (
     settingsTitle.textContent = labels.settings;
     settingAutoLabel.textContent = labels.autoPlay;
     settingSpeedLabel.textContent = labels.textSpeed;
-    settingTextSizeLabel.textContent = content.language === "zh" ? "文本大小" : content.language === "ja" ? "文字サイズ" : "Text size";
-    settingAnimationSpeedLabel.textContent = content.language === "zh" ? "动画速度" : content.language === "ja" ? "アニメーション速度" : "Animation speed";
-    settingSoundLabel.textContent = content.language === "zh" ? "音效" : content.language === "ja" ? "サウンド" : "Sound";
+    settingTextSizeLabel.textContent = ${JSON.stringify(settingsCopy.textSize)};
+    settingAnimationSpeedLabel.textContent = ${JSON.stringify(settingsCopy.animationSpeed)};
+    settingSoundLabel.textContent = ${JSON.stringify(settingsCopy.sound)};
     settingControlsLabel.textContent = labels.controls;
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
@@ -639,7 +640,7 @@ export const makeIndexHtml = (
     playlistTitle.textContent = labels.playlist;
     playlistHint.textContent = labels.playlistHint;
     makeButton.href = 'https://mingwencui.com/AIwriter/?lang=' + (content.language === 'ja' ? 'ja' : content.language === 'en' ? 'en' : 'zh');
-    makeButton.innerHTML = '<img src="./icons/wand.svg" alt="" /><span>' + (content.language === 'zh' ? '作者网站' : content.language === 'ja' ? '作者サイト' : 'Author website') + '</span>';
+    makeButton.innerHTML = '<img src="./icons/wand.svg" alt="" /><span>' + ${JSON.stringify(authorWebsite)} + '</span>';
     updateAutoButton();
     document.querySelector(".app").classList.toggle("immersive", settings.layoutMode === "immersive");
     let typewriterTimers = [];
@@ -2082,6 +2083,7 @@ export const makeIndexHtml = (
   </script>
 </body>
 </html>`;
+};
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => {

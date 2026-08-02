@@ -1,4 +1,6 @@
-﻿import {
+import { getWebStructuredText } from './i18n';
+import { formatWebText, getWebShadowOrdinal } from './i18n';
+import {
   Baseline,
   Blend,
   Box,
@@ -109,8 +111,29 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
   ButtonFunction[]
 > = {
   start: ['custom', 'continue', 'save', 'new', 'settings', 'link', 'volume'],
-  archive: ['custom', 'slot', 'slotContinue', 'slotDelete', 'new', 'back', 'settings', 'link', 'volume'],
-  settings: ['custom', 'back', 'auto', 'speed', 'textSize', 'animationSpeed', 'sound', 'controls', 'volume', 'link'],
+  archive: [
+    'custom',
+    'slot',
+    'slotContinue',
+    'slotDelete',
+    'new',
+    'back',
+    'settings',
+    'link',
+    'volume',
+  ],
+  settings: [
+    'custom',
+    'back',
+    'auto',
+    'speed',
+    'textSize',
+    'animationSpeed',
+    'sound',
+    'controls',
+    'volume',
+    'link',
+  ],
   game: ['custom', 'audio', 'fullscreen', 'return', 'mainMenu', 'controlsToggle', 'volume', 'link'],
 };
 
@@ -219,28 +242,57 @@ function NumericButtonActionControl({
   onChange: (value: number) => void;
   onModeChange: (mode: 'drag' | 'slider') => void;
 }) {
-  const config = role === 'speed'
-    ? { min: 10, max: 200, step: 5, fallback: 65, unit: 'ms' }
-    : role === 'textSize'
-      ? { min: 85, max: 130, step: 5, fallback: 100, unit: '%' }
-      : { min: 0.5, max: 2, step: 0.5, fallback: 1, unit: '×' };
-  const label = role === 'speed'
-    ? language === 'zh' ? '数值' : language === 'ja' ? '数値' : 'Value'
-    : language === 'zh' ? '数值' : language === 'ja' ? '数値' : 'Value';
+  const config =
+    role === 'speed'
+      ? { min: 10, max: 200, step: 5, fallback: 65, unit: 'ms' }
+      : role === 'textSize'
+        ? { min: 85, max: 130, step: 5, fallback: 100, unit: '%' }
+        : { min: 0.5, max: 2, step: 0.5, fallback: 1, unit: '×' };
+  const label =
+    role === 'speed'
+      ? formatWebText(language, 'componentsrenderwebStartMenuElementInspectorConditionalText228')
+      : formatWebText(language, 'componentsrenderwebStartMenuElementInspectorConditionalText229');
   const current = value ?? config.fallback;
   return (
     <div className="mt-2 space-y-2">
       <div className="flex items-center justify-between px-1 text-[10px] font-bold text-slate-500">
         <span>{label}</span>
         <div className="flex overflow-hidden rounded-lg bg-slate-100 text-slate-600">
-          <button type="button" className={`px-2 py-1 ${inputMode === 'drag' ? 'bg-indigo-600 text-white' : ''}`} onClick={() => onModeChange('drag')}>↔</button>
-          <button type="button" className={`px-2 py-1 ${inputMode === 'slider' ? 'bg-indigo-600 text-white' : ''}`} onClick={() => onModeChange('slider')}>━</button>
+          <button
+            type="button"
+            className={`px-2 py-1 ${inputMode === 'drag' ? 'bg-indigo-600 text-white' : ''}`}
+            onClick={() => onModeChange('drag')}
+          >
+            ↔
+          </button>
+          <button
+            type="button"
+            className={`px-2 py-1 ${inputMode === 'slider' ? 'bg-indigo-600 text-white' : ''}`}
+            onClick={() => onModeChange('slider')}
+          >
+            ━
+          </button>
         </div>
       </div>
       {inputMode === 'drag' ? (
-        <DraggableNumberInput value={current} onChange={onChange} min={config.min} max={config.max} step={config.step} unit={config.unit} />
+        <DraggableNumberInput
+          value={current}
+          onChange={onChange}
+          min={config.min}
+          max={config.max}
+          step={config.step}
+          unit={config.unit}
+        />
       ) : (
-        <input className="w-full accent-indigo-600" type="range" min={config.min} max={config.max} step={config.step} value={current} onChange={(event) => onChange(Number(event.target.value))} />
+        <input
+          className="w-full accent-indigo-600"
+          type="range"
+          min={config.min}
+          max={config.max}
+          step={config.step}
+          value={current}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
       )}
     </div>
   );
@@ -403,120 +455,14 @@ export function StartMenuElementInspector({
     value: role,
   }));
   const buttonFunction = (element.role || 'custom') as ButtonFunction;
-  const inspectorCopy =
-    language === 'zh'
-      ? {
-          expand: '展开',
-          collapse: '收起',
-          radius: '圆角',
-          zIndex: 'Z轴',
-          allCorners: '总圆角',
-          topLeft: '左上',
-          topRight: '右上',
-          bottomRight: '右下',
-          bottomLeft: '左下',
-          solid: '纯色',
-          gradient: '渐变',
-          inside: '内侧',
-          center: '中央',
-          outside: '外侧',
-          outerShadow: '外阴影',
-          innerShadow: '内阴影',
-          innerBlur: '内部模糊',
-        }
-      : language === 'ja'
-        ? {
-            expand: '展開',
-            collapse: '折りたたむ',
-            radius: '角丸',
-            zIndex: 'Z軸',
-            allCorners: '全体',
-            topLeft: '左上',
-            topRight: '右上',
-            bottomRight: '右下',
-            bottomLeft: '左下',
-            solid: '単色',
-            gradient: 'グラデ',
-            inside: '内側',
-            center: '中央',
-            outside: '外側',
-            outerShadow: '外側',
-            innerShadow: '内側',
-            innerBlur: '内ぼかし',
-          }
-        : {
-            expand: 'Expand',
-            collapse: 'Collapse',
-            radius: 'Radius',
-            zIndex: 'Z axis',
-            allCorners: 'All',
-            topLeft: 'Top left',
-            topRight: 'Top right',
-            bottomRight: 'Bottom right',
-            bottomLeft: 'Bottom left',
-            solid: 'Solid',
-            gradient: 'Gradient',
-            inside: 'Inside',
-            center: 'Center',
-            outside: 'Outside',
-            outerShadow: 'Outer',
-            innerShadow: 'Inner',
-            innerBlur: 'Inner blur',
-          };
-  const descriptionCopy =
-    language === 'zh'
-      ? {
-          fillStyle: '填充样式',
-          fillColor: '填充颜色与透明度',
-          horizontalAlign: '水平对齐',
-          verticalAlign: '垂直对齐',
-          textAlign: '文字对齐',
-          textColorStyle: '文字颜色样式',
-          textColor: '文字颜色与透明度',
-          blendMode: '混合',
-          strokeStyle: '描边样式',
-          strokePosition: '描边位置',
-          strokeColor: '描边颜色与透明度',
-          shadowType: '阴影类型',
-          shadowColor: '阴影颜色与透明度',
-          addShadow: '新建',
-          removeShadow: '删除阴影',
-        }
-      : language === 'ja'
-        ? {
-            fillStyle: '塗りの種類',
-            fillColor: '塗りの色と不透明度',
-            horizontalAlign: '水平揃え',
-            verticalAlign: '垂直揃え',
-            textAlign: '文字揃え',
-            textColorStyle: '文字の色の種類',
-            textColor: '文字の色と不透明度',
-            blendMode: '合成',
-            strokeStyle: '縁取りの種類',
-            strokePosition: '縁取りの位置',
-            strokeColor: '縁取りの色と不透明度',
-            shadowType: '影の種類',
-            shadowColor: '影の色と不透明度',
-            addShadow: '新規',
-            removeShadow: '影を削除',
-          }
-        : {
-            fillStyle: 'Fill style',
-            fillColor: 'Fill color and opacity',
-            horizontalAlign: 'Horizontal align',
-            verticalAlign: 'Vertical align',
-            textAlign: 'Text align',
-            textColorStyle: 'Text color style',
-            textColor: 'Text color and opacity',
-            blendMode: 'Blend',
-            strokeStyle: 'Stroke style',
-            strokePosition: 'Stroke position',
-            strokeColor: 'Stroke color and opacity',
-            shadowType: 'Shadow type',
-            shadowColor: 'Shadow color and opacity',
-            addShadow: 'New',
-            removeShadow: 'Remove shadow',
-          };
+  const inspectorCopy = getWebStructuredText(
+    language,
+    'componentsrenderwebStartMenuElementInspectorStructuredText408',
+  );
+  const descriptionCopy = getWebStructuredText(
+    language,
+    'componentsrenderwebStartMenuElementInspectorStructuredText468',
+  );
   const fillHasValue =
     element.kind !== 'text' &&
     !(
@@ -529,7 +475,10 @@ export function StartMenuElementInspector({
   const strokeEnabled = element.strokeEnabled ?? strokeHasValue;
   const shadowEnabled = element.shadowEnabled ?? shadowHasValue;
   const elementHidden = element.visible === false;
-  const hiddenLabel = language === 'zh' ? '已隐藏' : language === 'ja' ? '非表示' : 'Hidden';
+  const hiddenLabel = formatWebText(
+    language,
+    'componentsrenderwebStartMenuElementInspectorConditionalText532',
+  );
   const toggleFill = () => {
     if (element.kind === 'text') return;
     pushInspectorSnapshot(element.id, 'fill', {
@@ -623,7 +572,15 @@ export function StartMenuElementInspector({
     <div className="space-y-3 text-[12px] text-slate-900">
       <Group
         title={elementHidden ? hiddenLabel : text.group.position}
-        icon={elementHidden ? <SlashedIcon><Box className="h-3.5 w-3.5" /></SlashedIcon> : <Box className="h-3.5 w-3.5" />}
+        icon={
+          elementHidden ? (
+            <SlashedIcon>
+              <Box className="h-3.5 w-3.5" />
+            </SlashedIcon>
+          ) : (
+            <Box className="h-3.5 w-3.5" />
+          )
+        }
         tone="position"
         onTitleClick={() => onUpdate({ visible: elementHidden })}
         titleActive
@@ -719,11 +676,11 @@ export function StartMenuElementInspector({
             onChange={(opacity) => onUpdate({ opacity })}
           />
         </ControlRow>
-          <PositionAlignButtons
-            className="mt-2"
-            showDescriptions={showDescriptions}
-            horizontalLabel={descriptionCopy.horizontalAlign}
-            verticalLabel={descriptionCopy.verticalAlign}
+        <PositionAlignButtons
+          className="mt-2"
+          showDescriptions={showDescriptions}
+          horizontalLabel={descriptionCopy.horizontalAlign}
+          verticalLabel={descriptionCopy.verticalAlign}
           onAlign={(axis, value) => {
             if (selectedElementIds.length > 1 && onAlignSelected) {
               onAlignSelected(axis, value);
@@ -842,7 +799,11 @@ export function StartMenuElementInspector({
             </SettingDescription>
           </ControlRow>
           <div className="relative mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            <SettingDescription className="min-w-0" show={showDescriptions} label={descriptionCopy.textColor}>
+            <SettingDescription
+              className="min-w-0"
+              show={showDescriptions}
+              label={descriptionCopy.textColor}
+            >
               {textColorType === 'solid' ? (
                 <InlineColorControl
                   label={text.popover.solidTitle}
@@ -938,24 +899,30 @@ export function StartMenuElementInspector({
 
       {element.kind === 'button' && (
         <Group
-          title={language === 'zh' ? '功能' : language === 'ja' ? '機能' : 'Function'}
+          title={formatWebText(
+            language,
+            'componentsrenderwebStartMenuElementInspectorConditionalText941',
+          )}
           icon={<MousePointerClick className="h-3.5 w-3.5" />}
           tone="position"
           expandLabel={inspectorCopy.expand}
           collapseLabel={inspectorCopy.collapse}
           showDescriptions={showDescriptions}
-          titleDescription={
-            language === 'zh' ? '按钮功能' : language === 'ja' ? 'ボタン機能' : 'Button action'
-          }
-          secondaryDescription={
-            language === 'zh' ? '按钮功能' : language === 'ja' ? 'ボタン機能' : 'Button action'
-          }
+          titleDescription={formatWebText(
+            language,
+            'componentsrenderwebStartMenuElementInspectorConditionalText948',
+          )}
+          secondaryDescription={formatWebText(
+            language,
+            'componentsrenderwebStartMenuElementInspectorConditionalText951',
+          )}
           secondary={
             <HeaderSelect
               icon={<MousePointerClick className="h-4 w-4" />}
-              label={
-                language === 'zh' ? '按钮功能' : language === 'ja' ? 'ボタン機能' : 'Button action'
-              }
+              label={formatWebText(
+                language,
+                'componentsrenderwebStartMenuElementInspectorConditionalText957',
+              )}
               value={buttonFunction}
               options={buttonFunctionOptions}
               onChange={(value) => {
@@ -974,7 +941,10 @@ export function StartMenuElementInspector({
             <div className="mt-2 space-y-2">
               <label className="block space-y-1 px-1 text-[10px] font-bold text-slate-500">
                 <span>
-                  {language === 'zh' ? '链接地址' : language === 'ja' ? 'リンク先' : 'Link URL'}
+                  {formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorConditionalText977',
+                  )}
                 </span>
                 <span className="grid h-10 grid-cols-[34px_minmax(0,1fr)] items-center overflow-hidden rounded-xl bg-white text-sm font-normal text-slate-900">
                   <Link2 className="mx-auto h-4 w-4 text-slate-600" />
@@ -989,22 +959,25 @@ export function StartMenuElementInspector({
               </label>
               <HeaderSelect
                 icon={<Link2 className="h-4 w-4" />}
-                label={language === 'zh' ? '打开方式' : language === 'ja' ? '開き方' : 'Open in'}
+                label={formatWebText(
+                  language,
+                  'componentsrenderwebStartMenuElementInspectorConditionalText992',
+                )}
                 value={element.linkTarget || '_blank'}
                 options={[
                   {
                     value: '_blank',
-                    label:
-                      language === 'zh' ? '新标签页' : language === 'ja' ? '新しいタブ' : 'New tab',
+                    label: formatWebText(
+                      language,
+                      'componentsrenderwebStartMenuElementInspectorConditionalText998',
+                    ),
                   },
                   {
                     value: '_self',
-                    label:
-                      language === 'zh'
-                        ? '当前页面'
-                        : language === 'ja'
-                          ? '現在のページ'
-                          : 'Current page',
+                    label: formatWebText(
+                      language,
+                      'componentsrenderwebStartMenuElementInspectorConditionalText1003',
+                    ),
                   },
                 ]}
                 onChange={(linkTarget) =>
@@ -1017,13 +990,10 @@ export function StartMenuElementInspector({
             <div className="mt-2">
               <NumberField
                 icon={<Volume2 className="h-4 w-4" />}
-                label={
-                  language === 'zh'
-                    ? '菜单音乐音量'
-                    : language === 'ja'
-                      ? 'メニュー音量'
-                      : 'Menu music volume'
-                }
+                label={formatWebText(
+                  language,
+                  'componentsrenderwebStartMenuElementInspectorConditionalText1021',
+                )}
                 value={element.actionValue ?? 70}
                 min={0}
                 max={100}
@@ -1031,7 +1001,9 @@ export function StartMenuElementInspector({
               />
             </div>
           )}
-          {(['speed', 'textSize', 'animationSpeed'] as ButtonFunction[]).includes(buttonFunction) && (
+          {(['speed', 'textSize', 'animationSpeed'] as ButtonFunction[]).includes(
+            buttonFunction,
+          ) && (
             <NumericButtonActionControl
               role={buttonFunction as 'speed' | 'textSize' | 'animationSpeed'}
               language={language}
@@ -1134,8 +1106,8 @@ export function StartMenuElementInspector({
                             setFillBlendMenuOpen(false);
                           }}
                           className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs font-medium transition-colors ${
-                          selected ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
+                            selected ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50'
+                          }`}
                         >
                           <span>{blendMode}</span>
                           {selected && <Check className="h-4 w-4" />}
@@ -1361,22 +1333,18 @@ export function StartMenuElementInspector({
               options={[
                 {
                   value: 'text',
-                  label:
-                    language === 'zh'
-                      ? '文字描边'
-                      : language === 'ja'
-                        ? '文字縁取り'
-                        : 'Text stroke',
+                  label: formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorConditionalText1365',
+                  ),
                   icon: <Type className="h-4 w-4" />,
                 },
                 {
                   value: 'box',
-                  label:
-                    language === 'zh'
-                      ? '文字框描边'
-                      : language === 'ja'
-                        ? '文字枠線'
-                        : 'Text frame',
+                  label: formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorConditionalText1375',
+                  ),
                   icon: <Box className="h-4 w-4" />,
                 },
               ]}
@@ -1484,11 +1452,10 @@ export function StartMenuElementInspector({
       </Group>
 
       {shadows.map((shadow, index) => {
-        const numberLabel =
-          language === 'zh'
-            ? ['', '二', '三', '四', '五', '六'][index] || String(index + 1)
-            : ` ${index + 1}`;
-        const title = index === 0 ? text.group.shadow : `${text.group.shadow}${numberLabel}`;
+        const title =
+          index === 0
+            ? text.group.shadow
+            : `${text.group.shadow}${getWebShadowOrdinal(language, index)}`;
         return (
           <Group
             key={shadow.id}
@@ -1664,7 +1631,12 @@ function TwoSegmentControl<T extends string>({
 }
 
 function SlashedIcon({ children }: { children: React.ReactNode }) {
-  return <span className="relative inline-grid h-3.5 w-3.5 place-items-center" aria-hidden="true">{children}<span className="absolute h-[1.5px] w-[18px] rotate-[-45deg] rounded-full bg-current" /></span>;
+  return (
+    <span className="relative inline-grid h-3.5 w-3.5 place-items-center" aria-hidden="true">
+      {children}
+      <span className="absolute h-[1.5px] w-[18px] rotate-[-45deg] rounded-full bg-current" />
+    </span>
+  );
 }
 
 function SettingDescription({
@@ -2139,48 +2111,10 @@ export function GradientEditorPopover({
   onStopsChange: (value: RenderColorStop[]) => void;
   onShapeChange?: (value: GradientShape) => void;
 }) {
-  const copy =
-    language === 'zh'
-      ? {
-          angle: '角度',
-          color: '颜色',
-          position: '位置',
-          opacity: '透明度',
-          addStop: '添加色标',
-          reverse: '反转',
-          deleteStop: '删除色标',
-          shape: '渐变类型',
-          linear: '线性',
-          radial: '圆形',
-          diamond: '菱形',
-        }
-      : language === 'ja'
-        ? {
-            angle: '角度',
-            color: '色',
-            position: '位置',
-            opacity: '透明度',
-            addStop: '色を追加',
-            reverse: '反転',
-            deleteStop: '色を削除',
-            shape: 'グラデーション',
-            linear: '線形',
-            radial: '円形',
-            diamond: '菱形',
-          }
-        : {
-            angle: 'Angle',
-            color: 'Color',
-            position: 'Position',
-            opacity: 'Opacity',
-            addStop: 'Add stop',
-            reverse: 'Reverse',
-            deleteStop: 'Delete stop',
-            shape: 'Gradient type',
-            linear: 'Linear',
-            radial: 'Radial',
-            diamond: 'Diamond',
-          };
+  const copy = getWebStructuredText(
+    language,
+    'componentsrenderwebStartMenuElementInspectorStructuredText2128',
+  );
   const orderedStops = [...stops].sort((a, b) => a.position - b.position);
   const [activeStopId, setActiveStopId] = useState(orderedStops[0]?.id || '');
   const [colorPopoverStopId, setColorPopoverStopId] = useState<string | null>(null);

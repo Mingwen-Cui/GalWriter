@@ -1,9 +1,14 @@
+import { formatWebText } from './i18n';
 import type React from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
+import type { Language } from '../../../lib/i18n';
 import { getRenderObjects } from '../video/shared/renderObjects';
-import { resolvePresentationDialogueLayout, resolvePresentationDialogueOffsets } from '../video/shared/presentationLayout';
+import {
+  resolvePresentationDialogueLayout,
+  resolvePresentationDialogueOffsets,
+} from '../video/shared/presentationLayout';
 import { getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type {
   RenderEditableObject,
@@ -58,7 +63,7 @@ type WebPlaytestDialoguePanelProps = {
     kind: RenderEditableObjectKind,
     patch: Partial<RenderEditableObject>,
   ) => void;
-  t: (zh: string, ja: string, en: string) => string;
+  language: Language;
   onContinueFromText: () => void;
   onRecordCurrentAudio: () => void;
   onCurrentAudioEnded: () => void;
@@ -85,7 +90,7 @@ export function WebPlaytestDialoguePanel({
   onSelectRenderObject,
   onMoveRenderObject,
   onUpdateRenderObject,
-  t,
+  language,
   onContinueFromText,
   onRecordCurrentAudio,
   onCurrentAudioEnded,
@@ -155,12 +160,16 @@ export function WebPlaytestDialoguePanel({
     const startY = event.clientY;
     const initialX = object.x;
     const initialY = object.y;
-    const dialogueLayout = kind === 'dialogBox'
-      ? resolvePresentationDialogueLayout(settings.canvasWidth, settings.canvasHeight, renderStyle)
-      : null;
-    const canvasScale = dialogueLayout && targetRect.width > 0
-      ? dialogueLayout.width / targetRect.width
-      : 1;
+    const dialogueLayout =
+      kind === 'dialogBox'
+        ? resolvePresentationDialogueLayout(
+            settings.canvasWidth,
+            settings.canvasHeight,
+            renderStyle,
+          )
+        : null;
+    const canvasScale =
+      dialogueLayout && targetRect.width > 0 ? dialogueLayout.width / targetRect.width : 1;
     const move = (moveEvent: PointerEvent) => {
       let nextX = initialX + moveEvent.clientX - startX;
       let nextY = initialY + moveEvent.clientY - startY;
@@ -413,7 +422,9 @@ export function WebPlaytestDialoguePanel({
           {settings.interactionMode !== 'typewriter' && (
             <span
               dangerouslySetInnerHTML={{
-                __html: text || t('（无正文）', '（本文なし）', '(No body text)'),
+                __html:
+                  text ||
+                  formatWebText(language, 'componentsrenderwebWebPlaytestDialoguePanelText416'),
               }}
             />
           )}

@@ -1,3 +1,4 @@
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   ArrowDown,
@@ -21,7 +22,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS } from '../shared/constants';
 import { loadVideo, seekVideo } from '../shared/mediaUtils';
-import { renderCopy } from '../shared/renderCopy';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../shared/storyNodes';
 import type { ExportFormat, RenderStatus, RenderStyle, VideoTextScaleMode } from '../shared/types';
 import { drawRenderFrame } from '../preview/frameRenderer';
@@ -158,7 +158,6 @@ const formatPlaybackTime = (seconds: number) => {
 const MIN_VIEWPORT_ZOOM = 0.35;
 const MAX_VIEWPORT_ZOOM = 1.85;
 
-
 export function InteractiveSegmentExportWorkspace({
   language,
   segments,
@@ -200,7 +199,6 @@ export function InteractiveSegmentExportWorkspace({
   setOutputDirError,
   chooseOutputDir,
 }: Props) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const isRendering = status === 'rendering';
   const activeSegment = segments.find((segment) => segment.id === activeSegmentId) || segments[0];
   const enabledCount = segments.filter((segment) => segment.enabled).length;
@@ -542,7 +540,8 @@ export function InteractiveSegmentExportWorkspace({
     const rect = viewport.getBoundingClientRect();
     const pointerX = event.clientX - rect.left;
     const pointerY = event.clientY - rect.top;
-    const modeScale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
+    const modeScale =
+      event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
     const normalizedDelta = clamp(event.deltaY * modeScale, -240, 240);
     const zoomDelta = Math.exp(-normalizedDelta * 0.0014);
     setViewportZoomAt(viewportZoomRef.current * zoomDelta, pointerX, pointerY);
@@ -789,7 +788,10 @@ export function InteractiveSegmentExportWorkspace({
           <div className="flex min-w-0 items-center gap-2 text-xs font-black tracking-wide text-[var(--vr-text-soft)]">
             <GitBranch className="h-4 w-4 text-[var(--vr-accent)]" />
             <span className="truncate">
-              {t('互动分段结构', 'インタラクティブ分割構造', 'Interactive segment map')}
+              {formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText792',
+              )}
             </span>
           </div>
           <div className="flex min-w-0 items-center gap-2">
@@ -802,8 +804,14 @@ export function InteractiveSegmentExportWorkspace({
                     ? 'z-10 bg-[var(--vr-accent)] text-white'
                     : 'bg-[var(--vr-surface)] text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]'
                 }`}
-                title={t('向右排列', '右方向', 'Arrange right')}
-                aria-label={t('向右排列', '右方向', 'Arrange right')}
+                title={formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText805',
+                )}
+                aria-label={formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText806',
+                )}
               >
                 <ArrowRight className="h-4 w-4" />
               </button>
@@ -815,8 +823,14 @@ export function InteractiveSegmentExportWorkspace({
                     ? 'z-10 bg-[var(--vr-accent)] text-white'
                     : 'bg-[var(--vr-surface)] text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]'
                 }`}
-                title={t('向下排列', '下方向', 'Arrange down')}
-                aria-label={t('向下排列', '下方向', 'Arrange down')}
+                title={formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText818',
+                )}
+                aria-label={formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText819',
+                )}
               >
                 <ArrowDown className="h-4 w-4" />
               </button>
@@ -825,15 +839,20 @@ export function InteractiveSegmentExportWorkspace({
               type="button"
               onClick={onRescan}
               disabled={isRendering}
-              title={t('重新识别', '再スキャン', 'Rescan')}
-              aria-label={t('重新识别', '再スキャン', 'Rescan')}
+              title={formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText828',
+              )}
+              aria-label={formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText829',
+              )}
               className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)] disabled:opacity-40"
             >
               <RotateCw className="h-4 w-4" />
             </button>
           </div>
         </div>
-
 
         <div
           ref={graphViewportRef}
@@ -906,7 +925,13 @@ export function InteractiveSegmentExportWorkspace({
                     : from.y + cardHeight + Math.max(48, (to.y - from.y - cardHeight) / 2) - 26;
                 const label = isGeneratedChoiceLabel(link.label)
                   ? ''
-                  : (link.isChoice ? link.label : t('继续', '続き', 'Continue')).slice(0, 10);
+                  : (link.isChoice
+                      ? link.label
+                      : formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText909',
+                        )
+                    ).slice(0, 10);
                 const labelWidth = Math.max(56, Math.min(116, label.length * 8 + 24));
                 return (
                   <g
@@ -931,7 +956,12 @@ export function InteractiveSegmentExportWorkspace({
                       onDoubleClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        reverseSegmentConnection(link.fromSegmentId, link.toSegmentId, link.id, link.label);
+                        reverseSegmentConnection(
+                          link.fromSegmentId,
+                          link.toSegmentId,
+                          link.id,
+                          link.label,
+                        );
                       }}
                     />
                     <path
@@ -978,7 +1008,13 @@ export function InteractiveSegmentExportWorkspace({
                       className="fill-current text-[10px] font-black"
                       opacity={label ? 1 : 0}
                     >
-                      {(link.isChoice ? link.label : t('缁х画', '缍氥亶', 'Continue')).slice(0, 10)}
+                      {(link.isChoice
+                        ? link.label
+                        : formatVideoText(
+                            language,
+                            'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText981',
+                          )
+                      ).slice(0, 10)}
                     </text>
                   </g>
                 );
@@ -1076,14 +1112,17 @@ export function InteractiveSegmentExportWorkspace({
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                    <input
-                      value={segment.name}
-                      onChange={(event) => renameSegment(segment.id, event.target.value)}
-                      onClick={(event) => event.stopPropagation()}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-sm font-black text-[var(--vr-text)] outline-none transition-colors focus:border-[var(--vr-accent)] focus:bg-[var(--vr-surface)]"
-                      aria-label={t('视频名称', '動画名', 'Video name')}
-                    />
+                      <input
+                        value={segment.name}
+                        onChange={(event) => renameSegment(segment.id, event.target.value)}
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-sm font-black text-[var(--vr-text)] outline-none transition-colors focus:border-[var(--vr-accent)] focus:bg-[var(--vr-surface)]"
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1085',
+                        )}
+                      />
                       <span className="shrink-0 rounded-md bg-[var(--vr-surface-soft)] px-2 py-1 text-[10px] font-black text-[var(--vr-text-soft)]">
                         {formatApproxDuration(segment.nodeIds.length * defaultSeconds)}
                       </span>
@@ -1094,7 +1133,12 @@ export function InteractiveSegmentExportWorkspace({
                   </div>
                   <div className="hidden mx-2 mb-2 rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 py-2">
                     <div className="mb-1 flex items-center justify-between text-[10px] font-black text-[var(--vr-text-muted)]">
-                    <span>{t('内部卡片关系', '内部カード関係', 'Internal card links')}</span>
+                      <span>
+                        {formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1097',
+                        )}
+                      </span>
                       <span>{segment.nodeIds.length}</span>
                     </div>
                     <div className="relative h-12">
@@ -1185,20 +1229,23 @@ export function InteractiveSegmentExportWorkspace({
                                 preload="metadata"
                               />
                             ) : null}
-                          {item.videoUrl && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                }}
-                                onDoubleClick={(event) => {
-                                  event.stopPropagation();
-                                  openPreview(segment.id);
-                                }}
-                                className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 text-white shadow-lg transition-colors hover:bg-black/80"
-                                aria-label={t('播放视频', '動画を再生', 'Play video')}
-                              >
+                            {item.videoUrl && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                  }}
+                                  onDoubleClick={(event) => {
+                                    event.stopPropagation();
+                                    openPreview(segment.id);
+                                  }}
+                                  className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 text-white shadow-lg transition-colors hover:bg-black/80"
+                                  aria-label={formatVideoText(
+                                    language,
+                                    'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1200',
+                                  )}
+                                >
                                   <Play className="h-4 w-4 translate-x-0.5" />
                                 </button>
                                 <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-black text-white">
@@ -1210,10 +1257,13 @@ export function InteractiveSegmentExportWorkspace({
                         ))}
                       </div>
                     ) : (
-                    <div className="flex h-[74px] items-center justify-center rounded-md border border-dashed border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[11px] font-black text-[var(--vr-text-muted)]">
-                      {t('文字片段', 'テキストセグメント', 'Text segment')}
-                    </div>
-                  )}
+                      <div className="flex h-[74px] items-center justify-center rounded-md border border-dashed border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[11px] font-black text-[var(--vr-text-muted)]">
+                        {formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1214',
+                        )}
+                      </div>
+                    )}
                     <div className="mt-2 flex min-h-4 items-center gap-1 truncate text-[10px] font-black text-[var(--vr-text-muted)]">
                       <Layers3 className="h-3 w-3" />
                       {segment.choices.length > 0
@@ -1242,24 +1292,27 @@ export function InteractiveSegmentExportWorkspace({
             })}
           </div>
           <InteractiveSegmentMinimap
-            ariaLabel={t('定位画布', 'キャンバスを移動', 'Navigate canvas')}
-              segments={segments}
-              graphLinks={graphLinks}
-              renderPositions={renderPositions}
-              activeSegmentId={activeSegment?.id}
-              graphWidth={graphWidth}
-              graphHeight={graphHeight}
-              cardWidth={cardWidth}
-              cardHeight={cardHeight}
-              viewportPan={viewportPan}
-              viewportZoom={viewportZoom}
-              viewportSize={viewportSize}
-              lineOpacity={lineOpacity}
-              canZoomIn={viewportZoom < MAX_VIEWPORT_ZOOM - 0.001}
-              canZoomOut={viewportZoom > MIN_VIEWPORT_ZOOM + 0.001}
-              onViewportPanChange={scheduleViewportPan}
-              onZoomIn={() => setViewportZoomAt(viewportZoom * 1.18)}
-              onZoomOut={() => setViewportZoomAt(viewportZoom / 1.18)}
+            ariaLabel={formatVideoText(
+              language,
+              'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1245',
+            )}
+            segments={segments}
+            graphLinks={graphLinks}
+            renderPositions={renderPositions}
+            activeSegmentId={activeSegment?.id}
+            graphWidth={graphWidth}
+            graphHeight={graphHeight}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+            viewportPan={viewportPan}
+            viewportZoom={viewportZoom}
+            viewportSize={viewportSize}
+            lineOpacity={lineOpacity}
+            canZoomIn={viewportZoom < MAX_VIEWPORT_ZOOM - 0.001}
+            canZoomOut={viewportZoom > MIN_VIEWPORT_ZOOM + 0.001}
+            onViewportPanChange={scheduleViewportPan}
+            onZoomIn={() => setViewportZoomAt(viewportZoom * 1.18)}
+            onZoomOut={() => setViewportZoomAt(viewportZoom / 1.18)}
             onFitView={fitViewportToGraph}
           />
           {selectedSegmentIds.length > 1 && (
@@ -1326,7 +1379,10 @@ export function InteractiveSegmentExportWorkspace({
                 onClick={() => setPreviewSegmentId('')}
                 onPointerDown={(event) => event.stopPropagation()}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--vr-text-muted)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-text)]"
-                aria-label={t('关闭预览', 'プレビューを閉じる', 'Close preview')}
+                aria-label={formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1329',
+                )}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1376,14 +1432,28 @@ export function InteractiveSegmentExportWorkspace({
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm font-bold text-white/70">
-                        {previewItem?.text || t('这个片段没有媒体画面。', 'このセグメントにはメディアがありません。', 'This segment has no media preview.')}
+                        {previewItem?.text ||
+                          formatVideoText(
+                            language,
+                            'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1379',
+                          )}
                       </div>
                     )}
                     <canvas
                       ref={previewRenderCanvasRef}
                       className="absolute inset-0 z-10 h-full w-full cursor-pointer object-contain"
                       onClick={togglePreviewVideo}
-                      aria-label={videoPlaying ? t('暂停', '一時停止', 'Pause') : t('播放', '再生', 'Play')}
+                      aria-label={
+                        videoPlaying
+                          ? formatVideoText(
+                              language,
+                              'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1386',
+                            )
+                          : formatVideoText(
+                              language,
+                              'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1386_2',
+                            )
+                      }
                     />
                     {previewItems.length > 1 && (
                       <>
@@ -1392,7 +1462,10 @@ export function InteractiveSegmentExportWorkspace({
                           onClick={showPreviousPreviewItem}
                           disabled={previewItemIndex <= 0}
                           className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg transition-colors hover:bg-black/75 disabled:opacity-25"
-                          aria-label={t('上一张剧情卡片', '前のストーリーカード', 'Previous story card')}
+                          aria-label={formatVideoText(
+                            language,
+                            'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1395',
+                          )}
                         >
                           <ChevronLeft className="h-5 w-5" />
                         </button>
@@ -1401,7 +1474,10 @@ export function InteractiveSegmentExportWorkspace({
                           onClick={showNextPreviewItem}
                           disabled={previewItemIndex >= previewItems.length - 1}
                           className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg transition-colors hover:bg-black/75 disabled:opacity-25"
-                          aria-label={t('下一张剧情卡片', '次のストーリーカード', 'Next story card')}
+                          aria-label={formatVideoText(
+                            language,
+                            'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1404',
+                          )}
                         >
                           <ChevronRight className="h-5 w-5" />
                         </button>
@@ -1412,7 +1488,10 @@ export function InteractiveSegmentExportWorkspace({
                         type="button"
                         onClick={togglePreviewVideo}
                         className="absolute left-1/2 top-1/2 z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-xl transition-colors hover:bg-black/75"
-                        aria-label={t('播放视频', '動画を再生', 'Play video')}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1415',
+                        )}
                       >
                         <Play className="h-7 w-7 translate-x-0.5" />
                       </button>
@@ -1427,7 +1506,10 @@ export function InteractiveSegmentExportWorkspace({
                         onClick={showPreviousPreviewItem}
                         disabled={previewItemIndex <= 0}
                         className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
-                        aria-label={t('上一张剧情卡片', '前のストーリーカード', 'Previous story card')}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1430',
+                        )}
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
@@ -1436,7 +1518,15 @@ export function InteractiveSegmentExportWorkspace({
                         onClick={togglePreviewVideo}
                         className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)]"
                         aria-label={
-                          videoPlaying ? t('暂停', '一時停止', 'Pause') : t('播放', '再生', 'Play')
+                          videoPlaying
+                            ? formatVideoText(
+                                language,
+                                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1439',
+                              )
+                            : formatVideoText(
+                                language,
+                                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1439_2',
+                              )
                         }
                       >
                         {videoPlaying ? (
@@ -1456,7 +1546,10 @@ export function InteractiveSegmentExportWorkspace({
                         value={Math.min(videoProgress, Math.max(videoDuration, 0.01))}
                         onChange={(event) => seekPreviewVideo(Number(event.target.value))}
                         className="h-2 w-full accent-[var(--vr-accent)]"
-                        aria-label={t('视频播放轴', '動画シークバー', 'Video timeline')}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1459',
+                        )}
                       />
                       <span className="text-right text-[10px] font-black tabular-nums text-[var(--vr-text-muted)]">
                         {formatPlaybackTime(videoDuration)}
@@ -1466,7 +1559,10 @@ export function InteractiveSegmentExportWorkspace({
                         onClick={showNextPreviewItem}
                         disabled={previewItemIndex >= previewItems.length - 1}
                         className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
-                        aria-label={t('下一张剧情卡片', '次のストーリーカード', 'Next story card')}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1469',
+                        )}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </button>
@@ -1478,7 +1574,10 @@ export function InteractiveSegmentExportWorkspace({
                         onClick={showPreviousPreviewItem}
                         disabled={previewItemIndex <= 0}
                         className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
-                        aria-label={t('上一张剧情卡片', '前のストーリーカード', 'Previous story card')}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1481',
+                        )}
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
@@ -1493,7 +1592,10 @@ export function InteractiveSegmentExportWorkspace({
                         value={previewItemIndex}
                         onChange={(event) => selectPreviewItem(Number(event.target.value))}
                         className="h-2 w-full accent-[var(--vr-accent)]"
-                        aria-label={t('片段内部卡片轴', 'セグメント内カード軸', 'Segment card timeline')}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1496',
+                        )}
                       />
                       <span className="text-right text-[10px] font-black tabular-nums text-[var(--vr-text-muted)]">
                         {previewItems.length}
@@ -1503,7 +1605,10 @@ export function InteractiveSegmentExportWorkspace({
                         onClick={showNextPreviewItem}
                         disabled={previewItemIndex >= previewItems.length - 1}
                         className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--vr-surface-strong)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
-                        aria-label={t('下一张剧情卡片', '次のストーリーカード', 'Next story card')}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1506',
+                        )}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </button>
@@ -1513,7 +1618,10 @@ export function InteractiveSegmentExportWorkspace({
               </div>
               <div className="min-h-0 overflow-y-auto pr-1">
                 <div className="mb-2 text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
-                  {t('片段内部卡片', 'セグメント内カード', 'Cards in segment')}
+                  {formatVideoText(
+                    language,
+                    'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1516',
+                  )}
                 </div>
                 <div className="space-y-2">
                   {previewItems.map((item, index) => (
@@ -1548,11 +1656,17 @@ export function InteractiveSegmentExportWorkspace({
           >
             {[
               {
-                label: t('预览片段', 'セグメントをプレビュー', 'Preview segment'),
+                label: formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1551',
+                ),
                 onClick: () => openPreview(contextMenu.segmentId),
               },
               {
-                label: t('设为当前片段', '現在のセグメントにする', 'Select segment'),
+                label: formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1555',
+                ),
                 onClick: () => {
                   onSelectSegment(contextMenu.segmentId);
                   setContextMenu(null);
@@ -1560,15 +1674,24 @@ export function InteractiveSegmentExportWorkspace({
               },
               {
                 label: segments.find((segment) => segment.id === contextMenu.segmentId)?.enabled
-                  ? t('跳过导出', '書き出しをスキップ', 'Skip export')
-                  : t('加入导出', '書き出しに含める', 'Include in export'),
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1563',
+                    )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1564',
+                    ),
                 onClick: () => {
                   toggleSegmentEnabled(contextMenu.segmentId);
                   setContextMenu(null);
                 },
               },
               {
-                label: t('重新识别结构', '構造を再スキャン', 'Rescan structure'),
+                label: formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1571',
+                ),
                 onClick: () => {
                   onRescan();
                   setContextMenu(null);
@@ -1592,21 +1715,43 @@ export function InteractiveSegmentExportWorkspace({
         <div className="space-y-4">
           <div>
             <div className="text-sm font-black text-[var(--vr-text)]">
-              {t('互动分段导出', 'インタラクティブ分割書き出し', 'Interactive segment export')}
+              {formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1595',
+              )}
             </div>
             <div className="mt-1 text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
-              {t(
-                `遇到选择点自动切断：${segments.length} 个视频片段，${choiceCount} 个选择跳转`,
-                `選択地点で自動分割: ${segments.length} 個の動画セグメント、${choiceCount} 個の選択遷移`,
-                `Cut at choices: ${segments.length} video segments, ${choiceCount} choice link(s)`,
+              {formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1598',
+                segments.length,
+                choiceCount,
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <Stat label={t('片段', 'セグメント', 'Segments')} value={segments.length} />
-            <Stat label={t('选择', '選択', 'Choices')} value={choiceCount} />
-            <Stat label={t('导出', '書出し', 'Enabled')} value={enabledCount} />
+            <Stat
+              label={formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1607',
+              )}
+              value={segments.length}
+            />
+            <Stat
+              label={formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1608',
+              )}
+              value={choiceCount}
+            />
+            <Stat
+              label={formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1609',
+              )}
+              value={enabledCount}
+            />
           </div>
 
           <div className="flex gap-2">
@@ -1629,8 +1774,14 @@ export function InteractiveSegmentExportWorkspace({
                 <GitBranch className="h-4 w-4" />
               )}
               {exportSelectionMode === 'manual'
-                ? t('导出', '書き出し', 'Export')
-                : t('选择导出', '選択して書き出し', 'Select export')}
+                ? formatVideoText(
+                    language,
+                    'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1632',
+                  )
+                : formatVideoText(
+                    language,
+                    'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1633',
+                  )}
             </button>
             <button
               type="button"
@@ -1643,14 +1794,23 @@ export function InteractiveSegmentExportWorkspace({
                 <CheckSquare className="h-4 w-4" />
               )}
               {exportSelectionMode === 'all'
-                ? t('全不选', '選択解除', 'None')
-                : t('全部导出', 'すべて書き出し', 'Export all')}
+                ? formatVideoText(
+                    language,
+                    'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1646',
+                  )
+                : formatVideoText(
+                    language,
+                    'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1647',
+                  )}
             </button>
           </div>
 
           <div className="space-y-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
             <div className="text-[10px] font-black uppercase text-[var(--vr-text-muted)]">
-              {t('导出设置', '書き出し設定', 'Export settings')}
+              {formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1653',
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <SelectBox
@@ -1708,7 +1868,10 @@ export function InteractiveSegmentExportWorkspace({
                   setOutputDir(event.target.value);
                   setOutputDirError('');
                 }}
-                placeholder={t('默认保存到下载目录', '既定ではダウンロードへ保存', 'Defaults to Downloads')}
+                placeholder={formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1711',
+                )}
                 className={`h-9 min-w-0 flex-1 rounded-lg border bg-[var(--vr-surface)] px-2 text-xs font-bold text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)] ${
                   outputDirError ? 'border-rose-400/70' : 'border-transparent'
                 }`}
@@ -1717,33 +1880,45 @@ export function InteractiveSegmentExportWorkspace({
                 type="button"
                 onClick={chooseOutputDir}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--vr-surface)] text-[var(--vr-text-soft)] hover:text-[var(--vr-accent-strong)]"
-                title={t('选择保存文件夹', '保存フォルダーを選択', 'Choose folder')}
+                title={formatVideoText(
+                  language,
+                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1720',
+                )}
               >
                 <FolderOpen className="h-4 w-4" />
               </button>
             </div>
-            {outputDirError && <div className="text-xs font-bold text-rose-500">{outputDirError}</div>}
+            {outputDirError && (
+              <div className="text-xs font-bold text-rose-500">{outputDirError}</div>
+            )}
           </div>
 
           {(progress || error) && (
             <div className="space-y-2">
               {!error && (
                 <div className="h-2 overflow-hidden rounded-full border border-[var(--vr-border)] bg-[var(--vr-surface-soft)]">
-                  <div className="h-full bg-[var(--vr-accent)]" style={{ width: `${progressValue}%` }} />
+                  <div
+                    className="h-full bg-[var(--vr-accent)]"
+                    style={{ width: `${progressValue}%` }}
+                  />
                 </div>
               )}
-              <div className={`text-xs font-bold ${error ? 'text-rose-500' : 'text-[var(--vr-text-muted)]'}`}>
+              <div
+                className={`text-xs font-bold ${error ? 'text-rose-500' : 'text-[var(--vr-text-muted)]'}`}
+              >
                 {error || progress}
               </div>
             </div>
           )}
           {savedPath && (
             <div className="break-all rounded-lg border border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vr-accent-strong)]">
-              {t('最后保存到：', '最後の保存先: ', 'Last saved to: ')}
+              {formatVideoText(
+                language,
+                'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1742',
+              )}
               {savedPath}
             </div>
           )}
-
         </div>
       </aside>
     </main>

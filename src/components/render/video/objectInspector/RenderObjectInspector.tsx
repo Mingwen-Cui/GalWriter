@@ -1,3 +1,5 @@
+import { getVideoStructuredText } from '../i18n';
+import { formatVideoText } from '../i18n';
 import {
   Baseline,
   Blend,
@@ -97,7 +99,10 @@ export function RenderObjectInspector({
   visibleGroups?: RenderObjectInspectorGroup[];
 }) {
   const text = renderObjectText(language);
-  const closeLabel = language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close';
+  const closeLabel = formatVideoText(
+    language,
+    'componentsrendervideoobjectInspectorRenderObjectInspectorConditionalText100',
+  );
   const objects =
     surface === 'video' ? getVideoRenderObjects(renderStyle) : getRenderObjects(renderStyle);
   const selectedKind = renderStyle.selectedRenderObject || 'dialogBox';
@@ -105,51 +110,35 @@ export function RenderObjectInspector({
   const textObject = isTextRenderObject(selectedKind)
     ? (selected as RenderEditableTextObject)
     : null;
-  const nameplateToggleText =
-    language === 'zh'
-      ? { inside: '在对话框内', outside: '在对话框外', follow: '跟随角色', fixed: '固定位置' }
-      : language === 'ja'
-        ? { inside: '会話枠内', outside: '会話枠外', follow: 'キャラに追従', fixed: '固定位置' }
-        : {
-            inside: 'Inside dialog',
-            outside: 'Outside dialog',
-            follow: 'Follow character',
-            fixed: 'Fixed position',
-          };
-  const shadowModeLabels =
-    language === 'zh'
-      ? { outer: '外阴影', inner: '内阴影', innerBlur: '内部模糊' }
-      : language === 'ja'
-        ? { outer: '外側', inner: '内側', innerBlur: '内ぼかし' }
-        : { outer: 'Outer', inner: 'Inner', innerBlur: 'Inner blur' };
+  const nameplateToggleText = getVideoStructuredText(
+    language,
+    'componentsrendervideoobjectInspectorRenderObjectInspectorStructuredText110',
+  );
+  const shadowModeLabels = getVideoStructuredText(
+    language,
+    'componentsrendervideoobjectInspectorRenderObjectInspectorStructuredText121',
+  );
   const [popover, setPopover] = useState<Popover>(null);
   const showsGroup = (group: RenderObjectInspectorGroup) =>
     !visibleGroups || visibleGroups.includes(group);
-  const strokeLabels =
-    language === 'zh'
-      ? { style: '描边样式', color: '描边颜色与透明度' }
-      : language === 'ja'
-        ? { style: '縁取りの種類', color: '縁取りの色と不透明度' }
-        : { style: 'Stroke style', color: 'Stroke color and opacity' };
-  const shadowLabels =
-    language === 'zh'
-      ? { type: '阴影类型', color: '阴影颜色与透明度', add: '增加' }
-      : language === 'ja'
-        ? { type: '影の種類', color: '影の色と不透明度', add: '追加' }
-        : { type: 'Shadow type', color: 'Shadow color and opacity', add: 'Add' };
-  const animationLabels =
-    language === 'zh'
-      ? { type: '动画类型', typewriter: '打字粒度' }
-      : language === 'ja'
-        ? { type: 'アニメーション種類', typewriter: 'タイプ単位' }
-        : { type: 'Animation type', typewriter: 'Typing unit' };
+  const strokeLabels = getVideoStructuredText(
+    language,
+    'componentsrendervideoobjectInspectorRenderObjectInspectorStructuredText130',
+  );
+  const shadowLabels = getVideoStructuredText(
+    language,
+    'componentsrendervideoobjectInspectorRenderObjectInspectorStructuredText136',
+  );
+  const animationLabels = getVideoStructuredText(
+    language,
+    'componentsrendervideoobjectInspectorRenderObjectInspectorStructuredText142',
+  );
   const positionTitle = selected.visible
     ? text.group.position
-    : language === 'zh'
-      ? '已隐藏'
-      : language === 'ja'
-        ? '非表示'
-        : 'Hidden';
+    : formatVideoText(
+        language,
+        'componentsrendervideoobjectInspectorRenderObjectInspectorConditionalText148',
+      );
 
   const setSelectedKind = (kind: RenderEditableObjectKind) => {
     updateRenderStyle('selectedRenderObject', kind);
@@ -846,11 +835,10 @@ export function RenderObjectInspector({
           </InspectorGroup>
           {surface === 'video' && (
             <p className="mt-1 px-2 text-[10px] text-slate-500">
-              {language === 'zh'
-                ? '视频文字动画暂不可用'
-                : language === 'ja'
-                  ? '動画テキストアニメーションは現在利用できません'
-                  : 'Video text animation is currently unavailable'}
+              {formatVideoText(
+                language,
+                'componentsrendervideoobjectInspectorRenderObjectInspectorConditionalText849',
+              )}
             </p>
           )}
         </div>

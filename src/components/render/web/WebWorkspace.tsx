@@ -1,3 +1,4 @@
+import { formatWebText } from './i18n';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -28,7 +29,6 @@ import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
-import { renderCopy } from '../video/shared/renderCopy';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { StartMenuBackgroundInspector } from './StartMenuBackgroundInspector';
@@ -286,7 +286,6 @@ export function WebWorkspace({
   updateWebRenderStyle,
   callAIForTextResult,
 }: WebWorkspaceProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const webCopy = getWebSettingsCopy(language);
   const [aiStartMenuDesigning, setAiStartMenuDesigning] = useState(false);
   const [aiStartMenuDesignError, setAiStartMenuDesignError] = useState('');
@@ -531,7 +530,7 @@ export function WebWorkspace({
     const copy: SavedWebExperienceTemplate = {
       ...source,
       id: `template-${Date.now()}`,
-      name: `${source.name} ${t('副本', 'コピー', 'copy')}`,
+      name: `${source.name} ${formatWebText(language, 'componentsrenderwebWebWorkspaceText534')}`,
       savedAt: Date.now(),
     };
     persistTemplateLibrary([copy, ...savedTemplateLibrary]);
@@ -714,29 +713,25 @@ export function WebWorkspace({
     ) {
       updateWebSettings('settingsPageElements', compacted);
     }
-  }, [defaultSettingsPageElements, t, updateWebSettings, webSettings.settingsPageElements]);
+  }, [defaultSettingsPageElements, language, updateWebSettings, webSettings.settingsPageElements]);
   const webExperiencePresets = useMemo(
     () =>
       buildWebExperiencePresets({
         language,
-        title: webProjectName || t('开始', 'スタート', 'Start'),
-        subtitle: t('没有存档', 'セーブなし', 'No save'),
-        save: t('存档', 'セーブ', 'Save'),
-        newGame: t('新游戏', '新規ゲーム', 'New Game'),
-        settings: t('设置', '設定', 'Settings'),
-        archiveTitle: t('存档', 'セーブ', 'Save'),
-        archiveBack: t('返回', '戻る', 'Back'),
-        archiveSlot: t(
-          '没有存档\n导出后的网页会在这里显示上次进度。',
-          'セーブなし\n書き出し後のWebでは前回の進行がここに表示されます。',
-          'No save\nExported web builds show the last progress here.',
-        ),
-        archiveNew: t('新游戏', '新規ゲーム', 'New Game'),
-        settingsTitle: t('设置', '設定', 'Settings'),
+        title: webProjectName || formatWebText(language, 'componentsrenderwebWebWorkspaceText722'),
+        subtitle: formatWebText(language, 'componentsrenderwebWebWorkspaceText723'),
+        save: formatWebText(language, 'componentsrenderwebWebWorkspaceText724'),
+        newGame: formatWebText(language, 'componentsrenderwebWebWorkspaceText725'),
+        settings: formatWebText(language, 'componentsrenderwebWebWorkspaceText726'),
+        archiveTitle: formatWebText(language, 'componentsrenderwebWebWorkspaceText727'),
+        archiveBack: formatWebText(language, 'componentsrenderwebWebWorkspaceText728'),
+        archiveSlot: formatWebText(language, 'componentsrenderwebWebWorkspaceText729'),
+        archiveNew: formatWebText(language, 'componentsrenderwebWebWorkspaceText734'),
+        settingsTitle: formatWebText(language, 'componentsrenderwebWebWorkspaceText735'),
         settingsBack: getWebSettingsCopy(language).backToMainMenu,
-        settingsAuto: t('自动播放', '自動再生', 'Auto play'),
-        settingsSpeed: t('打字速度', 'テキスト速度', 'Text speed'),
-        settingsControls: t('显示控制栏', '操作表示', 'Show controls'),
+        settingsAuto: formatWebText(language, 'componentsrenderwebWebWorkspaceText737'),
+        settingsSpeed: formatWebText(language, 'componentsrenderwebWebWorkspaceText738'),
+        settingsControls: formatWebText(language, 'componentsrenderwebWebWorkspaceText739'),
         settingsTextSize: getWebSettingsCopy(language).textSize,
         settingsAnimationSpeed: getWebSettingsCopy(language).animationSpeed,
         settingsSound: getWebSettingsCopy(language).sound,
@@ -798,7 +793,7 @@ export function WebWorkspace({
   const applyRehearsalTemplate = () => {
     const template = buildRehearsalTemplate(
       language,
-      webProjectName || t('开始', 'スタート', 'Start'),
+      webProjectName || formatWebText(language, 'componentsrenderwebWebWorkspaceText801'),
     );
     updateWebSettingsBulk(template.settings);
     Object.entries(template.renderStyle).forEach(([key, value]) => {
@@ -917,22 +912,22 @@ export function WebWorkspace({
   const surfaceMeta = {
     start: {
       icon: LayoutTemplate,
-      title: t('菜单设计', 'メニュー設計', 'Menu design'),
+      title: formatWebText(language, 'componentsrenderwebWebWorkspaceText920'),
       backgroundSurface: 'start' as const,
     },
     archive: {
       icon: Save,
-      title: t('存档页设计', 'セーブ画面設計', 'Save design'),
+      title: formatWebText(language, 'componentsrenderwebWebWorkspaceText925'),
       backgroundSurface: 'archive' as const,
     },
     settings: {
       icon: Settings,
-      title: t('设置页设计', '設定画面設計', 'Settings design'),
+      title: formatWebText(language, 'componentsrenderwebWebWorkspaceText930'),
       backgroundSurface: 'settings' as const,
     },
     game: {
       icon: Palette,
-      title: t('对话设计', 'ダイアログ設計', 'Dialog design'),
+      title: formatWebText(language, 'componentsrenderwebWebWorkspaceText935'),
       backgroundSurface: 'game' as const,
     },
   } satisfies Record<
@@ -1150,7 +1145,7 @@ export function WebWorkspace({
       id,
       kind: 'button',
       role: 'custom',
-      text: t('按钮', 'ボタン', 'Button'),
+      text: formatWebText(language, 'componentsrenderwebWebWorkspaceText1153'),
       visible: true,
       x: 38,
       y: 48,
@@ -1193,7 +1188,9 @@ export function WebWorkspace({
               id: 'title',
               kind: 'text',
               role: 'title',
-              text: webProjectName || t('开始', 'スタート', 'Start'),
+              text:
+                webProjectName ||
+                formatWebText(language, 'componentsrenderwebWebWorkspaceText1196'),
               visible: true,
               x: 22,
               y: 30,
@@ -1209,7 +1206,7 @@ export function WebWorkspace({
               id: 'subtitle',
               kind: 'text',
               role: 'subtitle',
-              text: t('没有存档', 'セーブなし', 'No save'),
+              text: formatWebText(language, 'componentsrenderwebWebWorkspaceText1212'),
               visible: true,
               x: 22,
               y: 43,
@@ -1225,7 +1222,7 @@ export function WebWorkspace({
               id: 'save',
               kind: 'button',
               role: 'save',
-              text: t('存档', 'セーブ', 'Save'),
+              text: formatWebText(language, 'componentsrenderwebWebWorkspaceText1228'),
               visible: true,
               x: 33,
               y: 61,
@@ -1246,7 +1243,7 @@ export function WebWorkspace({
               id: 'new',
               kind: 'button',
               role: 'new',
-              text: t('新游戏', '新規ゲーム', 'New Game'),
+              text: formatWebText(language, 'componentsrenderwebWebWorkspaceText1249'),
               visible: true,
               x: 33,
               y: 73,
@@ -1267,7 +1264,7 @@ export function WebWorkspace({
               id: 'settings',
               kind: 'button',
               role: 'settings',
-              text: t('设置', '設定', 'Settings'),
+              text: formatWebText(language, 'componentsrenderwebWebWorkspaceText1270'),
               visible: true,
               x: 33,
               y: 85,
@@ -1546,19 +1543,19 @@ JSON schema:
               <>
                 <AddElementButton
                   icon={Type}
-                  label={t('添加文字', 'テキスト追加', 'Add text')}
+                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1549')}
                   onClick={addCurrentSurfaceText}
                   tone="indigo"
                 />
                 <AddElementButton
                   icon={ImagePlus}
-                  label={t('添加图片', '画像追加', 'Add image')}
+                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1555')}
                   onClick={addCurrentSurfaceImage}
                   tone="emerald"
                 />
                 <AddElementButton
                   icon={MousePointerClick}
-                  label={t('添加按钮', 'ボタン追加', 'Add button')}
+                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1561')}
                   onClick={addCurrentSurfaceButton}
                   tone="amber"
                 />
@@ -1568,12 +1565,8 @@ JSON schema:
               type="button"
               onClick={() => setPreviewRefreshKey((key) => key + 1)}
               className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]"
-              title={t('刷新项目预览', 'プロジェクトプレビューを更新', 'Refresh project preview')}
-              aria-label={t(
-                '刷新项目预览',
-                'プロジェクトプレビューを更新',
-                'Refresh project preview',
-              )}
+              title={formatWebText(language, 'componentsrenderwebWebWorkspaceText1571')}
+              aria-label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1572')}
             >
               <RotateCw className="h-4 w-4" />
             </button>
@@ -1586,7 +1579,7 @@ JSON schema:
                 title={webCopy.testTools}
               >
                 <Gamepad2 className="h-3.5 w-3.5" />
-                {t('测试工具', 'テストツール', 'Test tools')}
+                {formatWebText(language, 'componentsrenderwebWebWorkspaceText1589')}
               </button>
             )}
           </div>
@@ -1647,34 +1640,44 @@ JSON schema:
             <div
               className="absolute inset-y-0 -left-1 z-40 w-2 cursor-col-resize touch-none"
               onPointerDown={beginTestPanelResize}
-              aria-label={t('调整测试工具宽度', 'テストツールの幅を調整', 'Resize test tools')}
+              aria-label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1650')}
             />
           )}
           <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between gap-3 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
             <div className="flex min-w-0 items-center gap-2">
-              {startMenuPreviewMode === 'test' ? <Gamepad2 className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" /> : <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />}
-              <span className="truncate">{startMenuPreviewMode === 'test' ? t('测试工具', 'テストツール', 'Test tools') : t('导出设置', '書き出し設定', 'Export settings')}</span>
-              {startMenuPreviewMode === 'edit' && <button
-                type="button"
-                onClick={() => setShowSettingDescriptions((current) => !current)}
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  showSettingDescriptions
-                    ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
-                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                }`}
-                title={
-                  showSettingDescriptions
-                    ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
-                    : t('显示参数说明', '説明を表示', 'Show descriptions')
-                }
-                aria-label={
-                  showSettingDescriptions
-                    ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
-                    : t('显示参数说明', '説明を表示', 'Show descriptions')
-                }
-              >
-                <Info className="h-3.5 w-3.5" />
-              </button>}
+              {startMenuPreviewMode === 'test' ? (
+                <Gamepad2 className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
+              ) : (
+                <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
+              )}
+              <span className="truncate">
+                {startMenuPreviewMode === 'test'
+                  ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1656')
+                  : formatWebText(language, 'componentsrenderwebWebWorkspaceText1656_2')}
+              </span>
+              {startMenuPreviewMode === 'edit' && (
+                <button
+                  type="button"
+                  onClick={() => setShowSettingDescriptions((current) => !current)}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                    showSettingDescriptions
+                      ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
+                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+                  }`}
+                  title={
+                    showSettingDescriptions
+                      ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1667')
+                      : formatWebText(language, 'componentsrenderwebWebWorkspaceText1668')
+                  }
+                  aria-label={
+                    showSettingDescriptions
+                      ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1672')
+                      : formatWebText(language, 'componentsrenderwebWebWorkspaceText1673')
+                  }
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
             <div className="w-36 shrink-0">
               <WebPillToggleGroup
@@ -1698,27 +1701,30 @@ JSON schema:
               <div className="space-y-4">
                 <section className="rounded-xl bg-[var(--vr-surface-soft)] p-3">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                    {t('当前场景', '現在のシーン', 'Current scene')}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText1701')}
                   </div>
                   <div className="mt-2 text-sm font-black text-[var(--vr-text)]">
-                    {testState?.currentNodeTitle || t('正在加载', '読み込み中', 'Loading')}
+                    {testState?.currentNodeTitle ||
+                      formatWebText(language, 'componentsrenderwebWebWorkspaceText1704')}
                   </div>
                   <div className="mt-1 text-[10px] text-[var(--vr-text-muted)]">
-                    {testState?.currentNodeType || '—'} · {t('进入', '到達', 'Entered')}{' '}
-                    {testState?.entryCount || 0} {t('次', '回', 'time(s)')}
+                    {testState?.currentNodeType || '—'} ·{' '}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText1707')}{' '}
+                    {testState?.entryCount || 0}{' '}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText1708')}
                   </div>
                 </section>
                 <section className="rounded-xl bg-[var(--vr-surface-soft)] p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                      {t('分支路径', '分岐パス', 'Branch path')}
+                      {formatWebText(language, 'componentsrenderwebWebWorkspaceText1714')}
                     </div>
                     <button
                       type="button"
                       onClick={() => dispatchTestAction('restart')}
                       className="text-[10px] font-black text-[var(--vr-accent)]"
                     >
-                      {t('重新开始', 'リスタート', 'Restart')}
+                      {formatWebText(language, 'componentsrenderwebWebWorkspaceText1721')}
                     </button>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1741,7 +1747,7 @@ JSON schema:
                 </section>
                 <section className="rounded-xl bg-[var(--vr-surface-soft)] p-3">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                    {t('状态与条件', '状態と条件', 'State & conditions')}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText1744')}
                   </div>
                   <div className="mt-2 space-y-1.5 text-[11px] text-[var(--vr-text-soft)]">
                     {testState?.nodeValues.length ? (
@@ -1756,20 +1762,20 @@ JSON schema:
                       ))
                     ) : (
                       <div>
-                        {t('尚无数值变化', '数値の変化はありません', 'No value changes yet')}
+                        {formatWebText(language, 'componentsrenderwebWebWorkspaceText1759')}
                       </div>
                     )}
                     {testState?.conditionResult && (
                       <div className="border-t border-[var(--vr-border)] pt-1.5">
-                        {t('条件', '条件', 'Condition')}: {testState.conditionResult.total} →{' '}
-                        {testState.conditionResult.label}
+                        {formatWebText(language, 'componentsrenderwebWebWorkspaceText1764')}:{' '}
+                        {testState.conditionResult.total} → {testState.conditionResult.label}
                       </div>
                     )}
                   </div>
                 </section>
                 <section className="rounded-xl bg-[var(--vr-surface-soft)] p-3">
                   <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                    {t('快速跳转', 'クイックジャンプ', 'Quick jump')}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText1772')}
                   </div>
                   <div className="mt-2 grid max-h-36 gap-1 overflow-y-auto">
                     {nodes
@@ -1794,18 +1800,18 @@ JSON schema:
                     onClick={() => dispatchTestAction('clearSaves')}
                     className="rounded-lg bg-[var(--vr-surface-soft)] px-2 py-2 text-[10px] font-black text-[var(--vr-text-soft)] hover:text-rose-500"
                   >
-                    {t('清空存档', 'セーブを消去', 'Clear saves')}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText1797')}
                   </button>
                   <button
                     type="button"
                     onClick={() => void copyTestContext()}
                     className="rounded-lg bg-[var(--vr-accent)] px-2 py-2 text-[10px] font-black text-white"
                   >
-                    {t('复制测试上下文', 'テスト情報をコピー', 'Copy test context')}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText1804')}
                   </button>
                 </section>
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-[var(--vr-surface-soft)] px-3 py-2 text-[11px] font-bold text-[var(--vr-text-soft)]">
-                  <span>{t('显示调试信息', 'デバッグ情報を表示', 'Show debug information')}</span>
+                  <span>{formatWebText(language, 'componentsrenderwebWebWorkspaceText1808')}</span>
                   <input
                     type="checkbox"
                     checked={testDebugInfoVisible}
@@ -1824,20 +1830,35 @@ JSON schema:
                         options={[
                           {
                             value: 'start',
-                            label: t('主界面', 'メイン', 'Menu'),
+                            label: formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText1827',
+                            ),
                             disabled: !webSettings.showStartMenu,
                           },
                           {
                             value: 'archive',
-                            label: t('存档', 'セーブ', 'Save'),
+                            label: formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText1832',
+                            ),
                             disabled: !webSettings.showStartMenu,
                           },
                           {
                             value: 'settings',
-                            label: t('设置', '設定', 'Settings'),
+                            label: formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText1837',
+                            ),
                             disabled: !webSettings.showStartMenu,
                           },
-                          { value: 'game', label: t('对话', '会話', 'Dialog') },
+                          {
+                            value: 'game',
+                            label: formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText1840',
+                            ),
+                          },
                         ]}
                         columns="grid-cols-4"
                         onChange={(value) => {
@@ -1861,14 +1882,14 @@ JSON schema:
                               onClick={() => setDesignPanelMode('background')}
                               className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${designPanelMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                             >
-                              {t('背景样式', '背景スタイル', 'Background')}
+                              {formatWebText(language, 'componentsrenderwebWebWorkspaceText1864')}
                             </button>
                             <button
                               type="button"
                               onClick={() => setDesignPanelMode('preset')}
                               className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${designPanelMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                             >
-                              {t('预设', 'プリセット', 'Preset')}
+                              {formatWebText(language, 'componentsrenderwebWebWorkspaceText1871')}
                             </button>
                           </div>
                         </div>
@@ -1883,7 +1904,10 @@ JSON schema:
                         {false && (
                           <IconToolButton
                             icon={LayoutTemplate}
-                            label={t('应用排练模板', 'リハーサルを適用', 'Apply rehearsal')}
+                            label={formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText1886',
+                            )}
                             onClick={applyRehearsalTemplate}
                           />
                         )}
@@ -1936,15 +1960,13 @@ JSON schema:
                                   </span>
                                   <span className="block text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
                                     {template.scope === 'current'
-                                      ? t(
-                                          '当前页面模板',
-                                          '現在のページ用テンプレート',
-                                          'Current-page template',
+                                      ? formatWebText(
+                                          language,
+                                          'componentsrenderwebWebWorkspaceText1939',
                                         )
-                                      : t(
-                                          '所有页面模板',
-                                          '全ページ用テンプレート',
-                                          'All-pages template',
+                                      : formatWebText(
+                                          language,
+                                          'componentsrenderwebWebWorkspaceText1944',
                                         )}
                                   </span>
                                 </span>
@@ -1958,10 +1980,9 @@ JSON schema:
                                   loadStartMenuDesign(template.id);
                                 }}
                                 className={`grid gap-1 rounded-lg border p-2 text-left transition-colors hover:border-indigo-500/35 hover:bg-white/5 ${selectedSavedTemplateId === template.id ? 'border-indigo-500/45 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
-                                title={t(
-                                  '应用此模板',
-                                  'このテンプレートを適用',
-                                  'Apply this template',
+                                title={formatWebText(
+                                  language,
+                                  'componentsrenderwebWebWorkspaceText1961',
                                 )}
                               >
                                 <span className="flex items-center justify-between gap-2">
@@ -1976,15 +1997,13 @@ JSON schema:
                                 </span>
                                 <span className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
                                   {template.scope === 'current'
-                                    ? t(
-                                        '当前页面模板',
-                                        '現在のページ用テンプレート',
-                                        'Current-page template',
+                                    ? formatWebText(
+                                        language,
+                                        'componentsrenderwebWebWorkspaceText1979',
                                       )
-                                    : t(
-                                        '所有页面模板',
-                                        '全ページ用テンプレート',
-                                        'All-pages template',
+                                    : formatWebText(
+                                        language,
+                                        'componentsrenderwebWebWorkspaceText1984',
                                       )}
                                 </span>
                               </button>
@@ -1995,13 +2014,19 @@ JSON schema:
                           <div className="grid grid-cols-2 gap-2">
                             <IconToolButton
                               icon={Save}
-                              label={t('保存至所选', '選択へ保存', 'Save to selected')}
+                              label={formatWebText(
+                                language,
+                                'componentsrenderwebWebWorkspaceText1998',
+                              )}
                               onClick={saveSelectedTemplates}
                               disabled={selectedTemplateEditIds.length === 0}
                             />
                             <IconToolButton
                               icon={Trash2}
-                              label={t('删除所选', '選択を削除', 'Delete selected')}
+                              label={formatWebText(
+                                language,
+                                'componentsrenderwebWebWorkspaceText2004',
+                              )}
                               onClick={deleteSelectedTemplates}
                               disabled={selectedTemplateEditIds.length === 0}
                             />
@@ -2010,11 +2035,14 @@ JSON schema:
                         <div className="grid grid-cols-2 gap-2">
                           <IconToolButton
                             icon={Save}
-                            label={t('保存模板', 'テンプレートを保存', 'Save template')}
+                            label={formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText2013',
+                            )}
                             onClick={() => {
                               setSelectedSavedTemplateId(null);
                               setTemplateNameDraft(
-                                t('我的模板', 'マイテンプレート', 'My template'),
+                                formatWebText(language, 'componentsrenderwebWebWorkspaceText2017'),
                               );
                               setTemplateSaveScope('current');
                               setIsSaveTemplateDialogOpen(true);
@@ -2024,8 +2052,8 @@ JSON schema:
                             icon={Settings}
                             label={
                               isTemplateEditing
-                                ? t('完成编辑', '編集を完了', 'Done editing')
-                                : t('编辑模板', 'テンプレートを編集', 'Edit templates')
+                                ? formatWebText(language, 'componentsrenderwebWebWorkspaceText2027')
+                                : formatWebText(language, 'componentsrenderwebWebWorkspaceText2028')
                             }
                             onClick={() => {
                               setIsTemplateEditing((editing) => !editing);
@@ -2043,11 +2071,7 @@ JSON schema:
                             className="h-8 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 text-[11px] font-bold text-[var(--vr-text)]"
                           >
                             <option value="">
-                              {t(
-                                '选择已保存模板',
-                                '保存済みテンプレートを選択',
-                                'Choose a saved template',
-                              )}
+                              {formatWebText(language, 'componentsrenderwebWebWorkspaceText2046')}
                             </option>
                             {savedTemplateLibrary.map((template) => (
                               <option key={template.id} value={template.id}>
@@ -2073,14 +2097,10 @@ JSON schema:
                           onMouseDown={(event) => event.stopPropagation()}
                         >
                           <div className="text-sm font-black text-slate-950">
-                            {t('保存当前方案', '現在のプランを保存', 'Save current design')}
+                            {formatWebText(language, 'componentsrenderwebWebWorkspaceText2076')}
                           </div>
                           <div className="mt-1 text-xs leading-5 text-slate-500">
-                            {t(
-                              '保存后可从模板列表再次应用。',
-                              '保存後、テンプレート一覧から再適用できます。',
-                              'Saved templates can be applied again from this list.',
-                            )}
+                            {formatWebText(language, 'componentsrenderwebWebWorkspaceText2079')}
                           </div>
                           <input
                             value={templateNameDraft}
@@ -2099,7 +2119,7 @@ JSON schema:
                                 onChange={() => setTemplateSaveScope('current')}
                                 className="accent-indigo-600"
                               />
-                              {t('保存当前页面', '現在のページを保存', 'Save current page')}
+                              {formatWebText(language, 'componentsrenderwebWebWorkspaceText2102')}
                             </label>
                             <label
                               className={`flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border text-xs font-bold ${templateSaveScope === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'}`}
@@ -2111,7 +2131,7 @@ JSON schema:
                                 onChange={() => setTemplateSaveScope('all')}
                                 className="accent-indigo-600"
                               />
-                              {t('保存所有页面', '全ページを保存', 'Save all pages')}
+                              {formatWebText(language, 'componentsrenderwebWebWorkspaceText2114')}
                             </label>
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -2120,7 +2140,7 @@ JSON schema:
                               onClick={() => setIsSaveTemplateDialogOpen(false)}
                               className="h-10 rounded-xl bg-slate-100 text-xs font-bold text-slate-700"
                             >
-                              {t('取消', 'キャンセル', 'Cancel')}
+                              {formatWebText(language, 'componentsrenderwebWebWorkspaceText2123')}
                             </button>
                             <button
                               type="button"
@@ -2132,7 +2152,7 @@ JSON schema:
                               }}
                               className="h-10 rounded-xl bg-indigo-600 text-xs font-bold text-white"
                             >
-                              {t('保存模板', 'テンプレートを保存', 'Save template')}
+                              {formatWebText(language, 'componentsrenderwebWebWorkspaceText2135')}
                             </button>
                           </div>
                         </div>
@@ -2148,18 +2168,10 @@ JSON schema:
                           onMouseDown={(event) => event.stopPropagation()}
                         >
                           <div className="text-sm font-black text-slate-950">
-                            {t(
-                              '编辑已保存模板',
-                              '保存済みテンプレートを編集',
-                              'Edit saved templates',
-                            )}
+                            {formatWebText(language, 'componentsrenderwebWebWorkspaceText2151')}
                           </div>
                           <div className="mt-1 text-xs text-slate-500">
-                            {t(
-                              '可应用、复制或删除已保存的模板。',
-                              '保存済みテンプレートを適用、複製、削除できます。',
-                              'Apply, duplicate, or delete saved templates.',
-                            )}
+                            {formatWebText(language, 'componentsrenderwebWebWorkspaceText2158')}
                           </div>
                           <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto">
                             {savedTemplateLibrary.length ? (
@@ -2176,10 +2188,9 @@ JSON schema:
                                       setIsTemplateLibraryOpen(false);
                                     }}
                                     className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-bold hover:text-indigo-700"
-                                    title={t(
-                                      '应用此模板',
-                                      'このテンプレートを適用',
-                                      'Apply this template',
+                                    title={formatWebText(
+                                      language,
+                                      'componentsrenderwebWebWorkspaceText2179',
                                     )}
                                   >
                                     <TemplateMiniPreview
@@ -2193,15 +2204,13 @@ JSON schema:
                                     type="button"
                                     onClick={() => duplicateSavedTemplate(template.id)}
                                     className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-white hover:text-indigo-600"
-                                    title={t(
-                                      '复制模板',
-                                      'テンプレートを複製',
-                                      'Duplicate template',
+                                    title={formatWebText(
+                                      language,
+                                      'componentsrenderwebWebWorkspaceText2196',
                                     )}
-                                    aria-label={t(
-                                      '复制模板',
-                                      'テンプレートを複製',
-                                      'Duplicate template',
+                                    aria-label={formatWebText(
+                                      language,
+                                      'componentsrenderwebWebWorkspaceText2201',
                                     )}
                                   >
                                     <Copy className="h-3.5 w-3.5" />
@@ -2210,11 +2219,13 @@ JSON schema:
                                     type="button"
                                     onClick={() => deleteSavedTemplate(template.id)}
                                     className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600"
-                                    title={t('删除模板', 'テンプレートを削除', 'Delete template')}
-                                    aria-label={t(
-                                      '删除模板',
-                                      'テンプレートを削除',
-                                      'Delete template',
+                                    title={formatWebText(
+                                      language,
+                                      'componentsrenderwebWebWorkspaceText2213',
+                                    )}
+                                    aria-label={formatWebText(
+                                      language,
+                                      'componentsrenderwebWebWorkspaceText2214',
                                     )}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
@@ -2223,11 +2234,7 @@ JSON schema:
                               ))
                             ) : (
                               <div className="rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">
-                                {t(
-                                  '还没有保存的模板。',
-                                  '保存済みのテンプレートはありません。',
-                                  'No saved templates yet.',
-                                )}
+                                {formatWebText(language, 'componentsrenderwebWebWorkspaceText2226')}
                               </div>
                             )}
                           </div>
@@ -2236,7 +2243,7 @@ JSON schema:
                             onClick={() => setIsTemplateLibraryOpen(false)}
                             className="mt-3 h-10 w-full rounded-xl bg-slate-100 text-xs font-bold text-slate-700"
                           >
-                            {t('关闭', '閉じる', 'Close')}
+                            {formatWebText(language, 'componentsrenderwebWebWorkspaceText2239')}
                           </button>
                         </div>
                       </div>

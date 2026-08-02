@@ -1,8 +1,8 @@
+import { formatVideoText } from '../i18n';
 import { X } from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
 import { LoadingAnimation } from '../../../LoadingAnimation';
-import { renderCopy } from '../shared/renderCopy';
 
 type RenderProgressModalProps = {
   language: Language;
@@ -19,7 +19,6 @@ export function RenderProgressModal({
   cancelling,
   onCancel,
 }: RenderProgressModalProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const safeProgress = Math.min(100, Math.max(0, progressValue));
 
   return (
@@ -41,15 +40,11 @@ export function RenderProgressModal({
               className="text-xl font-black text-[var(--vr-text)]"
             >
               {cancelling
-                ? t('正在取消渲染', 'レンダリングをキャンセル中', 'Cancelling render')
-                : t('正在渲染视频', '動画をレンダリング中', 'Rendering video')}
+                ? formatVideoText(language, 'componentsrendervideopanelsRenderProgressModalText44')
+                : formatVideoText(language, 'componentsrendervideopanelsRenderProgressModalText45')}
             </h3>
             <p className="mt-1 text-sm leading-6 text-[var(--vr-text-soft)]">
-              {t(
-                '渲染期间暂时无法操作其他内容，请保持应用运行。',
-                'レンダリング中は他の操作を行えません。アプリを起動したままにしてください。',
-                'Other controls are locked while rendering. Please keep the app running.',
-              )}
+              {formatVideoText(language, 'componentsrendervideopanelsRenderProgressModalText48')}
             </p>
           </div>
         </div>
@@ -57,7 +52,8 @@ export function RenderProgressModal({
         <div className="mt-7">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold">
             <span className="min-w-0 truncate text-[var(--vr-text-soft)]">
-              {progress || t('正在准备渲染...', 'レンダリングを準備中...', 'Preparing render...')}
+              {progress ||
+                formatVideoText(language, 'componentsrendervideopanelsRenderProgressModalText60')}
             </span>
             <span className="shrink-0 tabular-nums text-[var(--vr-accent-strong)]">
               {Math.round(safeProgress)}%
@@ -79,8 +75,8 @@ export function RenderProgressModal({
         >
           {cancelling ? <LoadingAnimation className="h-4 w-4" /> : <X className="h-4 w-4" />}
           {cancelling
-            ? t('正在取消...', 'キャンセル中...', 'Cancelling...')
-            : t('取消渲染', 'レンダリングをキャンセル', 'Cancel render')}
+            ? formatVideoText(language, 'componentsrendervideopanelsRenderProgressModalText82')
+            : formatVideoText(language, 'componentsrendervideopanelsRenderProgressModalText83')}
         </button>
       </div>
     </div>

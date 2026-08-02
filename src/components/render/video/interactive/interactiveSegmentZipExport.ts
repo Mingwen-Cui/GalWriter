@@ -1,3 +1,4 @@
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 import type { Dispatch, SetStateAction } from 'react';
@@ -5,7 +6,6 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import { saveRenderedWebZip } from '../export/tauriRenderAdapter';
 import { isTauriRuntime } from '../shared/mediaUtils';
-import { renderCopy } from '../shared/renderCopy';
 import type { RenderStatus } from '../shared/types';
 import {
   buildSegmentLayout,
@@ -75,7 +75,6 @@ export const exportInteractiveSegmentZip = async ({
   setProgress,
   setProgressValue,
 }: ExportZipArgs) => {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const orderIds = exportOrderIds?.length
     ? exportOrderIds
     : buildInteractiveSegmentExportOrder(segments, activeSegmentId);
@@ -84,7 +83,12 @@ export const exportInteractiveSegmentZip = async ({
     orderIds,
   );
   if (enabledSegments.length === 0) {
-    setError(t('请先选择要导出的互动片段。', '書き出すインタラクティブセグメントを選択してください。', 'Select interactive segments to export first.'));
+    setError(
+      formatVideoText(
+        language,
+        'componentsrendervideointeractiveinteractiveSegmentZipExportText87',
+      ),
+    );
     return;
   }
 
@@ -94,7 +98,9 @@ export const exportInteractiveSegmentZip = async ({
   setError('');
   setSavedPath('');
   setProgressValue(0);
-  setProgress(t('准备导出互动分段 ZIP...', 'インタラクティブ分割 ZIP を準備中...', 'Preparing interactive ZIP...'));
+  setProgress(
+    formatVideoText(language, 'componentsrendervideointeractiveinteractiveSegmentZipExportText97'),
+  );
 
   try {
     let renderedVideoCount = 0;
@@ -107,10 +113,10 @@ export const exportInteractiveSegmentZip = async ({
 
       const progressPrefix = `${index + 1}/${enabledSegments.length}`;
       setProgress(
-        t(
-          `正在渲染互动片段 ${progressPrefix}`,
-          `インタラクティブ分割をレンダリング中 ${progressPrefix}`,
-          `Rendering interactive segment ${progressPrefix}`,
+        formatVideoText(
+          language,
+          'componentsrendervideointeractiveinteractiveSegmentZipExportText110',
+          progressPrefix,
         ),
       );
 
@@ -125,13 +131,21 @@ export const exportInteractiveSegmentZip = async ({
       });
       if (!bytes || bytes.length === 0) continue;
 
-      zip.file(`${String(index + 1).padStart(2, '0')}-${makeInteractiveSegmentFileName(segment, index)}.mp4`, bytes);
+      zip.file(
+        `${String(index + 1).padStart(2, '0')}-${makeInteractiveSegmentFileName(segment, index)}.mp4`,
+        bytes,
+      );
       renderedVideoCount += 1;
       setProgressValue(Math.round(((index + 1) / enabledSegments.length) * 82));
     }
 
     if (renderedVideoCount === 0) {
-      throw new Error(t('没有成功生成任何视频片段。', '動画セグメントを生成できませんでした。', 'No video segments were generated.'));
+      throw new Error(
+        formatVideoText(
+          language,
+          'componentsrendervideointeractiveinteractiveSegmentZipExportText134',
+        ),
+      );
     }
 
     const cardWidth = 280;
@@ -172,7 +186,12 @@ export const exportInteractiveSegmentZip = async ({
     }
 
     setProgressValue(90);
-    setProgress(t('正在打包 ZIP...', 'ZIP を作成中...', 'Packaging ZIP...'));
+    setProgress(
+      formatVideoText(
+        language,
+        'componentsrendervideointeractiveinteractiveSegmentZipExportText175',
+      ),
+    );
     const zipBytes = await zip.generateAsync({
       type: 'uint8array',
       compression: 'DEFLATE',
@@ -192,10 +211,21 @@ export const exportInteractiveSegmentZip = async ({
     }
     setStatus('done');
     setProgressValue(100);
-    setProgress(t('互动分段 ZIP 导出完成', 'インタラクティブ分割 ZIP を書き出しました', 'Interactive ZIP exported'));
+    setProgress(
+      formatVideoText(
+        language,
+        'componentsrendervideointeractiveinteractiveSegmentZipExportText195',
+      ),
+    );
   } catch (error: any) {
     console.error('Interactive segment ZIP export failed:', error);
     setStatus('error');
-    setError(error?.message || t('互动分段 ZIP 导出失败', 'インタラクティブ分割 ZIP の書き出しに失敗しました', 'Interactive ZIP export failed'));
+    setError(
+      error?.message ||
+        formatVideoText(
+          language,
+          'componentsrendervideointeractiveinteractiveSegmentZipExportText199',
+        ),
+    );
   }
 };

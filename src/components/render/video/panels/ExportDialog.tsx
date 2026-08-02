@@ -1,12 +1,9 @@
+import { formatVideoText } from '../i18n';
 import { ChevronDown, Download, FolderOpen, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import {
-  EXPORT_FORMAT_OPTIONS,
-  FRAME_RATE_OPTIONS,
-} from '../shared/constants';
-import { renderCopy } from '../shared/renderCopy';
+import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS } from '../shared/constants';
 import type { ExportFormat, RenderWorkspaceMode } from '../shared/types';
 
 type ExportDialogProps = {
@@ -24,7 +21,14 @@ type ExportDialogProps = {
   exportFormat: ExportFormat;
   speed: number;
   onClose: () => void;
-  onConfirm: (params: { name: string; outputDir: string; frameRate: number; exportFormat: ExportFormat; speed: number; videoBitrate: number }) => void;
+  onConfirm: (params: {
+    name: string;
+    outputDir: string;
+    frameRate: number;
+    exportFormat: ExportFormat;
+    speed: number;
+    videoBitrate: number;
+  }) => void;
   onChooseVideoOutputDir: () => void;
   onChooseWebOutputDir: () => void;
   setVideoOutputDir: (value: string) => void;
@@ -58,8 +62,6 @@ export function ExportDialog({
   setWebOutputDirError,
   setWebProjectName,
 }: ExportDialogProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
-
   const [videoFileName, setVideoFileName] = useState(defaultVideoFileName);
   const [selectedFrameRate, setSelectedFrameRate] = useState(initialFrameRate);
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>(initialExportFormat);
@@ -98,9 +100,16 @@ export function ExportDialog({
 
   const handleConfirm = () => {
     const name = isVideo
-      ? (videoFileName.trim() || defaultVideoFileName)
-      : (webProjectName.trim() || defaultWebProjectName || 'galwriter-web');
-    onConfirm({ name, outputDir: currentOutputDir, frameRate: selectedFrameRate, exportFormat: selectedFormat, speed: selectedSpeed, videoBitrate: selectedVideoBitrate });
+      ? videoFileName.trim() || defaultVideoFileName
+      : webProjectName.trim() || defaultWebProjectName || 'galwriter-web';
+    onConfirm({
+      name,
+      outputDir: currentOutputDir,
+      frameRate: selectedFrameRate,
+      exportFormat: selectedFormat,
+      speed: selectedSpeed,
+      videoBitrate: selectedVideoBitrate,
+    });
   };
 
   return (
@@ -114,9 +123,11 @@ export function ExportDialog({
         className="relative w-full max-w-sm rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-2xl"
         role="dialog"
         aria-modal="true"
-        aria-label={isVideo
-          ? t('导出视频', '動画を書き出す', 'Export Video')
-          : t('导出网页', 'Webを書き出す', 'Export Web')}
+        aria-label={
+          isVideo
+            ? formatVideoText(language, 'componentsrendervideopanelsExportDialogText118')
+            : formatVideoText(language, 'componentsrendervideopanelsExportDialogText119')
+        }
       >
         <div className="flex items-center justify-between border-b border-[var(--vr-border)] px-5 py-4">
           <div className="flex items-center gap-2.5">
@@ -125,15 +136,15 @@ export function ExportDialog({
             </div>
             <h3 className="text-sm font-black text-[var(--vr-text)]">
               {isVideo
-                ? t('导出视频', '動画を書き出す', 'Export Video')
-                : t('导出网页', 'Webを書き出す', 'Export Web')}
+                ? formatVideoText(language, 'componentsrendervideopanelsExportDialogText128')
+                : formatVideoText(language, 'componentsrendervideopanelsExportDialogText129')}
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-1.5 text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-text)]"
-            aria-label={t('关闭', '閉じる', 'Close')}
+            aria-label={formatVideoText(language, 'componentsrendervideopanelsExportDialogText136')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -146,8 +157,8 @@ export function ExportDialog({
               className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]"
             >
               {isVideo
-                ? t('文件名称', 'ファイル名', 'File Name')
-                : t('项目名称', 'プロジェクト名', 'Project Name')}
+                ? formatVideoText(language, 'componentsrendervideopanelsExportDialogText149')
+                : formatVideoText(language, 'componentsrendervideopanelsExportDialogText150')}
             </label>
             {isVideo ? (
               <input
@@ -179,7 +190,7 @@ export function ExportDialog({
                   htmlFor="export-dialog-format"
                   className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]"
                 >
-                  {t('格式', 'フォーマット', 'Format')}
+                  {formatVideoText(language, 'componentsrendervideopanelsExportDialogText182')}
                 </label>
                 <div className="relative">
                   <select
@@ -203,7 +214,7 @@ export function ExportDialog({
                   htmlFor="export-dialog-framerate"
                   className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]"
                 >
-                  {t('帧率', 'フレームレート', 'Frame Rate')}
+                  {formatVideoText(language, 'componentsrendervideopanelsExportDialogText206')}
                 </label>
                 <div className="relative">
                   <select
@@ -227,19 +238,39 @@ export function ExportDialog({
           {isVideo && (
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1.5">
-                <span className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">{t('码率', 'ビットレート', 'Bitrate')}</span>
+                <span className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                  {formatVideoText(language, 'componentsrendervideopanelsExportDialogText230')}
+                </span>
                 <span className="relative block">
-                  <select value={selectedVideoBitrate} onChange={(event) => setSelectedVideoBitrate(Number(event.target.value))} className="h-10 w-full appearance-none rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] pl-3 pr-8 text-sm font-bold text-[var(--vr-text)] outline-none">
-                    {[8, 12, 20, 35].map((mbps) => <option key={mbps} value={mbps * 1_000_000}>{mbps} Mbps</option>)}
+                  <select
+                    value={selectedVideoBitrate}
+                    onChange={(event) => setSelectedVideoBitrate(Number(event.target.value))}
+                    className="h-10 w-full appearance-none rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] pl-3 pr-8 text-sm font-bold text-[var(--vr-text)] outline-none"
+                  >
+                    {[8, 12, 20, 35].map((mbps) => (
+                      <option key={mbps} value={mbps * 1_000_000}>
+                        {mbps} Mbps
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--vr-text-muted)]" />
                 </span>
               </label>
               <label className="space-y-1.5">
-                <span className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">{t('播放倍速', '再生速度', 'Playback Speed')}</span>
+                <span className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                  {formatVideoText(language, 'componentsrendervideopanelsExportDialogText239')}
+                </span>
                 <span className="relative block">
-                  <select value={selectedSpeed} onChange={(event) => setSelectedSpeed(Number(event.target.value))} className="h-10 w-full appearance-none rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] pl-3 pr-8 text-sm font-bold text-[var(--vr-text)] outline-none">
-                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate.toFixed(2)}x</option>)}
+                  <select
+                    value={selectedSpeed}
+                    onChange={(event) => setSelectedSpeed(Number(event.target.value))}
+                    className="h-10 w-full appearance-none rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] pl-3 pr-8 text-sm font-bold text-[var(--vr-text)] outline-none"
+                  >
+                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                      <option key={rate} value={rate}>
+                        {rate.toFixed(2)}x
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--vr-text-muted)]" />
                 </span>
@@ -253,7 +284,7 @@ export function ExportDialog({
                 htmlFor="export-dialog-output-dir"
                 className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]"
               >
-                {t('保存位置', '保存先', 'Save Location')}
+                {formatVideoText(language, 'componentsrendervideopanelsExportDialogText256')}
               </label>
               <div className="flex gap-2">
                 <button
@@ -267,20 +298,29 @@ export function ExportDialog({
                         ? 'border-[var(--vr-border)] bg-[var(--vr-surface)] text-blue-500 hover:border-[var(--vr-accent)]/60 dark:text-blue-400'
                         : 'border-[var(--vr-border)] bg-[var(--vr-surface)] text-[var(--vr-text-muted)] hover:border-[var(--vr-accent)]/60'
                   }`}
-                  aria-label={t('点击选择保存位置', '保存先をクリックして選択', 'Click to choose save location')}
+                  aria-label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsExportDialogText270',
+                  )}
                 >
                   <span className="block truncate">
                     {hasCustomOutputDir
                       ? currentOutputDir
-                      : t('默认保存到「下载」文件夹', 'デフォルト：ダウンロードフォルダ', 'Saves to Downloads by default')}
+                      : formatVideoText(language, 'componentsrendervideopanelsExportDialogText275')}
                   </span>
                 </button>
                 <button
                   type="button"
                   onClick={isVideo ? onChooseVideoOutputDir : onChooseWebOutputDir}
                   className="h-9 w-9 shrink-0 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] text-[var(--vr-text-soft)] transition-colors hover:border-[var(--vr-accent)]/60 hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
-                  title={t('选择保存文件夹', 'フォルダを選択', 'Choose folder')}
-                  aria-label={t('选择保存文件夹', 'フォルダを選択', 'Choose folder')}
+                  title={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsExportDialogText282',
+                  )}
+                  aria-label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsExportDialogText283',
+                  )}
                 >
                   <FolderOpen className="mx-auto h-4 w-4" />
                 </button>
@@ -295,9 +335,7 @@ export function ExportDialog({
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-[var(--vr-border)] px-5 py-4">
-          <span className="text-[10px] text-[var(--vr-text-muted)] opacity-60">
-            F12 ↵
-          </span>
+          <span className="text-[10px] text-[var(--vr-text-muted)] opacity-60">F12 ↵</span>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -305,7 +343,7 @@ export function ExportDialog({
               onClick={onClose}
               className="h-9 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-4 text-xs font-black text-[var(--vr-text-muted)] transition-colors hover:border-[var(--vr-border-strong)] hover:text-[var(--vr-text)]"
             >
-              {t('取消', 'キャンセル', 'Cancel')}
+              {formatVideoText(language, 'componentsrendervideopanelsExportDialogText308')}
             </button>
             <button
               type="button"
@@ -315,8 +353,8 @@ export function ExportDialog({
             >
               <Download className="h-3.5 w-3.5" />
               {isVideo
-                ? t('开始渲染', 'レンダリング開始', 'Start Render')
-                : t('导出网页', 'エクスポート', 'Export')}
+                ? formatVideoText(language, 'componentsrendervideopanelsExportDialogText318')
+                : formatVideoText(language, 'componentsrendervideopanelsExportDialogText319')}
             </button>
           </div>
         </div>

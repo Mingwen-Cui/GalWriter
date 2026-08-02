@@ -1,4 +1,5 @@
-﻿import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import { formatWebText } from './i18n';
+import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { Eye, EyeOff, House, ListMusic, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 
@@ -33,7 +34,6 @@ import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic'
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getSceneBackgroundStyle, mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { getNameplateItems } from '../video/shared/nameplateRenderer';
-import { renderCopy } from '../video/shared/renderCopy';
 import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
 import {
   filterMentionTags,
@@ -165,7 +165,6 @@ export function WebPlaytestPreview({
   onTestStateChange,
   showTestDebugInfo = false,
 }: WebPlaytestPreviewProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const playableNodes = useMemo(
     () => nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden),
     [nodes],
@@ -495,7 +494,7 @@ export function WebPlaytestPreview({
   const audioTitle =
     getNodeDisplayTitle(currentNode) ||
     stripHtml(getNodeDisplayText(currentNode)).trim().replace(/\s+/g, ' ').slice(0, 42) ||
-    t('未命名录音', '名称未設定の録音', 'Untitled audio');
+    formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText498');
   const presentation = useMemo(
     () =>
       normalizeStoryPresentation(currentNode?.data?.presentation as StoryPresentation | undefined),
@@ -556,8 +555,7 @@ export function WebPlaytestPreview({
   const rawText = getNodeDisplayText(currentNode);
   const text = filterMentionTags(rawText, true, true);
   const shouldHideSingleChoice = settings.skipSingleChoicePopup && outEdges.length <= 1;
-  const shouldShowChoices =
-    !shouldHideSingleChoice && (animationDone || !settings.autoAdvance);
+  const shouldShowChoices = !shouldHideSingleChoice && (animationDone || !settings.autoAdvance);
   const canClickContinue = outEdges.length <= 1;
   const hideCenteredTitle = false;
   const nameplateItems = useMemo(
@@ -1007,7 +1005,7 @@ export function WebPlaytestPreview({
       currentNodeId,
       currentNodeTitle: currentNode
         ? titleFor(currentNode.id)
-        : t('剧本结束', 'シナリオ終了', 'The End'),
+        : formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1010'),
       currentNodeType: currentNode?.type || 'end',
       entryCount: pathIds.filter((id) => id === currentNodeId).length,
       path: pathIds.map((id) => {
@@ -1037,7 +1035,7 @@ export function WebPlaytestPreview({
     previewMode,
     previewSaves,
     runtimeNodes,
-    t,
+    language,
   ]);
 
   const startPreviewNewGame = () => {
@@ -1165,7 +1163,7 @@ export function WebPlaytestPreview({
     runtimeNodes.some((node) => node.id === getActiveWebSaveSlot(previewSaves)?.currentId)
       ? {
           key: 'continue',
-          label: t('继续游戏', '続ける', 'Continue Game'),
+          label: formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1168'),
           disabled: false,
           primary: true,
           onClick: continuePreviewSave,
@@ -1174,7 +1172,7 @@ export function WebPlaytestPreview({
     settings.startMenuShowSave
       ? {
           key: 'save',
-          label: t('存档', 'セーブ', 'Save'),
+          label: formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1177'),
           disabled: false,
           primary: false,
           onClick: () => {
@@ -1187,7 +1185,7 @@ export function WebPlaytestPreview({
     (!settings.startMenuShowSave && !settings.startMenuShowSettings)
       ? {
           key: 'new',
-          label: t('新游戏', '新規ゲーム', 'New Game'),
+          label: formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1190'),
           disabled: false,
           primary: !settings.startMenuShowSave,
           onClick: () => {
@@ -1202,7 +1200,7 @@ export function WebPlaytestPreview({
     settings.startMenuShowSettings
       ? {
           key: 'settings',
-          label: t('设置', '設定', 'Settings'),
+          label: formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1205'),
           disabled: !settings.showStartMenu,
           primary: false,
           onClick: () => {
@@ -1221,7 +1219,9 @@ export function WebPlaytestPreview({
         key: element.role,
         label:
           element.text ||
-          (element.role === 'link' ? t('超链接', 'リンク', 'Link') : t('音量', '音量', 'Volume')),
+          (element.role === 'link'
+            ? formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1224')
+            : formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1224_2')),
         disabled: element.role === 'link' && !element.linkUrl,
         primary: false,
         onClick: () => applySharedButtonFunction(element),
@@ -1241,7 +1241,7 @@ export function WebPlaytestPreview({
         defaultButtonY,
         defaultButtonWidth,
         buttonHeight,
-        t,
+        language,
       }),
     [
       buttonHeight,
@@ -1761,7 +1761,7 @@ export function WebPlaytestPreview({
               settings={settings}
               choiceColor={choiceColor}
               choiceTextColor={choiceTextColor}
-              t={t}
+              language={language}
               onEnsureStartMenuElements={() => commitStartMenuElements(defaultStartMenuElements)}
               onSelectElement={setSelectedStartMenuElementId}
               onSetEditingElement={setEditingStartMenuElementId}
@@ -1867,7 +1867,7 @@ export function WebPlaytestPreview({
           items={[
             {
               id: 'THE_END',
-              label: t('剧本结束', 'シナリオ終了', 'The End'),
+              label: formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1870'),
               onClick: () => handleChoiceClick('THE_END'),
             },
           ]}
@@ -1885,8 +1885,8 @@ export function WebPlaytestPreview({
             getNodeDisplayTitle(target) ||
             edge.data?.label ||
             (outEdges.length === 1
-              ? t('继续', '続ける', 'Continue')
-              : `${t('选项', '選択肢', 'Option')} ${index + 1}`);
+              ? formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1888')
+              : `${formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1889')} ${index + 1}`);
           return {
             id: edge.id,
             label: String(label),
@@ -1912,7 +1912,7 @@ export function WebPlaytestPreview({
       previewMode={previewMode}
       toolbarElements={toolbarElements}
       selectedToolbarElementId={selectedStartMenuElementId}
-      t={t}
+      language={language}
       onSelectToolbarElement={(id) => {
         if (id && !settings.previewToolbarElements?.length) {
           onUpdateSettings('previewToolbarElements', defaultToolbarElements);
@@ -2033,7 +2033,7 @@ export function WebPlaytestPreview({
       items={playedAudios}
       activeUrl={playlistAudioUrl}
       isPlaying={isPlaylistAudioPlaying}
-      t={t}
+      language={language}
       onClose={() => setShowAudioPlaylist(false)}
       onToggleAudio={togglePlaylistAudio}
     />
@@ -2042,11 +2042,7 @@ export function WebPlaytestPreview({
   if (!root) {
     return (
       <div className="flex h-full min-h-[320px] items-center justify-center rounded-lg border border-dashed border-[var(--vr-border-strong)] bg-[var(--vr-panel)] text-sm font-bold text-[var(--vr-text-muted)]">
-        {t(
-          '没有可预览的剧本节点',
-          'プレビューできるシナリオノードがありません',
-          'No story nodes to preview',
-        )}
+        {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText2045')}
       </div>
     );
   }
@@ -2063,7 +2059,7 @@ export function WebPlaytestPreview({
         {renderAudioPlaylistModal()}
         {renderFloatingElements()}
         <div className="grid flex-1 place-items-center p-6 text-center text-2xl font-black text-[var(--vr-text)]">
-          {t('剧本结束', 'シナリオ終了', 'The End')}
+          {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText2066')}
         </div>
       </div>
     );
@@ -2150,11 +2146,7 @@ export function WebPlaytestPreview({
       presentationVisible={presentationVisible}
       activeInlineAction={activeInlineAction}
       completedInlineActions={completedInlineActions}
-      emptyText={t(
-        '当前节点没有图片或视频',
-        '現在のノードに画像または動画がありません',
-        'This node has no image or video',
-      )}
+      emptyText={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText2153')}
       onVideoEnded={() => setCurrentVideoEnded(true)}
     />
   );
@@ -2283,7 +2275,7 @@ export function WebPlaytestPreview({
           onSelectRenderObject={selectRenderObject}
           onMoveRenderObject={moveRenderObject}
           onUpdateRenderObject={patchRenderObject}
-          t={t}
+          language={language}
           onContinueFromText={continueFromText}
           onRecordCurrentAudio={recordCurrentAudio}
           onCurrentAudioEnded={() => setCurrentAudioEnded(true)}

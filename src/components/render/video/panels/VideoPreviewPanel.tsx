@@ -1,3 +1,4 @@
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import { Lock, LockKeyholeOpen, Maximize, Minimize, Pause, Play } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -17,7 +18,6 @@ import {
   getNameplateLayouts,
   getNameplateReservedHeight,
 } from '../shared/nameplateRenderer';
-import { renderCopy } from '../shared/renderCopy';
 import { getVideoRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type {
@@ -166,7 +166,6 @@ export function VideoPreviewPanel({
   canvasSelected,
   setCanvasSelected,
 }: VideoPreviewPanelProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const controlBarRef = useRef<HTMLDivElement | null>(null);
   const previewFullscreenRef = useRef<HTMLDivElement | null>(null);
@@ -267,7 +266,10 @@ export function VideoPreviewPanel({
       ? wrapText(
           measurementContext,
           htmlToSpeechText(String(currentNode?.data?.title || '')) ||
-            (language === 'zh' ? '未命名片段' : 'Untitled segment'),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoPreviewPanelConditionalText270',
+            ),
           titleWidth,
         ).slice(0, 2)
       : [];
@@ -573,11 +575,11 @@ export function VideoPreviewPanel({
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex shrink-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
             <Play className="w-4 h-4 text-[var(--vr-accent)]" />
-            {t('测试预览窗口', 'プレビュー画面', 'Preview Monitor')}
+            {formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText576')}
           </div>
           <div className="hidden rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black tabular-nums text-[var(--vr-text)]">
             {timelineScaleMode === 'frames'
-              ? `${t('帧', 'フレーム', 'Frame')} ${activeTimelineFrame}`
+              ? `${formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText580')} ${activeTimelineFrame}`
               : `${formatSeconds(activeTimelineTime)} / ${activeTimelineFrame}f`}
           </div>
           <div className="hidden min-w-0 items-center justify-end gap-3 text-[11px] font-bold text-[var(--vr-text-muted)]">
@@ -588,11 +590,41 @@ export function VideoPreviewPanel({
             <div className="flex shrink-0 items-center gap-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-1">
               {(
                 [
-                  ['scene', t('画面', '画面', 'Scene')],
-                  ['dialogBox', t('对话框背景', 'ダイアログ背景', 'Dialog box')],
-                  ['title', t('标题', 'タイトル', 'Title')],
-                  ['body', t('正文', '本文', 'Body')],
-                  ['nameplate', t('人物名牌', 'ネームプレート', 'Nameplate')],
+                  [
+                    'scene',
+                    formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoPreviewPanelText591',
+                    ),
+                  ],
+                  [
+                    'dialogBox',
+                    formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoPreviewPanelText592',
+                    ),
+                  ],
+                  [
+                    'title',
+                    formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoPreviewPanelText593',
+                    ),
+                  ],
+                  [
+                    'body',
+                    formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoPreviewPanelText594',
+                    ),
+                  ],
+                  [
+                    'nameplate',
+                    formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoPreviewPanelText595',
+                    ),
+                  ],
                 ] as Array<[RenderEditableObjectKind | 'scene', string]>
               ).map(([kind, label]) => (
                 <button
@@ -618,13 +650,13 @@ export function VideoPreviewPanel({
               aria-pressed={previewObjectSelectionLocked}
               aria-label={
                 previewObjectSelectionLocked
-                  ? t('解锁对象编辑', 'オブジェクト編集のロックを解除', 'Unlock object editing')
-                  : t('锁定对象编辑', 'オブジェクト編集をロック', 'Lock object editing')
+                  ? formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText621')
+                  : formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText622')
               }
               title={
                 previewObjectSelectionLocked
-                  ? t('解锁对象编辑', 'オブジェクト編集のロックを解除', 'Unlock object editing')
-                  : t('锁定对象编辑', 'オブジェクト編集をロック', 'Lock object editing')
+                  ? formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText626')
+                  : formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText627')
               }
               onClick={() => setPreviewObjectSelectionLocked((locked) => !locked)}
               className={`flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md text-[0px] transition-colors ${previewObjectSelectionLocked ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]'}`}
@@ -635,8 +667,8 @@ export function VideoPreviewPanel({
                 <LockKeyholeOpen className="h-3.5 w-3.5" />
               )}
               {previewObjectSelectionLocked
-                ? t('已锁定', 'ロック中', 'Locked')
-                : t('未锁定', '未ロック', 'Unlocked')}
+                ? formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText638')
+                : formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText639')}
             </button>
           </div>
         </div>
@@ -645,7 +677,7 @@ export function VideoPreviewPanel({
         <div />
         <div className="rounded bg-[var(--vr-surface)] px-2 py-1 text-[11px] font-black tabular-nums text-[var(--vr-text)]">
           {timelineScaleMode === 'frames'
-            ? `${t('帧', 'フレーム', 'Frame')} ${activeTimelineFrame}`
+            ? `${formatVideoText(language, 'componentsrendervideopanelsVideoPreviewPanelText648')} ${activeTimelineFrame}`
             : `${formatSeconds(activeTimelineTime)} / ${activeTimelineFrame}f`}
         </div>
         <div className="flex min-w-0 items-center justify-end gap-3 text-[11px] font-bold text-[var(--vr-text-muted)]">
@@ -778,8 +810,14 @@ export function VideoPreviewPanel({
                   className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
                   title={
                     previewPlaying
-                      ? t('暂停预览', 'プレビューを一時停止', 'Pause preview')
-                      : t('播放预览', 'プレビューを再生', 'Play preview')
+                      ? formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoPreviewPanelText781',
+                        )
+                      : formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoPreviewPanelText782',
+                        )
                   }
                 >
                   {previewPlaying ? (
@@ -790,7 +828,10 @@ export function VideoPreviewPanel({
                 </button>
                 <div className="min-w-0 flex-1">
                   <RangeControl
-                    label={t('预览位置', 'プレビュー位置', 'Preview position')}
+                    label={formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoPreviewPanelText793',
+                    )}
                     min={0}
                     max={Math.max(0.1, previewDuration)}
                     step={0.05}
@@ -824,13 +865,25 @@ export function VideoPreviewPanel({
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--vr-text-soft)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
                   title={
                     previewFullscreen
-                      ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
-                      : t('全屏预览', '全画面プレビュー', 'Fullscreen preview')
+                      ? formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoPreviewPanelText827',
+                        )
+                      : formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoPreviewPanelText828',
+                        )
                   }
                   aria-label={
                     previewFullscreen
-                      ? t('退出全屏', '全画面を終了', 'Exit fullscreen')
-                      : t('全屏预览', '全画面プレビュー', 'Fullscreen preview')
+                      ? formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoPreviewPanelText832',
+                        )
+                      : formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoPreviewPanelText833',
+                        )
                   }
                 >
                   {previewFullscreen ? (

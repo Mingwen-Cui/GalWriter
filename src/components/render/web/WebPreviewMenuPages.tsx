@@ -1,9 +1,9 @@
+import { formatWebText } from './i18n';
 import type { CSSProperties } from 'react';
 import type React from 'react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
-import { renderCopy } from '../video/shared/renderCopy';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { GradientCanvasControl } from './GradientCanvasControl';
 import { getSurfaceBackground } from './StartMenuBackgroundInspector';
@@ -35,10 +35,7 @@ const resizeCursorByHandle: Record<PlacementResizeHandle, string> = {
   se: 'nwse-resize',
 };
 
-const elementRadiusStyle = (
-  element: WebMenuElement,
-  fallback: number,
-): CSSProperties => {
+const elementRadiusStyle = (element: WebMenuElement, fallback: number): CSSProperties => {
   const base = element.borderRadius ?? fallback;
   return {
     borderRadius: base,
@@ -131,7 +128,6 @@ export function WebPreviewMenuPages({
   onDeletePageElement,
   onUpdateSettings,
 }: WebPreviewMenuPagesProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const archiveRootRef = useRef<HTMLDivElement>(null);
   const settingsRootRef = useRef<HTMLDivElement>(null);
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
@@ -352,8 +348,14 @@ export function WebPreviewMenuPages({
         const groupTop = Math.min(...groupInitial.map((item) => item.y));
         const groupRight = Math.max(...groupInitial.map((item) => item.x + item.width));
         const groupBottom = Math.max(...groupInitial.map((item) => item.y + item.height));
-        const groupDx = Math.max(boundsMinX - groupLeft, Math.min(boundsMaxX - groupRight, rawGroupDx));
-        const groupDy = Math.max(boundsMinY - groupTop, Math.min(boundsMaxY - groupBottom, rawGroupDy));
+        const groupDx = Math.max(
+          boundsMinX - groupLeft,
+          Math.min(boundsMaxX - groupRight, rawGroupDx),
+        );
+        const groupDy = Math.max(
+          boundsMinY - groupTop,
+          Math.min(boundsMaxY - groupBottom, rawGroupDy),
+        );
         const movingIds = new Set(drag.groupIds || [drag.id]);
         const initialById = new Map(groupInitial.map((item) => [item.id, item]));
         updatePageElements(
@@ -425,12 +427,7 @@ export function WebPreviewMenuPages({
         element.role === 'slot'
           ? {
               ...element,
-              text: renderCopy(
-                language,
-                '存档 1\n最近保存：今天 15:50',
-                'セーブ 1\n最終保存：今日 15:50',
-                'Save 1\nLast saved: Today 15:50',
-              ),
+              text: formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText428'),
             }
           : element,
       )
@@ -445,11 +442,10 @@ export function WebPreviewMenuPages({
       element.role === 'slot' && activeArchiveSave
         ? {
             ...element,
-            text: renderCopy(
+            text: formatWebText(
               language,
-              `存档 1\n最近保存：${new Date(activeArchiveSave.savedAt).toLocaleString()}`,
-              `セーブ 1\n最終保存：${new Date(activeArchiveSave.savedAt).toLocaleString()}`,
-              `Save 1\nLast saved: ${new Date(activeArchiveSave.savedAt).toLocaleString()}`,
+              'componentsrenderwebWebPreviewMenuPagesText448',
+              new Date(activeArchiveSave.savedAt).toLocaleString(),
             ),
           }
         : element,
@@ -469,11 +465,25 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
-          {previewMode === 'edit' && gradientEditingSurface === 'archive' && getSurfaceBackground(settings, 'archive').type === 'gradient' && (
-            <GradientCanvasControl shape={getSurfaceBackground(settings, 'archive').gradientShape} angle={getSurfaceBackground(settings, 'archive').gradientAngle} startX={getSurfaceBackground(settings, 'archive').gradientStartX} startY={getSurfaceBackground(settings, 'archive').gradientStartY} endX={getSurfaceBackground(settings, 'archive').gradientEndX} endY={getSurfaceBackground(settings, 'archive').gradientEndY} onGeometryChange={(geometry) => {
-              onUpdateSettings('archiveBackgroundGradientStartX', geometry.startX); onUpdateSettings('archiveBackgroundGradientStartY', geometry.startY); onUpdateSettings('archiveBackgroundGradientEndX', geometry.endX); onUpdateSettings('archiveBackgroundGradientEndY', geometry.endY); onUpdateSettings('archiveBackgroundGradientAngle', geometry.angle);
-            }} />
-          )}
+          {previewMode === 'edit' &&
+            gradientEditingSurface === 'archive' &&
+            getSurfaceBackground(settings, 'archive').type === 'gradient' && (
+              <GradientCanvasControl
+                shape={getSurfaceBackground(settings, 'archive').gradientShape}
+                angle={getSurfaceBackground(settings, 'archive').gradientAngle}
+                startX={getSurfaceBackground(settings, 'archive').gradientStartX}
+                startY={getSurfaceBackground(settings, 'archive').gradientStartY}
+                endX={getSurfaceBackground(settings, 'archive').gradientEndX}
+                endY={getSurfaceBackground(settings, 'archive').gradientEndY}
+                onGeometryChange={(geometry) => {
+                  onUpdateSettings('archiveBackgroundGradientStartX', geometry.startX);
+                  onUpdateSettings('archiveBackgroundGradientStartY', geometry.startY);
+                  onUpdateSettings('archiveBackgroundGradientEndX', geometry.endX);
+                  onUpdateSettings('archiveBackgroundGradientEndY', geometry.endY);
+                  onUpdateSettings('archiveBackgroundGradientAngle', geometry.angle);
+                }}
+              />
+            )}
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
           <MarqueeLayer
@@ -508,8 +518,10 @@ export function WebPreviewMenuPages({
               if (element.role === 'back') onCloseArchive();
               if (element.role === 'new') onNewGame();
               if (element.role === 'settings') onOpenSettings();
-              if (element.role === 'slotContinue' && activeArchiveSave) onContinueSave?.(activeArchiveSave);
-              if (element.role === 'slotDelete' && activeArchiveSave) onDeleteSave?.(activeArchiveSave.id);
+              if (element.role === 'slotContinue' && activeArchiveSave)
+                onContinueSave?.(activeArchiveSave);
+              if (element.role === 'slotDelete' && activeArchiveSave)
+                onDeleteSave?.(activeArchiveSave.id);
             }}
           />
         </div>
@@ -527,11 +539,25 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
-          {previewMode === 'edit' && gradientEditingSurface === 'settings' && getSurfaceBackground(settings, 'settings').type === 'gradient' && (
-            <GradientCanvasControl shape={getSurfaceBackground(settings, 'settings').gradientShape} angle={getSurfaceBackground(settings, 'settings').gradientAngle} startX={getSurfaceBackground(settings, 'settings').gradientStartX} startY={getSurfaceBackground(settings, 'settings').gradientStartY} endX={getSurfaceBackground(settings, 'settings').gradientEndX} endY={getSurfaceBackground(settings, 'settings').gradientEndY} onGeometryChange={(geometry) => {
-              onUpdateSettings('settingsBackgroundGradientStartX', geometry.startX); onUpdateSettings('settingsBackgroundGradientStartY', geometry.startY); onUpdateSettings('settingsBackgroundGradientEndX', geometry.endX); onUpdateSettings('settingsBackgroundGradientEndY', geometry.endY); onUpdateSettings('settingsBackgroundGradientAngle', geometry.angle);
-            }} />
-          )}
+          {previewMode === 'edit' &&
+            gradientEditingSurface === 'settings' &&
+            getSurfaceBackground(settings, 'settings').type === 'gradient' && (
+              <GradientCanvasControl
+                shape={getSurfaceBackground(settings, 'settings').gradientShape}
+                angle={getSurfaceBackground(settings, 'settings').gradientAngle}
+                startX={getSurfaceBackground(settings, 'settings').gradientStartX}
+                startY={getSurfaceBackground(settings, 'settings').gradientStartY}
+                endX={getSurfaceBackground(settings, 'settings').gradientEndX}
+                endY={getSurfaceBackground(settings, 'settings').gradientEndY}
+                onGeometryChange={(geometry) => {
+                  onUpdateSettings('settingsBackgroundGradientStartX', geometry.startX);
+                  onUpdateSettings('settingsBackgroundGradientStartY', geometry.startY);
+                  onUpdateSettings('settingsBackgroundGradientEndX', geometry.endX);
+                  onUpdateSettings('settingsBackgroundGradientEndY', geometry.endY);
+                  onUpdateSettings('settingsBackgroundGradientAngle', geometry.angle);
+                }}
+              />
+            )}
           <div className="absolute inset-0 z-0 bg-black/28" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
           <MarqueeLayer
@@ -557,25 +583,38 @@ export function WebPreviewMenuPages({
               if (element.role === 'auto') onUpdateSettings('autoAdvance', !settings.autoAdvance);
               if (element.role === 'textSize') {
                 const values = [85, 100, 115, 130];
-                onUpdateSettings('textScale', values[(values.indexOf(settings.textScale) + 1) % values.length]);
+                onUpdateSettings(
+                  'textScale',
+                  values[(values.indexOf(settings.textScale) + 1) % values.length],
+                );
               }
               if (element.role === 'animationSpeed') {
                 const values = [0.5, 1, 1.5, 2];
-                onUpdateSettings('animationSpeed', values[(values.indexOf(settings.animationSpeed) + 1) % values.length]);
+                onUpdateSettings(
+                  'animationSpeed',
+                  values[(values.indexOf(settings.animationSpeed) + 1) % values.length],
+                );
               }
-              if (element.role === 'sound') onUpdateSettings('soundEnabled', !settings.soundEnabled);
+              if (element.role === 'sound')
+                onUpdateSettings('soundEnabled', !settings.soundEnabled);
               if (element.role === 'controls') onToggleControls();
             }}
             renderSuffix={(element) => {
               if (element.role === 'auto')
-                return settings.autoAdvance ? t('开启', 'オン', 'On') : t('关闭', 'オフ', 'Off');
+                return settings.autoAdvance
+                  ? formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText571')
+                  : formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText571_2');
               if (element.role === 'speed') return `${settings.typewriterSpeed}ms`;
               if (element.role === 'textSize') return `${settings.textScale}%`;
               if (element.role === 'animationSpeed') return `${settings.animationSpeed}×`;
               if (element.role === 'sound')
-                return settings.soundEnabled ? t('开启', 'オン', 'On') : t('关闭', 'オフ', 'Off');
+                return settings.soundEnabled
+                  ? formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText576')
+                  : formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText576_2');
               if (element.role === 'controls')
-                return previewControlsHidden ? t('关闭', 'オフ', 'Off') : t('开启', 'オン', 'On');
+                return previewControlsHidden
+                  ? formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText578')
+                  : formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText578_2');
               return '';
             }}
           />
@@ -690,138 +729,167 @@ function MenuPageElementLayer({
               element.fillEnabled === false
                 ? undefined
                 : element.backgroundType === 'gradient'
-                ? gradientFromStops(
-                    element.backgroundGradientShape,
-                    element.backgroundGradientAngle ?? 135,
-                    normalizeGradientStops(
-                      element.backgroundGradientStops,
-                      element.backgroundGradientStart || choiceColor,
-                      element.backgroundGradientEnd || '#0f172a',
-                    ),
-                    {
-                      startX: element.backgroundGradientStartX,
-                      startY: element.backgroundGradientStartY,
-                      endX: element.backgroundGradientEndX,
-                      endY: element.backgroundGradientEndY,
-                    },
-                  )
-                : element.backgroundType === 'image' && element.backgroundImageUrl
-                  ? undefined
-                  : element.backgroundColor ||
-                    (element.primary ? choiceColor : '#ffffff1a');
+                  ? gradientFromStops(
+                      element.backgroundGradientShape,
+                      element.backgroundGradientAngle ?? 135,
+                      normalizeGradientStops(
+                        element.backgroundGradientStops,
+                        element.backgroundGradientStart || choiceColor,
+                        element.backgroundGradientEnd || '#0f172a',
+                      ),
+                      {
+                        startX: element.backgroundGradientStartX,
+                        startY: element.backgroundGradientStartY,
+                        endX: element.backgroundGradientEndX,
+                        endY: element.backgroundGradientEndY,
+                      },
+                    )
+                  : element.backgroundType === 'image' && element.backgroundImageUrl
+                    ? undefined
+                    : element.backgroundColor || (element.primary ? choiceColor : '#ffffff1a');
 
             return (
               <>
-              <button
-                key={element.id}
-                type="button"
-                className={`pointer-events-auto absolute border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
-                  editable && selected ? 'overflow-visible cursor-move' : 'overflow-hidden'
-                } ${
-                  editable ? 'cursor-move' : 'active:scale-[0.99]'
-                }`}
-                style={{
-                  ...commonStyle,
-                  ...contentStyle,
-                  background: element.backgroundType === 'gradient' ? undefined : background,
-                  backgroundImage: element.backgroundType === 'gradient' ? background : undefined,
-                  backgroundColor: element.backgroundType === 'gradient' ? 'transparent' : undefined,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  ...webElementBoxStyle(element),
-                }}
-                disabled={!editable && element.disabled}
-                onPointerDown={(event) => {
-                  if (editable) onBeginElementDrag(page, event, element, 'move');
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (editable) {
-                    if (event.detail > 1) {
-                      setRenamingButton({ id: element.id, value: element.text });
-                      return;
-                    }
-                    if (event.button === 2) return;
-                    onSelectElement?.(element.id);
-                    return;
-                  }
-                  onAction(element);
-                }}
-              >
-                {element.backgroundType === 'image' && element.backgroundImageUrl && (
-                  <span className="pointer-events-none absolute inset-0 bg-no-repeat" style={{ backgroundImage: `url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`, backgroundSize: element.backgroundImageFit === 'fit' ? 'contain' : element.backgroundImageFit === 'max' ? 'cover' : `${element.backgroundImageScale ?? 100}%`, backgroundPosition: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px) calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`, opacity: Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100, transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`, transformOrigin: 'center' }} />
-                )}
-                <span
-                  className="relative flex h-full w-full items-center gap-2 overflow-hidden px-4"
-                  style={{
-                    ...elementRadiusStyle(element, 12),
-                    justifyContent: suffix ? 'space-between' : justifyContent,
-                    textAlign: element.textAlign || 'center',
-                  }}
-                >
-                  {element.textVisible !== false && (
-                    <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>{element.text}</span>
-                  )}
-                  {suffix && <span className="text-xs opacity-70">{suffix}</span>}
-                </span>
-                {editable && element.role && (
-                  <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
-                    {element.text || element.role}
-                  </span>
-                )}
-                {selected && (
-                  <SelectedElementFrame
-                    page={page}
-                    element={element}
-                    onUpdateElement={onUpdateElement}
-                    onBeginElementDrag={onBeginElementDrag}
-                    slotPreviewActive={slotPreviewActive}
-                    onToggleSlotPreview={
-                      page === 'archive' && element.role === 'slot'
-                        ? onToggleSlotPreview
-                        : undefined
-                    }
-                    onDelete={onDeleteElement}
-                  />
-                )}
-                {editable && selected && gradientEditingElement?.id === element.id && gradientEditingElement.group === 'fill' && element.backgroundType === 'gradient' && (
-                  <GradientCanvasControl
-                    shape={element.backgroundGradientShape || 'linear'}
-                    angle={element.backgroundGradientAngle ?? 135}
-                    startX={element.backgroundGradientStartX}
-                    startY={element.backgroundGradientStartY}
-                    endX={element.backgroundGradientEndX}
-                    endY={element.backgroundGradientEndY}
-                    onGeometryChange={(geometry) => onUpdateElement(element.id, {
-                      backgroundGradientStartX: geometry.startX, backgroundGradientStartY: geometry.startY,
-                      backgroundGradientEndX: geometry.endX, backgroundGradientEndY: geometry.endY,
-                      backgroundGradientAngle: geometry.angle,
-                    })}
-                  />
-                )}
-              </button>
-              {isRenaming && (
-                <input
-                  autoFocus
-                  aria-label="Rename button"
-                  className="pointer-events-auto absolute border border-indigo-300 bg-slate-950/92 px-4 text-center font-black text-white outline-none ring-2 ring-indigo-500"
+                <button
+                  key={element.id}
+                  type="button"
+                  className={`pointer-events-auto absolute border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
+                    editable && selected ? 'overflow-visible cursor-move' : 'overflow-hidden'
+                  } ${editable ? 'cursor-move' : 'active:scale-[0.99]'}`}
                   style={{
                     ...commonStyle,
                     ...contentStyle,
-                    zIndex: 3000,
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                    textAlign: element.textAlign || 'center',
+                    background: element.backgroundType === 'gradient' ? undefined : background,
+                    backgroundImage: element.backgroundType === 'gradient' ? background : undefined,
+                    backgroundColor:
+                      element.backgroundType === 'gradient' ? 'transparent' : undefined,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    ...webElementBoxStyle(element),
                   }}
-                  value={renamingButton.value}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onChange={(event) => setRenamingButton({ id: element.id, value: event.target.value })}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') commitRename(element);
-                    if (event.key === 'Escape') setRenamingButton(null);
+                  disabled={!editable && element.disabled}
+                  onPointerDown={(event) => {
+                    if (editable) onBeginElementDrag(page, event, element, 'move');
                   }}
-                  onBlur={() => commitRename(element)}
-                />
-              )}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (editable) {
+                      if (event.detail > 1) {
+                        setRenamingButton({ id: element.id, value: element.text });
+                        return;
+                      }
+                      if (event.button === 2) return;
+                      onSelectElement?.(element.id);
+                      return;
+                    }
+                    onAction(element);
+                  }}
+                >
+                  {element.backgroundType === 'image' && element.backgroundImageUrl && (
+                    <span
+                      className="pointer-events-none absolute inset-0 bg-no-repeat"
+                      style={{
+                        backgroundImage: `url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`,
+                        backgroundSize:
+                          element.backgroundImageFit === 'fit'
+                            ? 'contain'
+                            : element.backgroundImageFit === 'max'
+                              ? 'cover'
+                              : `${element.backgroundImageScale ?? 100}%`,
+                        backgroundPosition: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px) calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`,
+                        opacity:
+                          Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100,
+                        transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`,
+                        transformOrigin: 'center',
+                      }}
+                    />
+                  )}
+                  <span
+                    className="relative flex h-full w-full items-center gap-2 overflow-hidden px-4"
+                    style={{
+                      ...elementRadiusStyle(element, 12),
+                      justifyContent: suffix ? 'space-between' : justifyContent,
+                      textAlign: element.textAlign || 'center',
+                    }}
+                  >
+                    {element.textVisible !== false && (
+                      <span
+                        className="whitespace-pre-line"
+                        style={webElementTextPaintStyle(element)}
+                      >
+                        {element.text}
+                      </span>
+                    )}
+                    {suffix && <span className="text-xs opacity-70">{suffix}</span>}
+                  </span>
+                  {editable && element.role && (
+                    <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
+                      {element.text || element.role}
+                    </span>
+                  )}
+                  {selected && (
+                    <SelectedElementFrame
+                      page={page}
+                      element={element}
+                      onUpdateElement={onUpdateElement}
+                      onBeginElementDrag={onBeginElementDrag}
+                      slotPreviewActive={slotPreviewActive}
+                      onToggleSlotPreview={
+                        page === 'archive' && element.role === 'slot'
+                          ? onToggleSlotPreview
+                          : undefined
+                      }
+                      onDelete={onDeleteElement}
+                    />
+                  )}
+                  {editable &&
+                    selected &&
+                    gradientEditingElement?.id === element.id &&
+                    gradientEditingElement.group === 'fill' &&
+                    element.backgroundType === 'gradient' && (
+                      <GradientCanvasControl
+                        shape={element.backgroundGradientShape || 'linear'}
+                        angle={element.backgroundGradientAngle ?? 135}
+                        startX={element.backgroundGradientStartX}
+                        startY={element.backgroundGradientStartY}
+                        endX={element.backgroundGradientEndX}
+                        endY={element.backgroundGradientEndY}
+                        onGeometryChange={(geometry) =>
+                          onUpdateElement(element.id, {
+                            backgroundGradientStartX: geometry.startX,
+                            backgroundGradientStartY: geometry.startY,
+                            backgroundGradientEndX: geometry.endX,
+                            backgroundGradientEndY: geometry.endY,
+                            backgroundGradientAngle: geometry.angle,
+                          })
+                        }
+                      />
+                    )}
+                </button>
+                {isRenaming && (
+                  <input
+                    autoFocus
+                    aria-label="Rename button"
+                    className="pointer-events-auto absolute border border-indigo-300 bg-slate-950/92 px-4 text-center font-black text-white outline-none ring-2 ring-indigo-500"
+                    style={{
+                      ...commonStyle,
+                      ...contentStyle,
+                      zIndex: 3000,
+                      backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                      textAlign: element.textAlign || 'center',
+                    }}
+                    value={renamingButton.value}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onChange={(event) =>
+                      setRenamingButton({ id: element.id, value: event.target.value })
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitRename(element);
+                      if (event.key === 'Escape') setRenamingButton(null);
+                    }}
+                    onBlur={() => commitRename(element)}
+                  />
+                )}
               </>
             );
           }
@@ -842,7 +910,9 @@ function MenuPageElementLayer({
                   event.stopPropagation();
                   if (!editable || event.button === 2) return;
                   if (event.detail > 1) {
-                    event.currentTarget.querySelector<HTMLInputElement>('input[type="file"]')?.click();
+                    event.currentTarget
+                      .querySelector<HTMLInputElement>('input[type="file"]')
+                      ?.click();
                     return;
                   }
                   onSelectElement?.(element.id);
@@ -868,7 +938,10 @@ function MenuPageElementLayer({
                     className="hidden"
                     onChange={(event) => {
                       const file = event.currentTarget.files?.[0];
-                      if (file) readStartMenuImageFile(file, (imageUrl) => onUpdateElement(element.id, { imageUrl }));
+                      if (file)
+                        readStartMenuImageFile(file, (imageUrl) =>
+                          onUpdateElement(element.id, { imageUrl }),
+                        );
                       event.currentTarget.value = '';
                     }}
                   />
@@ -919,32 +992,38 @@ function MenuPageElementLayer({
               }}
             >
               {element.textVisible !== false && (
-                <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>{element.text}</span>
+                <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>
+                  {element.text}
+                </span>
               )}
               {selected && (
-                  <SelectedElementFrame
+                <SelectedElementFrame
                   page={page}
                   element={element}
                   onUpdateElement={onUpdateElement}
-                    onBeginElementDrag={onBeginElementDrag}
-                    slotPreviewActive={slotPreviewActive}
-                    onToggleSlotPreview={
-                      page === 'archive' && element.role === 'slot'
-                        ? onToggleSlotPreview
-                        : undefined
+                  onBeginElementDrag={onBeginElementDrag}
+                  slotPreviewActive={slotPreviewActive}
+                  onToggleSlotPreview={
+                    page === 'archive' && element.role === 'slot' ? onToggleSlotPreview : undefined
+                  }
+                />
+              )}
+              {editable &&
+                selected &&
+                gradientEditingElement?.id === element.id &&
+                gradientEditingElement.group === 'text' &&
+                element.textColorType === 'gradient' && (
+                  <GradientCanvasControl
+                    shape="linear"
+                    angle={element.textGradientAngle ?? 90}
+                    onGeometryChange={(geometry) =>
+                      onUpdateElement(element.id, {
+                        textGradientAngle: geometry.angle,
+                        textColorType: 'gradient',
+                      })
                     }
-                />
-              )}
-              {editable && selected && gradientEditingElement?.id === element.id && gradientEditingElement.group === 'text' && element.textColorType === 'gradient' && (
-                <GradientCanvasControl
-                  shape="linear"
-                  angle={element.textGradientAngle ?? 90}
-                  onGeometryChange={(geometry) => onUpdateElement(element.id, {
-                    textGradientAngle: geometry.angle,
-                    textColorType: 'gradient',
-                  })}
-                />
-              )}
+                  />
+                )}
             </button>
           );
         })}

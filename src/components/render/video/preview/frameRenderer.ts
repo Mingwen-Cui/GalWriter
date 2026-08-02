@@ -1,3 +1,4 @@
+import { getVideoTextForChinesePreference } from '../i18n';
 import { htmlToSpeechText } from '../../../../lib/tts';
 import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
@@ -77,10 +78,14 @@ export const drawRenderFrame = async ({
 }: DrawRenderFrameInput) => {
   const title = htmlToSpeechText(String(node.data?.title || ''));
   const rawBodyHtml = String(node.data?.text || '');
-  const fullBody = htmlToSpeechText(filterMentionTags(rawBodyHtml, hideCharacterTags, hideSceneTags));
+  const fullBody = htmlToSpeechText(
+    filterMentionTags(rawBodyHtml, hideCharacterTags, hideSceneTags),
+  );
   const inlineState = inlinePlaybackStateAtTime({
     html: rawBodyHtml,
-    presentation: normalizeStoryPresentation(node.data?.presentation as StoryPresentation | undefined),
+    presentation: normalizeStoryPresentation(
+      node.data?.presentation as StoryPresentation | undefined,
+    ),
     elapsed,
     duration,
     options: { hideCharacterTags, hideSceneTags },
@@ -116,12 +121,26 @@ export const drawRenderFrame = async ({
   const titleLineHeight = Math.round(titleSize * Math.max(0.8, videoRenderStyle.titleLineHeight));
   const bodyLineHeight = Math.round(bodySize * Math.max(0.8, videoRenderStyle.bodyLineHeight));
   const maxTextWidth = baseDialogLayout.width - paddingX * 2;
-  const titleMaxTextWidth = Math.max(48, maxTextWidth * Math.min(1, Math.max(0.08, titleObject.width / 100)));
-  const bodyMaxTextWidth = Math.max(48, maxTextWidth * Math.min(1, Math.max(0.08, bodyObject.width / 100)));
+  const titleMaxTextWidth = Math.max(
+    48,
+    maxTextWidth * Math.min(1, Math.max(0.08, titleObject.width / 100)),
+  );
+  const bodyMaxTextWidth = Math.max(
+    48,
+    maxTextWidth * Math.min(1, Math.max(0.08, bodyObject.width / 100)),
+  );
 
   ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   const titleLines = videoRenderStyle.titleVisible
-    ? wrapText(ctx, title || (isZh ? '未命名片段' : 'Untitled segment'), titleMaxTextWidth).slice(0, 2)
+    ? wrapText(
+        ctx,
+        title ||
+          getVideoTextForChinesePreference(
+            isZh,
+            'componentsrendervideopreviewframeRendererIsZhText124',
+          ),
+        titleMaxTextWidth,
+      ).slice(0, 2)
     : [];
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   const fullBodyLines = wrapText(ctx, fullBody || '', bodyMaxTextWidth).slice(0, 7);
@@ -163,7 +182,12 @@ export const drawRenderFrame = async ({
     height,
     videoRenderStyle,
     { topExtension: nameplateReservedHeight },
-    objectAnimationState(renderObjects.dialogBox.animation.animation, renderObjects.dialogBox.animation.durationMs, elapsed, forceFinalText),
+    objectAnimationState(
+      renderObjects.dialogBox.animation.animation,
+      renderObjects.dialogBox.animation.durationMs,
+      elapsed,
+      forceFinalText,
+    ),
   );
   await drawNameplates(
     ctx,
@@ -171,7 +195,12 @@ export const drawRenderFrame = async ({
     dialogLayout,
     videoRenderStyle,
     nameplateItems,
-    objectAnimationState(renderObjects.nameplate.animation.animation, renderObjects.nameplate.animation.durationMs, elapsed, forceFinalText),
+    objectAnimationState(
+      renderObjects.nameplate.animation.animation,
+      renderObjects.nameplate.animation.durationMs,
+      elapsed,
+      forceFinalText,
+    ),
   );
   const textLeft = dialogLayout.x + paddingX;
   const textRight = dialogLayout.x + dialogLayout.width - paddingX;
@@ -189,7 +218,11 @@ export const drawRenderFrame = async ({
     drawVideoTextLine(
       ctx,
       line,
-      textX(videoRenderStyle.titleAlign, textLeft + titleObject.x, textLeft + titleObject.x + titleMaxTextWidth),
+      textX(
+        videoRenderStyle.titleAlign,
+        textLeft + titleObject.x,
+        textLeft + titleObject.x + titleMaxTextWidth,
+      ),
       y + titleObject.y + titleState.offsetY,
       {
         align: videoRenderStyle.titleAlign,
@@ -210,7 +243,11 @@ export const drawRenderFrame = async ({
     drawVideoTextLine(
       ctx,
       line,
-      textX(videoRenderStyle.bodyAlign, textLeft + bodyObject.x, textLeft + bodyObject.x + bodyMaxTextWidth),
+      textX(
+        videoRenderStyle.bodyAlign,
+        textLeft + bodyObject.x,
+        textLeft + bodyObject.x + bodyMaxTextWidth,
+      ),
       y + bodyObject.y + bodyState.offsetY,
       {
         align: videoRenderStyle.bodyAlign,

@@ -1,13 +1,11 @@
+import { formatWebText } from './i18n';
 import { Image as ImageIcon, Palette, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
-import {
-  ImageFillPopover,
-  SolidColorPopover,
-} from '../video/objectInspector/ColorPopovers';
+import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import { parseColorValue, toHex8 } from '../video/shared/colorValue';
 import type { WebExportSettings } from '../video/shared/types';
@@ -19,7 +17,11 @@ import {
 } from './StartMenuElementInspector';
 import { normalizeGradientStops } from './webGradientStops';
 import { gradientFromStops } from './webGradientStops';
-import { FloatingPopover, GradientIcon, InspectorGroup as Group } from './webStyleInspectorControls';
+import {
+  FloatingPopover,
+  GradientIcon,
+  InspectorGroup as Group,
+} from './webStyleInspectorControls';
 import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 
 type StartMenuBackgroundInspectorProps = {
@@ -49,7 +51,10 @@ export function StartMenuBackgroundInspector({
   onGradientEditingChange,
 }: StartMenuBackgroundInspectorProps) {
   const text = renderObjectText(language);
-  const closeLabel = language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close';
+  const closeLabel = formatWebText(
+    language,
+    'componentsrenderwebStartMenuBackgroundInspectorConditionalText52',
+  );
   const [openEditor, setOpenEditor] = useState<BackgroundType | null>(null);
   const background = getSurfaceBackground(settings, surface);
   const gradientStops = normalizeGradientStops(
@@ -91,9 +96,10 @@ export function StartMenuBackgroundInspector({
         icon={<Palette className="h-3.5 w-3.5 shrink-0" />}
         tone="fill"
         showDescriptions={showDescriptions}
-        secondaryDescription={
-          language === 'zh' ? '填充样式' : language === 'ja' ? '塗りつぶし形式' : 'Fill style'
-        }
+        secondaryDescription={formatWebText(
+          language,
+          'componentsrenderwebStartMenuBackgroundInspectorConditionalText95',
+        )}
         secondary={
           <BackgroundFillTabs
             value={background.type}
@@ -105,27 +111,78 @@ export function StartMenuBackgroundInspector({
           />
         }
       >
-      {showDescriptions && (
-        <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
-      )}
-      <div className="grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-        <div className="min-w-0">
-          {background.type === 'solid' && (
-            <InlineColorControl
-              label={text.popover.solidTitle}
-              color={background.color}
+        {showDescriptions && (
+          <div className="mb-2 px-1 text-[10px] leading-4 text-slate-500">{text.group.fill}</div>
+        )}
+        <div className="grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+          <div className="min-w-0">
+            {background.type === 'solid' && (
+              <InlineColorControl
+                label={text.popover.solidTitle}
+                color={background.color}
+                alpha={parseColorValue(background.color).alpha}
+                alphaLabel={text.field.opacity}
+                hexLabel={text.popover.hex}
+                onColorChange={(value) => {
+                  const current = parseColorValue(background.color);
+                  updateBackgroundSetting(
+                    updateWebSettings,
+                    surface,
+                    'color',
+                    toHex8(value, current.alpha),
+                  );
+                }}
+                onAlphaChange={(alpha) =>
+                  updateBackgroundSetting(
+                    updateWebSettings,
+                    surface,
+                    'color',
+                    toHex8(background.color, alpha),
+                  )
+                }
+                onOpen={() => setOpenEditor(openEditor === 'solid' ? null : 'solid')}
+              />
+            )}
+            {background.type === 'gradient' && (
+              <InlineGradientControl
+                label={text.popover.gradientTitle}
+                stops={gradientStops}
+                onOpen={() => setOpenEditor(openEditor === 'gradient' ? null : 'gradient')}
+                onAlphaChange={(alpha) =>
+                  updateBackgroundSetting(
+                    updateWebSettings,
+                    surface,
+                    'gradientStops',
+                    gradientStops.map((stop) => ({ ...stop, alpha })),
+                  )
+                }
+              />
+            )}
+            {(background.type === 'image' || background.type === 'video') && (
+              <BackgroundPreview settings={settings} surface={surface} />
+            )}
+          </div>
+          <div className="h-10 w-11" aria-hidden="true" />
+        </div>
+        {openEditor === 'solid' && (
+          <FloatingPopover
+            popoverKey="solid"
+            onClose={() => setOpenEditor(null)}
+            closeLabel={closeLabel}
+          >
+            <SolidColorPopover
+              tone="fill"
+              text={text.popover}
+              color={parseColorValue(background.color).hex}
               alpha={parseColorValue(background.color).alpha}
-              alphaLabel={text.field.opacity}
-              hexLabel={text.popover.hex}
-              onColorChange={(value) => {
-                const current = parseColorValue(background.color);
+              onColorChange={(value) =>
                 updateBackgroundSetting(
                   updateWebSettings,
                   surface,
                   'color',
-                  toHex8(value, current.alpha),
-                );
-              }}
+                  toHex8(value, parseColorValue(background.color).alpha),
+                )
+              }
               onAlphaChange={(alpha) =>
                 updateBackgroundSetting(
                   updateWebSettings,
@@ -134,118 +191,93 @@ export function StartMenuBackgroundInspector({
                   toHex8(background.color, alpha),
                 )
               }
-              onOpen={() => setOpenEditor(openEditor === 'solid' ? null : 'solid')}
             />
-          )}
-          {background.type === 'gradient' && (
-            <InlineGradientControl
-              label={text.popover.gradientTitle}
+          </FloatingPopover>
+        )}
+        {openEditor === 'gradient' && (
+          <PortaledGradientPopover onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
+            <GradientEditorPopover
+              language={language}
+              angle={background.gradientAngle}
+              shape={background.gradientShape}
               stops={gradientStops}
-              onOpen={() => setOpenEditor(openEditor === 'gradient' ? null : 'gradient')}
-              onAlphaChange={(alpha) =>
-                updateBackgroundSetting(
-                  updateWebSettings,
-                  surface,
-                  'gradientStops',
-                  gradientStops.map((stop) => ({ ...stop, alpha })),
-                )
+              onAngleChange={(value) =>
+                updateBackgroundSetting(updateWebSettings, surface, 'gradientAngle', value)
               }
+              onShapeChange={(value) =>
+                updateBackgroundSetting(updateWebSettings, surface, 'gradientShape', value)
+              }
+              onStopsChange={(stops) => {
+                const sorted = [...stops].sort((a, b) => a.position - b.position);
+                const start = sorted[0];
+                const end = sorted[sorted.length - 1];
+                updateBackgroundSetting(updateWebSettings, surface, 'gradientStops', sorted);
+                if (start)
+                  updateBackgroundSetting(updateWebSettings, surface, 'gradientStart', start.color);
+                if (end)
+                  updateBackgroundSetting(updateWebSettings, surface, 'gradientEnd', end.color);
+              }}
             />
-          )}
-          {(background.type === 'image' || background.type === 'video') && (
-            <BackgroundPreview settings={settings} surface={surface} />
-          )}
-        </div>
-        <div className="h-10 w-11" aria-hidden="true" />
-      </div>
-      {openEditor === 'solid' && (
-        <FloatingPopover popoverKey="solid" onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
-          <SolidColorPopover
-            tone="fill"
-            text={text.popover}
-            color={parseColorValue(background.color).hex}
-            alpha={parseColorValue(background.color).alpha}
-            onColorChange={(value) =>
-              updateBackgroundSetting(
-                updateWebSettings,
-                surface,
-                'color',
-                toHex8(value, parseColorValue(background.color).alpha),
-              )
-            }
-            onAlphaChange={(alpha) =>
-              updateBackgroundSetting(
-                updateWebSettings,
-                surface,
-                'color',
-                toHex8(background.color, alpha),
-              )
-            }
-          />
-        </FloatingPopover>
-      )}
-      {openEditor === 'gradient' && (
-        <PortaledGradientPopover onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
-          <GradientEditorPopover
-            language={language}
-            angle={background.gradientAngle}
-            shape={background.gradientShape}
-            stops={gradientStops}
-            onAngleChange={(value) =>
-              updateBackgroundSetting(updateWebSettings, surface, 'gradientAngle', value)
-            }
-            onShapeChange={(value) =>
-              updateBackgroundSetting(updateWebSettings, surface, 'gradientShape', value)
-            }
-            onStopsChange={(stops) => {
-              const sorted = [...stops].sort((a, b) => a.position - b.position);
-              const start = sorted[0];
-              const end = sorted[sorted.length - 1];
-              updateBackgroundSetting(updateWebSettings, surface, 'gradientStops', sorted);
-              if (start)
-                updateBackgroundSetting(updateWebSettings, surface, 'gradientStart', start.color);
-              if (end)
-                updateBackgroundSetting(updateWebSettings, surface, 'gradientEnd', end.color);
-            }}
-          />
-        </PortaledGradientPopover>
-      )}
-      {openEditor === 'image' && (
-        <FloatingPopover popoverKey="image" onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
-          <ImageFillPopover
-            tone="fill"
-            text={text.popover}
-            value={{
-              imageUrl: background.imageUrl,
-              imageFit: 'crop',
-              imageAngle: 0,
-              imageAlpha: 100,
-            }}
-            onChange={(updates) => {
-              if (updates.imageUrl !== undefined) {
-                updateBackgroundSetting(updateWebSettings, surface, 'imageUrl', updates.imageUrl);
-              }
-            }}
-          />
-        </FloatingPopover>
-      )}
-      {openEditor === 'video' && (
-        <FloatingPopover popoverKey="style" onClose={() => setOpenEditor(null)} closeLabel={closeLabel}>
-          <VideoBackgroundPopover
-            language={language}
-            videoUrl={background.videoUrl}
-            loop={background.videoLoop}
-            muted={background.videoMuted}
-            fit={background.videoFit}
-            onChange={(updates) => {
-              if (updates.videoUrl !== undefined) updateBackgroundSetting(updateWebSettings, surface, 'videoUrl', updates.videoUrl);
-              if (updates.videoLoop !== undefined) updateBackgroundSetting(updateWebSettings, surface, 'videoLoop', updates.videoLoop);
-              if (updates.videoMuted !== undefined) updateBackgroundSetting(updateWebSettings, surface, 'videoMuted', updates.videoMuted);
-              if (updates.videoFit !== undefined) updateBackgroundSetting(updateWebSettings, surface, 'videoFit', updates.videoFit);
-            }}
-          />
-        </FloatingPopover>
-      )}
+          </PortaledGradientPopover>
+        )}
+        {openEditor === 'image' && (
+          <FloatingPopover
+            popoverKey="image"
+            onClose={() => setOpenEditor(null)}
+            closeLabel={closeLabel}
+          >
+            <ImageFillPopover
+              tone="fill"
+              text={text.popover}
+              value={{
+                imageUrl: background.imageUrl,
+                imageFit: 'crop',
+                imageAngle: 0,
+                imageAlpha: 100,
+              }}
+              onChange={(updates) => {
+                if (updates.imageUrl !== undefined) {
+                  updateBackgroundSetting(updateWebSettings, surface, 'imageUrl', updates.imageUrl);
+                }
+              }}
+            />
+          </FloatingPopover>
+        )}
+        {openEditor === 'video' && (
+          <FloatingPopover
+            popoverKey="style"
+            onClose={() => setOpenEditor(null)}
+            closeLabel={closeLabel}
+          >
+            <VideoBackgroundPopover
+              language={language}
+              videoUrl={background.videoUrl}
+              loop={background.videoLoop}
+              muted={background.videoMuted}
+              fit={background.videoFit}
+              onChange={(updates) => {
+                if (updates.videoUrl !== undefined)
+                  updateBackgroundSetting(updateWebSettings, surface, 'videoUrl', updates.videoUrl);
+                if (updates.videoLoop !== undefined)
+                  updateBackgroundSetting(
+                    updateWebSettings,
+                    surface,
+                    'videoLoop',
+                    updates.videoLoop,
+                  );
+                if (updates.videoMuted !== undefined)
+                  updateBackgroundSetting(
+                    updateWebSettings,
+                    surface,
+                    'videoMuted',
+                    updates.videoMuted,
+                  );
+                if (updates.videoFit !== undefined)
+                  updateBackgroundSetting(updateWebSettings, surface, 'videoFit', updates.videoFit);
+              }}
+            />
+          </FloatingPopover>
+        )}
       </Group>
       {surface !== 'game' && (
         <WebMenuMusicPanel
@@ -278,7 +310,14 @@ function BackgroundFillTabs({
   return (
     <div className="grid h-10 grid-cols-4 overflow-hidden rounded-xl bg-white">
       {options.map((option) => (
-        <button key={option.value} type="button" onClick={() => onChange(option.value)} className={`grid place-items-center ${value === option.value ? 'bg-indigo-600 text-white' : 'text-slate-700'}`} title={option.label} aria-label={option.label}>
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={`grid place-items-center ${value === option.value ? 'bg-indigo-600 text-white' : 'text-slate-700'}`}
+          title={option.label}
+          aria-label={option.label}
+        >
           {option.icon}
         </button>
       ))}
@@ -286,23 +325,93 @@ function BackgroundFillTabs({
   );
 }
 
-function VideoBackgroundPopover({ language, videoUrl, loop, muted, fit, onChange }: {
-  language: Language; videoUrl: string; loop: boolean; muted: boolean; fit: 'crop' | 'fit';
-  onChange: (updates: { videoUrl?: string; videoLoop?: boolean; videoMuted?: boolean; videoFit?: 'crop' | 'fit' }) => void;
+function VideoBackgroundPopover({
+  language,
+  videoUrl,
+  loop,
+  muted,
+  fit,
+  onChange,
+}: {
+  language: Language;
+  videoUrl: string;
+  loop: boolean;
+  muted: boolean;
+  fit: 'crop' | 'fit';
+  onChange: (updates: {
+    videoUrl?: string;
+    videoLoop?: boolean;
+    videoMuted?: boolean;
+    videoFit?: 'crop' | 'fit';
+  }) => void;
 }) {
-  const copy = language === 'en' ? ['Video background', 'Replace video', 'Loop', 'Mute', 'Fill', 'Fit'] : language === 'ja' ? ['動画背景', '動画を置換', 'ループ', 'ミュート', 'トリミング', '全体表示'] : ['视频背景', '替换视频', '循环', '静音', '裁切填满', '完整显示'];
-  return <div className="rounded-[22px] border border-sky-200 bg-sky-50 p-3 shadow-xl">
-    <label className="grid h-32 cursor-pointer place-items-center overflow-hidden rounded-xl bg-slate-950">
-      {videoUrl ? <video src={videoUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" /> : <span className="text-xs font-medium text-white">{copy[0]}</span>}
-      <input type="file" accept="video/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => onChange({ videoUrl: String(reader.result || '') }); reader.readAsDataURL(file); event.target.value = ''; }} />
-    </label>
-    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-      <button type="button" onClick={() => onChange({ videoLoop: !loop })} className={`h-9 rounded-lg ${loop ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}>{copy[2]}</button>
-      <button type="button" onClick={() => onChange({ videoMuted: !muted })} className={`h-9 rounded-lg ${muted ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}>{copy[3]}</button>
-      <button type="button" onClick={() => onChange({ videoFit: 'crop' })} className={`h-9 rounded-lg ${fit === 'crop' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}>{copy[4]}</button>
-      <button type="button" onClick={() => onChange({ videoFit: 'fit' })} className={`h-9 rounded-lg ${fit === 'fit' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}>{copy[5]}</button>
+  const copy =
+    language === 'en'
+      ? ['Video background', 'Replace video', 'Loop', 'Mute', 'Fill', 'Fit']
+      : language === 'ja'
+        ? ['動画背景', '動画を置換', 'ループ', 'ミュート', 'トリミング', '全体表示']
+        : ['视频背景', '替换视频', '循环', '静音', '裁切填满', '完整显示'];
+  return (
+    <div className="rounded-[22px] border border-sky-200 bg-sky-50 p-3 shadow-xl">
+      <label className="grid h-32 cursor-pointer place-items-center overflow-hidden rounded-xl bg-slate-950">
+        {videoUrl ? (
+          <video
+            src={videoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="text-xs font-medium text-white">{copy[0]}</span>
+        )}
+        <input
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => onChange({ videoUrl: String(reader.result || '') });
+            reader.readAsDataURL(file);
+            event.target.value = '';
+          }}
+        />
+      </label>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => onChange({ videoLoop: !loop })}
+          className={`h-9 rounded-lg ${loop ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+        >
+          {copy[2]}
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ videoMuted: !muted })}
+          className={`h-9 rounded-lg ${muted ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+        >
+          {copy[3]}
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ videoFit: 'crop' })}
+          className={`h-9 rounded-lg ${fit === 'crop' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+        >
+          {copy[4]}
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ videoFit: 'fit' })}
+          className={`h-9 rounded-lg ${fit === 'fit' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+        >
+          {copy[5]}
+        </button>
+      </div>
     </div>
-  </div>;
+  );
 }
 
 function BackgroundPreview({
@@ -317,18 +426,18 @@ function BackgroundPreview({
     backgroundSettings.type === 'video' && !backgroundSettings.videoUrl
       ? '#000000'
       : backgroundSettings.type === 'gradient'
-      ? gradientFromStops(
-          backgroundSettings.gradientShape,
-          backgroundSettings.gradientAngle,
-          normalizeGradientStops(
-            backgroundSettings.gradientStops,
-            backgroundSettings.gradientStart,
-            backgroundSettings.gradientEnd,
-          ),
-        )
-      : backgroundSettings.type === 'image'
-        ? `center / cover url("${backgroundSettings.imageUrl}")`
-        : backgroundSettings.color;
+        ? gradientFromStops(
+            backgroundSettings.gradientShape,
+            backgroundSettings.gradientAngle,
+            normalizeGradientStops(
+              backgroundSettings.gradientStops,
+              backgroundSettings.gradientStart,
+              backgroundSettings.gradientEnd,
+            ),
+          )
+        : backgroundSettings.type === 'image'
+          ? `center / cover url("${backgroundSettings.imageUrl}")`
+          : backgroundSettings.color;
   return (
     <div className="h-10 rounded-xl border border-white/60 bg-white p-1">
       <div className="h-full rounded-lg" style={{ background }} />
@@ -353,11 +462,26 @@ export function getSurfaceBackground(settings: WebExportSettings, surface: Backg
     gradientStart: read<string>('GradientStart', settings.startMenuBackgroundGradientStart),
     gradientEnd: read<string>('GradientEnd', settings.startMenuBackgroundGradientEnd),
     gradientAngle: read<number>('GradientAngle', settings.startMenuBackgroundGradientAngle),
-    gradientStartX: read<number | undefined>('GradientStartX', settings.startMenuBackgroundGradientStartX),
-    gradientStartY: read<number | undefined>('GradientStartY', settings.startMenuBackgroundGradientStartY),
-    gradientEndX: read<number | undefined>('GradientEndX', settings.startMenuBackgroundGradientEndX),
-    gradientEndY: read<number | undefined>('GradientEndY', settings.startMenuBackgroundGradientEndY),
-    gradientShape: read<'linear' | 'radial' | 'diamond'>('GradientShape', settings.startMenuBackgroundGradientShape || 'linear'),
+    gradientStartX: read<number | undefined>(
+      'GradientStartX',
+      settings.startMenuBackgroundGradientStartX,
+    ),
+    gradientStartY: read<number | undefined>(
+      'GradientStartY',
+      settings.startMenuBackgroundGradientStartY,
+    ),
+    gradientEndX: read<number | undefined>(
+      'GradientEndX',
+      settings.startMenuBackgroundGradientEndX,
+    ),
+    gradientEndY: read<number | undefined>(
+      'GradientEndY',
+      settings.startMenuBackgroundGradientEndY,
+    ),
+    gradientShape: read<'linear' | 'radial' | 'diamond'>(
+      'GradientShape',
+      settings.startMenuBackgroundGradientShape || 'linear',
+    ),
     gradientStops: read<WebExportSettings['startMenuBackgroundGradientStops']>(
       'GradientStops',
       settings.startMenuBackgroundGradientStops,
@@ -390,7 +514,12 @@ function updateBackgroundSetting(
     | 'videoLoop'
     | 'videoMuted'
     | 'videoFit',
-  value: BackgroundType | string | number | boolean | WebExportSettings['startMenuBackgroundGradientStops'],
+  value:
+    | BackgroundType
+    | string
+    | number
+    | boolean
+    | WebExportSettings['startMenuBackgroundGradientStops'],
 ) {
   const keyMap = {
     start: {
@@ -399,11 +528,17 @@ function updateBackgroundSetting(
       gradientStart: 'startMenuBackgroundGradientStart',
       gradientEnd: 'startMenuBackgroundGradientEnd',
       gradientAngle: 'startMenuBackgroundGradientAngle',
-      gradientStartX: 'startMenuBackgroundGradientStartX', gradientStartY: 'startMenuBackgroundGradientStartY', gradientEndX: 'startMenuBackgroundGradientEndX', gradientEndY: 'startMenuBackgroundGradientEndY',
+      gradientStartX: 'startMenuBackgroundGradientStartX',
+      gradientStartY: 'startMenuBackgroundGradientStartY',
+      gradientEndX: 'startMenuBackgroundGradientEndX',
+      gradientEndY: 'startMenuBackgroundGradientEndY',
       gradientShape: 'startMenuBackgroundGradientShape',
       gradientStops: 'startMenuBackgroundGradientStops',
       imageUrl: 'startMenuBackgroundImageUrl',
-      videoUrl: 'startMenuBackgroundVideoUrl', videoLoop: 'startMenuBackgroundVideoLoop', videoMuted: 'startMenuBackgroundVideoMuted', videoFit: 'startMenuBackgroundVideoFit',
+      videoUrl: 'startMenuBackgroundVideoUrl',
+      videoLoop: 'startMenuBackgroundVideoLoop',
+      videoMuted: 'startMenuBackgroundVideoMuted',
+      videoFit: 'startMenuBackgroundVideoFit',
     },
     archive: {
       type: 'archiveBackgroundType',
@@ -411,11 +546,17 @@ function updateBackgroundSetting(
       gradientStart: 'archiveBackgroundGradientStart',
       gradientEnd: 'archiveBackgroundGradientEnd',
       gradientAngle: 'archiveBackgroundGradientAngle',
-      gradientStartX: 'archiveBackgroundGradientStartX', gradientStartY: 'archiveBackgroundGradientStartY', gradientEndX: 'archiveBackgroundGradientEndX', gradientEndY: 'archiveBackgroundGradientEndY',
+      gradientStartX: 'archiveBackgroundGradientStartX',
+      gradientStartY: 'archiveBackgroundGradientStartY',
+      gradientEndX: 'archiveBackgroundGradientEndX',
+      gradientEndY: 'archiveBackgroundGradientEndY',
       gradientShape: 'archiveBackgroundGradientShape',
       gradientStops: 'archiveBackgroundGradientStops',
       imageUrl: 'archiveBackgroundImageUrl',
-      videoUrl: 'archiveBackgroundVideoUrl', videoLoop: 'archiveBackgroundVideoLoop', videoMuted: 'archiveBackgroundVideoMuted', videoFit: 'archiveBackgroundVideoFit',
+      videoUrl: 'archiveBackgroundVideoUrl',
+      videoLoop: 'archiveBackgroundVideoLoop',
+      videoMuted: 'archiveBackgroundVideoMuted',
+      videoFit: 'archiveBackgroundVideoFit',
     },
     settings: {
       type: 'settingsBackgroundType',
@@ -423,11 +564,17 @@ function updateBackgroundSetting(
       gradientStart: 'settingsBackgroundGradientStart',
       gradientEnd: 'settingsBackgroundGradientEnd',
       gradientAngle: 'settingsBackgroundGradientAngle',
-      gradientStartX: 'settingsBackgroundGradientStartX', gradientStartY: 'settingsBackgroundGradientStartY', gradientEndX: 'settingsBackgroundGradientEndX', gradientEndY: 'settingsBackgroundGradientEndY',
+      gradientStartX: 'settingsBackgroundGradientStartX',
+      gradientStartY: 'settingsBackgroundGradientStartY',
+      gradientEndX: 'settingsBackgroundGradientEndX',
+      gradientEndY: 'settingsBackgroundGradientEndY',
       gradientShape: 'settingsBackgroundGradientShape',
       gradientStops: 'settingsBackgroundGradientStops',
       imageUrl: 'settingsBackgroundImageUrl',
-      videoUrl: 'settingsBackgroundVideoUrl', videoLoop: 'settingsBackgroundVideoLoop', videoMuted: 'settingsBackgroundVideoMuted', videoFit: 'settingsBackgroundVideoFit',
+      videoUrl: 'settingsBackgroundVideoUrl',
+      videoLoop: 'settingsBackgroundVideoLoop',
+      videoMuted: 'settingsBackgroundVideoMuted',
+      videoFit: 'settingsBackgroundVideoFit',
     },
     game: {
       type: 'dialogueBackgroundType',
@@ -435,11 +582,17 @@ function updateBackgroundSetting(
       gradientStart: 'dialogueBackgroundGradientStart',
       gradientEnd: 'dialogueBackgroundGradientEnd',
       gradientAngle: 'dialogueBackgroundGradientAngle',
-      gradientStartX: 'dialogueBackgroundGradientStartX', gradientStartY: 'dialogueBackgroundGradientStartY', gradientEndX: 'dialogueBackgroundGradientEndX', gradientEndY: 'dialogueBackgroundGradientEndY',
+      gradientStartX: 'dialogueBackgroundGradientStartX',
+      gradientStartY: 'dialogueBackgroundGradientStartY',
+      gradientEndX: 'dialogueBackgroundGradientEndX',
+      gradientEndY: 'dialogueBackgroundGradientEndY',
       gradientShape: 'dialogueBackgroundGradientShape',
       gradientStops: 'dialogueBackgroundGradientStops',
       imageUrl: 'dialogueBackgroundImageUrl',
-      videoUrl: 'dialogueBackgroundVideoUrl', videoLoop: 'dialogueBackgroundVideoLoop', videoMuted: 'dialogueBackgroundVideoMuted', videoFit: 'dialogueBackgroundVideoFit',
+      videoUrl: 'dialogueBackgroundVideoUrl',
+      videoLoop: 'dialogueBackgroundVideoLoop',
+      videoMuted: 'dialogueBackgroundVideoMuted',
+      videoFit: 'dialogueBackgroundVideoFit',
     },
   } satisfies Record<BackgroundSurface, Record<typeof field, keyof WebExportSettings>>;
   const key = keyMap[surface][field];

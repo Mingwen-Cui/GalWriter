@@ -1,6 +1,8 @@
+import { formatWebText } from './i18n';
 import type { CSSProperties } from 'react';
 import { useRef, useState } from 'react';
 
+import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings } from '../video/shared/types';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
 import { GradientCanvasControl } from './GradientCanvasControl';
@@ -66,7 +68,7 @@ type WebPlaytestStartMenuElementProps = {
   settings: WebExportSettings;
   choiceColor: string;
   choiceTextColor: string;
-  t: (zh: string, ja: string, en: string) => string;
+  language: Language;
   onEnsureStartMenuElements: () => void;
   onSelectElement: (id: string) => void;
   onSetEditingElement: (id: string | null) => void;
@@ -92,7 +94,7 @@ export function WebPlaytestStartMenuElement({
   settings,
   choiceColor,
   choiceTextColor,
-  t,
+  language,
   onEnsureStartMenuElements,
   onSelectElement,
   onSetEditingElement,
@@ -101,9 +103,22 @@ export function WebPlaytestStartMenuElement({
   onBeginDrag,
 }: WebPlaytestStartMenuElementProps) {
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const backgroundImageDragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
-  const cropResizeRef = useRef<{ centerX: number; centerY: number; distance: number; scale: number } | null>(null);
-  const [backgroundImageNaturalSize, setBackgroundImageNaturalSize] = useState({ width: 0, height: 0 });
+  const backgroundImageDragRef = useRef<{
+    x: number;
+    y: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+  const cropResizeRef = useRef<{
+    centerX: number;
+    centerY: number;
+    distance: number;
+    scale: number;
+  } | null>(null);
+  const [backgroundImageNaturalSize, setBackgroundImageNaturalSize] = useState({
+    width: 0,
+    height: 0,
+  });
   if (!element.visible && previewMode !== 'edit') return null;
   const isProtectedMainMenuButton =
     element.kind === 'button' && protectedStartMenuElementRoles.has(element.role || '');
@@ -112,24 +127,24 @@ export function WebPlaytestStartMenuElement({
     element.fillEnabled === false
       ? undefined
       : element.backgroundType === 'image' && element.backgroundImageUrl
-      ? undefined
-      : element.backgroundType === 'gradient'
-        ? gradientFromStops(
-            element.backgroundGradientShape,
-            element.backgroundGradientAngle ?? 135,
-            normalizeGradientStops(
-              element.backgroundGradientStops,
-              element.backgroundGradientStart || choiceColor,
-              element.backgroundGradientEnd || '#0f172a',
-            ),
-            {
-              startX: element.backgroundGradientStartX,
-              startY: element.backgroundGradientStartY,
-              endX: element.backgroundGradientEndX,
-              endY: element.backgroundGradientEndY,
-            },
-          )
-        : element.backgroundColor;
+        ? undefined
+        : element.backgroundType === 'gradient'
+          ? gradientFromStops(
+              element.backgroundGradientShape,
+              element.backgroundGradientAngle ?? 135,
+              normalizeGradientStops(
+                element.backgroundGradientStops,
+                element.backgroundGradientStart || choiceColor,
+                element.backgroundGradientEnd || '#0f172a',
+              ),
+              {
+                startX: element.backgroundGradientStartX,
+                startY: element.backgroundGradientStartY,
+                endX: element.backgroundGradientEndX,
+                endY: element.backgroundGradientEndY,
+              },
+            )
+          : element.backgroundColor;
   const elementStyle: React.CSSProperties = {
     left: `${element.x}%`,
     top: `${element.y}%`,
@@ -215,7 +230,7 @@ export function WebPlaytestStartMenuElement({
     >
       {visibleText ||
         (previewMode === 'edit' && editingStartMenuElementId !== element.id
-          ? t('双击编辑', '編集', 'Edit')
+          ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText218')
           : '')}
     </span>
   );
@@ -229,16 +244,16 @@ export function WebPlaytestStartMenuElement({
   };
   const functionLabel =
     element.role === 'save'
-      ? t('打开存档页', 'セーブ画面', 'Open saves')
+      ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText232')
       : element.role === 'new'
-        ? t('新游戏', '新規ゲーム', 'New game')
+        ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText234')
         : element.role === 'settings'
-          ? t('打开设置页', '設定画面', 'Open settings')
+          ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText236')
           : element.role === 'link'
-            ? t('打开超链接', 'リンクを開く', 'Open link')
+            ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText238')
             : element.role === 'volume'
-              ? t('设置音量', '音量を設定', 'Set volume')
-              : t('无功能', '機能なし', 'No action');
+              ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText240')
+              : formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText241');
 
   return (
     <div
@@ -285,7 +300,10 @@ export function WebPlaytestStartMenuElement({
               className="hidden"
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0];
-                if (file) readStartMenuImageFile(file, (imageUrl) => onUpdateElement(element.id, { imageUrl }));
+                if (file)
+                  readStartMenuImageFile(file, (imageUrl) =>
+                    onUpdateElement(element.id, { imageUrl }),
+                  );
                 event.currentTarget.value = '';
               }}
             />
@@ -298,7 +316,7 @@ export function WebPlaytestStartMenuElement({
             onClick={(event) => event.stopPropagation()}
             onDoubleClick={openImagePicker}
           >
-            {t('选择图片', '画像 URL', 'Image')}
+            {formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText301')}
             <input
               ref={imageInputRef}
               type="file"
@@ -320,15 +338,30 @@ export function WebPlaytestStartMenuElement({
         <button
           type="button"
           onPointerDown={(event) => {
-            if (imageCropEditing || previewMode !== 'edit' || !selected || element.backgroundType !== 'image' || (element.backgroundImageFit || 'crop') !== 'crop') return;
+            if (
+              imageCropEditing ||
+              previewMode !== 'edit' ||
+              !selected ||
+              element.backgroundType !== 'image' ||
+              (element.backgroundImageFit || 'crop') !== 'crop'
+            )
+              return;
             event.stopPropagation();
             event.currentTarget.setPointerCapture(event.pointerId);
-            backgroundImageDragRef.current = { x: event.clientX, y: event.clientY, offsetX: element.backgroundImageOffsetX ?? 0, offsetY: element.backgroundImageOffsetY ?? 0 };
+            backgroundImageDragRef.current = {
+              x: event.clientX,
+              y: event.clientY,
+              offsetX: element.backgroundImageOffsetX ?? 0,
+              offsetY: element.backgroundImageOffsetY ?? 0,
+            };
           }}
           onPointerMove={(event) => {
             const drag = backgroundImageDragRef.current;
             if (!drag) return;
-            onUpdateElement(element.id, { backgroundImageOffsetX: drag.offsetX + event.clientX - drag.x, backgroundImageOffsetY: drag.offsetY + event.clientY - drag.y });
+            onUpdateElement(element.id, {
+              backgroundImageOffsetX: drag.offsetX + event.clientX - drag.x,
+              backgroundImageOffsetY: drag.offsetY + event.clientY - drag.y,
+            });
           }}
           onPointerUp={(event) => {
             if (!backgroundImageDragRef.current) return;
@@ -357,7 +390,10 @@ export function WebPlaytestStartMenuElement({
                 ? undefined
                 : elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
             backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
-            backgroundColor: element.backgroundType === 'gradient' || element.backgroundType === 'image' ? 'transparent' : undefined,
+            backgroundColor:
+              element.backgroundType === 'gradient' || element.backgroundType === 'image'
+                ? 'transparent'
+                : undefined,
             color: textColorWithAlpha(
               element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
               element.textColorAlpha,
@@ -396,23 +432,28 @@ export function WebPlaytestStartMenuElement({
               }}
             />
           )}
-          {previewMode === 'edit' && selected && gradientEditing === 'fill' && element.backgroundType === 'gradient' && (
-            <GradientCanvasControl
-              shape={element.backgroundGradientShape || 'linear'}
-              angle={element.backgroundGradientAngle ?? 135}
-              startX={element.backgroundGradientStartX}
-              startY={element.backgroundGradientStartY}
-              endX={element.backgroundGradientEndX}
-              endY={element.backgroundGradientEndY}
-              onGeometryChange={(geometry) => onUpdateElement(element.id, {
-                backgroundGradientStartX: geometry.startX,
-                backgroundGradientStartY: geometry.startY,
-                backgroundGradientEndX: geometry.endX,
-                backgroundGradientEndY: geometry.endY,
-                backgroundGradientAngle: geometry.angle,
-              })}
-            />
-          )}
+          {previewMode === 'edit' &&
+            selected &&
+            gradientEditing === 'fill' &&
+            element.backgroundType === 'gradient' && (
+              <GradientCanvasControl
+                shape={element.backgroundGradientShape || 'linear'}
+                angle={element.backgroundGradientAngle ?? 135}
+                startX={element.backgroundGradientStartX}
+                startY={element.backgroundGradientStartY}
+                endX={element.backgroundGradientEndX}
+                endY={element.backgroundGradientEndY}
+                onGeometryChange={(geometry) =>
+                  onUpdateElement(element.id, {
+                    backgroundGradientStartX: geometry.startX,
+                    backgroundGradientStartY: geometry.startY,
+                    backgroundGradientEndX: geometry.endX,
+                    backgroundGradientEndY: geometry.endY,
+                    backgroundGradientAngle: geometry.angle,
+                  })
+                }
+              />
+            )}
           <span className="relative z-[1]">{content}</span>
         </button>
       ) : (
@@ -425,16 +466,22 @@ export function WebPlaytestStartMenuElement({
           {content}
         </div>
       )}
-      {previewMode === 'edit' && selected && gradientEditing === 'text' && element.kind === 'text' && element.textColorType === 'gradient' && (
-        <GradientCanvasControl
-          shape="linear"
-          angle={element.textGradientAngle ?? 90}
-          onGeometryChange={(geometry) => onUpdateElement(element.id, {
-            textGradientAngle: geometry.angle,
-            textColorType: 'gradient',
-          })}
-        />
-      )}
+      {previewMode === 'edit' &&
+        selected &&
+        gradientEditing === 'text' &&
+        element.kind === 'text' &&
+        element.textColorType === 'gradient' && (
+          <GradientCanvasControl
+            shape="linear"
+            angle={element.textGradientAngle ?? 90}
+            onGeometryChange={(geometry) =>
+              onUpdateElement(element.id, {
+                textGradientAngle: geometry.angle,
+                textColorType: 'gradient',
+              })
+            }
+          />
+        )}
       {imageCropEditing && element.kind === 'button' && element.backgroundImageUrl && (
         <div className="pointer-events-none absolute inset-0 z-[40] overflow-visible">
           <div
@@ -443,9 +490,10 @@ export function WebPlaytestStartMenuElement({
               left: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px)`,
               top: `calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`,
               width: `${element.backgroundImageScale ?? 100}%`,
-              aspectRatio: backgroundImageNaturalSize.width && backgroundImageNaturalSize.height
-                ? `${backgroundImageNaturalSize.width} / ${backgroundImageNaturalSize.height}`
-                : undefined,
+              aspectRatio:
+                backgroundImageNaturalSize.width && backgroundImageNaturalSize.height
+                  ? `${backgroundImageNaturalSize.width} / ${backgroundImageNaturalSize.height}`
+                  : undefined,
               transform: `translate(-50%, -50%) rotate(${element.backgroundImageRotation ?? 0}deg)`,
             }}
             onPointerDown={(event) => {
@@ -463,9 +511,18 @@ export function WebPlaytestStartMenuElement({
             onPointerMove={(event) => {
               const resize = cropResizeRef.current;
               if (resize) {
-                const distance = Math.hypot(event.clientX - resize.centerX, event.clientY - resize.centerY);
+                const distance = Math.hypot(
+                  event.clientX - resize.centerX,
+                  event.clientY - resize.centerY,
+                );
                 onUpdateElement(element.id, {
-                  backgroundImageScale: Math.max(10, Math.min(400, Math.round(resize.scale * distance / Math.max(1, resize.distance)))),
+                  backgroundImageScale: Math.max(
+                    10,
+                    Math.min(
+                      400,
+                      Math.round((resize.scale * distance) / Math.max(1, resize.distance)),
+                    ),
+                  ),
                 });
                 return;
               }
@@ -480,7 +537,8 @@ export function WebPlaytestStartMenuElement({
             onPointerUp={(event) => {
               backgroundImageDragRef.current = null;
               cropResizeRef.current = null;
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId);
             }}
             onPointerCancel={() => {
               backgroundImageDragRef.current = null;
@@ -492,15 +550,22 @@ export function WebPlaytestStartMenuElement({
               alt=""
               draggable={false}
               className="h-full w-full select-none object-fill opacity-50"
-              onLoad={(event) => setBackgroundImageNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+              onLoad={(event) =>
+                setBackgroundImageNaturalSize({
+                  width: event.currentTarget.naturalWidth,
+                  height: event.currentTarget.naturalHeight,
+                })
+              }
             />
             <div className="pointer-events-none absolute inset-0 z-20 border-2 border-indigo-400 shadow-[0_0_0_1px_rgba(255,255,255,0.9)]" />
-            {([
-              { position: 'left-0 top-0', transform: '-translate-x-1/2 -translate-y-1/2' },
-              { position: 'right-0 top-0', transform: 'translate-x-1/2 -translate-y-1/2' },
-              { position: 'right-0 bottom-0', transform: 'translate-x-1/2 translate-y-1/2' },
-              { position: 'left-0 bottom-0', transform: '-translate-x-1/2 translate-y-1/2' },
-            ] as const).map(({ position, transform }) => (
+            {(
+              [
+                { position: 'left-0 top-0', transform: '-translate-x-1/2 -translate-y-1/2' },
+                { position: 'right-0 top-0', transform: 'translate-x-1/2 -translate-y-1/2' },
+                { position: 'right-0 bottom-0', transform: 'translate-x-1/2 translate-y-1/2' },
+                { position: 'left-0 bottom-0', transform: '-translate-x-1/2 translate-y-1/2' },
+              ] as const
+            ).map(({ position, transform }) => (
               <button
                 key={position}
                 type="button"
@@ -521,11 +586,17 @@ export function WebPlaytestStartMenuElement({
                     scale: element.backgroundImageScale ?? 100,
                   };
                 }}
-                aria-label={t('缩放图片', '画像を拡大縮小', 'Resize image')}
+                aria-label={formatWebText(
+                  language,
+                  'componentsrenderwebWebPlaytestStartMenuElementText524',
+                )}
               />
             ))}
             <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-950/85 px-2 py-1 text-[10px] font-bold text-white shadow">
-              {backgroundImageNaturalSize.width > 0 ? `${backgroundImageNaturalSize.width} × ${backgroundImageNaturalSize.height} · ` : ''}{Math.round(element.backgroundImageScale ?? 100)}%
+              {backgroundImageNaturalSize.width > 0
+                ? `${backgroundImageNaturalSize.width} × ${backgroundImageNaturalSize.height} · `
+                : ''}
+              {Math.round(element.backgroundImageScale ?? 100)}%
             </div>
           </div>
           <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
@@ -538,9 +609,10 @@ export function WebPlaytestStartMenuElement({
                 left: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px)`,
                 top: `calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`,
                 width: `${element.backgroundImageScale ?? 100}%`,
-                aspectRatio: backgroundImageNaturalSize.width && backgroundImageNaturalSize.height
-                  ? `${backgroundImageNaturalSize.width} / ${backgroundImageNaturalSize.height}`
-                  : undefined,
+                aspectRatio:
+                  backgroundImageNaturalSize.width && backgroundImageNaturalSize.height
+                    ? `${backgroundImageNaturalSize.width} / ${backgroundImageNaturalSize.height}`
+                    : undefined,
                 transform: `translate(-50%, -50%) rotate(${element.backgroundImageRotation ?? 0}deg)`,
                 opacity: Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100,
               }}

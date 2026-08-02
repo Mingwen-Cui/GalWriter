@@ -1,3 +1,4 @@
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   Clock,
@@ -16,7 +17,6 @@ import { useRef, useState } from 'react';
 
 import { ResizeHandle } from '../controls/RenderControls';
 import { TIMELINE_LABEL_WIDTH } from '../shared/constants';
-import { renderCopy } from '../shared/renderCopy';
 import type {
   RenderStatus,
   TimelineScaleMode,
@@ -183,7 +183,6 @@ export function VideoTimelinePanel({
   setTimelineStartById,
   setTimelineDurationById,
 }: VideoTimelinePanelProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const TIMELINE_COLLAPSED_HEIGHT = 44;
   const isCollapsed = timelineHeight <= TIMELINE_COLLAPSED_HEIGHT;
   const selectionDragRef = useRef<{
@@ -245,11 +244,15 @@ export function VideoTimelinePanel({
   const handleClipResizeMove = (event: React.PointerEvent<HTMLElement>) => {
     const drag = clipResizeDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const deltaSeconds = (event.clientX - drag.startClientX) / Math.max(1, timelineMetrics.pixelsPerSecond);
+    const deltaSeconds =
+      (event.clientX - drag.startClientX) / Math.max(1, timelineMetrics.pixelsPerSecond);
     const MIN_DURATION = 0.1;
     if (drag.side === 'right') {
       // 拖动右边缘：只改变时长，起始不动
-      const newDuration = Math.max(MIN_DURATION, snapTimelineTime(drag.originalDuration + deltaSeconds));
+      const newDuration = Math.max(
+        MIN_DURATION,
+        snapTimelineTime(drag.originalDuration + deltaSeconds),
+      );
       setTimelineDurationById((prev) => ({ ...prev, [drag.nodeId]: newDuration }));
     } else {
       // 拖动左边缘：起始点右移时时长缩短，左移时时长增大；起始点不能小于0
@@ -258,7 +261,10 @@ export function VideoTimelinePanel({
       const startDelta = clampedNewStart - drag.originalStart;
       const newDuration = Math.max(MIN_DURATION, drag.originalDuration - startDelta);
       const snappedStart = Math.max(0, snapTimelineTime(drag.originalStart + deltaSeconds));
-      const finalDuration = Math.max(MIN_DURATION, drag.originalDuration - (snappedStart - drag.originalStart));
+      const finalDuration = Math.max(
+        MIN_DURATION,
+        drag.originalDuration - (snappedStart - drag.originalStart),
+      );
       setTimelineStartById((prev) => ({ ...prev, [drag.nodeId]: snappedStart }));
       setTimelineDurationById((prev) => ({ ...prev, [drag.nodeId]: finalDuration }));
     }
@@ -417,11 +423,7 @@ export function VideoTimelinePanel({
     >
       <div className="absolute inset-x-0 top-0">
         <ResizeHandle
-          label={t(
-            '调整视频编辑时间线高度',
-            '編集タイムラインの高さを調整',
-            'Resize editing timeline',
-          )}
+          label={formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText420')}
           axis="y"
           value={timelineHeight}
           min={TIMELINE_COLLAPSED_HEIGHT}
@@ -433,7 +435,7 @@ export function VideoTimelinePanel({
       <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--vr-border)] px-4">
         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
           <Clock className="w-4 h-4 text-[var(--vr-accent)]" />
-          {t('视频编辑时间线', '編集タイムライン', 'Editing Timeline')}
+          {formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText436')}
         </div>
         <div className="flex justify-center gap-1.5">
           <button
@@ -441,8 +443,14 @@ export function VideoTimelinePanel({
             onClick={() => seekTimelineTime(0)}
             disabled={timelineNodes.length === 0 || status === 'rendering'}
             className="h-8 w-8 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] flex items-center justify-center hover:bg-[var(--vr-accent-soft)] disabled:opacity-40"
-            title={t('跳到开头', '先頭へ移動', 'Jump to start')}
-            aria-label={t('跳到时间线开头', 'タイムラインの先頭へ移動', 'Jump to timeline start')}
+            title={formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoTimelinePanelText444',
+            )}
+            aria-label={formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoTimelinePanelText445',
+            )}
           >
             <span className="text-xs font-black">|&lt;</span>
           </button>
@@ -458,8 +466,8 @@ export function VideoTimelinePanel({
             className="h-8 w-8 rounded-lg bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] flex items-center justify-center hover:bg-[var(--vr-surface-soft)] disabled:opacity-40"
             title={
               previewPlaying
-                ? t('暂停时间线', 'タイムラインを一時停止', 'Pause timeline')
-                : t('播放时间线', 'タイムラインを再生', 'Play timeline')
+                ? formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText461')
+                : formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText462')
             }
           >
             {previewPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -469,8 +477,14 @@ export function VideoTimelinePanel({
             onClick={() => seekTimelineTime(timelineMetrics.totalDuration)}
             disabled={timelineNodes.length === 0 || status === 'rendering'}
             className="h-8 w-8 rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] flex items-center justify-center hover:bg-[var(--vr-accent-soft)] disabled:opacity-40"
-            title={t('跳到结尾', '末尾へ移動', 'Jump to end')}
-            aria-label={t('跳到时间线结尾', 'タイムラインの末尾へ移動', 'Jump to timeline end')}
+            title={formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoTimelinePanelText472',
+            )}
+            aria-label={formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoTimelinePanelText473',
+            )}
           >
             <span className="text-xs font-black">&gt;|</span>
           </button>
@@ -486,13 +500,13 @@ export function VideoTimelinePanel({
             }`}
             title={
               timelineSnapEnabled
-                ? t('吸附已开启', 'スナップ有効', 'Snapping on')
-                : t('吸附已关闭', 'スナップ無効', 'Snapping off')
+                ? formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText489')
+                : formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText490')
             }
             aria-pressed={timelineSnapEnabled}
           >
             <Magnet className="w-3.5 h-3.5" />
-            {t('吸附', 'スナップ', 'Snap')}
+            {formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText495')}
           </button>
           <div className="flex h-8 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
             {(['vertical', 'horizontal'] as TimelineWheelMode[]).map((mode) => (
@@ -507,15 +521,13 @@ export function VideoTimelinePanel({
                 }`}
                 title={
                   mode === 'vertical'
-                    ? t(
-                        '鼠标滚轮上下滚动时间线区域',
-                        'ホイールで縦スクロール',
-                        'Mouse wheel scrolls vertically',
+                    ? formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoTimelinePanelText510',
                       )
-                    : t(
-                        '鼠标滚轮左右移动时间线',
-                        'ホイールで横スクロール',
-                        'Mouse wheel scrolls horizontally',
+                    : formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoTimelinePanelText515',
                       )
                 }
               >
@@ -524,7 +536,15 @@ export function VideoTimelinePanel({
                 ) : (
                   <MoveHorizontal className="w-3.5 h-3.5" />
                 )}
-                {mode === 'vertical' ? t('上下', '縦', 'Y') : t('左右', '横', 'X')}
+                {mode === 'vertical'
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoTimelinePanelText527',
+                    )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoTimelinePanelText527_2',
+                    )}
               </button>
             ))}
           </div>
@@ -559,11 +579,25 @@ export function VideoTimelinePanel({
                     }`}
                     title={
                       mode === 'seconds'
-                        ? t('按秒数显示比例尺', '秒でルーラーを表示', 'Show ruler in seconds')
-                        : t('按帧数显示比例尺', 'フレームでルーラーを表示', 'Show ruler in frames')
+                        ? formatVideoText(
+                            language,
+                            'componentsrendervideopanelsVideoTimelinePanelText562',
+                          )
+                        : formatVideoText(
+                            language,
+                            'componentsrendervideopanelsVideoTimelinePanelText563',
+                          )
                     }
                   >
-                    {mode === 'seconds' ? t('秒', '秒', 'Sec') : t('帧', 'フレーム', 'Frm')}
+                    {mode === 'seconds'
+                      ? formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoTimelinePanelText566',
+                        )
+                      : formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoTimelinePanelText566_2',
+                        )}
                   </button>
                 ))}
               </div>
@@ -577,10 +611,9 @@ export function VideoTimelinePanel({
               onPointerUp={handleTimelineScrubEnd}
               onPointerCancel={handleTimelineScrubEnd}
               onContextMenu={(event) => openContextMenu(event, { kind: 'empty' })}
-              title={t(
-                '拖动或点击移动播放条',
-                'ドラッグまたはクリックで再生位置を移動',
-                'Drag or click to move playhead',
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoTimelinePanelText580',
               )}
             >
               {timelineTicks.map((time) => {
@@ -606,7 +639,7 @@ export function VideoTimelinePanel({
                 style={{ left: timelinePlayheadLeft }}
               />
             </div>
-      </div>
+          </div>
           <div
             className="relative"
             onClickCapture={suppressBoxSelectClick}
@@ -630,7 +663,10 @@ export function VideoTimelinePanel({
                   type="button"
                   onClick={addVideoTrack}
                   className="h-7 rounded-none bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
-                  title={t('新增视频轨', '動画トラックを追加', 'Add video track')}
+                  title={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoTimelinePanelText633',
+                  )}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -664,14 +700,17 @@ export function VideoTimelinePanel({
                     />
                     <div className="relative z-10 flex items-center gap-1 px-3 text-[11px] font-black text-sky-600 dark:text-sky-300">
                       <span className="min-w-0 truncate">
-                        {`${t('视频轨', '動画トラック', 'Video')} ${trackIndex + 1}`}
+                        {`${formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText667')} ${trackIndex + 1}`}
                       </span>
                       {videoTrackIds.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeVideoTrack(trackId)}
                           className="shrink-0 w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
-                          title={t('删除视频轨', '動画トラックを削除', 'Delete video track')}
+                          title={formatVideoText(
+                            language,
+                            'componentsrendervideopanelsVideoTimelinePanelText674',
+                          )}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -707,7 +746,8 @@ export function VideoTimelinePanel({
                         // NOTE: 无音频卡片才允许拖动边缘调整时长
                         const hasAudio =
                           Boolean(node.data?.audioUrl) ||
-                          (Array.isArray(node.data?.audioClips) && (node.data.audioClips as unknown[]).length > 0) ||
+                          (Array.isArray(node.data?.audioClips) &&
+                            (node.data.audioClips as unknown[]).length > 0) ||
                           Boolean(linkedTimelineClipById?.[node.id]);
                         return (
                           <div
@@ -765,7 +805,10 @@ export function VideoTimelinePanel({
                                   data-timeline-no-box-select
                                   draggable={false}
                                   className="absolute left-0 top-0 z-40 h-full w-2 cursor-ew-resize bg-transparent hover:bg-[var(--vr-accent)]/40 transition-colors group"
-                                  title={t('拖动调整卡片开始时间', 'ドラッグで開始時間を調整', 'Drag to adjust clip start time')}
+                                  title={formatVideoText(
+                                    language,
+                                    'componentsrendervideopanelsVideoTimelinePanelText768',
+                                  )}
                                   onPointerDown={(event) => {
                                     event.stopPropagation();
                                     handleClipResizeStart(event, node.id, 'left');
@@ -782,7 +825,10 @@ export function VideoTimelinePanel({
                                   data-timeline-no-box-select
                                   draggable={false}
                                   className="absolute right-0 top-0 z-40 h-full w-2 cursor-ew-resize bg-transparent hover:bg-[var(--vr-accent)]/40 transition-colors group"
-                                  title={t('拖动调整卡片时长', 'ドラッグで長さを調整', 'Drag to adjust clip duration')}
+                                  title={formatVideoText(
+                                    language,
+                                    'componentsrendervideopanelsVideoTimelinePanelText785',
+                                  )}
                                   onPointerDown={(event) => {
                                     event.stopPropagation();
                                     handleClipResizeStart(event, node.id, 'right');
@@ -846,10 +892,9 @@ export function VideoTimelinePanel({
                                       ? 'bg-black/45 text-white hover:bg-rose-500 hover:text-white'
                                       : 'text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)]'
                                   }`}
-                                  title={t(
-                                    '从时间线删除',
-                                    'タイムラインから削除',
-                                    'Remove from timeline',
+                                  title={formatVideoText(
+                                    language,
+                                    'componentsrendervideopanelsVideoTimelinePanelText849',
                                   )}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -891,10 +936,9 @@ export function VideoTimelinePanel({
                   onPointerMove={handleTimelinePlayheadGrabMove}
                   onPointerUp={handleTimelineScrubEnd}
                   onPointerCancel={handleTimelineScrubEnd}
-                  title={t(
-                    '拖动调整播放条',
-                    'ドラッグして再生位置を調整',
-                    'Drag to adjust playhead',
+                  title={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoTimelinePanelText894',
                   )}
                 >
                   <div className="relative rounded-md bg-[var(--vr-accent)] px-1.5 py-0.5 text-[10px] font-black text-white shadow-sm whitespace-nowrap">
@@ -925,9 +969,15 @@ export function VideoTimelinePanel({
                 const trackLabel = trackNodes.some(
                   (node) => node.data?.audioRole === 'video-original',
                 )
-                  ? t('视频原声', '動画の元音声', 'Video original audio')
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoTimelinePanelText928',
+                    )
                   : trackNodes.some((node) => node.data?.audioRole === 'generated-speech')
-                    ? t('文字语音', 'テキスト音声', 'Generated speech')
+                    ? formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoTimelinePanelText930',
+                      )
                     : `音频轨 ${trackIndex + 1}`;
                 return (
                   <div
@@ -942,14 +992,17 @@ export function VideoTimelinePanel({
                     <div className="relative z-10 flex items-center gap-1 px-3 text-[11px] font-black text-violet-600 dark:text-violet-300">
                       <span className="min-w-0 truncate">{trackLabel}</span>
                       <span className="hidden">
-                        {`${t('音频轨', '音声トラック', 'Audio')} ${trackIndex + 1}`}
+                        {`${formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText945')} ${trackIndex + 1}`}
                       </span>
                       {audioTrackIds.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeAudioTrack(trackId)}
                           className="shrink-0 w-5 h-5 rounded text-[var(--vr-text-muted)] hover:text-rose-500 hover:bg-[var(--vr-danger-soft)] flex items-center justify-center"
-                          title={t('删除音频轨', '音声トラックを削除', 'Delete audio track')}
+                          title={formatVideoText(
+                            language,
+                            'componentsrendervideopanelsVideoTimelinePanelText952',
+                          )}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -979,9 +1032,15 @@ export function VideoTimelinePanel({
                         const dragSelected = dragSelectionIds.has(node.id);
                         const audioText =
                           node.data?.audioRole === 'video-original'
-                            ? t('视频原声', '動画の元音声', 'Video original audio')
+                            ? formatVideoText(
+                                language,
+                                'componentsrendervideopanelsVideoTimelinePanelText982',
+                              )
                             : node.data?.audioRole === 'generated-speech'
-                              ? t('文字语音', 'テキスト音声', 'Generated speech')
+                              ? formatVideoText(
+                                  language,
+                                  'componentsrendervideopanelsVideoTimelinePanelText984',
+                                )
                               : segmentText(node) || segmentTitle(node);
                         const segmentLayout = getTimelineSegmentLayout(
                           metric.start,
@@ -1070,7 +1129,10 @@ export function VideoTimelinePanel({
                   type="button"
                   onClick={addAudioTrack}
                   className="h-7 rounded-none bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] flex items-center justify-center"
-                  title={t('新增音频轨', '音声トラックを追加', 'Add audio track')}
+                  title={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoTimelinePanelText1073',
+                  )}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -1100,10 +1162,9 @@ export function VideoTimelinePanel({
               onPointerMove={handleTimelineScrollThumbMove}
               onPointerUp={handleTimelineScrollThumbEnd}
               onPointerCancel={handleTimelineScrollThumbEnd}
-              title={t(
-                '拖动移动时间线视野',
-                'ドラッグしてタイムライン表示を移動',
-                'Drag to scroll timeline',
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoTimelinePanelText1103',
               )}
             >
               <div className="absolute left-2 right-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-[var(--vr-accent)]/50" />
@@ -1114,15 +1175,13 @@ export function VideoTimelinePanel({
                 onPointerMove={handleTimelineScaleHandleMove}
                 onPointerUp={handleTimelineScaleHandleEnd}
                 onPointerCancel={handleTimelineScaleHandleEnd}
-                title={t(
-                  '拖动调整可视窗口宽度',
-                  'ドラッグして表示範囲の幅を調整',
-                  'Drag to resize timeline window',
+                title={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoTimelinePanelText1117',
                 )}
-                aria-label={t(
-                  '调整时间轴缩放左手柄',
-                  'タイムライン倍率の左ハンドルを調整',
-                  'Adjust timeline scale left handle',
+                aria-label={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoTimelinePanelText1122',
                 )}
               />
               <button
@@ -1132,15 +1191,13 @@ export function VideoTimelinePanel({
                 onPointerMove={handleTimelineScaleHandleMove}
                 onPointerUp={handleTimelineScaleHandleEnd}
                 onPointerCancel={handleTimelineScaleHandleEnd}
-                title={t(
-                  '拖动调整可视窗口宽度',
-                  'ドラッグして表示範囲の幅を調整',
-                  'Drag to resize timeline window',
+                title={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoTimelinePanelText1135',
                 )}
-                aria-label={t(
-                  '调整时间轴缩放右手柄',
-                  'タイムライン倍率の右ハンドルを調整',
-                  'Adjust timeline scale right handle',
+                aria-label={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoTimelinePanelText1140',
                 )}
               />
             </div>

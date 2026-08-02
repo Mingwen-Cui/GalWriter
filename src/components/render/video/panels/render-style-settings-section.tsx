@@ -1,3 +1,4 @@
+import { formatVideoText, getVideoTextAnimationOptions } from '../i18n';
 import {
   ALargeSmall,
   Baseline,
@@ -27,9 +28,7 @@ import type { ComponentType } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DragSizeControl } from '../controls/RenderControls';
-import { TEXT_ANIMATION_OPTIONS } from '../shared/constants';
 import { getVideoRenderObjects, updateVideoTextAnimations } from '../shared/renderObjects';
-import { renderCopy } from '../shared/renderCopy';
 import type { RenderStyle, TextAlign, TextAnimation, TypewriterMode } from '../shared/types';
 import type { Language } from '../../../../lib/i18n';
 
@@ -101,8 +100,6 @@ export function RenderStyleSettingsSection({
   resolutionHeight = 1080,
   showDescriptions = false,
 }: RenderStyleSettingsSectionProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
-
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();
     if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
@@ -198,7 +195,9 @@ export function RenderStyleSettingsSection({
     .join(', ');
 
   const [activeGradientStopId, setActiveGradientStopId] = useState<string | null>(null);
-  const [activeNameplateGradientStopId, setActiveNameplateGradientStopId] = useState<string | null>(null);
+  const [activeNameplateGradientStopId, setActiveNameplateGradientStopId] = useState<string | null>(
+    null,
+  );
   const [openSelectId, setOpenSelectId] = useState<string | null>(null);
   const gradientEditorRef = useRef<HTMLDivElement | null>(null);
   const nameplateGradientEditorRef = useRef<HTMLDivElement | null>(null);
@@ -340,9 +339,7 @@ export function RenderStyleSettingsSection({
     event: React.PointerEvent<HTMLElement> | React.MouseEvent<HTMLElement>,
   ) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    return Math.round(
-      Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)),
-    );
+    return Math.round(Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)));
   };
 
   const addNameplateGradientStopAt = (position: number) => {
@@ -533,9 +530,18 @@ export function RenderStyleSettingsSection({
     const align = renderStyle[alignKey] as TextAlign;
     const typewriterMode = objectAnimation.typewriterMode;
     const normalizedTypewriterMode = typewriterMode === 'word' ? 'sentence' : typewriterMode;
-    const characterModeLabel = t('逐字', '一文字ずつ', 'Character');
-    const sentenceModeLabel = t('逐句', '一文ずつ', 'Sentence');
-    const lineModeLabel = t('逐行', '一行ずつ', 'Line');
+    const characterModeLabel = formatVideoText(
+      language,
+      'componentsrendervideopanelsrenderStyleSettingsSectionText536',
+    );
+    const sentenceModeLabel = formatVideoText(
+      language,
+      'componentsrendervideopanelsrenderStyleSettingsSectionText537',
+    );
+    const lineModeLabel = formatVideoText(
+      language,
+      'componentsrendervideopanelsrenderStyleSettingsSectionText538',
+    );
     const showDetailRows = !isTitle || visible;
     const visibilityButtonClass = isTitle
       ? visible
@@ -551,14 +557,22 @@ export function RenderStyleSettingsSection({
           <div className="space-y-1">
             {showDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                {isTitle ? t('标题隐藏', 'タイトルを非表示', 'Title hidden') : t('正文无法隐藏', '本文は非表示不可', 'Body cannot be hidden')}
+                {isTitle
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText554',
+                    )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText554_2',
+                    )}
               </div>
             )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (canToggle) setStyle(visibleKey, !visible as never);
-                }}
+            <button
+              type="button"
+              onClick={() => {
+                if (canToggle) setStyle(visibleKey, !visible as never);
+              }}
               className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal transition-colors ${visibilityButtonClass} ${canToggle ? '' : 'cursor-default'}`}
               aria-label={label}
             >
@@ -573,20 +587,32 @@ export function RenderStyleSettingsSection({
             renderStyle[fontFamilyKey] as string,
             (value) => setStyle(fontFamilyKey, value as never),
             CLEAN_FONT_OPTIONS,
-            t('字体', 'フォント', 'Font'),
-            t('选择字体', 'フォントを選択', 'Choose font'),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsrenderStyleSettingsSectionText576',
+            ),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsrenderStyleSettingsSectionText577',
+            ),
           )}
           {iconNumber(
             ALargeSmall,
             <DragSizeControl
-              label={t('拖动调整字号', 'サイズを調整', 'Adjust font size')}
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText582',
+              )}
               value={renderStyle[fontSizeKey] as number}
               min={isTitle ? 18 : 16}
               max={isTitle ? 120 : 96}
               step={1}
               onChange={(value) => setStyle(fontSizeKey, value as never)}
             />,
-            t('字体大小', 'フォントサイズ', 'Font size'),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsrenderStyleSettingsSectionText589',
+            ),
           )}
           {isTitle && !visible && (
             <>
@@ -606,129 +632,198 @@ export function RenderStyleSettingsSection({
         {renderCollapsibleRows(
           showDetailRows,
           <>
-          <div className="pointer-events-none grid grid-cols-3 gap-2 select-none opacity-40 grayscale" title={t('视频文字动画暂不可用', '動画テキストアニメーションは現在利用できません', 'Video text animation is currently unavailable')}>
-          {iconSelect(
-            Sparkles,
-            `${kind}-animation`,
-            animation,
-            (value) => setObjectAnimation({ animation: value as TextAnimation }),
-            TEXT_ANIMATION_OPTIONS.map((option) => ({
-              value: option.value,
-              label: renderCopy(language, option.zh, option.ja, option.en),
-            })),
-            t('动画', 'アニメ', 'Animation'),
-            t('选择文字动画', '文字アニメを選択', 'Choose text animation'),
-          )}
-          {iconNumber(
-            Timer,
-            <DragSizeControl
-              label={t('拖动调整提前完成时间', '早めに完了する時間を调整', 'Adjust finish-early time')}
-              value={objectAnimation.durationMs}
-              min={0}
-              max={10000}
-              step={50}
-              unit="ms"
-              onChange={(value) => setObjectAnimation({ durationMs: value })}
-            />,
-            t('动画提前完成时间', 'アニメーション先行完了時間', 'Finish-early time'),
-          )}
-          {iconSelect(
-            CaseSensitive,
-            `${kind}-typewriter`,
-            normalizedTypewriterMode,
-            (value) => setObjectAnimation({ typewriterMode: value as TypewriterMode }),
-            [
-              { value: 'character', label: characterModeLabel },
-              { value: 'sentence', label: sentenceModeLabel },
-              { value: 'line', label: lineModeLabel },
-            ],
-            t('打字粒度', 'タイプ単位', 'Typewriter unit'),
-            t('选择打字粒度', 'タイプ単位を選択', 'Choose typewriter unit'),
-            !isTypewriter,
-          )}
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-          {iconColor(
-            Palette,
-            colorInputValue(renderStyle[colorKey] as string),
-            (value) => setStyle(colorKey, value as never),
-            t('文字颜色', '文字色', 'Text color'),
-            t('选择文字颜色', '文字色を選択', 'Choose text color'),
-          )}
-          {iconNumber(
-            Blend,
-            <DragSizeControl
-              label={t('拖动调整文字透明度', '文字透明度を調整', 'Adjust text alpha')}
-              value={renderStyle[colorAlphaKey] as number}
-              min={0}
-              max={100}
-              step={1}
-              unit="%"
-              onChange={(value) => setStyle(colorAlphaKey, value as never)}
-            />,
-            t('文字透明度', '文字の透明度', 'Text alpha'),
-          )}
-          {iconNumber(
-            Baseline,
-            <DragSizeControl
-              label={t('拖动调整描边宽度', '縁取り幅を調整', 'Adjust stroke width')}
-              value={renderStyle[strokeWidthKey] as number}
-              min={0}
-              max={16}
-              step={0.5}
-              onChange={(value) => setStyle(strokeWidthKey, value as never)}
-            />,
-            t('描边宽度', '縁取り幅', 'Stroke width'),
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="space-y-1">
-            {showDescriptions && (
-              <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                {t('文字对齐', '文字揃え', 'Text align')}
-              </div>
-            )}
-            <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
-              {(['left', 'center', 'right'] as TextAlign[]).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setStyle(alignKey, value as never)}
-                  className={`h-9 text-xs font-normal ${
-                    align === value ? 'bg-[var(--vr-accent)] text-white' : 'text-[var(--vr-text-soft)]'
-                  }`}
-                >
-                  {value === 'left' ? t('左', '左', 'L') : value === 'center' ? t('中', '中央', 'C') : t('右', '右', 'R')}
-                </button>
-              ))}
+            <div
+              className="pointer-events-none grid grid-cols-3 gap-2 select-none opacity-40 grayscale"
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText609',
+              )}
+            >
+              {iconSelect(
+                Sparkles,
+                `${kind}-animation`,
+                animation,
+                (value) => setObjectAnimation({ animation: value as TextAnimation }),
+                getVideoTextAnimationOptions(language),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText619',
+                ),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText620',
+                ),
+              )}
+              {iconNumber(
+                Timer,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText625',
+                  )}
+                  value={objectAnimation.durationMs}
+                  min={0}
+                  max={10000}
+                  step={50}
+                  unit="ms"
+                  onChange={(value) => setObjectAnimation({ durationMs: value })}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText633',
+                ),
+              )}
+              {iconSelect(
+                CaseSensitive,
+                `${kind}-typewriter`,
+                normalizedTypewriterMode,
+                (value) => setObjectAnimation({ typewriterMode: value as TypewriterMode }),
+                [
+                  { value: 'character', label: characterModeLabel },
+                  { value: 'sentence', label: sentenceModeLabel },
+                  { value: 'line', label: lineModeLabel },
+                ],
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText645',
+                ),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText646',
+                ),
+                !isTypewriter,
+              )}
             </div>
-          </div>
-          {iconNumber(
-            BetweenHorizontalStart,
-            <DragSizeControl
-              label={t('拖动调整字间距', '文字間隔を調整', 'Adjust spacing')}
-              value={renderStyle[spacingKey] as number}
-              min={-4}
-              max={24}
-              step={0.5}
-              onChange={(value) => setStyle(spacingKey, value as never)}
-            />,
-            t('字间距', '文字間隔', 'Letter spacing'),
-          )}
-          {iconNumber(
-            BetweenVerticalStart,
-            <DragSizeControl
-              label={t('拖动调整行距', '行間を調整', 'Adjust line height')}
-              value={renderStyle[lineHeightKey] as number}
-              min={0.8}
-              max={2.4}
-              step={0.05}
-              unit="x"
-              onChange={(value) => setStyle(lineHeightKey, value as never)}
-            />,
-            t('行距', '行間', 'Line height'),
-          )}
-          </div>
+            <div className="grid grid-cols-3 gap-2">
+              {iconColor(
+                Palette,
+                colorInputValue(renderStyle[colorKey] as string),
+                (value) => setStyle(colorKey, value as never),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText655',
+                ),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText656',
+                ),
+              )}
+              {iconNumber(
+                Blend,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText661',
+                  )}
+                  value={renderStyle[colorAlphaKey] as number}
+                  min={0}
+                  max={100}
+                  step={1}
+                  unit="%"
+                  onChange={(value) => setStyle(colorAlphaKey, value as never)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText669',
+                ),
+              )}
+              {iconNumber(
+                Baseline,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText674',
+                  )}
+                  value={renderStyle[strokeWidthKey] as number}
+                  min={0}
+                  max={16}
+                  step={0.5}
+                  onChange={(value) => setStyle(strokeWidthKey, value as never)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText681',
+                ),
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                {showDescriptions && (
+                  <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                    {formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText688',
+                    )}
+                  </div>
+                )}
+                <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
+                  {(['left', 'center', 'right'] as TextAlign[]).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setStyle(alignKey, value as never)}
+                      className={`h-9 text-xs font-normal ${
+                        align === value
+                          ? 'bg-[var(--vr-accent)] text-white'
+                          : 'text-[var(--vr-text-soft)]'
+                      }`}
+                    >
+                      {value === 'left'
+                        ? formatVideoText(
+                            language,
+                            'componentsrendervideopanelsrenderStyleSettingsSectionText701',
+                          )
+                        : value === 'center'
+                          ? formatVideoText(
+                              language,
+                              'componentsrendervideopanelsrenderStyleSettingsSectionText701_2',
+                            )
+                          : formatVideoText(
+                              language,
+                              'componentsrendervideopanelsrenderStyleSettingsSectionText701_3',
+                            )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {iconNumber(
+                BetweenHorizontalStart,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText709',
+                  )}
+                  value={renderStyle[spacingKey] as number}
+                  min={-4}
+                  max={24}
+                  step={0.5}
+                  onChange={(value) => setStyle(spacingKey, value as never)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText716',
+                ),
+              )}
+              {iconNumber(
+                BetweenVerticalStart,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText721',
+                  )}
+                  value={renderStyle[lineHeightKey] as number}
+                  min={0.8}
+                  max={2.4}
+                  step={0.05}
+                  unit="x"
+                  onChange={(value) => setStyle(lineHeightKey, value as never)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText729',
+                ),
+              )}
+            </div>
           </>,
         )}
       </div>
@@ -761,7 +856,10 @@ export function RenderStyleSettingsSection({
           type="button"
           onClick={() => setShowNameplateStyleMenu(!showNameplateStyleMenu)}
           className="flex h-10 w-full items-stretch rounded-r-lg bg-transparent p-1"
-          title={t('名牌底色设置', 'ネームプレート背景設定', 'Nameplate background settings')}
+          title={formatVideoText(
+            language,
+            'componentsrendervideopanelsrenderStyleSettingsSectionText764',
+          )}
         >
           <div
             className="flex-1 rounded-md border border-white/10"
@@ -781,7 +879,7 @@ export function RenderStyleSettingsSection({
           />
         </button>,
         false,
-        t('底色设置', '背景設定', 'Background settings'),
+        formatVideoText(language, 'componentsrendervideopanelsrenderStyleSettingsSectionText784'),
       )}
       {showNameplateStyleMenu && (
         <div
@@ -811,7 +909,10 @@ export function RenderStyleSettingsSection({
                 />
               </div>
               <DragSizeControl
-                label={t('拖动调整名牌底色透明度', '透明度を調整', 'Adjust nameplate opacity')}
+                label={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText814',
+                )}
                 value={renderStyle.nameplateColorAlpha ?? 86}
                 min={0}
                 max={100}
@@ -824,7 +925,10 @@ export function RenderStyleSettingsSection({
           {renderStyle.nameplateBackgroundType === 'gradient' && (
             <div ref={nameplateGradientEditorRef} className="space-y-3">
               <DragSizeControl
-                label={t('拖动调整名牌渐变角度', '角度を調整', 'Adjust nameplate gradient angle')}
+                label={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText827',
+                )}
                 value={renderStyle.nameplateGradientAngle}
                 min={0}
                 max={360}
@@ -842,7 +946,10 @@ export function RenderStyleSettingsSection({
                     removeNameplateGradientStop();
                   }}
                   className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-sm font-bold text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] disabled:opacity-30"
-                  title={t('删除一个色标', '色標を削除', 'Remove a color stop')}
+                  title={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText845',
+                  )}
                 >
                   -
                 </button>
@@ -889,9 +996,7 @@ export function RenderStyleSettingsSection({
                           ),
                         );
                         updateNameplateGradientStops((stops) =>
-                          stops.map((item) =>
-                            item.id === stop.id ? { ...item, position } : item,
-                          ),
+                          stops.map((item) => (item.id === stop.id ? { ...item, position } : item)),
                         );
                       }}
                       onPointerUp={(event) => {
@@ -899,7 +1004,10 @@ export function RenderStyleSettingsSection({
                           event.currentTarget.releasePointerCapture(event.pointerId);
                         }
                       }}
-                      aria-label={t('名牌渐变色标', 'ネームプレート色標', 'Nameplate gradient stop')}
+                      aria-label={formatVideoText(
+                        language,
+                        'componentsrendervideopanelsrenderStyleSettingsSectionText902',
+                      )}
                     />
                   ))}
                   {activeNameplateGradientStop && (
@@ -940,7 +1048,10 @@ export function RenderStyleSettingsSection({
                           className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
                         />
                         <DragSizeControl
-                          label={t('拖动调整透明度', '透明度を調整', 'Adjust alpha')}
+                          label={formatVideoText(
+                            language,
+                            'componentsrendervideopanelsrenderStyleSettingsSectionText943',
+                          )}
                           value={activeNameplateGradientStop.alpha}
                           min={0}
                           max={100}
@@ -983,7 +1094,10 @@ export function RenderStyleSettingsSection({
                     )
                   }
                   className="h-8 rounded-lg bg-[var(--vr-surface-soft)] text-sm font-normal text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
-                  title={t('添加色标', '色標を追加', 'Add a color stop')}
+                  title={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText986',
+                  )}
                 >
                   +
                 </button>
@@ -1030,8 +1144,14 @@ export function RenderStyleSettingsSection({
               <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--vr-surface-soft)] px-2 text-xs text-[var(--vr-text)] hover:bg-white/5">
                 <ImagePlus className="h-3.5 w-3.5" />
                 {renderStyle.nameplateImageUrl
-                  ? t('替换图片', '画像を変更', 'Replace image')
-                  : t('导入图片', '画像を選択', 'Import image')}
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1033',
+                    )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1034',
+                    )}
                 <input
                   type="file"
                   accept="image/*"
@@ -1040,7 +1160,8 @@ export function RenderStyleSettingsSection({
                     const file = event.target.files?.[0];
                     if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = () => updateRenderStyle('nameplateImageUrl', String(reader.result || ''));
+                    reader.onload = () =>
+                      updateRenderStyle('nameplateImageUrl', String(reader.result || ''));
                     reader.readAsDataURL(file);
                     event.target.value = '';
                   }}
@@ -1053,7 +1174,10 @@ export function RenderStyleSettingsSection({
                   className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-rose-500/10 px-2 text-xs text-rose-400 hover:bg-rose-500/15"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  {t('删除图片', '画像を削除', 'Remove image')}
+                  {formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1056',
+                  )}
                 </button>
               )}
             </div>
@@ -1074,8 +1198,18 @@ export function RenderStyleSettingsSection({
 
   return (
     <div className="space-y-2">
-      {renderTextStyleSection('title', t('标题', 'タイトル', 'Title'), 'bg-indigo-500/5', true)}
-      {renderTextStyleSection('body', t('正文', '本文', 'Body'), 'bg-blue-500/5', false)}
+      {renderTextStyleSection(
+        'title',
+        formatVideoText(language, 'componentsrendervideopanelsrenderStyleSettingsSectionText1077'),
+        'bg-indigo-500/5',
+        true,
+      )}
+      {renderTextStyleSection(
+        'body',
+        formatVideoText(language, 'componentsrendervideopanelsrenderStyleSettingsSectionText1078'),
+        'bg-blue-500/5',
+        false,
+      )}
 
       <div
         className={`relative space-y-2 rounded-xl bg-violet-500/5 p-2 ${
@@ -1086,7 +1220,10 @@ export function RenderStyleSettingsSection({
           <div className="space-y-1">
             {showDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                {t('文字框背景隐藏', 'テキスト枠背景を非表示', 'Hide text box background')}
+                {formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1089',
+                )}
               </div>
             )}
             <button
@@ -1097,16 +1234,29 @@ export function RenderStyleSettingsSection({
                   ? 'bg-violet-500/15 text-violet-500'
                   : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
               }`}
-              title={t('点击显示或隐藏文字框背景', 'テキスト枠背景の表示を切替', 'Show or hide text box background')}
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1100',
+              )}
             >
-              {renderStyle.dialogVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-              {t('背景', '背景', 'Background')}
+              {renderStyle.dialogVisible ? (
+                <Eye className="h-3.5 w-3.5" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5" />
+              )}
+              {formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1103',
+              )}
             </button>
           </div>
           {iconNumber(
             RectangleHorizontal,
             <DragSizeControl
-              label={t('拖动调整对话框宽度', 'ダイアログ幅を調整', 'Adjust dialogue width')}
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1109',
+              )}
               value={renderStyle.dialogWidth}
               min={35}
               max={100}
@@ -1114,12 +1264,18 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => updateRenderStyle('dialogWidth', value)}
             />,
-            t('对话框宽度', 'ダイアログ幅', 'Dialogue width'),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsrenderStyleSettingsSectionText1117',
+            ),
           )}
           {iconNumber(
             RectangleVertical,
             <DragSizeControl
-              label={t('拖动调整对话框高度', 'ダイアログ高さを調整', 'Adjust dialogue height')}
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1122',
+              )}
               value={renderStyle.dialogHeight}
               min={16}
               max={75}
@@ -1127,7 +1283,10 @@ export function RenderStyleSettingsSection({
               unit="%"
               onChange={(value) => updateRenderStyle('dialogHeight', value)}
             />,
-            t('对话框高度', 'ダイアログ高さ', 'Dialogue height'),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsrenderStyleSettingsSectionText1130',
+            ),
           )}
           {!renderStyle.dialogVisible && (
             <>
@@ -1147,171 +1306,199 @@ export function RenderStyleSettingsSection({
         {renderCollapsibleRows(
           renderStyle.dialogVisible,
           <>
-        <div className="grid grid-cols-3 gap-2">
-          {iconShell(
-            RectangleVertical,
-            <button
-              type="button"
-              disabled
-              className="flex h-9 w-full min-w-0 cursor-default items-center justify-end rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)]"
-              title={t('视频对话框使用固定高度', '動画のダイアログは固定高さです', 'Video dialogue boxes use a fixed height')}
-            >
-              <span className="min-w-0 truncate">
-                {t('固定', '固定', 'Fixed')}
-              </span>
-            </button>,
-            false,
-            t('高度模式', '高さモード', 'Height mode'),
-          )}
-          {iconNumber(
-            BetweenVerticalStart,
-            <DragSizeControl
-              label={t('拖动调整文字上下位置', '文字の上下位置を調整', 'Adjust text vertical position')}
-              value={renderStyle.dialogTextOffsetY ?? 0}
-              min={-20}
-              max={40}
-              step={1}
-              unit="%"
-              onChange={(value) => updateRenderStyle('dialogTextOffsetY', value)}
-            />,
-            t('文字上下位置', '文字上下位置', 'Text Y position'),
-          )}
-          {iconShell(
-            PanelLeftRightDashed,
-            <div className="flex h-9 items-center justify-end rounded-r-lg px-2 text-xs text-[var(--vr-text-muted)]">
-              <span className="min-w-0 truncate">-</span>
-            </div>,
-            true,
-            t('占位', '空き', 'Spacer'),
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {iconNumber(
-            MoveHorizontal,
-            <DragSizeControl
-              label={t('拖动调整对话框左右位置', '左右位置を調整', 'Adjust horizontal position')}
-              value={renderStyle.dialogOffsetX ?? 0}
-              min={-100}
-              max={100}
-              step={1}
-              unit="%"
-              onChange={(value) => updateRenderStyle('dialogOffsetX', value)}
-            />,
-            t('左右位置', '左右位置', 'Horizontal position'),
-          )}
-          {iconNumber(
-            MoveVertical,
-            <DragSizeControl
-              label={t('拖动调整对话框上下位置', '上下位置を調整', 'Adjust vertical position')}
-              value={renderStyle.dialogOffsetY ?? 0}
-              min={-100}
-              max={100}
-              step={1}
-              unit="%"
-              onChange={(value) => updateRenderStyle('dialogOffsetY', value)}
-            />,
-            t('上下位置', '上下位置', 'Vertical position'),
-          )}
-          {iconNumber(
-            PanelLeftRightDashed,
-            <DragSizeControl
-              label={t('拖动调整文字左右内间距', '文字の左右余白を調整', 'Adjust text side padding')}
-              value={renderStyle.dialogTextPaddingX ?? 9}
-              min={2}
-              max={24}
-              step={1}
-              unit="%"
-              onChange={(value) => updateRenderStyle('dialogTextPaddingX', value)}
-            />,
-            t('文本左右内边距', 'テキスト左右内側余白', 'Text side padding'),
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {iconNumber(
-            Radius,
-            <DragSizeControl
-              label={t('拖动调整对话框圆角', '角丸を調整', 'Adjust corner radius')}
-              value={renderStyle.dialogRadius}
-              min={0}
-              max={120}
-              step={1}
-              onChange={(value) => updateRenderStyle('dialogRadius', value)}
-            />,
-            t('对话框圆角', 'ダイアログ角丸', 'Dialogue radius'),
-          )}
-          {iconSelect(
-            Palette,
-            'dialog-background-type',
-            renderStyle.dialogBackgroundType,
-            (value) => updateRenderStyle('dialogBackgroundType', value as RenderStyle['dialogBackgroundType']),
-            [
-              { value: 'solid', label: t('纯色', '単色', 'Solid') },
-              {
-                value: 'gradient',
-                label: t('透明渐变', '透明グラデーション', 'Transparent gradient'),
-              },
-              { value: 'image', label: t('导入图片', '画像', 'Image') },
-            ],
-            t('底色类型', '背景タイプ', 'Background'),
-            t('对话框底色', 'ダイアログ背景', 'Dialogue background'),
-          )}
-          {renderStyle.dialogBackgroundType === 'solid' && (
-            <div
-              className={`relative ${showSolidColorMenu ? 'z-[10000]' : 'z-0'}`}
-              ref={solidColorEditorRef}
-            >
+            <div className="grid grid-cols-3 gap-2">
               {iconShell(
-                Palette,
+                RectangleVertical,
                 <button
                   type="button"
-                  onClick={() => setShowSolidColorMenu(!showSolidColorMenu)}
-                  className="h-full w-full cursor-pointer rounded-r-lg border-0 p-1 bg-transparent flex items-stretch"
-                  title={t('颜色', '色', 'Color')}
+                  disabled
+                  className="flex h-9 w-full min-w-0 cursor-default items-center justify-end rounded-r-lg bg-transparent px-2 text-right text-xs font-normal text-[var(--vr-text)]"
+                  title={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1157',
+                  )}
                 >
-                  <div
-                    className="flex-1 rounded-md border border-white/10"
-                    style={{
-                      backgroundColor: withAlpha(
-                        renderStyle.panelColor,
-                        (renderStyle.panelColorAlpha ?? 82) / 100,
-                      ),
-                    }}
-                  />
-                </button>
-                ,
+                  <span className="min-w-0 truncate">
+                    {formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1160',
+                    )}
+                  </span>
+                </button>,
                 false,
-                t('对话框底色', 'ダイアログ背景色', 'Dialogue background'),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1164',
+                ),
               )}
-              {showSolidColorMenu && (
+              {iconNumber(
+                BetweenVerticalStart,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1169',
+                  )}
+                  value={renderStyle.dialogTextOffsetY ?? 0}
+                  min={-20}
+                  max={40}
+                  step={1}
+                  unit="%"
+                  onChange={(value) => updateRenderStyle('dialogTextOffsetY', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1177',
+                ),
+              )}
+              {iconShell(
+                PanelLeftRightDashed,
+                <div className="flex h-9 items-center justify-end rounded-r-lg px-2 text-xs text-[var(--vr-text-muted)]">
+                  <span className="min-w-0 truncate">-</span>
+                </div>,
+                true,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1185',
+                ),
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {iconNumber(
+                MoveHorizontal,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1192',
+                  )}
+                  value={renderStyle.dialogOffsetX ?? 0}
+                  min={-100}
+                  max={100}
+                  step={1}
+                  unit="%"
+                  onChange={(value) => updateRenderStyle('dialogOffsetX', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1200',
+                ),
+              )}
+              {iconNumber(
+                MoveVertical,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1205',
+                  )}
+                  value={renderStyle.dialogOffsetY ?? 0}
+                  min={-100}
+                  max={100}
+                  step={1}
+                  unit="%"
+                  onChange={(value) => updateRenderStyle('dialogOffsetY', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1213',
+                ),
+              )}
+              {iconNumber(
+                PanelLeftRightDashed,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1218',
+                  )}
+                  value={renderStyle.dialogTextPaddingX ?? 9}
+                  min={2}
+                  max={24}
+                  step={1}
+                  unit="%"
+                  onChange={(value) => updateRenderStyle('dialogTextPaddingX', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1226',
+                ),
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {iconNumber(
+                Radius,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1233',
+                  )}
+                  value={renderStyle.dialogRadius}
+                  min={0}
+                  max={120}
+                  step={1}
+                  onChange={(value) => updateRenderStyle('dialogRadius', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1240',
+                ),
+              )}
+              {iconSelect(
+                Palette,
+                'dialog-background-type',
+                renderStyle.dialogBackgroundType,
+                (value) =>
+                  updateRenderStyle(
+                    'dialogBackgroundType',
+                    value as RenderStyle['dialogBackgroundType'],
+                  ),
+                [
+                  {
+                    value: 'solid',
+                    label: formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1248',
+                    ),
+                  },
+                  {
+                    value: 'gradient',
+                    label: formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1251',
+                    ),
+                  },
+                  {
+                    value: 'image',
+                    label: formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1253',
+                    ),
+                  },
+                ],
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1255',
+                ),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1256',
+                ),
+              )}
+              {renderStyle.dialogBackgroundType === 'solid' && (
                 <div
-                  className="absolute right-0 top-[calc(100%+6px)] z-[9999] rounded-xl border border-[var(--vr-border)] bg-white p-3 shadow-2xl shadow-black/30"
-                  style={{
-                    width: '210px',
-                    ['--vr-surface' as any]: '#ffffff',
-                    ['--vr-surface-soft' as any]: '#f1f5f9',
-                    ['--vr-text' as any]: '#1e293b',
-                    ['--vr-border' as any]: '#e2e8f0',
-                    ['--vr-accent-soft' as any]: 'rgba(99, 102, 241, 0.1)',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  className={`relative ${showSolidColorMenu ? 'z-[10000]' : 'z-0'}`}
+                  ref={solidColorEditorRef}
                 >
-                  <div className="space-y-3">
-                    <div
-                      className="relative h-8 w-full rounded-lg border border-[var(--vr-border)] overflow-hidden"
-                      style={{
-                        background: `
-                          linear-gradient(45deg, rgba(0,0,0,0.08) 25%, transparent 25%),
-                          linear-gradient(-45deg, rgba(0,0,0,0.08) 25%, transparent 25%),
-                          linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.08) 75%),
-                          linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.08) 75%)
-                        `,
-                        backgroundSize: '8px 8px',
-                        backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0',
-                      }}
+                  {iconShell(
+                    Palette,
+                    <button
+                      type="button"
+                      onClick={() => setShowSolidColorMenu(!showSolidColorMenu)}
+                      className="h-full w-full cursor-pointer rounded-r-lg border-0 p-1 bg-transparent flex items-stretch"
+                      title={formatVideoText(
+                        language,
+                        'componentsrendervideopanelsrenderStyleSettingsSectionText1269',
+                      )}
                     >
                       <div
-                        className="absolute inset-0"
+                        className="flex-1 rounded-md border border-white/10"
                         style={{
                           backgroundColor: withAlpha(
                             renderStyle.panelColor,
@@ -1319,287 +1506,399 @@ export function RenderStyleSettingsSection({
                           ),
                         }}
                       />
-                    </div>
-
-                    <div className="grid grid-cols-[36px_1fr] gap-2 items-center">
-                      <input
-                        type="color"
-                        value={colorInputValue(renderStyle.panelColor)}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onChange={(event) => updateRenderStyle('panelColor', event.target.value)}
-                        className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
-                      />
-                      <input
-                        type="text"
-                        value={renderStyle.panelColor}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onChange={(event) => updateRenderStyle('panelColor', event.target.value)}
-                        className="h-8 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
-                        placeholder="#111827"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-[1fr_52px] gap-2 items-center">
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={renderStyle.panelColorAlpha ?? 82}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onChange={(event) =>
-                          updateRenderStyle('panelColorAlpha', Number(event.target.value))
-                        }
-                        className="w-full h-1.5 accent-[var(--vr-accent)] rounded-lg appearance-none cursor-pointer bg-[var(--vr-surface-soft)]"
-                        style={{
-                          background: `linear-gradient(to right, transparent, ${colorInputValue(
-                            renderStyle.panelColor,
-                          )})`,
-                        }}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={renderStyle.panelColorAlpha ?? 82}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onChange={(event) => {
-                          const val = Math.min(100, Math.max(0, Number(event.target.value) || 0));
-                          updateRenderStyle('panelColorAlpha', val);
-                        }}
-                        className="h-8 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 text-center text-xs text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {renderStyle.dialogBackgroundType === 'gradient' &&
-            iconNumber(
-              RotateCw,
-              <DragSizeControl
-                label={t('拖动调整渐变角度', 'グラデーション角度を調整', 'Adjust gradient angle')}
-                value={renderStyle.dialogGradientAngle}
-                min={0}
-                max={360}
-                step={1}
-                unit="°"
-                onChange={(value) => updateRenderStyle('dialogGradientAngle', value)}
-              />,
-              t('渐变角度', 'グラデーション角度', 'Gradient angle'),
-            )}
-          {renderStyle.dialogBackgroundType === 'image' && (
-            <div className="space-y-1">
-              {showDescriptions && (
-                <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                  {t('对话框背景图片', 'ダイアログ背景画像', 'Dialogue background image')}
-                </div>
-              )}
-              <div
-                className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
-                  renderStyle.dialogImageUrl ? 'grid-cols-[28px_1fr_1fr]' : 'grid-cols-[28px_minmax(0,1fr)]'
-                }`}
-              >
-                <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
-                  <ImagePlus className="h-3.5 w-3.5" />
-                </span>
-                <label
-                  className="flex h-9 min-w-0 cursor-pointer items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-white/5"
-                  title={renderStyle.dialogImageUrl ? t('更换图片', '画像を变更', 'Replace image') : t('导入图片', '画像を選択', 'Import image')}
-                  aria-label={renderStyle.dialogImageUrl ? t('更换图片', '画像を变更', 'Replace image') : t('导入图片', '画像を選択', 'Import image')}
-                >
-                  {renderStyle.dialogImageUrl ? <RotateCw className="h-3.5 w-3.5" /> : <ImagePlus className="h-3.5 w-3.5" />}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        updateRenderStyle('dialogImageUrl', String(reader.result || ''));
-                        updateRenderStyle('dialogBackgroundType', 'image');
-                      };
-                      reader.readAsDataURL(file);
-                      event.target.value = '';
-                    }}
-                  />
-                </label>
-                {renderStyle.dialogImageUrl && (
-                  <button
-                    type="button"
-                    onClick={() => updateRenderStyle('dialogImageUrl', '')}
-                    className="flex h-9 items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-rose-500/10 hover:text-rose-400"
-                    title={t('删除图片', '画像を削除', 'Remove image')}
-                    aria-label={t('删除图片', '画像を削除', 'Remove image')}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        {renderStyle.dialogBackgroundType === 'gradient' && (
-          <div ref={gradientEditorRef} className="space-y-2">
-            <div className="grid grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-2">
-              <button
-                type="button"
-                disabled={gradientStops.length <= 2}
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  removeGradientStop();
-                }}
-                className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-sm font-bold text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
-                title={t('删除一个色标', '色標を削除', 'Remove a color stop')}
-              >
-                -
-              </button>
-              <div
-                className="relative h-10 rounded-lg"
-                style={{
-                  background: `linear-gradient(90deg, ${visibleGradientCssStops})`,
-                }}
-                onPointerDown={(event) => {
-                  if ((event.target as HTMLElement).dataset.gradientStopId) return;
-                  addGradientStopAt(getGradientPointerPosition(event));
-                }}
-              >
-                {gradientStops.map((stop) => (
-                  <button
-                    key={stop.id}
-                    type="button"
-                    data-gradient-stop-id={stop.id}
-                    className={`absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${
-                      activeGradientStop?.id === stop.id
-                        ? 'border-white ring-2 ring-[var(--vr-accent)]'
-                        : 'border-white/80'
-                    }`}
-                    style={{
-                      left: `${mapGradientStopToVisibleTrack(stop.position)}%`,
-                      backgroundColor: withAlpha(stop.color, stop.alpha / 100),
-                    }}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setActiveGradientStopId(stop.id);
-                    }}
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                      setActiveGradientStopId(stop.id);
-                      event.currentTarget.setPointerCapture(event.pointerId);
-                    }}
-                    onPointerMove={(event) => {
-                      if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
-                        return;
-                      }
-                      const track = event.currentTarget.parentElement;
-                      if (!track) return;
-                      const rect = track.getBoundingClientRect();
-                      const trackPosition = Math.min(
-                        100,
-                        Math.max(0, ((event.clientX - rect.left) / rect.width) * 100),
-                      );
-                      const position = mapVisibleTrackToGradientStop(trackPosition);
-                      updateGradientStops((stops) =>
-                        stops.map((item) => (item.id === stop.id ? { ...item, position } : item)),
-                      );
-                    }}
-                    onPointerUp={(event) => {
-                      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                        event.currentTarget.releasePointerCapture(event.pointerId);
-                      }
-                    }}
-                    aria-label={t('渐变色标', 'グラデーション色標', 'Gradient stop')}
-                  />
-                ))}
-                {activeGradientStop && (
-                  <div
-                    className="absolute top-[calc(100%+6px)] z-[9999] rounded-xl border border-[var(--vr-border)] bg-white p-2 shadow-lg"
-                    onClick={(event) => event.stopPropagation()}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    style={{
-                      left: `max(8px, min(calc(${mapGradientStopToVisibleTrack(
-                        activeGradientStop.position,
-                      )}% - 105px), calc(100% - 218px)))`,
-                      width: '210px',
-                      maxWidth: 'calc(100% - 16px)',
-                      ['--vr-surface' as any]: '#ffffff',
-                      ['--vr-surface-soft' as any]: '#f1f5f9',
-                      ['--vr-text' as any]: '#1e293b',
-                      ['--vr-border' as any]: '#e2e8f0',
-                    }}
-                  >
+                    </button>,
+                    false,
+                    formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1283',
+                    ),
+                  )}
+                  {showSolidColorMenu && (
                     <div
-                      className="absolute -top-1 h-2 w-2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                      className="absolute right-0 top-[calc(100%+6px)] z-[9999] rounded-xl border border-[var(--vr-border)] bg-white p-3 shadow-2xl shadow-black/30"
                       style={{
-                        left: `calc(${mapGradientStopToVisibleTrack(
-                          activeGradientStop.position,
-                        )}% - max(8px, min(calc(${mapGradientStopToVisibleTrack(
-                          activeGradientStop.position,
-                        )}% - 105px), calc(100% - 218px))))`,
+                        width: '210px',
+                        ['--vr-surface' as any]: '#ffffff',
+                        ['--vr-surface-soft' as any]: '#f1f5f9',
+                        ['--vr-text' as any]: '#1e293b',
+                        ['--vr-border' as any]: '#e2e8f0',
+                        ['--vr-accent-soft' as any]: 'rgba(99, 102, 241, 0.1)',
                       }}
-                    />
-                    <div className="grid grid-cols-[42px_1fr_28px] items-center gap-2">
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <div className="space-y-3">
+                        <div
+                          className="relative h-8 w-full rounded-lg border border-[var(--vr-border)] overflow-hidden"
+                          style={{
+                            background: `
+                          linear-gradient(45deg, rgba(0,0,0,0.08) 25%, transparent 25%),
+                          linear-gradient(-45deg, rgba(0,0,0,0.08) 25%, transparent 25%),
+                          linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.08) 75%),
+                          linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.08) 75%)
+                        `,
+                            backgroundSize: '8px 8px',
+                            backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0',
+                          }}
+                        >
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              backgroundColor: withAlpha(
+                                renderStyle.panelColor,
+                                (renderStyle.panelColorAlpha ?? 82) / 100,
+                              ),
+                            }}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-[36px_1fr] gap-2 items-center">
+                          <input
+                            type="color"
+                            value={colorInputValue(renderStyle.panelColor)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onChange={(event) =>
+                              updateRenderStyle('panelColor', event.target.value)
+                            }
+                            className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                          />
+                          <input
+                            type="text"
+                            value={renderStyle.panelColor}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onChange={(event) =>
+                              updateRenderStyle('panelColor', event.target.value)
+                            }
+                            className="h-8 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
+                            placeholder="#111827"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-[1fr_52px] gap-2 items-center">
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={renderStyle.panelColorAlpha ?? 82}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onChange={(event) =>
+                              updateRenderStyle('panelColorAlpha', Number(event.target.value))
+                            }
+                            className="w-full h-1.5 accent-[var(--vr-accent)] rounded-lg appearance-none cursor-pointer bg-[var(--vr-surface-soft)]"
+                            style={{
+                              background: `linear-gradient(to right, transparent, ${colorInputValue(
+                                renderStyle.panelColor,
+                              )})`,
+                            }}
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={renderStyle.panelColorAlpha ?? 82}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onChange={(event) => {
+                              const val = Math.min(
+                                100,
+                                Math.max(0, Number(event.target.value) || 0),
+                              );
+                              updateRenderStyle('panelColorAlpha', val);
+                            }}
+                            className="h-8 w-full rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-1 text-center text-xs text-[var(--vr-text)] outline-none focus:border-[var(--vr-accent)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {renderStyle.dialogBackgroundType === 'gradient' &&
+                iconNumber(
+                  RotateCw,
+                  <DragSizeControl
+                    label={formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1382',
+                    )}
+                    value={renderStyle.dialogGradientAngle}
+                    min={0}
+                    max={360}
+                    step={1}
+                    unit="°"
+                    onChange={(value) => updateRenderStyle('dialogGradientAngle', value)}
+                  />,
+                  formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1390',
+                  ),
+                )}
+              {renderStyle.dialogBackgroundType === 'image' && (
+                <div className="space-y-1">
+                  {showDescriptions && (
+                    <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                      {formatVideoText(
+                        language,
+                        'componentsrendervideopanelsrenderStyleSettingsSectionText1396',
+                      )}
+                    </div>
+                  )}
+                  <div
+                    className={`grid h-9 items-center rounded-lg bg-[var(--vr-surface-soft)] ${
+                      renderStyle.dialogImageUrl
+                        ? 'grid-cols-[28px_1fr_1fr]'
+                        : 'grid-cols-[28px_minmax(0,1fr)]'
+                    }`}
+                  >
+                    <span className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
+                      <ImagePlus className="h-3.5 w-3.5" />
+                    </span>
+                    <label
+                      className="flex h-9 min-w-0 cursor-pointer items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-white/5"
+                      title={
+                        renderStyle.dialogImageUrl
+                          ? formatVideoText(
+                              language,
+                              'componentsrendervideopanelsrenderStyleSettingsSectionText1409',
+                            )
+                          : formatVideoText(
+                              language,
+                              'componentsrendervideopanelsrenderStyleSettingsSectionText1409_2',
+                            )
+                      }
+                      aria-label={
+                        renderStyle.dialogImageUrl
+                          ? formatVideoText(
+                              language,
+                              'componentsrendervideopanelsrenderStyleSettingsSectionText1410',
+                            )
+                          : formatVideoText(
+                              language,
+                              'componentsrendervideopanelsrenderStyleSettingsSectionText1410_2',
+                            )
+                      }
+                    >
+                      {renderStyle.dialogImageUrl ? (
+                        <RotateCw className="h-3.5 w-3.5" />
+                      ) : (
+                        <ImagePlus className="h-3.5 w-3.5" />
+                      )}
                       <input
-                        type="color"
-                        value={colorInputValue(activeGradientStop.color)}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          updateGradientStops((stops) =>
-                            stops.map((item) =>
-                              item.id === activeGradientStop.id ? { ...item, color: event.target.value } : item,
-                            ),
-                          )
-                        }
-                        className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            updateRenderStyle('dialogImageUrl', String(reader.result || ''));
+                            updateRenderStyle('dialogBackgroundType', 'image');
+                          };
+                          reader.readAsDataURL(file);
+                          event.target.value = '';
+                        }}
                       />
-                      <DragSizeControl
-                        label={t('拖动调整透明度', '透明度を調整', 'Adjust alpha')}
-                        value={activeGradientStop.alpha}
-                        min={0}
-                        max={100}
-                        step={1}
-                        unit="%"
-                        onChange={(value) =>
-                          updateGradientStops((stops) =>
-                            stops.map((item) =>
-                              item.id === activeGradientStop.id ? { ...item, alpha: value } : item,
-                            ),
-                          )
-                        }
-                      />
+                    </label>
+                    {renderStyle.dialogImageUrl && (
                       <button
                         type="button"
-                        disabled={gradientStops.length <= 2}
-                        onPointerDown={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          removeGradientStop(activeGradientStop.id);
-                        }}
-                        className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-sm font-bold text-[var(--vr-text-muted)] disabled:opacity-30"
+                        onClick={() => updateRenderStyle('dialogImageUrl', '')}
+                        className="flex h-9 items-center justify-center rounded-r-lg px-2 text-[var(--vr-text-soft)] transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                        title={formatVideoText(
+                          language,
+                          'componentsrendervideopanelsrenderStyleSettingsSectionText1435',
+                        )}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideopanelsrenderStyleSettingsSectionText1436',
+                        )}
                       >
-                        -
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  addGradientStopAt(Math.min(100, Math.max(0, (activeGradientStop?.position ?? 50) + 10)))
-                }
-                className="h-8 rounded-lg bg-[var(--vr-surface-soft)] text-sm font-normal text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
-                title={t('添加色标', '色標を追加', 'Add a color stop')}
-              >
-                +
-              </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+            {renderStyle.dialogBackgroundType === 'gradient' && (
+              <div ref={gradientEditorRef} className="space-y-2">
+                <div className="grid grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={gradientStops.length <= 2}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      removeGradientStop();
+                    }}
+                    className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-sm font-bold text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
+                    title={formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1457',
+                    )}
+                  >
+                    -
+                  </button>
+                  <div
+                    className="relative h-10 rounded-lg"
+                    style={{
+                      background: `linear-gradient(90deg, ${visibleGradientCssStops})`,
+                    }}
+                    onPointerDown={(event) => {
+                      if ((event.target as HTMLElement).dataset.gradientStopId) return;
+                      addGradientStopAt(getGradientPointerPosition(event));
+                    }}
+                  >
+                    {gradientStops.map((stop) => (
+                      <button
+                        key={stop.id}
+                        type="button"
+                        data-gradient-stop-id={stop.id}
+                        className={`absolute top-1/2 h-6 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${
+                          activeGradientStop?.id === stop.id
+                            ? 'border-white ring-2 ring-[var(--vr-accent)]'
+                            : 'border-white/80'
+                        }`}
+                        style={{
+                          left: `${mapGradientStopToVisibleTrack(stop.position)}%`,
+                          backgroundColor: withAlpha(stop.color, stop.alpha / 100),
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setActiveGradientStopId(stop.id);
+                        }}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                          setActiveGradientStopId(stop.id);
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                        }}
+                        onPointerMove={(event) => {
+                          if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+                            return;
+                          }
+                          const track = event.currentTarget.parentElement;
+                          if (!track) return;
+                          const rect = track.getBoundingClientRect();
+                          const trackPosition = Math.min(
+                            100,
+                            Math.max(0, ((event.clientX - rect.left) / rect.width) * 100),
+                          );
+                          const position = mapVisibleTrackToGradientStop(trackPosition);
+                          updateGradientStops((stops) =>
+                            stops.map((item) =>
+                              item.id === stop.id ? { ...item, position } : item,
+                            ),
+                          );
+                        }}
+                        onPointerUp={(event) => {
+                          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                            event.currentTarget.releasePointerCapture(event.pointerId);
+                          }
+                        }}
+                        aria-label={formatVideoText(
+                          language,
+                          'componentsrendervideopanelsrenderStyleSettingsSectionText1515',
+                        )}
+                      />
+                    ))}
+                    {activeGradientStop && (
+                      <div
+                        className="absolute top-[calc(100%+6px)] z-[9999] rounded-xl border border-[var(--vr-border)] bg-white p-2 shadow-lg"
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        style={{
+                          left: `max(8px, min(calc(${mapGradientStopToVisibleTrack(
+                            activeGradientStop.position,
+                          )}% - 105px), calc(100% - 218px)))`,
+                          width: '210px',
+                          maxWidth: 'calc(100% - 16px)',
+                          ['--vr-surface' as any]: '#ffffff',
+                          ['--vr-surface-soft' as any]: '#f1f5f9',
+                          ['--vr-text' as any]: '#1e293b',
+                          ['--vr-border' as any]: '#e2e8f0',
+                        }}
+                      >
+                        <div
+                          className="absolute -top-1 h-2 w-2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                          style={{
+                            left: `calc(${mapGradientStopToVisibleTrack(
+                              activeGradientStop.position,
+                            )}% - max(8px, min(calc(${mapGradientStopToVisibleTrack(
+                              activeGradientStop.position,
+                            )}% - 105px), calc(100% - 218px))))`,
+                          }}
+                        />
+                        <div className="grid grid-cols-[42px_1fr_28px] items-center gap-2">
+                          <input
+                            type="color"
+                            value={colorInputValue(activeGradientStop.color)}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              updateGradientStops((stops) =>
+                                stops.map((item) =>
+                                  item.id === activeGradientStop.id
+                                    ? { ...item, color: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="h-8 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                          />
+                          <DragSizeControl
+                            label={formatVideoText(
+                              language,
+                              'componentsrendervideopanelsrenderStyleSettingsSectionText1560',
+                            )}
+                            value={activeGradientStop.alpha}
+                            min={0}
+                            max={100}
+                            step={1}
+                            unit="%"
+                            onChange={(value) =>
+                              updateGradientStops((stops) =>
+                                stops.map((item) =>
+                                  item.id === activeGradientStop.id
+                                    ? { ...item, alpha: value }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            disabled={gradientStops.length <= 2}
+                            onPointerDown={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              removeGradientStop(activeGradientStop.id);
+                            }}
+                            className="h-8 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-sm font-bold text-[var(--vr-text-muted)] disabled:opacity-30"
+                          >
+                            -
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      addGradientStopAt(
+                        Math.min(100, Math.max(0, (activeGradientStop?.position ?? 50) + 10)),
+                      )
+                    }
+                    className="h-8 rounded-lg bg-[var(--vr-surface-soft)] text-sm font-normal text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)]"
+                    title={formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1596',
+                    )}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
           </>,
         )}
       </div>
@@ -1613,7 +1912,10 @@ export function RenderStyleSettingsSection({
           <div className="space-y-1">
             {showDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                {t('显示人物名牌', 'ネームプレート表示', 'Show nameplates')}
+                {formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1616',
+                )}
               </div>
             )}
             <button
@@ -1624,10 +1926,20 @@ export function RenderStyleSettingsSection({
                   ? 'bg-fuchsia-500/15 text-fuchsia-500'
                   : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
               }`}
-              title={t('点击显示或隐藏人物名牌', '表示/非表示を切替', 'Show or hide nameplates')}
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1627',
+              )}
             >
-              {renderStyle.nameplateVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-              {t('名牌', '名札', 'Nameplate')}
+              {renderStyle.nameplateVisible ? (
+                <Eye className="h-3.5 w-3.5" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5" />
+              )}
+              {formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1630',
+              )}
             </button>
           </div>
           {iconShell(
@@ -1640,16 +1952,28 @@ export function RenderStyleSettingsSection({
                   ? 'bg-fuchsia-500/15 text-fuchsia-500 hover:bg-fuchsia-500/20'
                   : 'bg-transparent text-[var(--vr-text)] hover:bg-white/5'
               }`}
-              title={t('切换人物名牌在文字框背景内部或外部', '内側/外側を切替', 'Place nameplates inside or outside the dialogue box')}
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1643',
+              )}
             >
               <span className="min-w-0 truncate">
                 {renderStyle.nameplateInside
-                  ? t('内部', '内側', 'Inside')
-                  : t('外部', '外側', 'Outside')}
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1647',
+                    )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1648',
+                    )}
               </span>
             </button>,
             false,
-            t('名牌内外', '内外', 'Inside/outside'),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsrenderStyleSettingsSectionText1652',
+            ),
           )}
           {iconShell(
             FollowCharacterGlyph,
@@ -1663,16 +1987,28 @@ export function RenderStyleSettingsSection({
                   ? 'bg-fuchsia-500/15 text-fuchsia-500 hover:bg-fuchsia-500/20'
                   : 'bg-transparent text-[var(--vr-text)] hover:bg-white/5'
               }`}
-              title={t('切换人物名牌是否跟随人物中心移动', '人物追従を切替', 'Follow character center')}
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsrenderStyleSettingsSectionText1666',
+              )}
             >
               <span className="min-w-0 truncate">
                 {renderStyle.nameplateFollowCharacter
-                  ? t('跟随', '追従', 'Follow')
-                  : t('固定', '固定', 'Fixed')}
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1670',
+                    )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1671',
+                    )}
               </span>
             </button>,
             false,
-            t('跟随人物', '人物追従', 'Follow character'),
+            formatVideoText(
+              language,
+              'componentsrendervideopanelsrenderStyleSettingsSectionText1675',
+            ),
           )}
           {!renderStyle.nameplateVisible && (
             <>
@@ -1692,121 +2028,193 @@ export function RenderStyleSettingsSection({
         {renderCollapsibleRows(
           renderStyle.nameplateVisible,
           <>
-        <div className="grid grid-cols-3 gap-2">
-          {iconColor(
-            CaseSensitive,
-            colorInputValue(renderStyle.nameplateTextColor, '#ffffff'),
-            (value) => updateRenderStyle('nameplateTextColor', value),
-            t('名牌文字颜色', '文字色', 'Name text color'),
-            t('文字颜色', '文字色', 'Text color'),
-          )}
-          {iconNumber(
-            RectangleHorizontal,
-            <DragSizeControl
-              label={t('拖动调整名牌内部大小', '内側サイズを調整', 'Adjust nameplate inner size')}
-              value={renderStyle.nameplateScale ?? 100}
-              min={55}
-              max={180}
-              step={1}
-              unit="%"
-              onChange={(value) => updateRenderStyle('nameplateScale', value)}
-            />,
-            t('内部大小', '内側サイズ', 'Inner size'),
-          )}
-          {iconNumber(
-            Type,
-            <DragSizeControl
-              label={t('拖动调整名牌字号', '文字サイズを調整', 'Adjust nameplate font size')}
-              value={renderStyle.nameplateFontSize ?? 18}
-              min={10}
-              max={48}
-              step={1}
-              onChange={(value) => updateRenderStyle('nameplateFontSize', value)}
-            />,
-            t('字号', '文字サイズ', 'Font size'),
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {iconSelect(
-            ALargeSmall,
-            'nameplate-font-family',
-            renderStyle.nameplateFontFamily || renderStyle.titleFontFamily,
-            (value) => updateRenderStyle('nameplateFontFamily', value),
-            CLEAN_FONT_OPTIONS,
-            t('名牌字族', 'フォント', 'Name font'),
-            t('名字字族', '名前フォント', 'Name font family'),
-          )}
-          {iconNumber(
-            Radius,
-            <DragSizeControl
-              label={t('拖动调整名牌圆角', '角丸を調整', 'Adjust nameplate radius')}
-              value={renderStyle.nameplateRadius ?? 14}
-              min={0}
-              max={64}
-              step={1}
-              onChange={(value) => updateRenderStyle('nameplateRadius', value)}
-            />,
-            t('名牌圆角', '角丸', 'Nameplate radius'),
-          )}
-          {iconNumber(
-            MoveHorizontal,
-            <DragSizeControl
-              label={t('拖动调整名牌左右偏移', '左右位置を調整', 'Adjust nameplate horizontal offset')}
-              value={renderStyle.nameplateOffsetX ?? 0}
-              min={-240}
-              max={240}
-              step={1}
-              onChange={(value) => updateRenderStyle('nameplateOffsetX', value)}
-            />,
-            t('左右偏移', '左右位置', 'Horizontal offset'),
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {iconNumber(
-            MoveVertical,
-            <DragSizeControl
-              label={t('拖动调整名牌上下偏移', '上下位置を調整', 'Adjust nameplate vertical offset')}
-              value={renderStyle.nameplateOffsetY ?? 0}
-              min={-160}
-              max={160}
-              step={1}
-              onChange={(value) => updateRenderStyle('nameplateOffsetY', value)}
-            />,
-            t('上下偏移', '上下位置', 'Vertical offset'),
-          )}
-          {renderStyle.nameplateInside &&
-            iconNumber(
-              BetweenVerticalStart,
-              <DragSizeControl
-                label={t('拖动调整名牌和正文间距', '本文との間隔を調整', 'Adjust nameplate body gap')}
-                value={renderStyle.nameplateTextGap ?? 8}
-                min={-80}
-                max={80}
-                step={1}
-                onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
-              />,
-              t('正文间距', '本文間隔', 'Body gap'),
-            )}
-          {!renderStyle.nameplateInside &&
-            iconSelect(
-              Palette,
-              'nameplate-background-type',
-              renderStyle.nameplateBackgroundType,
-              (value) =>
-                updateRenderStyle(
-                  'nameplateBackgroundType',
-                  value as RenderStyle['nameplateBackgroundType'],
+            <div className="grid grid-cols-3 gap-2">
+              {iconColor(
+                CaseSensitive,
+                colorInputValue(renderStyle.nameplateTextColor, '#ffffff'),
+                (value) => updateRenderStyle('nameplateTextColor', value),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1700',
                 ),
-              [
-                { value: 'solid', label: t('纯色', '単色', 'Solid') },
-                { value: 'gradient', label: t('渐变', 'グラデーション', 'Gradient') },
-                { value: 'image', label: t('图片', '画像', 'Image') },
-              ],
-              t('名牌底色类型', '背景タイプ', 'Nameplate background'),
-              t('底色类型', '背景タイプ', 'Background type'),
-            )}
-          {!renderStyle.nameplateInside && renderNameplateStyleMenu()}
-        </div>
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1701',
+                ),
+              )}
+              {iconNumber(
+                RectangleHorizontal,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1706',
+                  )}
+                  value={renderStyle.nameplateScale ?? 100}
+                  min={55}
+                  max={180}
+                  step={1}
+                  unit="%"
+                  onChange={(value) => updateRenderStyle('nameplateScale', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1714',
+                ),
+              )}
+              {iconNumber(
+                Type,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1719',
+                  )}
+                  value={renderStyle.nameplateFontSize ?? 18}
+                  min={10}
+                  max={48}
+                  step={1}
+                  onChange={(value) => updateRenderStyle('nameplateFontSize', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1726',
+                ),
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {iconSelect(
+                ALargeSmall,
+                'nameplate-font-family',
+                renderStyle.nameplateFontFamily || renderStyle.titleFontFamily,
+                (value) => updateRenderStyle('nameplateFontFamily', value),
+                CLEAN_FONT_OPTIONS,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1736',
+                ),
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1737',
+                ),
+              )}
+              {iconNumber(
+                Radius,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1742',
+                  )}
+                  value={renderStyle.nameplateRadius ?? 14}
+                  min={0}
+                  max={64}
+                  step={1}
+                  onChange={(value) => updateRenderStyle('nameplateRadius', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1749',
+                ),
+              )}
+              {iconNumber(
+                MoveHorizontal,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1754',
+                  )}
+                  value={renderStyle.nameplateOffsetX ?? 0}
+                  min={-240}
+                  max={240}
+                  step={1}
+                  onChange={(value) => updateRenderStyle('nameplateOffsetX', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1761',
+                ),
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {iconNumber(
+                MoveVertical,
+                <DragSizeControl
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1768',
+                  )}
+                  value={renderStyle.nameplateOffsetY ?? 0}
+                  min={-160}
+                  max={160}
+                  step={1}
+                  onChange={(value) => updateRenderStyle('nameplateOffsetY', value)}
+                />,
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsrenderStyleSettingsSectionText1775',
+                ),
+              )}
+              {renderStyle.nameplateInside &&
+                iconNumber(
+                  BetweenVerticalStart,
+                  <DragSizeControl
+                    label={formatVideoText(
+                      language,
+                      'componentsrendervideopanelsrenderStyleSettingsSectionText1781',
+                    )}
+                    value={renderStyle.nameplateTextGap ?? 8}
+                    min={-80}
+                    max={80}
+                    step={1}
+                    onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
+                  />,
+                  formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1788',
+                  ),
+                )}
+              {!renderStyle.nameplateInside &&
+                iconSelect(
+                  Palette,
+                  'nameplate-background-type',
+                  renderStyle.nameplateBackgroundType,
+                  (value) =>
+                    updateRenderStyle(
+                      'nameplateBackgroundType',
+                      value as RenderStyle['nameplateBackgroundType'],
+                    ),
+                  [
+                    {
+                      value: 'solid',
+                      label: formatVideoText(
+                        language,
+                        'componentsrendervideopanelsrenderStyleSettingsSectionText1801',
+                      ),
+                    },
+                    {
+                      value: 'gradient',
+                      label: formatVideoText(
+                        language,
+                        'componentsrendervideopanelsrenderStyleSettingsSectionText1802',
+                      ),
+                    },
+                    {
+                      value: 'image',
+                      label: formatVideoText(
+                        language,
+                        'componentsrendervideopanelsrenderStyleSettingsSectionText1803',
+                      ),
+                    },
+                  ],
+                  formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1805',
+                  ),
+                  formatVideoText(
+                    language,
+                    'componentsrendervideopanelsrenderStyleSettingsSectionText1806',
+                  ),
+                )}
+              {!renderStyle.nameplateInside && renderNameplateStyleMenu()}
+            </div>
           </>,
         )}
       </div>

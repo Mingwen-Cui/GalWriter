@@ -1,3 +1,4 @@
+import { formatWebText } from './i18n';
 import {
   Eye,
   EyeOff,
@@ -12,6 +13,7 @@ import {
 import type { ReactNode, RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import type { Language } from '../../../lib/i18n';
 import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { WebEditableElementFrame, type WebEditableResizeHandle } from './WebEditableElementFrame';
@@ -20,11 +22,7 @@ import {
   snapElementBoxToElementGuides,
   snapResizeBoxToElementGuides,
 } from './webElementAlignmentGuides';
-import {
-  webColorWithAlpha,
-  webElementBoxStyle,
-  webElementShadowStyle,
-} from './webElementStyle';
+import { webColorWithAlpha, webElementBoxStyle, webElementShadowStyle } from './webElementStyle';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 export type PlayedAudio = {
@@ -56,10 +54,7 @@ const colorWithAlpha = (color: string | undefined, alpha: number | undefined) =>
   return webColorWithAlpha(color, alpha, '#000000');
 };
 
-const elementRadiusStyle = (
-  element: WebMenuElement,
-  fallback: number,
-): React.CSSProperties => {
+const elementRadiusStyle = (element: WebMenuElement, fallback: number): React.CSSProperties => {
   const base = element.borderRadius ?? fallback;
   return {
     borderRadius: base,
@@ -161,7 +156,7 @@ export function PreviewToolbar({
   previewMode = 'test',
   toolbarElements,
   selectedToolbarElementId,
-  t,
+  language,
   onSelectToolbarElement,
   onUpdateToolbarElement,
   onBack,
@@ -182,7 +177,7 @@ export function PreviewToolbar({
   previewMode?: 'edit' | 'test';
   toolbarElements: WebMenuElement[];
   selectedToolbarElementId?: string | null;
-  t: (zh: string, ja: string, en: string) => string;
+  language: Language;
   onSelectToolbarElement?: (id: string | null) => void;
   onUpdateToolbarElement?: (id: string, patch: Partial<WebMenuElement>) => void;
   onBack: () => void;
@@ -261,11 +256,16 @@ export function PreviewToolbar({
                 ? 'bg-sky-500/35 text-sky-100'
                 : 'bg-white/10 text-white hover:bg-white/20'
             }`}
-            title={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
-            aria-label={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
+            title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText264')}
+            aria-label={formatWebText(
+              language,
+              'componentsrenderwebWebPlaytestPreviewControlsText265',
+            )}
           >
             <ListMusic className="h-3.5 w-3.5" />
-            <span>{t('音频', '音声', 'Audio')}</span>
+            <span>
+              {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText268')}
+            </span>
           </button>
         </div>
         <button
@@ -274,13 +274,13 @@ export function PreviewToolbar({
           className="flex h-8 items-center gap-1.5 rounded-lg bg-sky-500/22 px-3 text-xs font-black text-sky-100 transition-all hover:bg-sky-500/34 active:scale-95"
           title={
             isPreviewFullscreen
-              ? t('退出测试全屏', 'テスト全画面を終了', 'Exit test fullscreen')
-              : t('测试全屏', 'テスト全画面', 'Test fullscreen')
+              ? formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText277')
+              : formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText278')
           }
           aria-label={
             isPreviewFullscreen
-              ? t('退出测试全屏', 'テスト全画面を終了', 'Exit test fullscreen')
-              : t('测试全屏', 'テスト全画面', 'Test fullscreen')
+              ? formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText282')
+              : formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText283')
           }
         >
           {isPreviewFullscreen ? (
@@ -289,7 +289,9 @@ export function PreviewToolbar({
             <Maximize2 className="h-3.5 w-3.5" />
           )}
           <span>
-            {isPreviewFullscreen ? t('退出', '終了', 'Exit') : t('最大化', '最大化', 'Max')}
+            {isPreviewFullscreen
+              ? formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText292')
+              : formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText292_2')}
           </span>
         </button>
         <button
@@ -297,20 +299,24 @@ export function PreviewToolbar({
           onClick={onBack}
           disabled={historyLength === 0}
           className="flex h-8 items-center gap-1.5 rounded-lg bg-white/12 px-3 text-xs font-black text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-35 disabled:grayscale disabled:hover:bg-white/12 disabled:active:scale-100"
-          title={t('返回上一页', '前に戻る', 'Back')}
+          title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText300')}
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          <span>{t('返回', '戻る', 'Back')}</span>
+          <span>
+            {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText303')}
+          </span>
         </button>
         {settings.showStartMenu && (
           <button
             type="button"
             onClick={onReturnToStartMenu}
             className="flex h-8 items-center gap-1.5 rounded-lg bg-white/12 px-3 text-xs font-black text-white transition-all hover:bg-white/20 active:scale-95"
-            title={t('返回主界面', 'メイン画面へ戻る', 'Main menu')}
+            title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText310')}
           >
             <House className="h-3.5 w-3.5" />
-            <span>{t('主界面', 'メイン', 'Menu')}</span>
+            <span>
+              {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText313')}
+            </span>
           </button>
         )}
       </div>
@@ -464,58 +470,60 @@ export function PreviewFloatingElementLayer({
         data-toolbar-editor="true"
         className={`pointer-events-none absolute inset-0 z-[220] ${className}`}
       >
-      {previewMode === 'edit' && activeGuideLines.length > 0 && (
-        <div className="pointer-events-none absolute inset-0 z-30">
-          {activeGuideLines.map((line, index) => (
-            <div
-              key={`${line.axis}-${line.value}-${index}`}
-              className={
-                line.axis === 'x'
-                  ? 'absolute top-0 h-full border-l-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.42)]'
-                  : 'absolute left-0 w-full border-t-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.42)]'
+        {previewMode === 'edit' && activeGuideLines.length > 0 && (
+          <div className="pointer-events-none absolute inset-0 z-30">
+            {activeGuideLines.map((line, index) => (
+              <div
+                key={`${line.axis}-${line.value}-${index}`}
+                className={
+                  line.axis === 'x'
+                    ? 'absolute top-0 h-full border-l-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.42)]'
+                    : 'absolute left-0 w-full border-t-[1.5px] border-dashed border-red-500 shadow-[0_0_5px_rgba(239,68,68,0.42)]'
+                }
+                style={line.axis === 'x' ? { left: `${line.value}%` } : { top: `${line.value}%` }}
+              />
+            ))}
+          </div>
+        )}
+        {previewMode === 'edit' && marqueeBox && (
+          <div
+            className="pointer-events-none absolute z-[70] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
+            style={{
+              left: `${marqueeBox.x}%`,
+              top: `${marqueeBox.y}%`,
+              width: `${marqueeBox.width}%`,
+              height: `${marqueeBox.height}%`,
+            }}
+          />
+        )}
+        {elements
+          .filter((element) => previewMode === 'edit' || element.visible !== false)
+          .map((element) => (
+            <ToolbarElement
+              key={element.id}
+              element={element}
+              selected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+              previewMode={previewMode}
+              disabled={Boolean(isDisabled?.(element))}
+              active={Boolean(isActive?.(element))}
+              icon={getIcon?.(element)}
+              guideElements={snapGuideElements}
+              allElements={elements}
+              selectedElementIds={selectedElementIds}
+              onSelect={(id) => {
+                setSelectedElementIds(id ? [id] : []);
+                onSelectElement?.(id);
+              }}
+              onSelectOnly={(id) => onSelectElement?.(id)}
+              onUpdate={onUpdateElement}
+              onUpdateElements={onUpdateElements}
+              onGuideLinesChange={setActiveGuideLines}
+              onAction={() => onAction?.(element)}
+              onDoubleClickButton={
+                onDoubleClickButton ? () => onDoubleClickButton(element) : undefined
               }
-              style={line.axis === 'x' ? { left: `${line.value}%` } : { top: `${line.value}%` }}
             />
           ))}
-        </div>
-      )}
-      {previewMode === 'edit' && marqueeBox && (
-        <div
-          className="pointer-events-none absolute z-[70] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
-          style={{
-            left: `${marqueeBox.x}%`,
-            top: `${marqueeBox.y}%`,
-            width: `${marqueeBox.width}%`,
-            height: `${marqueeBox.height}%`,
-          }}
-        />
-      )}
-      {elements
-        .filter((element) => previewMode === 'edit' || element.visible !== false)
-        .map((element) => (
-          <ToolbarElement
-            key={element.id}
-            element={element}
-            selected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
-            previewMode={previewMode}
-            disabled={Boolean(isDisabled?.(element))}
-            active={Boolean(isActive?.(element))}
-            icon={getIcon?.(element)}
-            guideElements={snapGuideElements}
-            allElements={elements}
-            selectedElementIds={selectedElementIds}
-            onSelect={(id) => {
-              setSelectedElementIds(id ? [id] : []);
-              onSelectElement?.(id);
-            }}
-            onSelectOnly={(id) => onSelectElement?.(id)}
-            onUpdate={onUpdateElement}
-            onUpdateElements={onUpdateElements}
-            onGuideLinesChange={setActiveGuideLines}
-            onAction={() => onAction?.(element)}
-            onDoubleClickButton={onDoubleClickButton ? () => onDoubleClickButton(element) : undefined}
-          />
-        ))}
       </div>
     </>
   );
@@ -810,9 +818,7 @@ function ToolbarElement({
                 suppressContentEditableWarning
                 className={`min-w-0 whitespace-pre-line outline-none ${
                   editable && !editingText ? 'cursor-text' : ''
-                } ${
-                  editable && editingText ? 'opacity-50 caret-white' : ''
-                }`}
+                } ${editable && editingText ? 'opacity-50 caret-white' : ''}`}
                 onPointerDown={(event) => {
                   if (editingText) event.stopPropagation();
                 }}
@@ -842,7 +848,8 @@ function ToolbarElement({
             className="hidden"
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
-              if (file) readStartMenuImageFile(file, (imageUrl) => onUpdate?.(element.id, { imageUrl }));
+              if (file)
+                readStartMenuImageFile(file, (imageUrl) => onUpdate?.(element.id, { imageUrl }));
               event.currentTarget.value = '';
             }}
           />
@@ -868,7 +875,7 @@ export function PreviewAudioPlaylistModal({
   items,
   activeUrl,
   isPlaying,
-  t,
+  language,
   onClose,
   onToggleAudio,
 }: {
@@ -876,7 +883,7 @@ export function PreviewAudioPlaylistModal({
   items: PlayedAudio[];
   activeUrl: string | null;
   isPlaying: boolean;
-  t: (zh: string, ja: string, en: string) => string;
+  language: Language;
   onClose: () => void;
   onToggleAudio: (audio: PlayedAudio) => void;
 }) {
@@ -886,14 +893,10 @@ export function PreviewAudioPlaylistModal({
       items={items}
       activeUrl={activeUrl}
       isPlaying={isPlaying}
-      title={t('录音播放列表', '録音プレイリスト', 'Audio playlist')}
-      hint={t('最近听过的录音排在最上方', '最近聞いた録音を上に表示', 'Most recently heard first')}
-      emptyText={t(
-        '听过的录音会显示在这里',
-        '再生した録音がここに表示されます',
-        'Audio you have heard will appear here',
-      )}
-      closeLabel={t('关闭', '閉じる', 'Close')}
+      title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText889')}
+      hint={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText890')}
+      emptyText={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText891')}
+      closeLabel={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText896')}
       dark
       scope="container"
       onClose={onClose}
@@ -903,14 +906,14 @@ export function PreviewAudioPlaylistModal({
 }
 
 export function PreviewSettingsPopover({
-  t,
+  language,
   settings,
   renderStyle,
   reset,
   onUpdateSettings,
   onUpdateRenderStyle,
 }: {
-  t: (zh: string, ja: string, en: string) => string;
+  language: Language;
   settings: WebExportSettings;
   renderStyle: RenderStyle;
   reset: () => void;
@@ -931,14 +934,28 @@ export function PreviewSettingsPopover({
         className="mb-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-black text-white/82 transition-colors hover:bg-white/16 hover:text-white"
       >
         <Undo2 className="h-4 w-4" />
-        <span>{t('重置预览', 'プレビューをリセット', 'Reset preview')}</span>
+        <span>
+          {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText934')}
+        </span>
       </button>
       <div className="grid gap-3 md:grid-cols-2">
         <PreviewOptionGroup
-          title={t('界面排版', 'レイアウト', 'Layout')}
+          title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText938')}
           options={[
-            { value: 'classic', label: t('经典', 'クラシック', 'Classic') },
-            { value: 'immersive', label: t('沉浸', '没入', 'Immersive') },
+            {
+              value: 'classic',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText940',
+              ),
+            },
+            {
+              value: 'immersive',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText941',
+              ),
+            },
           ]}
           value={settings.layoutMode}
           onChange={(value) =>
@@ -946,12 +963,30 @@ export function PreviewSettingsPopover({
           }
         />
         <PreviewOptionGroup
-          title={t('选项位置', '選択肢の位置', 'Choice Position')}
+          title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText949')}
           columns="grid-cols-3"
           options={[
-            { value: 'aboveText', label: t('上', '上', 'Above') },
-            { value: 'center', label: t('中', '中', 'Center') },
-            { value: 'belowText', label: t('下', '下', 'Below') },
+            {
+              value: 'aboveText',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText952',
+              ),
+            },
+            {
+              value: 'center',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText953',
+              ),
+            },
+            {
+              value: 'belowText',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText954',
+              ),
+            },
           ]}
           value={settings.choicesPosition}
           onChange={(value) =>
@@ -959,10 +994,22 @@ export function PreviewSettingsPopover({
           }
         />
         <PreviewOptionGroup
-          title={t('交互', 'インタラクション', 'Interaction')}
+          title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText962')}
           options={[
-            { value: 'typewriter', label: t('打字机', 'タイプライター', 'Typewriter') },
-            { value: 'immediate', label: t('立即显示', '即時表示', 'Immediate') },
+            {
+              value: 'typewriter',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText964',
+              ),
+            },
+            {
+              value: 'immediate',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText965',
+              ),
+            },
           ]}
           value={settings.interactionMode}
           onChange={(value) =>
@@ -970,25 +1017,43 @@ export function PreviewSettingsPopover({
           }
         />
         <PreviewOptionGroup
-          title={t('自动翻页', '自動進行', 'Auto Advance')}
+          title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText973')}
           options={[
-            { value: 'on', label: t('自动', '自動', 'On') },
-            { value: 'off', label: t('手动', '手動', 'Manual') },
+            {
+              value: 'on',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText975',
+              ),
+            },
+            {
+              value: 'off',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText976',
+              ),
+            },
           ]}
           value={settings.autoAdvance ? 'on' : 'off'}
           onChange={(value) => onUpdateSettings('autoAdvance', value === 'on')}
         />
         <PreviewOptionGroup
-          title={t('显示效果', '表示効果', 'Display')}
+          title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText982')}
           options={[
             {
               value: 'backdrop',
-              label: t('背景虚化', '背景ぼかし', 'Backdrop'),
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText986',
+              ),
               icon: <BlurGlyph />,
             },
             {
               value: 'skip',
-              label: t('隐藏单选', '単一選択を隠す', 'Skip Single'),
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText991',
+              ),
               icon: <SingleChoicePopupGlyph />,
             },
           ]}
@@ -1003,22 +1068,28 @@ export function PreviewSettingsPopover({
           }}
         />
         <PreviewOptionGroup
-          title={t('媒体', 'メディア', 'Media')}
+          title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText1006')}
           options={[
-            { value: 'autoplay', label: t('视频自动播放', '動画自動再生', 'Video Autoplay') },
+            {
+              value: 'autoplay',
+              label: formatWebText(
+                language,
+                'componentsrenderwebWebPlaytestPreviewControlsText1008',
+              ),
+            },
           ]}
           value={settings.videoAutoPlay ? 'autoplay' : ''}
           onChange={() => onUpdateSettings('videoAutoPlay', !settings.videoAutoPlay)}
         />
         <PreviewRange
-          label={t('标题字号', 'タイトルサイズ', 'Title Size')}
+          label={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText1014')}
           value={renderStyle.titleFontSize}
           min={18}
           max={120}
           onChange={(value) => onUpdateRenderStyle('titleFontSize', value)}
         />
         <PreviewRange
-          label={t('正文字号', '本文サイズ', 'Body Size')}
+          label={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText1021')}
           value={renderStyle.bodyFontSize}
           min={16}
           max={96}

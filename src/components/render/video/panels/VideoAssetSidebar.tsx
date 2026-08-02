@@ -1,10 +1,10 @@
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import { FileText, Grid2X2, Image, Layers, ListPlus, Plus, Rows3 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { MEDIA_FILE_ACCEPT } from '../../../../lib/mediaImport';
-import { renderCopy } from '../shared/renderCopy';
 import type { AssetCardLayout, AssetRegionOption } from '../shared/types';
 
 type VideoAssetSidebarProps = {
@@ -106,7 +106,6 @@ export function VideoAssetSidebar({
   handleAssetScaleHandleMove,
   handleAssetScaleHandleEnd,
 }: VideoAssetSidebarProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const selectionDragRef = useRef<{
     startX: number;
     startY: number;
@@ -215,7 +214,7 @@ export function VideoAssetSidebar({
       <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
           <Layers className="w-4 h-4 text-[var(--vr-accent)]" />
-          {t('素材卡片', '素材カード', 'Asset Cards')}
+          {formatVideoText(language, 'componentsrendervideopanelsVideoAssetSidebarText218')}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-[var(--vr-text-muted)]">
@@ -226,8 +225,14 @@ export function VideoAssetSidebar({
               type="button"
               onClick={() => setAssetCardLayout('row')}
               className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors ${assetCardLayout === 'row' ? 'bg-[var(--vr-panel)] text-[var(--vr-accent)] shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
-              title={t('横向排列', '横並び', 'Row layout')}
-              aria-label={t('横向排列', '横並び', 'Row layout')}
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoAssetSidebarText229',
+              )}
+              aria-label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoAssetSidebarText230',
+              )}
             >
               <Rows3 className="w-3.5 h-3.5" />
             </button>
@@ -235,8 +240,14 @@ export function VideoAssetSidebar({
               type="button"
               onClick={() => setAssetCardLayout('grid')}
               className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors ${assetCardLayout === 'grid' ? 'bg-[var(--vr-panel)] text-[var(--vr-accent)] shadow-sm' : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
-              title={t('网格排列', 'グリッド表示', 'Grid layout')}
-              aria-label={t('网格排列', 'グリッド表示', 'Grid layout')}
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoAssetSidebarText238',
+              )}
+              aria-label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoAssetSidebarText239',
+              )}
             >
               <Grid2X2 className="w-3.5 h-3.5" />
             </button>
@@ -257,8 +268,11 @@ export function VideoAssetSidebar({
             type="button"
             onClick={() => assetUploadInputRef.current?.click()}
             className="h-9 w-9 shrink-0 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-accent)] flex items-center justify-center hover:bg-[var(--vr-panel)] hover:border-[var(--vr-border-strong)] transition-colors"
-            title={t('上传素材文件', '素材ファイルをアップロード', 'Upload media assets')}
-            aria-label={t('上传素材文件', '素材ファイルをアップロード', 'Upload media assets')}
+            title={formatVideoText(language, 'componentsrendervideopanelsVideoAssetSidebarText260')}
+            aria-label={formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoAssetSidebarText261',
+            )}
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -286,9 +300,7 @@ export function VideoAssetSidebar({
             const allVisibleSelected =
               visibleAssetNodes.length > 0 &&
               visibleAssetNodes.every((node) => selectedAssetIds.includes(node.id));
-            setAssetSelection(
-              allVisibleSelected ? [] : visibleAssetNodes.map((node) => node.id),
-            );
+            setAssetSelection(allVisibleSelected ? [] : visibleAssetNodes.map((node) => node.id));
           }}
           onPointerDown={handleSelectionPointerDown}
           onPointerMove={handleSelectionPointerMove}
@@ -386,8 +398,12 @@ export function VideoAssetSidebar({
                       </div>
                       <div className="mt-1 text-[11px] text-[var(--vr-text-muted)] truncate">
                         {region
-                          ? `${region.type === 'dynamicGroup' ? t('包裹', 'ラップ', 'Wrap') : t('背景', '背景', 'Background')} · ${region.label}`
-                          : segmentText(node) || t('无正文', '本文なし', 'No body text')}
+                          ? `${region.type === 'dynamicGroup' ? formatVideoText(language, 'componentsrendervideopanelsVideoAssetSidebarText389') : formatVideoText(language, 'componentsrendervideopanelsVideoAssetSidebarText389_2')} · ${region.label}`
+                          : segmentText(node) ||
+                            formatVideoText(
+                              language,
+                              'componentsrendervideopanelsVideoAssetSidebarText390',
+                            )}
                       </div>
                     </div>
                   </div>
@@ -396,11 +412,7 @@ export function VideoAssetSidebar({
             })}
             {visibleAssetNodes.length === 0 && (
               <div className="rounded-lg border border-dashed border-[var(--vr-border-strong)] px-3 py-8 text-center text-xs font-bold text-[var(--vr-text-muted)]">
-                {t(
-                  '这个区域里暂无可渲染卡片',
-                  'この領域に書き出せるカードはありません',
-                  'No renderable cards in this region',
-                )}
+                {formatVideoText(language, 'componentsrendervideopanelsVideoAssetSidebarText399')}
               </div>
             )}
           </div>
@@ -424,10 +436,9 @@ export function VideoAssetSidebar({
               onPointerMove={handleAssetScrollThumbMove}
               onPointerUp={handleAssetScrollThumbEnd}
               onPointerCancel={handleAssetScrollThumbEnd}
-              title={t(
-                '拖动滚动素材卡片',
-                'ドラッグして素材カードをスクロール',
-                'Drag to scroll asset cards',
+              title={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoAssetSidebarText427',
               )}
             >
               <span className="pointer-events-none absolute inset-y-1 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-[var(--vr-accent)] opacity-70 transition-opacity" />
@@ -438,15 +449,13 @@ export function VideoAssetSidebar({
                 onPointerMove={handleAssetScaleHandleMove}
                 onPointerUp={handleAssetScaleHandleEnd}
                 onPointerCancel={handleAssetScaleHandleEnd}
-                title={t(
-                  '拖动调整素材卡片缩放上手柄',
-                  'ドラッグして素材カード倍率の上ハンドルを調整',
-                  'Drag to adjust asset scale top handle',
+                title={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoAssetSidebarText441',
                 )}
-                aria-label={t(
-                  '调整素材卡片缩放上手柄',
-                  '素材カード倍率の上ハンドルを調整',
-                  'Adjust asset scale top handle',
+                aria-label={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoAssetSidebarText446',
                 )}
               />
               <button
@@ -456,15 +465,13 @@ export function VideoAssetSidebar({
                 onPointerMove={handleAssetScaleHandleMove}
                 onPointerUp={handleAssetScaleHandleEnd}
                 onPointerCancel={handleAssetScaleHandleEnd}
-                title={t(
-                  '拖动调整素材卡片缩放下手柄',
-                  'ドラッグして素材カード倍率の下ハンドルを調整',
-                  'Drag to adjust asset scale bottom handle',
+                title={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoAssetSidebarText459',
                 )}
-                aria-label={t(
-                  '调整素材卡片缩放下手柄',
-                  '素材カード倍率の下ハンドルを調整',
-                  'Adjust asset scale bottom handle',
+                aria-label={formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoAssetSidebarText464',
                 )}
               />
             </div>

@@ -1,3 +1,4 @@
+import { getVideoTextForChinesePreference } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 
 import type { AssetRegionOption } from '../shared/types';
@@ -43,22 +44,59 @@ export const getAssetRegionOptions = (nodes: FlowNode[], isZh: boolean): AssetRe
       label: String(
         node.data?.title ||
           (node.type === 'groupNode'
-            ? isZh
-              ? '动态包裹'
-              : 'Dynamic wrap'
-            : isZh
-              ? '背景区域'
-              : 'Background'),
+            ? getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoassetsassetRegionsIsZhText46',
+              )
+            : getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoassetsassetRegionsIsZhText49',
+              )),
       ),
       type: node.type === 'groupNode' ? ('dynamicGroup' as const) : ('background' as const),
     }));
 
   return [
-    { id: 'all', label: isZh ? '全部素材' : 'All assets', type: 'all' },
-    { id: 'media:image', label: isZh ? '图片素材' : 'Image assets', type: 'mediaImage' },
-    { id: 'media:video', label: isZh ? '视频素材' : 'Video assets', type: 'mediaVideo' },
-    { id: 'media:audio', label: isZh ? '音频素材' : 'Audio assets', type: 'mediaAudio' },
-    { id: 'outside', label: isZh ? '画布外/未归组' : 'Outside regions', type: 'outside' },
+    {
+      id: 'all',
+      label: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoassetsassetRegionsIsZhText57',
+      ),
+      type: 'all',
+    },
+    {
+      id: 'media:image',
+      label: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoassetsassetRegionsIsZhText58',
+      ),
+      type: 'mediaImage',
+    },
+    {
+      id: 'media:video',
+      label: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoassetsassetRegionsIsZhText59',
+      ),
+      type: 'mediaVideo',
+    },
+    {
+      id: 'media:audio',
+      label: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoassetsassetRegionsIsZhText60',
+      ),
+      type: 'mediaAudio',
+    },
+    {
+      id: 'outside',
+      label: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoassetsassetRegionsIsZhText61',
+      ),
+      type: 'outside',
+    },
     ...regionOptions,
   ];
 };

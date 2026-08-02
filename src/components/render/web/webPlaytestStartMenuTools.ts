@@ -1,5 +1,7 @@
+import { formatWebText } from './i18n';
 import type { CSSProperties } from 'react';
 
+import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings } from '../video/shared/types';
 import { buildRehearsalStartMenuElements } from './webExperienceTemplates';
 
@@ -76,7 +78,7 @@ export const buildDefaultStartMenuElements = ({
   defaultButtonY: _defaultButtonY,
   defaultButtonWidth: _defaultButtonWidth,
   buttonHeight: _buttonHeight,
-  t,
+  language,
 }: {
   settings: WebExportSettings;
   projectTitle: string;
@@ -87,9 +89,8 @@ export const buildDefaultStartMenuElements = ({
   defaultButtonY: number;
   defaultButtonWidth: number;
   buttonHeight: number;
-  t: (zh: string, ja: string, en: string) => string;
+  language: Language;
 }): StartMenuElement[] => {
-  const language = t('zh', 'ja', 'en') as 'zh' | 'ja' | 'en';
   const actionByRole = new Map(startMenuActions.map((action) => [action.key, action]));
   return buildRehearsalStartMenuElements(language, projectTitle, choiceColor, choiceTextColor)
     .filter((element) => element.kind !== 'button' || actionByRole.has(element.role || ''))
@@ -99,7 +100,11 @@ export const buildDefaultStartMenuElements = ({
         ? { ...element, text: action.label, disabled: action.disabled, primary: action.primary }
         : element;
       return resolved.role === 'save'
-        ? { ...resolved, text: t('档案', 'アーカイブ', 'Archive'), primary: false }
+        ? {
+            ...resolved,
+            text: formatWebText(language, 'componentsrenderwebwebPlaytestStartMenuToolsText102'),
+            primary: false,
+          }
         : resolved;
     });
 };

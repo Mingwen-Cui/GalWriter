@@ -1,3 +1,4 @@
+import { getVideoTextForChinesePreference } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import type { ChangeEvent, Dispatch, DragEvent, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -71,9 +72,10 @@ export const useAssetAudioTools = ({
       [node.id]: audioTrackIds[0] || 'audio-1',
     }));
     setAudioMessage(
-      isZh
-        ? '音频已添加到素材栏，可拖到音频轨。'
-        : 'Audio added to assets. Drag it to an audio track.',
+      getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText74',
+      ),
     );
     setError('');
   };
@@ -101,7 +103,12 @@ export const useAssetAudioTools = ({
     });
 
     if (nextNodes.length === 0) {
-      setError(isZh ? '请选择图片、视频或音频文件。' : 'Choose image, video, or audio files.');
+      setError(
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText104',
+        ),
+      );
       return;
     }
     setUploadedAssetNodes((previous) => [...nextNodes, ...previous]);
@@ -122,9 +129,10 @@ export const useAssetAudioTools = ({
       .trim();
     if (!speechText) {
       setAudioMessage(
-        isZh
-          ? '选中的片段没有可朗读文字。'
-          : 'Selected segments have no readable text.',
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText125',
+        ),
       );
       return;
     }
@@ -132,9 +140,11 @@ export const useAssetAudioTools = ({
     closeContextMenu();
     setAudioBusy(true);
     setAudioMessage(
-      isZh
-        ? `正在为 ${speechNodes.length} 个片段生成语音...`
-        : `Generating speech for ${speechNodes.length} segment(s)...`,
+      getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText135',
+        speechNodes.length,
+      ),
     );
     try {
       const audio = await generateSpeechAudio(
@@ -149,18 +159,21 @@ export const useAssetAudioTools = ({
       );
       addAudioAssetFromBlob(
         audio.blob,
-        isZh
-          ? `剧本文字配音 ${new Date().toLocaleTimeString()}`
-          : `Script voiceover ${new Date().toLocaleTimeString()}`,
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText152',
+          new Date().toLocaleTimeString(),
+        ),
         true,
       );
     } catch (error) {
       setAudioMessage(
         error instanceof Error
           ? error.message
-          : isZh
-            ? '文字转音频失败。'
-            : 'Text to audio failed.',
+          : getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText161',
+            ),
       );
     } finally {
       setAudioBusy(false);
@@ -193,27 +206,31 @@ export const useAssetAudioTools = ({
         if (blob.size > 0) {
           addAudioAssetFromBlob(
             blob,
-            isZh
-              ? `用户配音 ${new Date().toLocaleTimeString()}`
-              : `Voiceover ${new Date().toLocaleTimeString()}`,
+            getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText196',
+              new Date().toLocaleTimeString(),
+            ),
           );
         }
       };
       recorder.start();
       setIsRecordingVoiceover(true);
       setAudioMessage(
-        isZh
-          ? '正在录音，点击停止后生成音频素材。'
-          : 'Recording. Stop to create an audio asset.',
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText205',
+        ),
       );
     } catch (error) {
       setIsRecordingVoiceover(false);
       setAudioMessage(
         error instanceof Error
           ? error.message
-          : isZh
-            ? '无法打开麦克风。'
-            : 'Could not open the microphone.',
+          : getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModaluseAssetAudioToolsIsZhText214',
+            ),
       );
     }
   };

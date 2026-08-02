@@ -1,4 +1,5 @@
-﻿import type { LucideIcon } from 'lucide-react';
+import { formatVideoText, getVideoTextAnimationOptions } from '../i18n';
+import type { LucideIcon } from 'lucide-react';
 import {
   ALargeSmall,
   Baseline,
@@ -45,13 +46,7 @@ import {
 } from '../../canvas/canvasSettings';
 import { CanvasSettingsSection } from '../../canvas/CanvasSettingsSection';
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
-import {
-  EXPORT_FORMAT_OPTIONS,
-  FRAME_RATE_OPTIONS,
-  RESOLUTION_OPTIONS,
-  TEXT_ANIMATION_OPTIONS,
-} from '../shared/constants';
-import { renderCopy } from '../shared/renderCopy';
+import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS } from '../shared/constants';
 import { getVideoRenderObjects, updateVideoTextAnimations } from '../shared/renderObjects';
 import type {
   ExportFormat,
@@ -200,7 +195,6 @@ export function VideoExportSettingsPanel({
   onCanvasSettingsChange,
   showCanvasSettings,
 }: VideoExportSettingsPanelProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const initialRatioDivisor = greatestCommonDivisor(resolutionWidth, resolutionHeight);
   const [canvasRatioWidth, setCanvasRatioWidth] = useState(() =>
     Math.max(1, Math.round(resolutionWidth / initialRatioDivisor)),
@@ -525,9 +519,18 @@ export function VideoExportSettingsPanel({
     const align = renderStyle[alignKey] as TextAlign;
     const typewriterMode = objectAnimation.typewriterMode;
     const normalizedTypewriterMode = typewriterMode === 'word' ? 'sentence' : typewriterMode;
-    const characterModeLabel = t('逐字', '文字ごと', 'Character');
-    const sentenceModeLabel = t('逐句', '文ごと', 'Sentence');
-    const lineModeLabel = t('逐行', '行ごと', 'Line');
+    const characterModeLabel = formatVideoText(
+      language,
+      'componentsrendervideopanelsVideoExportSettingsPanelText528',
+    );
+    const sentenceModeLabel = formatVideoText(
+      language,
+      'componentsrendervideopanelsVideoExportSettingsPanelText529',
+    );
+    const lineModeLabel = formatVideoText(
+      language,
+      'componentsrendervideopanelsVideoExportSettingsPanelText530',
+    );
 
     return (
       <div className={`space-y-2 rounded-xl p-2 ${toneClass}`}>
@@ -537,9 +540,18 @@ export function VideoExportSettingsPanel({
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
                 {isTitle
                   ? visible
-                    ? t('隐藏标题', 'タイトルを隠す', 'Hide title')
-                    : t('显示标题', 'タイトルを表示', 'Show title')
-                  : t('正文无法隐藏', '本文は非表示不可', 'Body cannot be hidden')}
+                    ? formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoExportSettingsPanelText540',
+                      )
+                    : formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoExportSettingsPanelText541',
+                      )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoExportSettingsPanelText542',
+                    )}
               </div>
             )}
             <button
@@ -569,13 +581,16 @@ export function VideoExportSettingsPanel({
             renderStyle[fontFamilyKey] as string,
             (value) => setStyle(fontFamilyKey, value as never),
             FONT_OPTIONS,
-            t('字体', 'フォント', 'Font'),
-            t('选择字体', 'フォントを選択', 'Choose font'),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText572'),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText573'),
           )}
           {iconNumber(
             ALargeSmall,
             <DragSizeControl
-              label={t('拖动调整字号', 'サイズを調整', 'Adjust font size')}
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoExportSettingsPanelText578',
+              )}
               value={renderStyle[fontSizeKey] as number}
               min={isTitle ? 18 : 16}
               max={isTitle ? 120 : 96}
@@ -586,10 +601,9 @@ export function VideoExportSettingsPanel({
         </div>
         <div
           className="pointer-events-none grid grid-cols-3 gap-2 select-none opacity-40 grayscale"
-          title={t(
-            '视频文字动画暂不可用',
-            '動画テキストアニメーションは現在利用できません',
-            'Video text animation is currently unavailable',
+          title={formatVideoText(
+            language,
+            'componentsrendervideopanelsVideoExportSettingsPanelText589',
           )}
         >
           {iconSelect(
@@ -597,20 +611,16 @@ export function VideoExportSettingsPanel({
             `${kind}-animation`,
             animation,
             (value) => setObjectAnimation({ animation: value as TextAnimation }),
-            TEXT_ANIMATION_OPTIONS.map((option) => ({
-              value: option.value,
-              label: renderCopy(language, option.zh, option.ja, option.en),
-            })),
-            t('动画', 'アニメーション', 'Animation'),
-            t('选择文字动画', '文字アニメを選択', 'Choose text animation'),
+            getVideoTextAnimationOptions(language),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText604'),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText605'),
           )}
           {iconNumber(
             Timer,
             <DragSizeControl
-              label={t(
-                '鎷栧姩璋冩暣鎻愬墠瀹屾垚鏃堕棿',
-                '鏃┿倎銇畬浜嗐仚銈嬫檪闁撱倰瑾挎暣',
-                'Adjust finish-early time',
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoExportSettingsPanelText610',
               )}
               value={objectAnimation.durationMs}
               min={0}
@@ -630,8 +640,8 @@ export function VideoExportSettingsPanel({
               { value: 'sentence', label: sentenceModeLabel },
               { value: 'line', label: lineModeLabel },
             ],
-            t('打字粒度', 'タイプ単位', 'Typewriter unit'),
-            t('选择打字粒度', 'タイプ単位を選択', 'Choose typewriter unit'),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText633'),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText634'),
             !isTypewriter,
           )}
         </div>
@@ -640,16 +650,15 @@ export function VideoExportSettingsPanel({
             Palette,
             colorInputValue(renderStyle[colorKey] as string),
             (value) => setStyle(colorKey, value as never),
-            t('\u6587\u5b57\u989c\u8272', '\u6587\u5b57\u8272', 'Text color'),
-            t('选择文字颜色', '文字色を選択', 'Choose text color'),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText643'),
+            formatVideoText(language, 'componentsrendervideopanelsVideoExportSettingsPanelText644'),
           )}
           {iconNumber(
             Blend,
             <DragSizeControl
-              label={t(
-                '\u62d6\u52a8\u8c03\u6574\u6587\u5b57\u900f\u660e\u5ea6',
-                '\u6587\u5b57\u900f\u660e\u5ea6\u3092\u8abf\u6574',
-                'Adjust text alpha',
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoExportSettingsPanelText649',
               )}
               value={renderStyle[colorAlphaKey] as number}
               min={0}
@@ -662,10 +671,9 @@ export function VideoExportSettingsPanel({
           {iconNumber(
             Baseline,
             <DragSizeControl
-              label={t(
-                '\u62d6\u52a8\u8c03\u6574\u63cf\u8fb9\u5bbd\u5ea6',
-                '\u7e01\u53d6\u308a\u5e45\u3092\u8abf\u6574',
-                'Adjust stroke width',
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoExportSettingsPanelText665',
               )}
               value={renderStyle[strokeWidthKey] as number}
               min={0}
@@ -679,7 +687,10 @@ export function VideoExportSettingsPanel({
           <div className="space-y-1">
             {showSettingDescriptions && (
               <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-                {t('文字对齐', '文字揃え', 'Text align')}
+                {formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoExportSettingsPanelText682',
+                )}
               </div>
             )}
             <div className="grid grid-cols-3 overflow-hidden rounded-lg bg-[var(--vr-surface-soft)]">
@@ -695,10 +706,19 @@ export function VideoExportSettingsPanel({
                   }`}
                 >
                   {value === 'left'
-                    ? t('左', '左', 'L')
+                    ? formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoExportSettingsPanelText698',
+                      )
                     : value === 'center'
-                      ? t('中', '中央', 'C')
-                      : t('右', '右', 'R')}
+                      ? formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoExportSettingsPanelText700',
+                        )
+                      : formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoExportSettingsPanelText701',
+                        )}
                 </button>
               ))}
             </div>
@@ -706,7 +726,10 @@ export function VideoExportSettingsPanel({
           {iconNumber(
             BetweenHorizontalStart,
             <DragSizeControl
-              label={t('拖动调整字间距', '文字間隔を調整', 'Adjust spacing')}
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoExportSettingsPanelText709',
+              )}
               value={renderStyle[spacingKey] as number}
               min={-4}
               max={24}
@@ -717,7 +740,10 @@ export function VideoExportSettingsPanel({
           {iconNumber(
             BetweenVerticalStart,
             <DragSizeControl
-              label={t('拖动调整行距', '行間を調整', 'Adjust line height')}
+              label={formatVideoText(
+                language,
+                'componentsrendervideopanelsVideoExportSettingsPanelText720',
+              )}
               value={renderStyle[lineHeightKey] as number}
               min={0.8}
               max={2.4}
@@ -739,7 +765,12 @@ export function VideoExportSettingsPanel({
       <div className="h-12 px-4 border-b border-[var(--vr-border)] flex items-center justify-between gap-3 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
         <div className="min-w-0 flex items-center gap-2">
           <Settings className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
-          <span className="truncate">{t('导出设置', '書き出し設定', 'Export Settings')}</span>
+          <span className="truncate">
+            {formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoExportSettingsPanelText742',
+            )}
+          </span>
           <button
             type="button"
             onClick={() => setShowSettingDescriptions((current) => !current)}
@@ -750,13 +781,25 @@ export function VideoExportSettingsPanel({
             }`}
             title={
               showSettingDescriptions
-                ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
-                : t('显示参数说明', '説明を表示', 'Show descriptions')
+                ? formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText753',
+                  )
+                : formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText754',
+                  )
             }
             aria-label={
               showSettingDescriptions
-                ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
-                : t('显示参数说明', '説明を表示', 'Show descriptions')
+                ? formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText758',
+                  )
+                : formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText759',
+                  )
             }
           >
             <Info className="h-3.5 w-3.5" />
@@ -775,8 +818,14 @@ export function VideoExportSettingsPanel({
               }`}
               title={
                 mode === 'video'
-                  ? t('切换到导出设置', '書き出し設定を表示', 'Show export settings')
-                  : t('切换到音频设置', '音声設定を表示', 'Show audio settings')
+                  ? formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoExportSettingsPanelText778',
+                    )
+                  : formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoExportSettingsPanelText779',
+                    )
               }
               aria-pressed={exportSettingsMode === mode}
             >
@@ -785,7 +834,15 @@ export function VideoExportSettingsPanel({
               ) : (
                 <Music className="h-3.5 w-3.5" />
               )}
-              {mode === 'video' ? t('视频', '動画', 'Video') : t('音频', '音声', 'Audio')}
+              {mode === 'video'
+                ? formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText788',
+                  )
+                : formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText788_2',
+                  )}
             </button>
           ))}
         </div>
@@ -843,24 +900,29 @@ export function VideoExportSettingsPanel({
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('时间线音频', 'タイムライン音声', 'Timeline Audio')}
+                {formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoExportSettingsPanelText846',
+                )}
               </div>
               <div className="space-y-3 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
                 <p className="text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
                   {selectedAudioClipCount > 0
-                    ? t(
-                        `正在调整 ${selectedAudioClipCount} 个音频片段`,
-                        `${selectedAudioClipCount} 個の音声クリップを調整中`,
-                        `Editing ${selectedAudioClipCount} audio clip(s)`,
+                    ? formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoExportSettingsPanelText851',
+                        selectedAudioClipCount,
                       )
-                    : t(
-                        '请在时间线中选择带音频的卡片。',
-                        'タイムラインで音声付きカードを選択してください。',
-                        'Select an audio-enabled card in the timeline.',
+                    : formatVideoText(
+                        language,
+                        'componentsrendervideopanelsVideoExportSettingsPanelText856',
                       )}
                 </p>
                 <RangeControl
-                  label={t('音量', '音量', 'Volume')}
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText863',
+                  )}
                   min={0}
                   max={1}
                   step={0.01}
@@ -870,7 +932,10 @@ export function VideoExportSettingsPanel({
                   onChange={(value) => updateSelectedAudioSettings('volume', value)}
                 />
                 <RangeControl
-                  label={t('淡入', 'フェードイン', 'Fade in')}
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText873',
+                  )}
                   min={0}
                   max={10}
                   step={0.1}
@@ -880,7 +945,10 @@ export function VideoExportSettingsPanel({
                   onChange={(value) => updateSelectedAudioSettings('fadeIn', value)}
                 />
                 <RangeControl
-                  label={t('淡出', 'フェードアウト', 'Fade out')}
+                  label={formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText883',
+                  )}
                   min={0}
                   max={10}
                   step={0.1}
@@ -894,14 +962,17 @@ export function VideoExportSettingsPanel({
 
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('文字转音频', 'テキストから音声', 'Text to Audio')}
+                {formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoExportSettingsPanelText897',
+                )}
               </div>
               <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 space-y-3">
                 <p className="text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
-                  {t(
-                    `将当前选中的 ${selectedSpeechNodeCount} 个非视频片段文字生成音频素材。`,
-                    `選択中の ${selectedSpeechNodeCount} 個の非動画セグメントから音声素材を作成します。`,
-                    `Create an audio asset from ${selectedSpeechNodeCount} selected non-video segment(s).`,
+                  {formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText901',
+                    selectedSpeechNodeCount,
                   )}
                 </p>
                 <button
@@ -915,14 +986,20 @@ export function VideoExportSettingsPanel({
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  {t('生成语音', '音声を生成', 'Generate speech')}
+                  {formatVideoText(
+                    language,
+                    'componentsrendervideopanelsVideoExportSettingsPanelText918',
+                  )}
                 </button>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
-                {t('用户配音', 'ボイスオーバー', 'Voiceover')}
+                {formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoExportSettingsPanelText925',
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -932,7 +1009,10 @@ export function VideoExportSettingsPanel({
                 >
                   <FolderOpen className="h-4 w-4 shrink-0" />
                   <span className="truncate">
-                    {t('上传音频', '音声をアップロード', 'Upload audio')}
+                    {formatVideoText(
+                      language,
+                      'componentsrendervideopanelsVideoExportSettingsPanelText935',
+                    )}
                   </span>
                 </button>
                 <button
@@ -947,8 +1027,14 @@ export function VideoExportSettingsPanel({
                   <Mic className="h-4 w-4 shrink-0" />
                   <span className="truncate">
                     {isRecordingVoiceover
-                      ? t('停止录音', '録音を停止', 'Stop')
-                      : t('录制配音', '録音', 'Record')}
+                      ? formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoExportSettingsPanelText950',
+                        )
+                      : formatVideoText(
+                          language,
+                          'componentsrendervideopanelsVideoExportSettingsPanelText951',
+                        )}
                   </span>
                 </button>
               </div>
@@ -956,10 +1042,9 @@ export function VideoExportSettingsPanel({
 
             <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-3 py-2 text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
               {audioMessage ||
-                t(
-                  '生成或上传后，音频会出现在左侧素材栏，可拖到下方音频轨。',
-                  '生成またはアップロードした音声は左側の素材パネルに表示され、音声トラックへドラッグできます。',
-                  'Generated or uploaded audio appears in the left assets panel and can be dragged to an audio track.',
+                formatVideoText(
+                  language,
+                  'componentsrendervideopanelsVideoExportSettingsPanelText959',
                 )}
             </div>
           </div>
@@ -984,7 +1069,10 @@ export function VideoExportSettingsPanel({
         )}
         {savedPath && (
           <div className="rounded-lg border border-[var(--vr-accent)] bg-[var(--vr-accent-soft)] px-3 py-2 text-xs font-bold text-[var(--vr-accent-strong)] break-all">
-            {t('已保存到：', '保存先: ', 'Saved to: ')}
+            {formatVideoText(
+              language,
+              'componentsrendervideopanelsVideoExportSettingsPanelText987',
+            )}
             {savedPath}
           </div>
         )}

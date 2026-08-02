@@ -1,3 +1,5 @@
+import { getVideoTextForChinesePreference } from '../i18n';
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useRef, useState } from 'react';
@@ -8,7 +10,6 @@ import { buildAudioBuffer } from '../audio/audioTrack';
 import { saveRenderedVideo } from '../export/tauriRenderAdapter';
 import { DEFAULT_VIDEO_BITRATE } from '../shared/constants';
 import { loadVideo, seekVideo, validDuration } from '../shared/mediaUtils';
-import { renderCopy } from '../shared/renderCopy';
 import type {
   ExportFormat,
   RenderStatus,
@@ -96,7 +97,8 @@ export const useVideoExport = ({
     const resolvedOutputDir = options?.outputDir ?? outputDir;
     const fileName = options?.fileName;
     if (renderNodes.length === 0 || (status === 'rendering' && !options?.returnBytes)) return;
-    const canvas2d = canvasRef.current ?? (options?.returnBytes ? document.createElement('canvas') : null);
+    const canvas2d =
+      canvasRef.current ?? (options?.returnBytes ? document.createElement('canvas') : null);
     const ctx2d = canvas2d?.getContext('2d');
     if (!canvas2d || !ctx2d) return;
 
@@ -107,7 +109,9 @@ export const useVideoExport = ({
     setError('');
     setSavedPath('');
     setProgressValue(0);
-    setProgress(renderCopy(language, '准备渲染 0%', 'レンダリング準備中 0%', 'Preparing render 0%'));
+    setProgress(
+      formatVideoText(language, 'componentsrendervideoVideoRenderModaluseVideoExportText110'),
+    );
 
     const canvas = canvas2d;
     const throwIfCancelled = () => abortController.signal.throwIfAborted();
@@ -268,7 +272,7 @@ export const useVideoExport = ({
 
       if (isDesktopApp) {
         const result = await saveRenderedVideo({
-          fileName: (fileName?.trim() || `galwriter-render-${Date.now()}`),
+          fileName: fileName?.trim() || `galwriter-render-${Date.now()}`,
           format: resolvedFormat,
           bytes: Array.from(bytes),
           outputDir: resolvedOutputDir,
@@ -293,7 +297,12 @@ export const useVideoExport = ({
       }
       setStatus('done');
       setProgressValue(100);
-      setProgress(isZh ? '导出完成 100%' : 'Export complete 100%');
+      setProgress(
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModaluseVideoExportIsZhText299',
+        ),
+      );
       return bytes;
     } catch (error: any) {
       if (error?.name === 'AbortError' || abortController.signal.aborted) {
@@ -301,12 +310,15 @@ export const useVideoExport = ({
         setError('');
         setProgressValue(0);
         setProgress(
-          renderCopy(language, '渲染已取消', 'レンダリングをキャンセルしました', 'Render cancelled'),
+          formatVideoText(language, 'componentsrendervideoVideoRenderModaluseVideoExportText304'),
         );
       } else {
         console.error('Video render failed:', error);
         setStatus('error');
-        setError(error?.message || renderCopy(language, '视频渲染失败', '動画のレンダリングに失敗しました', 'Video render failed'));
+        setError(
+          error?.message ||
+            formatVideoText(language, 'componentsrendervideoVideoRenderModaluseVideoExportText309'),
+        );
       }
     } finally {
       if (abortControllerRef.current === abortController) abortControllerRef.current = null;
@@ -319,7 +331,7 @@ export const useVideoExport = ({
     if (!controller || controller.signal.aborted) return;
     setIsCancellingRender(true);
     setProgress(
-      renderCopy(language, '正在取消渲染...', 'レンダリングをキャンセル中...', 'Cancelling render...'),
+      formatVideoText(language, 'componentsrendervideoVideoRenderModaluseVideoExportText322'),
     );
     controller.abort();
   };

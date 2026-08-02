@@ -1,3 +1,5 @@
+import { getVideoTextForChinesePreference } from '../i18n';
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import React, { Suspense, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -49,7 +51,6 @@ import {
   TIMELINE_PIXELS_PER_SECOND,
 } from '../shared/constants';
 import { clamp, isTauriRuntime } from '../shared/mediaUtils';
-import { renderCopy } from '../shared/renderCopy';
 import { getVideoRenderObjects } from '../shared/renderObjects';
 import { stripHtml } from '../shared/storyNodes';
 import { getNodeDisplayTitle, getOrderedStoryNodes } from '../shared/storyNodes';
@@ -954,7 +955,12 @@ export function VideoRenderModal({
       }
       await modalRootRef.current?.requestFullscreen();
     } catch {
-      setError(isZh ? '当前环境无法切换全屏。' : 'Fullscreen is not available here.');
+      setError(
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText957',
+        ),
+      );
     }
   };
 
@@ -973,9 +979,10 @@ export function VideoRenderModal({
         setOutputDirError(
           err instanceof Error
             ? err.message
-            : isZh
-              ? '选择保存位置失败。'
-              : 'Failed to choose save location.',
+            : getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText976',
+              ),
         );
       }
       return;
@@ -992,20 +999,33 @@ export function VideoRenderModal({
       } catch (err) {
         // Ignore user cancellation.
         if (err instanceof Error && err.name !== 'AbortError') {
-          setOutputDirError(isZh ? '选择保存位置失败。' : 'Failed to choose save location.');
+          setOutputDirError(
+            getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText995',
+            ),
+          );
         }
       }
       return;
     }
 
     // Fallback: ask the user to type the path manually.
-    setOutputDirError(isZh ? '请手动输入保存路径。' : 'Please type the save path manually.');
+    setOutputDirError(
+      getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1002',
+      ),
+    );
   };
 
   const chooseWebOutputDir = async () => {
     if (!isTauriRuntime()) {
       setWebOutputDirError(
-        isZh ? '选择文件夹仅在APP端可用。' : 'Folder picking is only available in the app.',
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1008',
+        ),
       );
       return;
     }
@@ -1022,9 +1042,10 @@ export function VideoRenderModal({
       setWebOutputDirError(
         err instanceof Error
           ? err.message
-          : isZh
-            ? '选择网页导出位置失败。'
-            : 'Failed to choose web export location.',
+          : getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1025',
+            ),
       );
     }
   };
@@ -1718,8 +1739,18 @@ export function VideoRenderModal({
     pushTimelineHistory,
     getNodeMediaDuration,
     makeTimelineClipInstanceId,
-    segmentTitle: (node) => getSegmentTitle(node, isZh ? '未命名片段' : 'Untitled segment'),
-    separatedAudioLabel: isZh ? '音频' : 'Audio',
+    segmentTitle: (node) =>
+      getSegmentTitle(
+        node,
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1721',
+        ),
+      ),
+    separatedAudioLabel: getVideoTextForChinesePreference(
+      isZh,
+      'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1722',
+    ),
     assignAudioTrackForVideoPlacement,
     addNodeToTimeline,
     setTimelineIds,
@@ -1957,7 +1988,12 @@ export function VideoRenderModal({
     if (status === 'rendering') return;
     if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
       setStatus('error');
-      setError(isZh ? '没有可导出的剧情节点' : 'No story nodes to export');
+      setError(
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1960',
+        ),
+      );
       return;
     }
     const exportTitle =
@@ -1969,7 +2005,12 @@ export function VideoRenderModal({
     setError('');
     setSavedPath('');
     setProgressValue(20);
-    setProgress(isZh ? '正在生成可编辑 PPTX...' : 'Building editable PPTX...');
+    setProgress(
+      getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1972',
+      ),
+    );
     try {
       const { buildPptxBuffer } = await import('../../ppt/pptExport');
       const buffer = await buildPptxBuffer({
@@ -2007,38 +2048,66 @@ export function VideoRenderModal({
       setStatus('done');
       setProgressValue(100);
       setNoticeModal({
-        title: isZh ? 'PPTX 已导出' : 'PPTX exported',
+        title: getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2010',
+        ),
         description: isTauriRuntime()
-          ? isZh
-            ? `文件已保存：${exportTitle}-ppt.pptx`
-            : `Saved: ${exportTitle}-ppt.pptx`
-          : isZh
-            ? '下载已交给浏览器处理。'
-            : 'The download was handed to your browser.',
-        primaryLabel: isZh ? '完成' : 'Done',
-        secondaryLabel: isZh ? '关闭' : 'Close',
+          ? getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2012',
+              exportTitle,
+            )
+          : getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2015',
+            ),
+        primaryLabel: getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2018',
+        ),
+        secondaryLabel: getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2019',
+        ),
         onPrimary: () => setNoticeModal(null),
       });
-      setProgress(isZh ? 'PPTX 已导出' : 'PPTX exported');
+      setProgress(
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2022',
+        ),
+      );
     } catch (exportError) {
       setStatus('error');
       setError(
         exportError instanceof Error
           ? exportError.message
-          : isZh
-            ? 'PPTX 导出失败'
-            : 'PPTX export failed',
+          : getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2028',
+            ),
       );
       setNoticeModal({
-        title: isZh ? 'PPTX 导出失败' : 'PPTX export failed',
+        title: getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2033',
+        ),
         description:
           exportError instanceof Error
             ? exportError.message
-            : isZh
-              ? '请检查素材后重试。'
-              : 'Please check the project assets and try again.',
-        primaryLabel: isZh ? '知道了' : 'OK',
-        secondaryLabel: isZh ? '关闭' : 'Close',
+            : getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2037',
+              ),
+        primaryLabel: getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2040',
+        ),
+        secondaryLabel: getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2041',
+        ),
         onPrimary: () => setNoticeModal(null),
       });
     }
@@ -2069,13 +2138,28 @@ export function VideoRenderModal({
   const mediaKind = getMediaKind;
   const mediaIcon = getMediaIcon;
   const segmentTitle = (node: FlowNode) =>
-    getSegmentTitle(node, isZh ? '未命名片段' : 'Untitled segment');
+    getSegmentTitle(
+      node,
+      getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2072',
+      ),
+    );
   const segmentText = (node: FlowNode) => getSegmentText(node, hideCharacterTags, hideSceneTags);
   const segmentDurationLabel = (node: FlowNode) =>
     getSegmentDurationLabel(node, defaultSeconds, {
-      longestMedia: isZh ? '按音画较长时长' : 'Longest media length',
-      video: isZh ? '按视频时长' : 'Video length',
-      audio: isZh ? '按音频时长' : 'Audio length',
+      longestMedia: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2076',
+      ),
+      video: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2077',
+      ),
+      audio: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2078',
+      ),
     });
   const { sortSelectedAssetsByCardOrder, importSelectedAssetsToTimeline, removeUploadedAssets } =
     useAssetMenuActions({
@@ -2329,11 +2413,9 @@ export function VideoRenderModal({
                   />
                   {!assetPanelCollapsed && (
                     <ResizeHandle
-                      label={renderCopy(
+                      label={formatVideoText(
                         language,
-                        '调整素材栏宽度',
-                        '素材欄の幅を調整',
-                        'Resize asset panel',
+                        'componentsrendervideoVideoRenderModalVideoRenderModalText2332',
                       )}
                       axis="x"
                       value={assetPanelWidth}
@@ -2381,11 +2463,9 @@ export function VideoRenderModal({
 
                   {!exportPanelCollapsed && (
                     <ResizeHandle
-                      label={renderCopy(
+                      label={formatVideoText(
                         language,
-                        '调整导出设置宽度',
-                        '書き出し設定の幅を調整',
-                        'Resize export settings',
+                        'componentsrendervideoVideoRenderModalVideoRenderModalText2384',
                       )}
                       axis="x"
                       value={exportPanelWidth}
@@ -2518,9 +2598,7 @@ export function VideoRenderModal({
               </>
             )
           ) : (
-            <Suspense
-              fallback={<RenderWorkspaceContentSkeleton mode={workspaceMode} delayed />}
-            >
+            <Suspense fallback={<RenderWorkspaceContentSkeleton mode={workspaceMode} delayed />}>
               <div key={workspaceMode} className="render-workspace-mode-content">
                 {workspaceMode === 'web' ? (
                   <LazyWebWorkspace
@@ -2577,17 +2655,14 @@ export function VideoRenderModal({
         <RenderContextMenu
           contextMenu={contextMenu}
           nodeById={nodeById}
-          timelineMenuLabel={renderCopy(
+          timelineMenuLabel={formatVideoText(
             language,
-            '时间线菜单',
-            'タイムラインメニュー',
-            'Timeline menu',
+            'componentsrendervideoVideoRenderModalVideoRenderModalText2580',
           )}
-          assetMenuLabel={renderCopy(
+          assetMenuLabel={formatVideoText(
             language,
-            `素材批量菜单（${selectedAssetIds.length}）`,
-            `素材一括メニュー（${selectedAssetIds.length}）`,
-            `Asset batch menu (${selectedAssetIds.length})`,
+            'componentsrendervideoVideoRenderModalVideoRenderModalText2586',
+            selectedAssetIds.length,
           )}
           buildContextMenuSections={buildContextMenuSections}
           mediaIcon={mediaIcon}

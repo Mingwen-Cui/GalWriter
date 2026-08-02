@@ -35,15 +35,7 @@ export const ENCODER_OPTIONS = [
 
 export const TEXT_ANIMATION_OPTIONS: {
   value: TextAnimation;
-  zh: string;
-  ja: string;
-  en: string;
-}[] = [
-  { value: 'none', zh: '无动画', ja: 'アニメなし', en: 'No animation' },
-  { value: 'fade', zh: '淡入', ja: 'フェード', en: 'Fade' },
-  { value: 'slideUp', zh: '上滑', ja: '上へスライド', en: 'Rise' },
-  { value: 'typewriter', zh: '打字', ja: 'タイプ', en: 'Type' },
-];
+}[] = [{ value: 'none' }, { value: 'fade' }, { value: 'slideUp' }, { value: 'typewriter' }];
 
 export const EXPORT_FORMAT_OPTIONS: {
   label: string;

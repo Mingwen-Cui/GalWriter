@@ -1,5 +1,5 @@
+import { formatWebText } from './i18n';
 import type { Language } from '../../../lib/i18n';
-import { renderCopy } from '../video/shared/renderCopy';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { getWebSettingsCopy } from './i18n';
 
@@ -86,10 +86,18 @@ export const buildRehearsalArchivePageElements = (
   choiceColor: string,
   choiceTextColor: string,
 ): WebMenuElement[] => {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const settingsCopy = getWebSettingsCopy(language);
   const elements: WebMenuElement[] = [
-    text('archive-title', 'title', t('存档', 'セーブ', 'Save'), 10, 8, 32, 8, 28),
+    text(
+      'archive-title',
+      'title',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText92'),
+      10,
+      8,
+      32,
+      8,
+      28,
+    ),
     button(
       'archive-back',
       'back',
@@ -104,11 +112,7 @@ export const buildRehearsalArchivePageElements = (
     button(
       'archive-slot',
       'slot',
-      t(
-        '没有存档\n导出后的网页会在这里显示上次进度。',
-        'セーブなし\n書き出し後のWebでは前回の進行がここに表示されます。',
-        'No save\nExported web builds show the last progress here.',
-      ),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText107'),
       24,
       40,
       52,
@@ -116,12 +120,33 @@ export const buildRehearsalArchivePageElements = (
       choiceColor,
       choiceTextColor,
     ),
-    button('archive-slot-continue', 'slotContinue', t('继续', '続ける', 'Continue'), 56, 46, 12, 5, choiceColor, choiceTextColor, true),
-    button('archive-slot-delete', 'slotDelete', t('删除', '削除', 'Delete'), 69, 46, 7, 5, choiceColor, choiceTextColor),
+    button(
+      'archive-slot-continue',
+      'slotContinue',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText119'),
+      56,
+      46,
+      12,
+      5,
+      choiceColor,
+      choiceTextColor,
+      true,
+    ),
+    button(
+      'archive-slot-delete',
+      'slotDelete',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText120'),
+      69,
+      46,
+      7,
+      5,
+      choiceColor,
+      choiceTextColor,
+    ),
     button(
       'archive-new',
       'new',
-      t('新游戏', '新規ゲーム', 'New Game'),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText124'),
       24,
       59,
       52,
@@ -131,54 +156,59 @@ export const buildRehearsalArchivePageElements = (
       true,
     ),
   ];
-  return elements.map((element) => {
-    if (element.role === 'title') {
-      return { ...element, x: 18, y: 24, width: 64, height: 12, fontSize: 46 };
-    }
-    if (element.role === 'subtitle') {
-      return { ...element, x: 18, y: 38, width: 64, height: 6, fontSize: 18 };
-    }
-    const gradient =
-      element.role === 'new'
-        ? { start: '#38bdf8', end: '#2563eb', y: 57 }
-        : element.role === 'save'
-          ? { start: '#22d3ee', end: '#0f766e', y: 68 }
-          : element.role === 'settings'
-            ? { start: '#a78bfa', end: '#7c3aed', y: 79 }
-            : null;
-    if (!gradient) return element;
-    return {
-      ...element,
-      text: element.role === 'save' ? t('档案', 'アーカイブ', 'Archive') : element.text,
-      x: 32,
-      y: gradient.y,
-      width: 36,
-      height: 9,
-      fontSize: 18,
-      textColor: '#ffffff',
-      backgroundType: 'gradient' as const,
-      backgroundColor: gradient.start,
-      backgroundGradientStart: gradient.start,
-      backgroundGradientEnd: gradient.end,
-      backgroundGradientAngle: 135,
-      backgroundGradientShape: 'linear' as const,
-      backgroundGradientStops: [
-        { id: `${element.id}-start`, color: gradient.start, alpha: 100, position: 0 },
-        { id: `${element.id}-end`, color: gradient.end, alpha: 100, position: 100 },
-      ],
-      borderColor: 'rgba(255,255,255,0.30)',
-      borderRadius: 14,
-    };
-  }).sort((left, right) => {
-    const order: Record<string, number> = {
-      title: 0,
-      subtitle: 1,
-      new: 2,
-      save: 3,
-      settings: 4,
-    };
-    return (order[left.role || ''] ?? 99) - (order[right.role || ''] ?? 99);
-  });
+  return elements
+    .map((element) => {
+      if (element.role === 'title') {
+        return { ...element, x: 18, y: 24, width: 64, height: 12, fontSize: 46 };
+      }
+      if (element.role === 'subtitle') {
+        return { ...element, x: 18, y: 38, width: 64, height: 6, fontSize: 18 };
+      }
+      const gradient =
+        element.role === 'new'
+          ? { start: '#38bdf8', end: '#2563eb', y: 57 }
+          : element.role === 'save'
+            ? { start: '#22d3ee', end: '#0f766e', y: 68 }
+            : element.role === 'settings'
+              ? { start: '#a78bfa', end: '#7c3aed', y: 79 }
+              : null;
+      if (!gradient) return element;
+      return {
+        ...element,
+        text:
+          element.role === 'save'
+            ? formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText152')
+            : element.text,
+        x: 32,
+        y: gradient.y,
+        width: 36,
+        height: 9,
+        fontSize: 18,
+        textColor: '#ffffff',
+        backgroundType: 'gradient' as const,
+        backgroundColor: gradient.start,
+        backgroundGradientStart: gradient.start,
+        backgroundGradientEnd: gradient.end,
+        backgroundGradientAngle: 135,
+        backgroundGradientShape: 'linear' as const,
+        backgroundGradientStops: [
+          { id: `${element.id}-start`, color: gradient.start, alpha: 100, position: 0 },
+          { id: `${element.id}-end`, color: gradient.end, alpha: 100, position: 100 },
+        ],
+        borderColor: 'rgba(255,255,255,0.30)',
+        borderRadius: 14,
+      };
+    })
+    .sort((left, right) => {
+      const order: Record<string, number> = {
+        title: 0,
+        subtitle: 1,
+        new: 2,
+        save: 3,
+        settings: 4,
+      };
+      return (order[left.role || ''] ?? 99) - (order[right.role || ''] ?? 99);
+    });
 };
 
 export const buildRehearsalSettingsPageElements = (
@@ -186,14 +216,22 @@ export const buildRehearsalSettingsPageElements = (
   choiceColor: string,
   choiceTextColor: string,
 ): WebMenuElement[] => {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const settingsCopy = getWebSettingsCopy(language);
   return [
-    text('settings-title', 'title', t('设置', '設定', 'Settings'), 10, 8, 32, 8, 28),
+    text(
+      'settings-title',
+      'title',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText192'),
+      10,
+      8,
+      32,
+      8,
+      28,
+    ),
     button(
       'settings-back',
       'back',
-      t('返回', '戻る', 'Back'),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText196'),
       78,
       8,
       14,
@@ -204,7 +242,7 @@ export const buildRehearsalSettingsPageElements = (
     button(
       'settings-auto',
       'auto',
-      t('自动播放', '自動再生', 'Auto play'),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText207'),
       28,
       34,
       44,
@@ -215,7 +253,7 @@ export const buildRehearsalSettingsPageElements = (
     button(
       'settings-speed',
       'speed',
-      t('打字速度', 'テキスト速度', 'Text speed'),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText218'),
       28,
       42,
       44,
@@ -223,13 +261,43 @@ export const buildRehearsalSettingsPageElements = (
       choiceColor,
       choiceTextColor,
     ),
-    button('settings-text-size', 'textSize', settingsCopy.textSize, 28, 50, 44, 6, choiceColor, choiceTextColor),
-    button('settings-animation-speed', 'animationSpeed', settingsCopy.animationSpeed, 28, 58, 44, 6, choiceColor, choiceTextColor),
-    button('settings-sound', 'sound', settingsCopy.sound, 28, 66, 44, 6, choiceColor, choiceTextColor),
+    button(
+      'settings-text-size',
+      'textSize',
+      settingsCopy.textSize,
+      28,
+      50,
+      44,
+      6,
+      choiceColor,
+      choiceTextColor,
+    ),
+    button(
+      'settings-animation-speed',
+      'animationSpeed',
+      settingsCopy.animationSpeed,
+      28,
+      58,
+      44,
+      6,
+      choiceColor,
+      choiceTextColor,
+    ),
+    button(
+      'settings-sound',
+      'sound',
+      settingsCopy.sound,
+      28,
+      66,
+      44,
+      6,
+      choiceColor,
+      choiceTextColor,
+    ),
     button(
       'settings-controls',
       'controls',
-      t('显示控制栏', '操作表示', 'Show controls'),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText232'),
       28,
       74,
       44,
@@ -242,7 +310,6 @@ export const buildRehearsalSettingsPageElements = (
 };
 
 export const buildRehearsalToolbarElements = (language: Language): WebMenuElement[] => {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const toolbarButton = (
     id: string,
     role: WebMenuElement['role'],
@@ -256,10 +323,34 @@ export const buildRehearsalToolbarElements = (language: Language): WebMenuElemen
     borderRadius: 8,
   });
   return [
-    toolbarButton('toolbar-audio', 'audio', t('音频', '音声', 'Audio'), 57.2, 8.4),
-    toolbarButton('toolbar-fullscreen', 'fullscreen', t('最大化', '最大化', 'Max'), 66.4, 9.8),
-    toolbarButton('toolbar-return', 'return', t('返回', '戻る', 'Back'), 77.2, 8.4),
-    toolbarButton('toolbar-main', 'mainMenu', t('主界面', 'メニュー', 'Menu'), 86.4, 9.6),
+    toolbarButton(
+      'toolbar-audio',
+      'audio',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText259'),
+      57.2,
+      8.4,
+    ),
+    toolbarButton(
+      'toolbar-fullscreen',
+      'fullscreen',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText260'),
+      66.4,
+      9.8,
+    ),
+    toolbarButton(
+      'toolbar-return',
+      'return',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText261'),
+      77.2,
+      8.4,
+    ),
+    toolbarButton(
+      'toolbar-main',
+      'mainMenu',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText262'),
+      86.4,
+      9.6,
+    ),
     toolbarButton('toolbar-controls-toggle', 'controlsToggle', '', 47.8, 8.4),
   ];
 };
@@ -270,15 +361,32 @@ export const buildRehearsalStartMenuElements = (
   choiceColor: string,
   choiceTextColor: string,
 ): WebMenuElement[] => {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   return [
-    text('title', 'title', title || t('开始', 'スタート', 'Start'), 22, 29, 56, 11, 32),
-    text('subtitle', 'subtitle', t('没有存档', 'セーブなし', 'No save'), 22, 42, 56, 5, 14),
+    text(
+      'title',
+      'title',
+      title || formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText275'),
+      22,
+      29,
+      56,
+      11,
+      32,
+    ),
+    text(
+      'subtitle',
+      'subtitle',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText276'),
+      22,
+      42,
+      56,
+      5,
+      14,
+    ),
     {
       ...button(
         'save',
         'save',
-        t('存档', 'セーブ', 'Save'),
+        formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText281'),
         33,
         61,
         34,
@@ -288,11 +396,22 @@ export const buildRehearsalStartMenuElements = (
         true,
       ),
     },
-    button('continue', 'continue', t('继续游戏', '続ける', 'Continue Game'), 33, 51, 34, 8, choiceColor, choiceTextColor, true),
+    button(
+      'continue',
+      'continue',
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText291'),
+      33,
+      51,
+      34,
+      8,
+      choiceColor,
+      choiceTextColor,
+      true,
+    ),
     button(
       'new',
       'new',
-      t('新游戏', '新規ゲーム', 'New Game'),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText295'),
       33,
       71,
       34,
@@ -303,7 +422,7 @@ export const buildRehearsalStartMenuElements = (
     button(
       'settings',
       'settings',
-      t('设置', '設定', 'Settings'),
+      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText306'),
       33,
       81,
       34,
@@ -323,7 +442,7 @@ export const buildRehearsalTemplate = (
   return {
     id: REHEARSAL_TEMPLATE_ID,
     version: REHEARSAL_TEMPLATE_VERSION,
-    name: renderCopy(language, '排练模板', 'リハーサル', 'Rehearsal'),
+    name: formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText326'),
     choiceColor,
     choiceTextColor,
     settings: {

@@ -1,3 +1,4 @@
+import { getVideoTextForChinesePreference } from '../i18n';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -5,11 +6,7 @@ import type { Language } from '../../../../lib/i18n';
 import { buildInteractiveWebZipBlob, exportInteractiveWebZip } from '../../web/webExport';
 import { saveRenderedWebZip } from '../export/tauriRenderAdapter';
 import { isTauriRuntime } from '../shared/mediaUtils';
-import type {
-  RenderStatus,
-  RenderStyle,
-  WebExportSettings,
-} from '../shared/types';
+import type { RenderStatus, RenderStyle, WebExportSettings } from '../shared/types';
 
 export const useWebProjectExport = ({
   nodes,
@@ -52,7 +49,12 @@ export const useWebProjectExport = ({
     if (status === 'rendering') return;
     if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
       setStatus('error');
-      setError(isZh ? '没有可导出的剧本节点' : 'No story nodes to export');
+      setError(
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText55',
+        ),
+      );
       return;
     }
     const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter-web';
@@ -60,7 +62,12 @@ export const useWebProjectExport = ({
     setError('');
     setSavedPath('');
     setProgressValue(15);
-    setProgress(isZh ? '正在生成网页 ZIP...' : 'Generating web ZIP...');
+    setProgress(
+      getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText63',
+      ),
+    );
 
     try {
       const options = {
@@ -76,7 +83,12 @@ export const useWebProjectExport = ({
       if (isTauriRuntime()) {
         const blob = await buildInteractiveWebZipBlob(nodes, edges, options);
         setProgressValue(70);
-        setProgress(isZh ? '正在保存网页 ZIP...' : 'Saving web ZIP...');
+        setProgress(
+          getVideoTextForChinesePreference(
+            isZh,
+            'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText79',
+          ),
+        );
         const result = await saveRenderedWebZip({
           fileName: `${exportTitle}-web`,
           bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
@@ -89,11 +101,22 @@ export const useWebProjectExport = ({
       }
       setStatus('done');
       setProgressValue(100);
-      setProgress(isZh ? '网页 ZIP 已导出' : 'Web ZIP exported');
+      setProgress(
+        getVideoTextForChinesePreference(
+          isZh,
+          'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92',
+        ),
+      );
     } catch (error: any) {
       console.error('Web export failed:', error);
       setStatus('error');
-      setError(error?.message || (isZh ? '网页导出失败' : 'Web export failed'));
+      setError(
+        error?.message ||
+          getVideoTextForChinesePreference(
+            isZh,
+            'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText96',
+          ),
+      );
     }
   };
 

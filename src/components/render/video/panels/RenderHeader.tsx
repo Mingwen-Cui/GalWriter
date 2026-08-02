@@ -1,3 +1,4 @@
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   ChevronDown,
@@ -27,7 +28,6 @@ import { LoadingAnimation } from '../../../LoadingAnimation';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import { type CodeTextKey, getCodeText } from '../../code/i18n';
 import { getPptCopy } from '../../ppt/i18n';
-import { renderCopy } from '../shared/renderCopy';
 import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
 
 type RenderHeaderProps = {
@@ -116,7 +116,6 @@ export function RenderHeader({
   onExportClick,
   onClose,
 }: RenderHeaderProps) {
-  const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const pptCopy = getPptCopy(language);
   const isRendering = status === 'rendering';
   const workspaceIntentTimerRef = useRef<number | null>(null);
@@ -236,7 +235,10 @@ export function RenderHeader({
           <>
             <div
               className="render-context-tabs render-context-tabs--ppt ml-1"
-              aria-label={t('PPT 编辑工具', 'PPT 編集ツール', 'PPT editing tools')}
+              aria-label={formatVideoText(
+                language,
+                'componentsrendervideopanelsRenderHeaderText239',
+              )}
             >
               <button
                 type="button"
@@ -259,10 +261,10 @@ export function RenderHeader({
                 }}
                 className={`render-context-tab ${pptRibbonTab === 'transition' ? 'is-active' : ''}`}
                 aria-pressed={pptRibbonTab === 'transition'}
-                title={t('切换', '画面切り替え', 'Transitions')}
+                title={formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText262')}
               >
                 <PanelsTopLeft className="h-3.5 w-3.5" />
-                {t('切换', '切り替え', 'Transitions')}
+                {formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText265')}
               </button>
               <button
                 type="button"
@@ -272,10 +274,10 @@ export function RenderHeader({
                 }}
                 className={`render-context-tab ${pptRibbonTab === 'animation' ? 'is-active' : ''}`}
                 aria-pressed={pptRibbonTab === 'animation'}
-                title={t('动画', 'アニメーション', 'Animations')}
+                title={formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText275')}
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                {t('动画', 'アニメ', 'Animations')}
+                {formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText278')}
               </button>
             </div>
             <button
@@ -284,29 +286,13 @@ export function RenderHeader({
               className="ml-1 h-8 w-8 rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]"
               title={
                 pptRibbonCollapsed
-                  ? t(
-                      '\u5c55\u5f00\u5de5\u5177\u680f',
-                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b',
-                      'Expand ribbon',
-                    )
-                  : t(
-                      '\u6536\u8d77\u5de5\u5177\u680f',
-                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080',
-                      'Collapse ribbon',
-                    )
+                  ? formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText287')
+                  : formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText292')
               }
               aria-label={
                 pptRibbonCollapsed
-                  ? t(
-                      '\u5c55\u5f00\u5de5\u5177\u680f',
-                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u5c55\u958b',
-                      'Expand ribbon',
-                    )
-                  : t(
-                      '\u6536\u8d77\u5de5\u5177\u680f',
-                      '\u30c4\u30fc\u30eb\u30d0\u30fc\u3092\u6298\u308a\u305f\u305f\u3080',
-                      'Collapse ribbon',
-                    )
+                  ? formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText300')
+                  : formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText305')
               }
               aria-expanded={!pptRibbonCollapsed}
             >
@@ -321,7 +307,7 @@ export function RenderHeader({
         {workspaceMode === 'web' && (
           <div
             className="render-context-tabs render-context-tabs--web ml-1"
-            aria-label={t('网页启动方式', 'Web 起動方法', 'Web launch mode')}
+            aria-label={formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText324')}
           >
             <button
               type="button"
@@ -331,11 +317,13 @@ export function RenderHeader({
               }}
               disabled={isRendering}
               className={`render-context-tab ${webShowStartMenu ? 'is-active' : ''}`}
-              title={t('启用主界面入口', 'メイン画面を有効化', 'Enable menu entry')}
+              title={formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText334')}
               aria-pressed={webShowStartMenu}
             >
               <Gamepad2 className="h-3.5 w-3.5" />
-              <span>{t('主界面', 'メイン', 'Menu')}</span>
+              <span>
+                {formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText338')}
+              </span>
             </button>
             <button
               type="button"
@@ -345,27 +333,29 @@ export function RenderHeader({
               }}
               disabled={isRendering}
               className={`render-context-tab ${!webShowStartMenu ? 'is-active' : ''}`}
-              title={t('直接进入剧情', '直接シナリオへ', 'Start directly')}
+              title={formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText348')}
               aria-pressed={!webShowStartMenu}
             >
               <Play className="h-3.5 w-3.5" />
-              <span>{t('无界面', '画面なし', 'No UI')}</span>
+              <span>
+                {formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText352')}
+              </span>
             </button>
           </div>
         )}
         {workspaceMode === 'video' && (
           <div
             className={`render-context-tabs render-context-tabs--video render-context-tabs--video-${videoWorkspaceMode} mx-1`}
-            aria-label={t('视频导出模式', '動画書き出しモード', 'Video export mode')}
+            aria-label={formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText359')}
           >
             {[
               {
                 value: 'timeline' as const,
-                label: renderCopy(language, '时间线导出', 'タイムライン書出し', 'Timeline'),
+                label: formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText364'),
               },
               {
                 value: 'interactive' as const,
-                label: renderCopy(language, '互动分段导出', 'インタラクティブ分割', 'Interactive'),
+                label: formatVideoText(language, 'componentsrendervideopanelsRenderHeaderText368'),
               },
             ].map((mode) => (
               <button

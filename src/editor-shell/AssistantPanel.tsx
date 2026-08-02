@@ -397,6 +397,8 @@ export function AssistantPanel({
   const assistantInputRef = useRef<HTMLTextAreaElement | null>(null);
   const cardGenerateButtonRef = useRef<HTMLButtonElement | null>(null);
   const suggestButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cardGenerateMenuRef = useRef<HTMLDivElement | null>(null);
+  const suggestMenuRef = useRef<HTMLDivElement | null>(null);
   const closeAnimationTimerRef = useRef<number | null>(null);
   const welcomeGradientTimerRef = useRef<number | null>(null);
   const showArticleUploadPage = documentUploadOpen && documentUploadIntent === 'article-to-galgame';
@@ -739,6 +741,38 @@ export function AssistantPanel({
       window.removeEventListener('scroll', handleWindowChange, true);
     };
   }, [suggestMenuOpen]);
+
+  useEffect(() => {
+    if (!cardGenerateOpen && !suggestMenuOpen) return undefined;
+
+    const handlePointerDownOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      const isInsideMenu =
+        cardGenerateMenuRef.current?.contains(target) || suggestMenuRef.current?.contains(target);
+      const isMenuTrigger =
+        cardGenerateButtonRef.current?.contains(target) || suggestButtonRef.current?.contains(target);
+      if (!isInsideMenu && !isMenuTrigger) {
+        setCardGenerateOpen(false);
+        setSuggestMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setCardGenerateOpen(false);
+        setSuggestMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDownOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDownOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [cardGenerateOpen, suggestMenuOpen]);
 
   const articleDocumentCount = assistantDocuments.length;
   const articleDocumentCharCount = assistantDocuments.reduce(
@@ -1750,6 +1784,7 @@ export function AssistantPanel({
       {cardGenerateOpen &&
         createPortal(
           <div
+            ref={cardGenerateMenuRef}
             className="fixed z-[380] w-64 -translate-y-full rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
             style={{
               left: cardGenerateMenuPosition.left,
@@ -1831,6 +1866,7 @@ export function AssistantPanel({
       {suggestMenuOpen &&
         createPortal(
           <div
+            ref={suggestMenuRef}
             className="fixed z-[380] w-64 -translate-y-full rounded-xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
             style={{
               left: suggestMenuPosition.left,

@@ -1,3 +1,5 @@
+import { getVideoTextForChinesePreference } from '../i18n';
+import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   CheckCircle2,
@@ -21,7 +23,6 @@ import {
 } from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
-import { renderCopy } from '../shared/renderCopy';
 import type {
   RenderContextMenuSection,
   RenderContextMenuTarget,
@@ -92,27 +93,21 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
   };
   const trackItems = (node: FlowNode, kind: TrackKind) => {
     const trackIds = kind === 'audio' ? deps.audioTrackIds : deps.videoTrackIds;
-    const trackByNodeId =
-      kind === 'audio' ? deps.audioTrackByNodeId : deps.videoTrackByNodeId;
+    const trackByNodeId = kind === 'audio' ? deps.audioTrackByNodeId : deps.videoTrackByNodeId;
     return trackIds.map((trackId, index) => ({
-      label: isZh
-        ? `移动到${kind === 'audio' ? '音频' : '视频'}轨 ${index + 1}`
-        : `Move to ${kind === 'audio' ? 'Audio' : 'Video'} ${index + 1}`,
-      icon:
-        kind === 'audio' ? (
-          <Music className="w-4 h-4" />
-        ) : (
-          <Video className="w-4 h-4" />
-        ),
+      label: getVideoTextForChinesePreference(
+        isZh,
+        'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText97',
+        kind === 'audio' ? '音频' : '视频',
+        index + 1,
+      ),
+      icon: kind === 'audio' ? <Music className="w-4 h-4" /> : <Video className="w-4 h-4" />,
       onSelect: () => deps.assignNodeTrack(node.id, kind, trackId),
       disabled: !canMutate || (trackByNodeId[node.id] || trackIds[0]) === trackId,
     }));
   };
 
-  return (
-    menu: RenderContextMenuTarget,
-    node?: FlowNode,
-  ): RenderContextMenuSection[] => {
+  return (menu: RenderContextMenuTarget, node?: FlowNode): RenderContextMenuSection[] => {
     const isTimelineNode =
       !!node &&
       (menu.kind === 'timeline' || menu.kind === 'audio') &&
@@ -131,21 +126,17 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
           {
             items: [
               {
-                label: renderCopy(
+                label: formatVideoText(
                   deps.language,
-                  '按卡片顺序排序',
-                  'カード順に並べる',
-                  'Sort by card order',
+                  'componentsrendervideoVideoRenderModalcontextMenuSectionsText134',
                 ),
                 icon: <ListPlus className="w-4 h-4" />,
                 onSelect: deps.sortSelectedAssetsByCardOrder,
               },
               {
-                label: renderCopy(
+                label: formatVideoText(
                   deps.language,
-                  '导入到编辑时间线',
-                  '編集タイムラインに追加',
-                  'Import to editing timeline',
+                  'componentsrendervideoVideoRenderModalcontextMenuSectionsText144',
                 ),
                 icon: <Download className="w-4 h-4" />,
                 onSelect: deps.importSelectedAssetsToTimeline,
@@ -158,11 +149,10 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
                 {
                   items: [
                     {
-                      label: renderCopy(
+                      label: formatVideoText(
                         deps.language,
-                        `删除上传素材（${uploadedIds.length}）`,
-                        `アップロード素材を削除（${uploadedIds.length}）`,
-                        `Delete uploaded asset(s) (${uploadedIds.length})`,
+                        'componentsrendervideoVideoRenderModalcontextMenuSectionsText161',
+                        uploadedIds.length,
                       ),
                       icon: <Trash2 className="w-4 h-4" />,
                       onSelect: () => deps.removeUploadedAssets(uploadedIds),
@@ -176,11 +166,10 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
           {
             items: [
               {
-                label: renderCopy(
+                label: formatVideoText(
                   deps.language,
-                  `已选择 ${selectedAssetIds.length} 个素材，拖动任一卡片加入时间线`,
-                  `${selectedAssetIds.length} 個の素材を選択中。任意のカードをドラッグ`,
-                  `${selectedAssetIds.length} assets selected; drag any card to the timeline`,
+                  'componentsrendervideoVideoRenderModalcontextMenuSectionsText179',
+                  selectedAssetIds.length,
                 ),
                 icon: <ListPlus className="w-4 h-4" />,
                 disabled: true,
@@ -201,24 +190,27 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
           {
             items: [
               {
-                label: isZh
-                  ? `文字转音频（${speechNodes.length}）`
-                  : `Text to audio (${speechNodes.length})`,
+                label: getVideoTextForChinesePreference(
+                  isZh,
+                  'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText189',
+                  speechNodes.length,
+                ),
                 icon: <Mic className="w-4 h-4" />,
                 onSelect: () => deps.generateAudioFromSelectedText(speechNodes),
                 disabled: !canMutate || deps.audioBusy || speechNodes.length === 0,
               },
               {
                 label: allExported
-                  ? isZh
-                    ? '不导出'
-                    : 'Do not export'
-                  : isZh
-                    ? '导出'
-                    : 'Export',
+                  ? getVideoTextForChinesePreference(
+                      isZh,
+                      'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText197',
+                    )
+                  : getVideoTextForChinesePreference(
+                      isZh,
+                      'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText197_2',
+                    ),
                 icon: <CheckCircle2 className="w-4 h-4" />,
-                onSelect: () =>
-                  deps.setTimelineNodesExported(selectedTimelineIds, !allExported),
+                onSelect: () => deps.setTimelineNodesExported(selectedTimelineIds, !allExported),
                 disabled: !canMutate,
               },
             ],
@@ -226,7 +218,10 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
           {
             items: [
               {
-                label: isZh ? '删除' : 'Delete',
+                label: getVideoTextForChinesePreference(
+                  isZh,
+                  'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText207',
+                ),
                 icon: <Trash2 className="w-4 h-4" />,
                 onSelect: () => deps.removeTimelineNodes(selectedTimelineIds),
                 disabled: !canMutate,
@@ -241,21 +236,29 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
         {
           items: [
             {
-              label: isZh
-                ? `将选中的 ${speechNodes.length} 个片段文字生成音频`
-                : `Generate speech for ${speechNodes.length} selected segment(s)`,
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText222',
+                speechNodes.length,
+              ),
               icon: <Mic className="w-4 h-4" />,
               onSelect: () => deps.generateAudioFromSelectedText(speechNodes),
               disabled: !canMutate || deps.audioBusy || speechNodes.length === 0,
             },
             {
-              label: isZh ? '插入最近素材到视频轨' : 'Insert next asset to video track',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText230',
+              ),
               icon: <ListPlus className="w-4 h-4" />,
               onSelect: () => deps.addNearestAssetToTimeline('video'),
               disabled: !canMutate || deps.visibleAssetNodes.length === 0,
             },
             {
-              label: isZh ? '插入最近素材到音频轨' : 'Insert next asset to audio track',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText236',
+              ),
               icon: <Mic className="w-4 h-4" />,
               onSelect: () => deps.addNearestAssetToTimeline('audio'),
               disabled: !canMutate || deps.visibleAssetNodes.length === 0,
@@ -265,13 +268,19 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
         {
           items: [
             {
-              label: isZh ? '选择全部时间线卡片' : 'Select all timeline cards',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText246',
+              ),
               icon: <CheckCircle2 className="w-4 h-4" />,
               onSelect: deps.selectAllTimelineNodes,
               disabled: !canMutate || deps.timelineIds.length === 0,
             },
             {
-              label: isZh ? '清空导出选择' : 'Clear export selection',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText252',
+              ),
               icon: <Scissors className="w-4 h-4" />,
               onSelect: deps.clearTimelineSelection,
               disabled: !canMutate || deps.selectedIds.size === 0,
@@ -281,13 +290,19 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
         {
           items: [
             {
-              label: isZh ? '新增视频轨' : 'Add video track',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText262',
+              ),
               icon: <Video className="w-4 h-4" />,
               onSelect: deps.addVideoTrack,
               disabled: !canMutate,
             },
             {
-              label: isZh ? '新增音频轨' : 'Add audio track',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText268',
+              ),
               icon: <Music className="w-4 h-4" />,
               onSelect: deps.addAudioTrack,
               disabled: !canMutate,
@@ -318,42 +333,60 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
         {
           items: [
             {
-              label: isZh ? '预览此段' : 'Preview this segment',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText299',
+              ),
               icon: <Eye className="w-4 h-4" />,
               onSelect: () => deps.previewNode(node.id),
               disabled: deps.status === 'rendering',
             },
             {
-              label: exported ? (isZh ? '不导出' : 'Do not export') : isZh ? '导出' : 'Export',
+              label: exported
+                ? getVideoTextForChinesePreference(
+                    isZh,
+                    'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText305',
+                  )
+                : getVideoTextForChinesePreference(
+                    isZh,
+                    'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText305_2',
+                  ),
               icon: <CheckCircle2 className="w-4 h-4" />,
               onSelect: () => deps.toggleNode(node.id),
               disabled: !canMutate,
             },
             {
-              label: isZh ? '文字转音频' : 'Text to audio',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText311',
+              ),
               icon: <Mic className="w-4 h-4" />,
               onSelect: () => deps.generateAudioFromSelectedText([node]),
-              disabled:
-                !canMutate || deps.audioBusy || !deps.canGenerateSpeechFromNode(node),
+              disabled: !canMutate || deps.audioBusy || !deps.canGenerateSpeechFromNode(node),
             },
           ],
         },
         {
           items: [
             {
-              label: isZh ? '音视频分离' : 'Separate audio and video',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText321',
+              ),
               icon: <Scissors className="w-4 h-4" />,
               onSelect: () => deps.separateTimelineAudio(node),
               disabled: !canMutate || !node.data?.videoUrl,
             },
             {
               label: deps.keyShotIds.has(node.id)
-                ? isZh
-                  ? '取消重点镜头'
-                  : 'Unmark key shot'
-                : isZh
-                  ? '标记为重点镜头'
-                  : 'Mark as key shot',
+                ? getVideoTextForChinesePreference(
+                    isZh,
+                    'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText328',
+                  )
+                : getVideoTextForChinesePreference(
+                    isZh,
+                    'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText331',
+                  ),
               icon: <Sparkles className="w-4 h-4" />,
               onSelect: () => deps.toggleKeyShot(node.id),
               disabled: !canMutate,
@@ -364,7 +397,10 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
         {
           items: [
             {
-              label: isZh ? '删除' : 'Delete',
+              label: getVideoTextForChinesePreference(
+                isZh,
+                'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText344',
+              ),
               icon: <Trash2 className="w-4 h-4" />,
               onSelect: () => deps.removeTimelineNode(node.id),
               disabled: !canMutate,
@@ -380,18 +416,27 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
       {
         items: [
           {
-            label: isZh ? '预览此段' : 'Preview this segment',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText360',
+            ),
             icon: <Eye className="w-4 h-4" />,
             onSelect: () => deps.previewNode(node.id),
             disabled: deps.status === 'rendering',
           },
           {
-            label: isZh ? '只导出此段' : 'Export only this segment',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText366',
+            ),
             icon: <FileDown className="w-4 h-4" />,
             disabled: true,
           },
           {
-            label: isZh ? '从此处开始导出' : 'Export from here',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText371',
+            ),
             icon: <Gauge className="w-4 h-4" />,
             disabled: true,
           },
@@ -400,25 +445,33 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
       {
         items: [
           {
-            label: isZh ? '加入视频时间线' : 'Add to video timeline',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText380',
+            ),
             icon: <ListPlus className="w-4 h-4" />,
             onSelect: () => deps.addNodeToTimeline(node.id, 'video', menu.trackId),
             disabled: !canMutate,
           },
           {
-            label: isZh ? '加入音频时间线' : 'Add to audio timeline',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText386',
+            ),
             icon: <Mic className="w-4 h-4" />,
             onSelect: () => deps.addNodeToTimeline(node.id, 'audio', menu.trackId),
             disabled: !canMutate,
           },
           {
             label: deps.selectedIds.has(node.id)
-              ? isZh
-                ? '从导出中排除'
-                : 'Exclude from export'
-              : isZh
-                ? '加入导出选择'
-                : 'Include in export',
+              ? getVideoTextForChinesePreference(
+                  isZh,
+                  'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText393',
+                )
+              : getVideoTextForChinesePreference(
+                  isZh,
+                  'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText396',
+                ),
             icon: <CheckCircle2 className="w-4 h-4" />,
             disabled: true,
           },
@@ -427,23 +480,35 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
       {
         items: [
           {
-            label: isZh ? '重新生成此段画面' : 'Regenerate visuals',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText407',
+            ),
             icon: <RotateCcw className="w-4 h-4" />,
             disabled: true,
           },
           {
-            label: isZh ? '文字转音频' : 'Text to audio',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText412',
+            ),
             icon: <Mic className="w-4 h-4" />,
             onSelect: () => deps.generateAudioFromSelectedText(speechNodes),
             disabled: !canMutate || deps.audioBusy || speechNodes.length === 0,
           },
           {
-            label: isZh ? '编辑剧情内容' : 'Edit story content',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText418',
+            ),
             icon: <FileText className="w-4 h-4" />,
             disabled: true,
           },
           {
-            label: isZh ? '编辑角色/表情' : 'Edit character/expression',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText423',
+            ),
             icon: <UserRound className="w-4 h-4" />,
             disabled: true,
           },
@@ -452,17 +517,26 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
       {
         items: [
           {
-            label: isZh ? '调整时长' : 'Adjust duration',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText432',
+            ),
             icon: <Clock className="w-4 h-4" />,
             disabled: true,
           },
           {
-            label: isZh ? '拆分卡片' : 'Split card',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText437',
+            ),
             icon: <Scissors className="w-4 h-4" />,
             disabled: true,
           },
           {
-            label: isZh ? '复制卡片' : 'Duplicate card',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText442',
+            ),
             icon: <Copy className="w-4 h-4" />,
             disabled: true,
           },
@@ -474,7 +548,10 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
             {
               items: [
                 {
-                  label: isZh ? '删除上传素材' : 'Delete uploaded asset',
+                  label: getVideoTextForChinesePreference(
+                    isZh,
+                    'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText454',
+                  ),
                   icon: <Trash2 className="w-4 h-4" />,
                   onSelect: () => deps.removeUploadedAssets([node.id]),
                   disabled: !canMutate,
@@ -487,7 +564,10 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
       {
         items: [
           {
-            label: isZh ? '复制卡片标题' : 'Copy card title',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText467',
+            ),
             icon: <ClipboardCopy className="w-4 h-4" />,
             onSelect: () => {
               deps.closeContextMenu();
@@ -495,12 +575,18 @@ export const createContextMenuSectionBuilder = (deps: ContextMenuSectionDependen
             },
           },
           {
-            label: isZh ? '标记为重点镜头' : 'Mark as key shot',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText475',
+            ),
             icon: <Sparkles className="w-4 h-4" />,
             disabled: true,
           },
           {
-            label: isZh ? '从时间线删除' : 'Remove from timeline',
+            label: getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideoVideoRenderModalcontextMenuSectionsIsZhText480',
+            ),
             icon: <Trash2 className="w-4 h-4" />,
             disabled: true,
             danger: true,
