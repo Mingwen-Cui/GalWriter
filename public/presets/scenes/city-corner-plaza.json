@@ -1,0 +1,22 @@
+{
+  "data": {
+    "sceneName": "城市街角广场",
+    "location": "两条安静街道交会处的开放步行广场。",
+    "time": "傍晚至入夜前，天空仍留着蓝紫色余光。",
+    "weather": "晴朗或微风；可根据剧情改为小雨、薄雾或节庆天气。",
+    "visual": "暖色路灯、小型喷泉、长椅、树木与远处的咖啡店、便利店。",
+    "sound": "车辆经过的低响、喷泉水声、偶尔的脚步与远处店内音乐。",
+    "items": "公共长椅、喷泉边沿、公告栏、纸杯和路边花坛。",
+    "atmosphere": "开放、轻松，适合偶遇、集合、日常对话或小冲突。",
+    "notes": "中央预留开阔空间，便于多个角色同时出现。",
+    "description": "",
+    "coverImageUrl": "/presets/scenes/city-corner-plaza.png",
+    "images": [
+      {
+        "id": "city-corner-plaza-background",
+        "name": "城市街角广场背景",
+        "imageUrl": "/presets/scenes/city-corner-plaza.png"
+      }
+    ]
+  }
+}

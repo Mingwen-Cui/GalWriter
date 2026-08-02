@@ -1,5 +1,5 @@
 import { BookOpen, BookmarkPlus, Plus, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type {
   SettingLibraryKind,
@@ -27,13 +27,12 @@ export function SettingLibraryMenu({
   onDelete,
 }: SettingLibraryMenuProps) {
   const [open, setOpen] = useState(false);
-  const [source, setSource] = useState<SettingLibrarySource>('saved');
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const isCharacter = kind === 'character';
   const colorClass = isCharacter ? 'text-purple-500' : 'text-blue-700';
   const hoverClass = isCharacter ? 'hover:bg-purple-500/10' : 'hover:bg-blue-700/10';
-  const activeClass = isCharacter ? 'bg-purple-500 text-white' : 'bg-blue-700 text-white';
-  const currentItems = source === 'saved' ? savedItems : presetItems;
+  const libraryItems = [...savedItems, ...presetItems];
   const kindLabel = isCharacter ? '人物' : '场景';
 
   const run = async (itemId: string, action: () => Promise<void> | void) => {
@@ -45,8 +44,19 @@ export function SettingLibraryMenu({
     }
   };
 
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnOutsidePointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointerDown);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointerDown);
+  }, [open]);
+
   return (
-    <div className="relative nodrag nowheel">
+    <div ref={menuRef} className="relative nodrag nowheel">
       <button
         type="button"
         onClick={(event) => {
@@ -100,50 +110,48 @@ export function SettingLibraryMenu({
             </div>
           )}
 
-          <div className="flex gap-1 px-2 pt-2">
-            {([
-              ['saved', `已保存 ${savedItems.length}`],
-              ['preset', `预设 ${presetItems.length}`],
-            ] as const).map(([nextSource, label]) => (
-              <button
-                key={nextSource}
-                type="button"
-                onClick={() => setSource(nextSource)}
-                className={`flex-1 rounded-md px-2 py-1 text-[10px] font-bold transition-colors ${
-                  source === nextSource
-                    ? activeClass
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--app-bg)]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 px-3 pb-1 pt-2 text-[10px] font-bold text-[var(--text-muted)]">
+            <span>已保存 {savedItems.length}</span>
+            <span className="h-1 w-1 rounded-full bg-current opacity-50" />
+            <span>预设 {presetItems.length}</span>
           </div>
 
-          <div className="max-h-60 space-y-1 overflow-y-auto p-2 custom-scrollbar">
-            {currentItems.length === 0 ? (
+          <div className="max-h-60 space-y-1 overflow-y-auto p-2 pt-1 custom-scrollbar">
+            {libraryItems.length === 0 ? (
               <div className="rounded-lg border border-dashed border-[var(--card-border)] bg-[var(--app-bg)] px-3 py-5 text-center text-[11px] text-[var(--text-muted)]">
-                {source === 'saved' ? `还没有保存过${kindLabel}设定` : '暂无可用预设'}
+                还没有可用的{kindLabel}设定
               </div>
             ) : (
-              currentItems.map((item) => (
+              libraryItems.map((item) => (
                 <div
-                  key={`${source}-${item.id}`}
-                  className="flex items-center gap-2 rounded-lg border border-transparent bg-[var(--app-bg)] px-2 py-1.5 transition-colors hover:border-[var(--card-border)]"
+                  key={`${item.source}-${item.id}`}
+                  className="flex items-center gap-2 rounded-lg border border-transparent bg-[var(--app-bg)] p-1.5 transition-colors hover:border-[var(--card-border)]"
                 >
-                  <div className="min-w-0 flex-1 truncate text-[11px] font-bold text-[var(--text-primary)]">
-                    {item.name}
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-gradient-to-br from-purple-500/25 to-blue-500/25">
+                    {item.thumbnailUrl ? (
+                      <img src={item.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className={`flex h-full w-full items-center justify-center text-[10px] font-black ${colorClass}`}>
+                        {isCharacter ? '人' : '景'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[11px] font-bold text-[var(--text-primary)]">{item.name}</div>
+                    <div className="mt-0.5 text-[9px] font-medium text-[var(--text-muted)]">
+                      {item.source === 'saved' ? '已保存' : '预设'}
+                    </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => void run(item.id, () => onUse?.(item.id, source))}
+                    onClick={() => void run(item.id, () => onUse?.(item.id, item.source))}
                     disabled={!onUse || busyItemId !== null}
                     className={`shrink-0 rounded p-1 ${colorClass} ${hoverClass} disabled:cursor-wait disabled:opacity-50`}
                     title="添加到当前项目"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
-                  {source === 'saved' && (
+                  {item.source === 'saved' && (
                     <button
                       type="button"
                       onClick={() => void run(item.id, () => onDelete?.(item.id))}

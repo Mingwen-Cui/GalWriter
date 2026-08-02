@@ -241,6 +241,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     nodes: Set<string>;
     edges: Set<string>;
     edgeColors: Map<string, string[]>;
+    nodeStorylineNumbers: Map<string, number[]>;
   } | null>(null);
   const defaultEdgeOptions = useMemo(
     () => createDefaultEdgeOptions(edgeColor, arrowSize),
@@ -1725,6 +1726,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         '#6366f1',
       ];
       const defaultStorylineColor = storylineBranchColors[0];
+      const storylineNumberByColor = new Map(
+        storylineBranchColors.map((color, index) => [color, index + 1]),
+      );
 
       edges.forEach((edge) => {
         const incoming = incomingEdgesByTarget.get(edge.target) || [];
@@ -1984,10 +1988,36 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       traceUp(nodeId);
       traceDown(nodeId);
 
+      const nodeStorylineNumberSets = new Map<string, Set<number>>();
+      const addNodeStorylineNumber = (id: string, number: number) => {
+        const numbers = nodeStorylineNumberSets.get(id) || new Set<number>();
+        numbers.add(number);
+        nodeStorylineNumberSets.set(id, numbers);
+      };
+
+      pathEdges.forEach((edgeId) => {
+        const edge = edges.find((item) => item.id === edgeId);
+        if (!edge) return;
+        (pathEdgeColors.get(edgeId) || [defaultStorylineColor]).forEach((color) => {
+          const number = storylineNumberByColor.get(color) || 1;
+          addNodeStorylineNumber(edge.source, number);
+          addNodeStorylineNumber(edge.target, number);
+        });
+      });
+
+      const nodeStorylineNumbers = new Map<string, number[]>();
+      pathNodes.forEach((id) => {
+        const numbers = [...(nodeStorylineNumberSets.get(id) || new Set([1]))].sort(
+          (first, second) => first - second,
+        );
+        nodeStorylineNumbers.set(id, numbers);
+      });
+
       setHighlightedPath({
         nodes: pathNodes,
         edges: pathEdges,
         edgeColors: pathEdgeColors,
+        nodeStorylineNumbers,
       });
       showToast(storyEditorCopy.storylineTraced);
     },

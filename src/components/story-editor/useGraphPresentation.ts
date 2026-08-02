@@ -6,6 +6,7 @@ interface HighlightedPath {
   nodes: Set<string>;
   edges: Set<string>;
   edgeColors: Map<string, string[]>;
+  nodeStorylineNumbers: Map<string, number[]>;
 }
 
 interface UseGraphPresentationParams {
@@ -43,6 +44,7 @@ export function useGraphPresentation({
     () =>
       nodes.map((node) => {
         const isHighlighted = highlightedPath?.nodes.has(node.id);
+        const storylineNumbers = highlightedPath?.nodeStorylineNumbers.get(node.id) || [];
         return {
           ...node,
           hidden: !!node.data?.hidden,
@@ -53,6 +55,7 @@ export function useGraphPresentation({
             ...nodeRenderData,
             isAILoading: aiLoadingNodeId === node.id,
             isHighlighted,
+            storylineNumbers,
           },
           style: {
             ...node.style,

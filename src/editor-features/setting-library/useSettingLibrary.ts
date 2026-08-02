@@ -30,6 +30,57 @@ type UseSettingLibraryParams = {
 
 const isCharacterNode = (node: Node): node is Node<CharacterNodeData> => node.type === 'characterNode';
 const isSceneNode = (node: Node): node is Node<SceneNodeData> => node.type === 'sceneNode';
+const hasText = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+
+const hasCharacterSettingContent = (data: CharacterNodeData) => {
+  const characterName = typeof data.characterName === 'string' ? data.characterName.trim() : '';
+  const isDefaultName = /^(新角色|新キャラクター|New Character)$/i.test(characterName);
+  return (
+    (characterName.length > 0 && !isDefaultName) ||
+    [
+      data.identity,
+      data.appearance,
+      data.traits,
+      data.personality,
+      data.habits,
+      data.speechStyle,
+      data.experience,
+      data.relationships,
+      data.notes,
+      data.features,
+      data.background,
+      data.other,
+      data.voiceProfileId,
+      data.voiceId,
+      data.avatarUrl,
+      data.threeViewUrl,
+      data.tagSpriteUrl,
+    ].some(hasText) ||
+    data.outfits?.some((outfit) => hasText(outfit.name) || hasText(outfit.imageUrl)) === true
+  );
+};
+
+const hasSceneSettingContent = (data: SceneNodeData) => {
+  const sceneName = typeof data.sceneName === 'string' ? data.sceneName.trim() : '';
+  const isDefaultName = /^(新场景|新シーン|New Scene)$/i.test(sceneName);
+  return (
+    (sceneName.length > 0 && !isDefaultName) ||
+    [
+      data.location,
+      data.time,
+      data.weather,
+      data.visual,
+      data.sound,
+      data.items,
+      data.atmosphere,
+      data.notes,
+      data.description,
+      data.other,
+      data.coverImageUrl,
+    ].some(hasText) ||
+    data.images?.some((image) => hasText(image.name) || hasText(image.imageUrl)) === true
+  );
+};
 
 const cloneCharacterData = (data: CharacterNodeData, id: string, libraryItemId?: string) => ({
   ...data,
@@ -99,17 +150,8 @@ export const useSettingLibrary = ({
   );
 
   const presetListItems = useMemo(
-    () =>
-      (['character', 'scene'] as const).flatMap((kind) =>
-        getSettingLibraryPresets(kind).map((item) => ({
-          id: item.id,
-          kind: item.kind,
-          name: item.name,
-          source: 'preset' as const,
-          updatedAt: 0,
-        })),
-      ),
-    [],
+    () => presetItems.map((item) => toSettingLibraryListItem(item, 'preset')),
+    [presetItems],
   );
 
   const assistantContext = useMemo(() => {
@@ -134,29 +176,58 @@ export const useSettingLibrary = ({
       const node = nodes.find((item) => item.id === nodeId);
       const now = Date.now();
       if (!node) return;
-      const currentLibraryItemId = node.data.libraryItemId;
-      const existing =
-        mode === 'update' && currentLibraryItemId
-          ? await localPersistenceService.getSettingLibraryItem(currentLibraryItemId)
-          : null;
       let item: SettingLibraryItem;
 
       if (kind === 'character') {
         if (!isCharacterNode(node)) return;
+        if (!hasCharacterSettingContent(node.data)) {
+          showToast(
+            language === 'zh'
+              ? '请先填写至少一项人物设定，再保存到设定库'
+              : language === 'ja'
+                ? '保存前に、人物設定を1項目以上入力してください'
+                : 'Add at least one character detail before saving to the library.',
+            'error',
+          );
+          return;
+        }
+        const currentLibraryItemId = node.data.libraryItemId;
+        const existing =
+          mode === 'update' && currentLibraryItemId
+            ? await localPersistenceService.getSettingLibraryItem(currentLibraryItemId)
+            : null;
+        const characterName = typeof node.data.characterName === 'string' ? node.data.characterName.trim() : '';
         item = {
           id: existing?.id || uuidv4(),
           kind,
-          name: node.data.characterName.trim() || (language === 'zh' ? '未命名人物' : 'Untitled Character'),
+          name: characterName || (language === 'zh' ? '未命名人物' : 'Untitled Character'),
           data: toCharacterSettingLibraryData(node.data),
           createdAt: existing?.createdAt || now,
           updatedAt: now,
         };
       } else {
         if (!isSceneNode(node)) return;
+        if (!hasSceneSettingContent(node.data)) {
+          showToast(
+            language === 'zh'
+              ? '请先填写至少一项场景设定，再保存到设定库'
+              : language === 'ja'
+                ? '保存前に、シーン設定を1項目以上入力してください'
+                : 'Add at least one scene detail before saving to the library.',
+            'error',
+          );
+          return;
+        }
+        const currentLibraryItemId = node.data.libraryItemId;
+        const existing =
+          mode === 'update' && currentLibraryItemId
+            ? await localPersistenceService.getSettingLibraryItem(currentLibraryItemId)
+            : null;
+        const sceneName = typeof node.data.sceneName === 'string' ? node.data.sceneName.trim() : '';
         item = {
           id: existing?.id || uuidv4(),
           kind,
-          name: node.data.sceneName.trim() || (language === 'zh' ? '未命名场景' : 'Untitled Scene'),
+          name: sceneName || (language === 'zh' ? '未命名场景' : 'Untitled Scene'),
           data: toSceneSettingLibraryData(node.data),
           createdAt: existing?.createdAt || now,
           updatedAt: now,

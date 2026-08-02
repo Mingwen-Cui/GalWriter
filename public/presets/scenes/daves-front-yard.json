@@ -1,0 +1,22 @@
+{
+  "data": {
+    "sceneName": "戴夫的前院",
+    "location": "郊区住宅旁的开阔前院草坪，左侧露出房屋与小径，远处由木栅栏围合。",
+    "time": "晴朗的上午至午后；也可按剧情切换为黄昏或雨天。",
+    "weather": "温和晴朗，树影随微风轻轻摇动。",
+    "visual": "左侧房屋边缘、木栅栏、花圃与大片鲜绿草坪；草地以轻微的方格分区组织。",
+    "sound": "树叶沙沙声、远处鸟鸣、偶尔驶过的车辆和邻里环境声。",
+    "items": "侧门、花圃、软管、木栅栏和草坪格。",
+    "atmosphere": "明亮、手绘、带一点轻松的关卡感，适合邻里互动与轻喜剧桥段。",
+    "notes": "草坪中央与右侧保持开阔的格子区域，便于单人或多角色对话、对峙与行动。",
+    "description": "",
+    "coverImageUrl": "/presets/scenes/daves-front-yard.png",
+    "images": [
+      {
+        "id": "daves-front-yard-background",
+        "name": "戴夫的前院背景",
+        "imageUrl": "/presets/scenes/daves-front-yard.png"
+      }
+    ]
+  }
+}

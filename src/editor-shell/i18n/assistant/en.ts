@@ -34,6 +34,9 @@ export const assistantPanelEn = {
     fallbackDiagnosis: 'I found three concrete improvements for this card and its adjacent story.',
     failure: 'Card review failed: {reason}',
     retry: 'Please try again later',
+    useSuggestion: 'Continue editing',
+    compactInstruction:
+      'Output limits: diagnosis must be at most 24 words. Each label must be at most 8 words, and each description must be one concrete edit sentence of at most 40 words. Do not explain reasoning, repeat the card, or use Markdown.',
     prompt: `You are a Galgame script editor. Analyze only the target card and its adjacent story below. Do not generate images or directly modify the canvas.
 
 {context}

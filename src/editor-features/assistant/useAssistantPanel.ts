@@ -603,16 +603,20 @@ export const useAssistantPanel = ({
 
       try {
         const result = await callAIForTextResult(
-          formatLocalizedCopy(reviewCopy.prompt, { context: context.content }),
+          `${formatLocalizedCopy(reviewCopy.prompt, { context: context.content })}\n\n${reviewCopy.compactInstruction}`,
         );
         const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
           diagnosis?: string;
           options?: Array<{ label?: string; description?: string }>;
         };
+        const compactText = (value: unknown, cjkLimit: number, englishLimit: number) =>
+          String(value || '')
+            .trim()
+            .slice(0, language === 'en' ? englishLimit : cjkLimit);
         const suggestions = (parsed.options || [])
           .map((option) => ({
-            label: String(option.label || '').trim(),
-            description: String(option.description || '').trim(),
+            label: compactText(option.label, 8, 24),
+            description: compactText(option.description, 40, 96),
           }))
           .filter((option) => option.label && option.description)
           .slice(0, 3);
@@ -626,7 +630,7 @@ export const useAssistantPanel = ({
             {
               id: uuidv4(),
               role: 'assistant',
-              content: parsed.diagnosis || reviewCopy.fallbackDiagnosis,
+              content: compactText(parsed.diagnosis || reviewCopy.fallbackDiagnosis, 24, 64),
               options: suggestions.map((suggestion) => ({
                 id: uuidv4(),
                 label: suggestion.label,

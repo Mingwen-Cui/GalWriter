@@ -31,7 +31,6 @@ import {
   Play,
   Plus,
   Save,
-  Sparkles,
   Square,
   StepForward,
   Trash2,
@@ -376,6 +375,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const showTitleInside = showTitles && storyTitlePlacement === 'inside';
   const showTitleOutside = showTitles && storyTitlePlacement !== 'inside';
   const isRoot = data.isRoot === true;
+  const storylineNumbers = Array.isArray(data.storylineNumbers)
+    ? data.storylineNumbers.filter((number): number is number => Number.isFinite(number))
+    : [];
+  const storylineLabel = storylineNumbers.length
+    ? `故事线${storylineNumbers.join(',')}`
+    : '故事线';
   const { zoom } = useViewport();
   const presentationMenuScale = Math.min(zoom, 1.25);
   const storeApi = useStoreApi();
@@ -1849,7 +1854,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   };
 
   const showNodeActions = data.showNodeActions !== false;
-  const handleClasses = `!w-3 !h-3 !bg-blue-400 !border-2 !border-[var(--card-bg)] !rounded-full transition-all z-40 hover:!scale-150 hover:!bg-blue-500 cursor-crosshair shadow-sm ${
+  const handleClasses = `!w-3 !h-3 !bg-blue-400 !border-2 !border-[var(--card-bg)] !rounded-full transition-all duration-200 delay-0 z-40 hover:!scale-150 hover:!bg-blue-500 cursor-crosshair shadow-sm ${
     showNodeActions
       ? isMobileDevice
         ? selected
@@ -1858,7 +1863,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         : 'opacity-0 group-hover:opacity-100'
       : 'opacity-0 pointer-events-none'
   }`;
-  const addBtnClasses = `absolute w-6 h-6 bg-[var(--card-bg)] border border-[var(--card-border)] text-blue-500 hover:text-white rounded-full shadow-md hover:bg-blue-500 transition-all z-50 flex items-center justify-center ${
+  const addBtnClasses = `absolute w-6 h-6 bg-[var(--card-bg)] border border-[var(--card-border)] text-blue-500 hover:text-white rounded-full shadow-md hover:bg-blue-500 transition-all duration-200 delay-0 z-50 flex items-center justify-center ${
     showNodeActions
       ? isMobileDevice
         ? selected
@@ -2106,7 +2111,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           )}
           {data.isHighlighted && (
             <div className="flex items-center gap-1 rounded bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-              <GitFork className="h-4 w-3" /> 故事线
+              <GitFork className="h-4 w-3" /> {storylineLabel}
             </div>
           )}
           {data.hidden && (
@@ -2159,14 +2164,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 </button>
                 <button
                   onClick={() => data.onHighlightStoryline?.(id)}
-                  className={`${textBtnBase} gap-1 ${data.isHighlighted ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.5)] hover:bg-rose-600 hover:text-white' : ''}`}
+                  className={`${textBtnBase} gap-1 ${data.isHighlighted ? 'bg-rose-500 text-white hover:bg-rose-600 hover:text-white' : ''}`}
                   title={t.showStoryline}
                 >
                   <GitFork className={`w-3.5 h-3.5 ${data.isHighlighted ? 'animate-pulse' : ''}`} />{' '}
                   故事线
                 </button>
                 <Separator />
-                <div className="relative flex items-center gap-1">
+                <div className="relative flex items-center gap-2">
                   {COLORS.map((preset) => {
                     const isActive =
                       parsedCardColor.hex === preset && parsedCardColor.alpha === 100;
@@ -2241,7 +2246,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             </ToolbarRow>
             <div className="order-1 h-px w-full bg-[var(--toolbar-border)]/30" />
 
-            <ToolbarRow className="order-3 flex-nowrap gap-1.5">
+            <ToolbarRow className="order-4 flex-nowrap gap-1.5">
               <ToolGroup className="gap-1.5">
                 <span className="shrink-0 text-[10px] font-black uppercase text-[var(--text-muted)]">
                   数值
@@ -2447,6 +2452,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     </>
                   )}
                 </ToolbarRow>
+                <div className="order-3 h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
             )}
 
@@ -2827,13 +2833,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       <button
         onClick={() => data.onAIGenerate?.(id)}
         disabled={!!data.isAILoading}
-        className="absolute bottom-2 right-2 z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-indigo-500 hover:bg-indigo-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg"
+        className="absolute bottom-2 right-2 z-50 rounded-md border border-indigo-100 bg-white p-1.5 text-indigo-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600 opacity-0 group-hover:opacity-100 disabled:opacity-100 dark:border-indigo-400/20 dark:bg-slate-900 dark:hover:bg-indigo-500/10"
         title="AI 操作"
       >
         {data.isAILoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Sparkles className="w-4 h-4" />
+          <Bot className="h-4 w-4" />
         )}
       </button>
 
@@ -3628,7 +3634,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         <button
           onClick={handleGenerateImage}
           disabled={isGeneratingImage}
-          className="absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-blue-500 hover:bg-blue-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 shadow-lg bottom-2 right-11"
+            className="absolute z-50 p-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md text-blue-500 hover:bg-blue-500 hover:text-white border border-[var(--card-border)] rounded-md transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 bottom-2 right-11"
           title={lang === 'zh' ? '生成图片' : 'Generate Image'}
         >
           {isGeneratingImage ? (
@@ -3644,11 +3650,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         type="source"
         position={Position.Top}
         id="top"
-        className={`${handleClasses} -top-1.5`}
+        className={`${handleClasses} -top-1.5 group-hover:delay-0`}
       />
       <button
         onClick={() => data.onAddNode?.(id, 'top')}
-        className={`${addBtnClasses} -top-8 left-1/2 -translate-x-1/2`}
+        className={`${addBtnClasses} -top-8 left-1/2 -translate-x-1/2 group-hover:delay-0`}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -3658,11 +3664,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         type="source"
         position={Position.Right}
         id="right"
-        className={`${handleClasses} -right-1.5`}
+        className={`${handleClasses} -right-1.5 group-hover:delay-[200ms]`}
       />
       <button
         onClick={() => data.onAddNode?.(id, 'right')}
-        className={`${addBtnClasses} top-1/2 -right-8 -translate-y-1/2`}
+        className={`${addBtnClasses} top-1/2 -right-8 -translate-y-1/2 group-hover:delay-[200ms]`}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -3672,11 +3678,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         type="source"
         position={Position.Bottom}
         id="bottom"
-        className={`${handleClasses} -bottom-1.5`}
+        className={`${handleClasses} -bottom-1.5 group-hover:delay-[150ms]`}
       />
       <button
         onClick={() => data.onAddNode?.(id, 'bottom')}
-        className={`${addBtnClasses} -bottom-8 left-1/2 -translate-x-1/2`}
+        className={`${addBtnClasses} -bottom-8 left-1/2 -translate-x-1/2 group-hover:delay-[150ms]`}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -3686,11 +3692,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         type="source"
         position={Position.Left}
         id="left"
-        className={`${handleClasses} -left-1.5`}
+        className={`${handleClasses} -left-1.5 group-hover:delay-[100ms]`}
       />
       <button
         onClick={() => data.onAddNode?.(id, 'left')}
-        className={`${addBtnClasses} top-1/2 -left-8 -translate-y-1/2`}
+        className={`${addBtnClasses} top-1/2 -left-8 -translate-y-1/2 group-hover:delay-[100ms]`}
       >
         <Plus className="w-4 h-4" />
       </button>

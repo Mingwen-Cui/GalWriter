@@ -33,6 +33,9 @@ export const assistantPanelJa = {
     fallbackDiagnosis: '現在のカードと前後の物語から3つの修正案をまとめました。',
     failure: 'カード分析を完了できませんでした：{reason}',
     retry: '後でもう一度お試しください',
+    useSuggestion: '続けて編集',
+    compactInstruction:
+      '出力制限：diagnosis は24文字以内。各 label は8文字以内、description は具体的な修正を一文だけで40文字以内にしてください。理由の説明、カード内容の繰り返し、Markdown は不要です。',
     prompt: `あなたはGalgameのシナリオ編集者です。次の対象カードと前後の物語だけを分析し、画像を生成したり、キャンバスを直接変更したりしないでください。
 
 {context}

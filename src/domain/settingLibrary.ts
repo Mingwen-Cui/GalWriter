@@ -91,16 +91,34 @@ export const SETTING_LIBRARY_PRESETS: SettingLibraryPresetManifestItem[] = [
     dataUrl: '/presets/characters/nai-long.json',
   },
   {
+    id: 'preset-character-lao-da-mamba',
+    kind: 'character',
+    name: '劳大（曼巴精神）',
+    dataUrl: '/presets/characters/lao-da.json',
+  },
+  {
+    id: 'preset-character-fei-wu-belial',
+    kind: 'character',
+    name: '废雾贝利亚（抽象反派）',
+    dataUrl: '/presets/characters/fei-wu-belial.json',
+  },
+  {
     id: 'preset-scene-rainy-platform',
     kind: 'scene',
     name: '雨夜车站',
     dataUrl: '/presets/scenes/rainy-platform.json',
   },
   {
-    id: 'preset-scene-afternoon-archive-room',
+    id: 'preset-scene-city-corner-plaza',
     kind: 'scene',
-    name: '午后资料室',
-    dataUrl: '/presets/scenes/afternoon-archive-room.json',
+    name: '城市街角广场',
+    dataUrl: '/presets/scenes/city-corner-plaza.json',
+  },
+  {
+    id: 'preset-scene-daves-front-yard',
+    kind: 'scene',
+    name: '戴夫的前院',
+    dataUrl: '/presets/scenes/daves-front-yard.json',
   },
 ];
 
@@ -131,13 +149,17 @@ export const loadSettingLibraryPreset = async (id: string): Promise<SettingLibra
 };
 
 export const toSettingLibraryListItem = (
-  item: Pick<SettingLibraryItem, 'id' | 'kind' | 'name' | 'updatedAt'>,
+  item: Pick<SettingLibraryItem, 'id' | 'kind' | 'name' | 'data' | 'updatedAt'>,
   source: SettingLibraryListItem['source'],
 ): SettingLibraryListItem => ({
   id: item.id,
   kind: item.kind,
   name: item.name,
   source,
+  thumbnailUrl:
+    item.kind === 'character'
+      ? (item.data as CharacterSettingLibraryData).avatarUrl
+      : (item.data as SceneSettingLibraryData).coverImageUrl,
   updatedAt: item.updatedAt,
 });
 

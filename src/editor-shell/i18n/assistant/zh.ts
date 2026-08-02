@@ -32,6 +32,9 @@ export const assistantPanelZh = {
     fallbackDiagnosis: '我结合当前卡片和相邻剧情整理了三条修改建议。',
     failure: '暂时没能完成卡片分析：{reason}',
     retry: '请稍后重试',
+    useSuggestion: '继续编辑',
+    compactInstruction:
+      '输出限制：diagnosis 不超过 24 个汉字。每条建议的 label 不超过 8 个汉字，description 只写一句具体改法，不超过 40 个汉字。不要解释原因、不要复述卡片、不要使用 Markdown。',
     prompt: `你是 Galgame 剧本编辑。请只分析下面这张目标卡片及相邻剧情，不要生成图片，也不要直接修改画布。
 
 {context}

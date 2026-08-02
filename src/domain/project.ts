@@ -58,6 +58,7 @@ export interface SettingLibraryListItem {
   kind: SettingLibraryKind;
   source: SettingLibrarySource;
   name: string;
+  thumbnailUrl?: string;
   updatedAt?: number;
 }
 
@@ -602,6 +603,7 @@ export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeC
   pasteAsPlainText?: boolean;
   isAILoading?: boolean;
   isHighlighted?: boolean;
+  storylineNumbers?: number[];
   isMinimized?: boolean;
   cardToolbarScale?: CardToolbarScale;
   settingLibraryItems?: SettingLibraryListItem[];

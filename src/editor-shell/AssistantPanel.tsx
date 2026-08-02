@@ -251,6 +251,7 @@ export function AssistantPanel({
 }: AssistantPanelProps) {
   const ui = assistantPanelCopy(language);
   const activeAssistantTask = assistantTasks.find((task) => task.id === activeAssistantTaskId);
+  const isCardReviewTask = activeAssistantTask?.kind === 'card-review';
   const [shouldRender, setShouldRender] = useState(assistantOpen);
   const [panelVisible, setPanelVisible] = useState(assistantOpen);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -1157,7 +1158,7 @@ export function AssistantPanel({
                       ))}
                     </div>
                   )}
-                  {message.contextPreviews?.length ? (
+                  {message.contextPreviews?.length && !isCardReviewTask ? (
                     <div className="mt-2 ml-auto w-fit max-w-[88%] rounded-2xl rounded-br-md bg-indigo-600 px-3.5 py-2.5 text-white">
                       {message.content}
                     </div>
@@ -1167,7 +1168,7 @@ export function AssistantPanel({
                   {message.role === 'assistant' &&
                     message.options &&
                     message.options.length > 0 && (
-                      <div className="mt-3 grid gap-2">
+                      <div className={`grid gap-2 ${isCardReviewTask ? 'mt-2' : 'mt-3'}`}>
                         {message.options.map((option) => (
                           <button
                             key={option.id}
@@ -1180,12 +1181,19 @@ export function AssistantPanel({
                                 : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'
                             }`}
                           >
-                            <span className="flex items-center gap-1.5 text-xs font-black text-indigo-700 dark:text-indigo-200">
+                            <span className="flex items-center justify-between gap-2 text-xs font-black text-indigo-700 dark:text-indigo-200">
+                              <span className="flex items-center gap-1.5">
                               {option.selected && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
                               {option.label}
+                              </span>
+                              {isCardReviewTask && (
+                                <span className="shrink-0 text-[10px] font-bold text-indigo-500 dark:text-indigo-300">
+                                  {ui.cardReview.useSuggestion} ›
+                                </span>
+                              )}
                             </span>
                             {option.description && (
-                              <span className="mt-1 block whitespace-pre-wrap text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                              <span className="mt-1 block line-clamp-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                                 {option.description}
                               </span>
                             )}

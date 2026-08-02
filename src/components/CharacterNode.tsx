@@ -641,8 +641,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         minHeight={effectiveMinHeight}
         shouldResize={shouldResizeCharacterNode}
         isVisible={!isMinimized && selected && selectionCount === 1}
-        lineClassName="!z-20 !border !border-[var(--accent)]"
-        handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
+        lineClassName="!z-20 !border !border-purple-500"
+        handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-purple-500 !rounded-none"
       />
 
       <div ref={contentFrameRef} className="flex flex-col w-full h-full rounded-xl">

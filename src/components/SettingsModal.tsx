@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUp,
   Bold,
+  Bot,
   BrainCircuit,
   Check,
   Copy,
@@ -504,6 +505,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // relationship stays true to the canvas while remaining readable here.
   const toolbarPreviewDisplayScale = 1.2;
   const previewToolbarScale = cardToolbarScale * 0.6 * toolbarPreviewDisplayScale;
+  const previewToolbarOversizeOffset = Math.max(0, cardToolbarScale - 1.7) * 64;
+  const previewStageHeight = 360 + previewToolbarOversizeOffset;
+  const previewCardTop = 128 + previewToolbarOversizeOffset;
+  const previewToolbarTop = 24 + previewToolbarOversizeOffset;
   const cardToolbarScalePercent = ((cardToolbarScale - 0.5) / 2.5) * 100;
   const applyProjectCountLabel = s.applyProjectCount(selectedApplyProjectIds.length);
   const compactSegmentButtonClass = (active: boolean) =>
@@ -1543,17 +1548,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="relative h-[360px] w-full overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/30 shadow-sm">
+                    <div
+                      className="relative w-full overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/30 shadow-sm transition-[height] duration-200"
+                      style={{ height: `${previewStageHeight}px` }}
+                    >
                       <span className="absolute left-3 top-3 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)]/90 px-2 py-1 text-[10px] font-black text-[var(--text-muted)] shadow-sm">
                         {s.actualPreview}
                       </span>
 
-                      <div className="absolute left-1/2 top-32 z-10 w-[360px] max-w-[calc(100%-48px)] -translate-x-1/2">
-                        <div className="relative aspect-[5/3] rounded-2xl border-2 border-blue-500 bg-[var(--card-bg)] px-5 py-4 shadow-lg">
-                          <span className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
-                          <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
-                          <span className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
-                          <span className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full border-2 border-blue-500 bg-[var(--card-bg)]" />
+                      <div
+                        className="absolute left-1/2 z-10 w-[360px] max-w-[calc(100%-48px)] -translate-x-1/2 transition-[top] duration-200"
+                        style={{ top: `${previewCardTop}px` }}
+                      >
+                        <div className="relative aspect-[5/3] rounded-xl border-2 border-[var(--accent)] bg-[var(--card-bg)] px-5 py-4 shadow-sm">
+                          <span className="absolute -left-1.5 -top-1.5 h-3 w-3 border-2 border-[var(--accent)] bg-[var(--card-bg)]" />
+                          <span className="absolute -right-1.5 -top-1.5 h-3 w-3 border-2 border-[var(--accent)] bg-[var(--card-bg)]" />
+                          <span className="absolute -bottom-1.5 -left-1.5 h-3 w-3 border-2 border-[var(--accent)] bg-[var(--card-bg)]" />
+                          <span className="absolute -bottom-1.5 -right-1.5 h-3 w-3 border-2 border-[var(--accent)] bg-[var(--card-bg)]" />
                           <span className="absolute -left-3 -top-6 flex items-center gap-1 rounded-md bg-emerald-500 px-2 py-1 text-[10px] font-black text-white shadow">
                             <Play className="h-3 w-3 fill-current" />
                             {s.previewStoryTitle}
@@ -1568,7 +1579,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
 
                       <div className="contents">
-                        <div className="absolute left-1/2 top-6 z-30 w-max -translate-x-1/2">
+                        <div
+                          className="absolute left-1/2 z-30 w-max -translate-x-1/2 transition-[top] duration-200"
+                          style={{ top: `${previewToolbarTop}px` }}
+                        >
                           <div
                             className="flex w-[420px] origin-bottom flex-col gap-1.5 rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] p-2 text-[var(--text-secondary)] shadow-2xl backdrop-blur-md transition-transform duration-200"
                             style={{ transform: `scale(${previewToolbarScale})` }}
@@ -1595,22 +1609,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     : 'Storyline'}
                               </span>
                               <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
-                              {['#ffffff', '#fe8a25', '#e64881', '#fd5c5c'].map((color) => (
+                              <div className="flex shrink-0 items-center gap-2">
+                                {['#ffffff', '#fe8a25', '#e64881', '#fd5c5c'].map((color) => (
+                                  <span
+                                    key={color}
+                                    className="h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)]"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                ))}
                                 <span
-                                  key={color}
-                                  className="h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)]"
-                                  style={{ backgroundColor: color }}
-                                />
-                              ))}
-                              <span
-                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
-                                style={{
-                                  background:
-                                    'conic-gradient(from 45deg, #f97316, #e879f9, #6366f1, #22d3ee, #f97316)',
-                                }}
-                              >
-                                <Palette className="h-3 w-3" />
-                              </span>
+                                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
+                                  style={{
+                                    background:
+                                      'conic-gradient(from 45deg, #f97316, #e879f9, #6366f1, #22d3ee, #f97316)',
+                                  }}
+                                >
+                                  <Palette className="h-3 w-3" />
+                                </span>
+                              </div>
                               <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
                               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15">
                                 <Maximize className="h-3.5 w-3.5" />
@@ -1641,6 +1657,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <Volume2 className="h-4 w-4" />
                               </span>
                               <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--toolbar-border)]/50" />
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--text-secondary)]">
+                                <Bot className="h-3.5 w-3.5" />
+                              </span>
                               <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--text-secondary)]">
                                 <EyeOff className="h-3.5 w-3.5" />
                               </span>
