@@ -10,26 +10,20 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../lib/i18n';
-import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
-import { getDialogueBoxLayout } from './render/video/shared/dialogueBoxRenderer';
-import { getVideoTextRenderStyle } from './render/video/shared/videoTextScale';
-import { drawRenderFrame } from './render/video/preview/frameRenderer';
+import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
+import {
+  createPlaytestCanvasModel,
+  drawPlaytestCanvasModelFrame,
+  getPlaytestCanvasSelectionBox,
+  type PlaytestCanvasSelection,
+  type PlaytestRuntimeSettings,
+  resolvePlaytestCanvasSelection,
+} from './render/canvas/playtestCanvasModel';
 import { RenderObjectSettingsSection } from './render/video/panels/render-object-settings-section';
-import type {
-  RenderEditableObjectKind,
-  RenderStyle,
-} from './render/video/shared/types';
+import type { RenderStyle } from './render/video/shared/types';
 
-export type PlaytestRuntimeSettings = {
-  choicesColumns: number;
-  interactionMode: 'immediate' | 'typewriter';
-  typewriterSpeed: number;
-  choiceDelay: number;
-  blurBackground: boolean;
-  blurText: boolean;
-  autoAdvanceDelay: number;
-};
+export type { PlaytestRuntimeSettings } from './render/canvas/playtestCanvasModel';
 
 export type PlaytestSettingsWorkbenchProps = {
   language: Language;
@@ -44,7 +38,7 @@ export type PlaytestSettingsWorkbenchProps = {
   showPreview?: boolean;
 };
 
-type WorkbenchSelection = 'scene' | 'background' | RenderEditableObjectKind;
+type WorkbenchSelection = PlaytestCanvasSelection;
 
 export function PlaytestSettingsWorkbench({
   language,
@@ -155,46 +149,37 @@ function PlaytestInteractivePreview({
   const [nodeIndex, setNodeIndex] = useState(0);
   const [replayKey, setReplayKey] = useState(0);
   const text = copy(language);
-  const storyNodes = useMemo(
+  const canvasModel = useMemo(
     () =>
-      nodes.filter(
-        (node) =>
-          node.type === 'storyNode' ||
-          typeof node.data?.text === 'string' ||
-          typeof node.data?.title === 'string',
-      ),
-    [nodes],
+      createPlaytestCanvasModel({
+        canvasSettings,
+        runtimeSettings,
+        renderStyle,
+        nodes,
+        edges,
+        nodeIndex,
+        fallbackTitle: text.sampleTitle,
+        fallbackBody: text.sampleBody,
+      }),
+    [
+      canvasSettings,
+      edges,
+      nodeIndex,
+      nodes,
+      renderStyle,
+      runtimeSettings,
+      text.sampleBody,
+      text.sampleTitle,
+    ],
   );
-  const fallbackNode = useMemo<Node>(
-    () => ({
-      id: 'playtest-settings-preview',
-      type: 'storyNode',
-      position: { x: 0, y: 0 },
-      data: {
-        title: text.sampleTitle,
-        text: text.sampleBody,
-      },
-    }),
-    [text.sampleBody, text.sampleTitle],
-  );
-  const previewNodes = storyNodes.length ? storyNodes : [fallbackNode];
-  const currentNode = previewNodes[Math.min(nodeIndex, previewNodes.length - 1)] || fallbackNode;
-  const outgoingEdges = edges.filter((edge) => edge.source === currentNode.id);
-  const targetNodes = outgoingEdges
-    .map((edge) => previewNodes.find((node) => node.id === edge.target))
-    .filter((node): node is Node => Boolean(node));
-  const longSide = Math.max(canvasSettings.canvasWidth, canvasSettings.canvasHeight);
-  const renderScale = Math.min(1, 1920 / Math.max(1, longSide));
-  const renderWidth = Math.max(320, Math.round(canvasSettings.canvasWidth * renderScale));
-  const renderHeight = Math.max(180, Math.round(canvasSettings.canvasHeight * renderScale));
-  const previewRenderStyle = useMemo(
-    () => getVideoTextRenderStyle(renderStyle, 'webRatio', renderHeight),
-    [renderHeight, renderStyle],
-  );
-  const dialogue = useMemo(
-    () => getDialogueBoxLayout(renderWidth, renderHeight, previewRenderStyle),
-    [previewRenderStyle, renderHeight, renderWidth],
-  );
+  const {
+    choiceTargets,
+    currentNode,
+    previewNodes,
+    renderHeight,
+    renderWidth,
+    showChoices,
+  } = canvasModel;
 
   useEffect(() => {
     setNodeIndex((current) => Math.min(current, Math.max(0, previewNodes.length - 1)));
@@ -211,25 +196,12 @@ function PlaytestInteractivePreview({
     const paint = async () => {
       if (cancelled) return;
       const elapsed = Math.min(2.4, (performance.now() - startedAt) / 1000);
-      context.clearRect(0, 0, renderWidth, renderHeight);
-      paintCanvasBackground(context, renderWidth, renderHeight, canvasSettings);
       try {
-        await drawRenderFrame({
-          ctx: context,
-          node: currentNode,
-          width: renderWidth,
-          height: renderHeight,
-          renderStyle,
-          videoTextScaleMode: 'webRatio',
-          animationLeadSeconds: 0,
-          isZh: language === 'zh',
+        await drawPlaytestCanvasModelFrame({
+          context,
+          model: canvasModel,
+          language,
           elapsed,
-          duration: 3,
-          forceFinalText: elapsed >= 2.35,
-          nodes: previewNodes,
-          hideCharacterTags: canvasSettings.hideCharacterTags,
-          hideSceneTags: canvasSettings.hideSceneTags,
-          canvasSettings,
         });
       } catch (error) {
         console.error('Playtest settings preview failed:', error);
@@ -243,12 +215,11 @@ function PlaytestInteractivePreview({
       window.clearTimeout(timer);
     };
   }, [
-    canvasSettings,
+    canvasModel,
     currentNode,
     language,
     previewNodes,
     renderHeight,
-    renderStyle,
     renderWidth,
     replayKey,
   ]);
@@ -273,16 +244,13 @@ function PlaytestInteractivePreview({
       updateRenderStyle('selectedRenderObject', next);
     }
   };
-  const choiceTargets = targetNodes.length ? targetNodes : previewNodes.slice(0, 3);
-  const showChoices =
-    choiceTargets.length > 1 || !canvasSettings.skipSingleChoicePopup;
   const choicePositionClass =
     canvasSettings.choicesPosition === 'center'
       ? 'left-1/2 top-1/2 w-[54%] -translate-x-1/2 -translate-y-1/2'
       : canvasSettings.choicesPosition === 'aboveText'
         ? 'bottom-[36%] left-1/2 w-[72%] -translate-x-1/2'
         : 'bottom-[3%] left-1/2 w-[72%] -translate-x-1/2';
-  const selectionBox = getSelectionBox(selection, dialogue, renderWidth, renderHeight);
+  const selectionBox = getPlaytestCanvasSelectionBox(canvasModel, selection);
 
   return (
     <section className="overflow-hidden rounded-[24px] border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
@@ -316,9 +284,14 @@ function PlaytestInteractivePreview({
         <div
           className="relative w-full overflow-hidden rounded-2xl bg-slate-950 shadow-inner"
           style={{ aspectRatio: `${renderWidth} / ${renderHeight}` }}
-          onClick={() =>
-            selectPreviewObject(canvasSettings.layoutMode === 'classic' ? 'scene' : 'dialogBox')
-          }
+          onClick={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            const point = {
+              x: ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * renderWidth,
+              y: ((event.clientY - bounds.top) / Math.max(1, bounds.height)) * renderHeight,
+            };
+            selectPreviewObject(resolvePlaytestCanvasSelection(canvasModel, point));
+          }}
         >
           <canvas
             ref={canvasRef}
@@ -343,36 +316,6 @@ function PlaytestInteractivePreview({
               }}
             />
           )}
-          <button
-            type="button"
-            className="absolute z-20 bg-transparent"
-            style={{
-              left: `${(dialogue.x / renderWidth) * 100}%`,
-              top: `${(dialogue.y / renderHeight) * 100}%`,
-              width: `${(dialogue.width / renderWidth) * 100}%`,
-              height: `${(dialogue.height / renderHeight) * 33}%`,
-            }}
-            aria-label={text.editTitle}
-            onClick={(event) => {
-              event.stopPropagation();
-              selectPreviewObject('title');
-            }}
-          />
-          <button
-            type="button"
-            className="absolute z-20 bg-transparent"
-            style={{
-              left: `${(dialogue.x / renderWidth) * 100}%`,
-              top: `${((dialogue.y + dialogue.height * 0.33) / renderHeight) * 100}%`,
-              width: `${(dialogue.width / renderWidth) * 100}%`,
-              height: `${(dialogue.height / renderHeight) * 67}%`,
-            }}
-            aria-label={text.editBody}
-            onClick={(event) => {
-              event.stopPropagation();
-              selectPreviewObject('body');
-            }}
-          />
           {showChoices && (
             <div
               className={`absolute z-30 grid gap-2 ${choicePositionClass}`}
@@ -603,60 +546,6 @@ function PreviewToolButton({
       {children}
     </button>
   );
-}
-
-function getSelectionBox(
-  selection: WorkbenchSelection,
-  dialogue: ReturnType<typeof getDialogueBoxLayout>,
-  width: number,
-  height: number,
-) {
-  if (selection === 'scene' || selection === 'background' || selection === 'nameplate') return null;
-  const y =
-    selection === 'dialogBox'
-      ? dialogue.y
-      : selection === 'title'
-        ? dialogue.y + dialogue.height * 0.08
-        : dialogue.y + dialogue.height * 0.36;
-  const boxHeight =
-    selection === 'dialogBox'
-      ? dialogue.height
-      : selection === 'title'
-        ? dialogue.height * 0.24
-        : dialogue.height * 0.52;
-  const inset = selection === 'dialogBox' ? 0 : dialogue.paddingX ?? dialogue.padding;
-  return {
-    left: `${((dialogue.x + inset) / width) * 100}%`,
-    top: `${(y / height) * 100}%`,
-    width: `${((dialogue.width - inset * 2) / width) * 100}%`,
-    height: `${(boxHeight / height) * 100}%`,
-  };
-}
-
-function paintCanvasBackground(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  settings: SharedCanvasSettings,
-) {
-  if (settings.sceneBackgroundType === 'gradient') {
-    const angle = ((settings.sceneBackgroundGradientAngle - 90) * Math.PI) / 180;
-    const length = Math.hypot(width, height) / 2;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const gradient = context.createLinearGradient(
-      centerX - Math.cos(angle) * length,
-      centerY - Math.sin(angle) * length,
-      centerX + Math.cos(angle) * length,
-      centerY + Math.sin(angle) * length,
-    );
-    gradient.addColorStop(0, settings.sceneBackgroundGradientStart);
-    gradient.addColorStop(1, settings.sceneBackgroundGradientEnd);
-    context.fillStyle = gradient;
-  } else {
-    context.fillStyle = settings.sceneBackgroundColor || '#020617';
-  }
-  context.fillRect(0, 0, width, height);
 }
 
 function copy(language: Language) {

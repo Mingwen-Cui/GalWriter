@@ -1,3 +1,4 @@
+import type { Edge, Node } from '@xyflow/react';
 import {
   ArrowDown,
   ArrowLeft,
@@ -6,6 +7,7 @@ import {
   BrainCircuit,
   Check,
   Copy,
+  Download,
   ExternalLink,
   HelpCircle,
   ImageIcon,
@@ -14,31 +16,14 @@ import {
   MessageCircle,
   PlayCircle,
   ShieldAlert,
-  Download,
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Edge, Node } from '@xyflow/react';
 
-import { AISettingsPanel } from './AISettingsPanel';
-import { DraggableNumberInput } from './DraggableNumberInput';
-import { settingsModalCopy } from './i18n/settings-modal';
-import {
-  PlaytestSettingsWorkbench,
-  type PlaytestRuntimeSettings,
-} from './PlaytestSettingsWorkbench';
-import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
-import { RenderStyleSettingsSection } from './render/video/panels/render-style-settings-section';
-import type { RenderStyle } from './render/video/shared/types';
-import {
-  type AIButtonsConfig,
-  type AIGenerationBalance,
-  type AIPromptsConfig,
-} from '../editor-state/editorConfig';
 import type {
-  CharacterImageMode,
   BackgroundRemovalAIProfile,
+  CharacterImageMode,
   ImageAIProfile,
   PlotStructureGenerateDirection,
   SavedAIProfile,
@@ -48,9 +33,25 @@ import type {
   TtsNarrationMode,
   VoiceAIProfile,
 } from '../domain/project';
+import {
+  type AIButtonsConfig,
+  type AIGenerationBalance,
+  type AIPromptsConfig,
+} from '../editor-state/editorConfig';
+import type { LocalProjectSummary } from '../lib/db';
 import { Language } from '../lib/i18n';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
-import type { LocalProjectSummary } from '../lib/db';
+import { AISettingsPanel } from './AISettingsPanel';
+import { DraggableNumberInput } from './DraggableNumberInput';
+import { settingsModalCopy } from './i18n/settings-modal';
+import { PlaytestSettingsWorkbench } from './PlaytestSettingsWorkbench';
+import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
+import {
+  applyPlaytestRuntimeSettingsPatch,
+  createPlaytestRuntimeSettings,
+  type PlaytestRuntimeSettings,
+} from './render/canvas/playtestCanvasModel';
+import type { RenderStyle } from './render/video/shared/types';
 
 type AIProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
 type AIProfileSeed =
@@ -385,8 +386,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateAIProfile,
   onSelectAIProfile,
   onDeleteAIProfile,
-  generateLength,
-  setGenerateLength,
+  generateLength: _generateLength,
+  setGenerateLength: _setGenerateLength,
   characterImageMode,
   setCharacterImageMode,
   hideStoryImageButtonWithTags,
@@ -518,23 +519,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
   const segmentedControlClass =
     'flex min-w-0 flex-1 bg-[var(--app-bg)]/50 p-1 rounded-lg border border-[var(--header-border)]';
-  const playtestRuntimeSettings: PlaytestRuntimeSettings = {
+  const playtestRuntimeSettings = createPlaytestRuntimeSettings({
     choicesColumns: playTestChoicesColumns,
-    interactionMode: playTestInteractionMode === 'typewriter' ? 'typewriter' : 'immediate',
+    interactionMode: playTestInteractionMode,
     typewriterSpeed: playTestTypewriterSpeed,
     choiceDelay: playTestChoiceDelay,
     blurBackground: playTestBlurBackground,
     blurText: playTestBlurText,
     autoAdvanceDelay: playTestAutoAdvanceDelay,
-  };
+  });
   const updatePlaytestRuntimeSettings = (patch: Partial<PlaytestRuntimeSettings>) => {
-    if (patch.choicesColumns !== undefined) setPlayTestChoicesColumns(patch.choicesColumns);
-    if (patch.interactionMode !== undefined) setPlayTestInteractionMode(patch.interactionMode);
-    if (patch.typewriterSpeed !== undefined) setPlayTestTypewriterSpeed(patch.typewriterSpeed);
-    if (patch.choiceDelay !== undefined) setPlayTestChoiceDelay(patch.choiceDelay);
-    if (patch.blurBackground !== undefined) setPlayTestBlurBackground(patch.blurBackground);
-    if (patch.blurText !== undefined) setPlayTestBlurText(patch.blurText);
-    if (patch.autoAdvanceDelay !== undefined) setPlayTestAutoAdvanceDelay(patch.autoAdvanceDelay);
+    applyPlaytestRuntimeSettingsPatch(patch, {
+      setChoicesColumns: setPlayTestChoicesColumns,
+      setInteractionMode: setPlayTestInteractionMode,
+      setTypewriterSpeed: setPlayTestTypewriterSpeed,
+      setChoiceDelay: setPlayTestChoiceDelay,
+      setBlurBackground: setPlayTestBlurBackground,
+      setBlurText: setPlayTestBlurText,
+      setAutoAdvanceDelay: setPlayTestAutoAdvanceDelay,
+    });
   };
   const applyTargetProjects = projectSummaries.filter((project) => project.id !== currentProjectId);
   const allApplyTargetsSelected =

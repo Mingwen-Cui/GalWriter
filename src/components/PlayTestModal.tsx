@@ -52,12 +52,14 @@ import {
 } from '../lib/presentation';
 import { useRegionBackgroundMusic } from '../lib/useRegionBackgroundMusic';
 import { AudioPlaylistModal } from './AudioPlaylistModal';
-import {
-  PlaytestSettingsWorkbench,
-  type PlaytestRuntimeSettings,
-} from './PlaytestSettingsWorkbench';
+import { PlaytestSettingsWorkbench } from './PlaytestSettingsWorkbench';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
 import { CanvasSettingsSection } from './render/canvas/CanvasSettingsSection';
+import {
+  applyPlaytestRuntimeSettingsPatch,
+  createPlaytestRuntimeSettings,
+  type PlaytestRuntimeSettings,
+} from './render/canvas/playtestCanvasModel';
 import {
   getSceneBackgroundStyle,
   getSceneGroupStyle,
@@ -1637,23 +1639,25 @@ export function PlayTestModal({
   );
 
   const renderPlaytestSettingsPanel = () => {
-    const runtimeSettings: PlaytestRuntimeSettings = {
+    const runtimeSettings = createPlaytestRuntimeSettings({
       choicesColumns,
-      interactionMode: interactionMode === 'typewriter' ? 'typewriter' : 'immediate',
+      interactionMode,
       typewriterSpeed,
       choiceDelay,
       blurBackground,
       blurText,
       autoAdvanceDelay,
-    };
+    });
     const updateRuntimeSettings = (patch: Partial<PlaytestRuntimeSettings>) => {
-      if (patch.choicesColumns !== undefined) setChoicesColumns(patch.choicesColumns);
-      if (patch.interactionMode !== undefined) setInteractionMode(patch.interactionMode);
-      if (patch.typewriterSpeed !== undefined) setTypewriterSpeed(patch.typewriterSpeed);
-      if (patch.choiceDelay !== undefined) setChoiceDelay(patch.choiceDelay);
-      if (patch.blurBackground !== undefined) setBlurBackground(patch.blurBackground);
-      if (patch.blurText !== undefined) setBlurText(patch.blurText);
-      if (patch.autoAdvanceDelay !== undefined) setAutoAdvanceDelay(patch.autoAdvanceDelay);
+      applyPlaytestRuntimeSettingsPatch(patch, {
+        setChoicesColumns,
+        setInteractionMode,
+        setTypewriterSpeed,
+        setChoiceDelay,
+        setBlurBackground,
+        setBlurText,
+        setAutoAdvanceDelay,
+      });
     };
     const darkPanel = isDarkMode;
     const panelTone = darkPanel

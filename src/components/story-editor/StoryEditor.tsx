@@ -84,7 +84,6 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
-import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import {
   buildRegionStoryItems,
   expandBackgroundToFitNodes,
@@ -99,6 +98,7 @@ import {
 import { isTauriRuntime } from '../../lib/tauriRuntime';
 import type { PlotStructureGenerateParams } from '../PlotStructureNode';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
+import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import {
   buildDefaultBackgroundRemovalProfile,
   buildDefaultImageProfile,
