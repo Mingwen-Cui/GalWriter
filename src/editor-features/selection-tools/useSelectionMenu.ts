@@ -19,15 +19,24 @@ type SelectionMenuLayout = {
   usableRightEdge: number;
 };
 
+type ScreenPosition = {
+  x: number;
+  y: number;
+};
+
 interface UseSelectionMenuParams {
   nodes: Node[];
   getViewport: () => { x: number; y: number; zoom: number };
   canvasWrapperRef: RefObject<HTMLDivElement | null>;
+  singleSelectionMenuNodeId: string | null;
+  singleSelectionMenuPosition: ScreenPosition | null;
+  showMultiSelectionMenu: boolean;
 }
 
 interface UseSelectionMenuResult {
   selectedNodes: Node[];
   selectedAssistantTargetNodes: Node[];
+  selectedNodeTitle: string;
   showSelectionMenu: boolean;
   selectionMenuRef: RefObject<HTMLDivElement | null>;
   handleViewportMove: (_event: unknown, viewport: { x: number; y: number; zoom: number }) => void;
@@ -37,9 +46,21 @@ export const useSelectionMenu = ({
   nodes,
   getViewport,
   canvasWrapperRef,
+  singleSelectionMenuNodeId,
+  singleSelectionMenuPosition,
+  showMultiSelectionMenu,
 }: UseSelectionMenuParams): UseSelectionMenuResult => {
   const selectedNodes = useMemo(() => nodes.filter((node) => node.selected), [nodes]);
-  const showSelectionMenu = selectedNodes.length >= 2;
+  const selectedNodeTitle = useMemo(() => {
+    if (selectedNodes.length !== 1) return '';
+    const node = selectedNodes[0];
+    return String(
+      node.data?.title || node.data?.characterName || node.data?.sceneName || node.data?.label || '',
+    ).trim();
+  }, [selectedNodes]);
+  const showSelectionMenu =
+    (selectedNodes.length >= 2 && showMultiSelectionMenu) ||
+    (selectedNodes.length === 1 && selectedNodes[0].id === singleSelectionMenuNodeId);
   const selectedAssistantTargetNodes = useMemo(
     () =>
       selectedNodes.filter(
@@ -57,7 +78,7 @@ export const useSelectionMenu = ({
   const transformRef = useRef<[number, number, number]>([0, 0, 1]);
 
   const computeSelectionBounds = useCallback((nodesToMeasure: Node[]) => {
-    if (nodesToMeasure.length < 2) return null;
+    if (nodesToMeasure.length === 0) return null;
 
     let minX = Infinity;
     let minY = Infinity;
@@ -118,13 +139,35 @@ export const useSelectionMenu = ({
       if (!element || !bounds || !layout) return;
 
       const [transformX, transformY, zoom] = transform ?? transformRef.current;
-      const centerX = bounds.minX + (bounds.maxX - bounds.minX) / 2;
       const viewportPadding = 12;
       const minimumMenuCenterX = viewportPadding + layout.menuWidth / 2;
       const maximumMenuCenterX = Math.max(
         minimumMenuCenterX,
         layout.usableRightEdge - layout.menuWidth / 2,
       );
+      const isSingleSelectionContextMenu =
+        selectedNodes.length === 1 &&
+        selectedNodes[0].id === singleSelectionMenuNodeId &&
+        singleSelectionMenuPosition;
+      if (isSingleSelectionContextMenu) {
+        const preferredLeft = singleSelectionMenuPosition.x + 8;
+        const screenX = Math.max(
+          minimumMenuCenterX,
+          Math.min(maximumMenuCenterX, preferredLeft + layout.menuWidth / 2),
+        );
+        const preferredTop = singleSelectionMenuPosition.y + 8;
+        const canPlaceBelow = preferredTop + layout.menuHeight <= layout.viewportHeight - viewportPadding;
+        const screenY = canPlaceBelow
+          ? preferredTop
+          : Math.max(viewportPadding, singleSelectionMenuPosition.y - 8);
+
+        element.style.setProperty('--selection-menu-x', `${screenX}px`);
+        element.style.setProperty('--selection-menu-y', `${screenY}px`);
+        element.style.setProperty('--selection-menu-translate-y', canPlaceBelow ? '0' : '-100%');
+        return;
+      }
+
+      const centerX = bounds.minX + (bounds.maxX - bounds.minX) / 2;
       const screenX = Math.max(
         minimumMenuCenterX,
         Math.min(
@@ -147,7 +190,7 @@ export const useSelectionMenu = ({
       element.style.setProperty('--selection-menu-y', `${screenY}px`);
       element.style.setProperty('--selection-menu-translate-y', canPlaceAbove ? '-100%' : '0');
     },
-    [],
+    [selectedNodes, singleSelectionMenuNodeId, singleSelectionMenuPosition],
   );
 
   const scheduleSelectionMenuPosition = useCallback(
@@ -277,6 +320,7 @@ export const useSelectionMenu = ({
   return {
     selectedNodes,
     selectedAssistantTargetNodes,
+    selectedNodeTitle,
     showSelectionMenu,
     selectionMenuRef,
     handleViewportMove,

@@ -20,6 +20,8 @@ interface SelectionMenuProps {
   isMobile?: boolean;
   language: Language;
   selectedNodeCount: number;
+  selectedNodeTitle: string;
+  canSendToAssistant: boolean;
   ttsLoading: boolean;
   onWrapDynamicGroup: () => void;
   onWrapBackground: () => void;
@@ -47,6 +49,8 @@ export function SelectionMenu({
   isMobile = false,
   language,
   selectedNodeCount,
+  selectedNodeTitle,
+  canSendToAssistant,
   ttsLoading,
   onWrapDynamicGroup,
   onWrapBackground,
@@ -59,7 +63,10 @@ export function SelectionMenu({
   onHide,
 }: SelectionMenuProps) {
   const t = translations[language];
-  const isHorizontal = selectionMenuLayout === 'horizontal';
+  const isSingleSelection = selectedNodeCount === 1;
+  const effectiveSelectionMenuLayout =
+    isSingleSelection && !isMobile ? 'vertical' : selectionMenuLayout;
+  const isHorizontal = effectiveSelectionMenuLayout === 'horizontal';
   const isMobileGrid = isMobile && !isHorizontal;
   const isDesktopVertical = !isMobile && !isHorizontal;
   const itemWidthClass = isHorizontal || isMobileGrid ? '' : 'w-full';
@@ -86,6 +93,9 @@ export function SelectionMenu({
 
   const tr = (zh: string, ja: string, en: string) =>
     language === 'zh' ? zh : language === 'ja' ? ja : en;
+  const selectionMenuSummary = isSingleSelection
+    ? selectedNodeTitle || tr('未命名卡片', '名前のないカード', 'Untitled card')
+    : '';
   const dynamicWrapLabel = isDesktopVertical
     ? tr('创建动态包裹', '動的ラップを作成', 'Create dynamic wrap')
     : language === 'zh'
@@ -145,7 +155,7 @@ export function SelectionMenu({
       {isDesktopVertical ? (
         <>
           <div className="selection-menu-summary px-2.5 py-2 text-xs font-bold text-[var(--text-primary)]">
-            {tr(
+            {selectionMenuSummary || tr(
               `已选 ${selectedNodeCount} 张卡片`,
               `${selectedNodeCount} 枚を選択中`,
               `${selectedNodeCount} cards selected`,
@@ -155,14 +165,16 @@ export function SelectionMenu({
           <div className="selection-menu-section">
             {tr('组织与布局', '構成とレイアウト', 'Organize & layout')}
           </div>
-          <button
-            onClick={onWrapDynamicGroup}
-            className={`${buttonBaseClass} selection-menu-action`}
-            title={dynamicWrapLabel}
-          >
-            <Layers className={`${iconSizeClass} shrink-0`} />
-            <span>{dynamicWrapLabel}</span>
-          </button>
+          {!isSingleSelection && (
+            <button
+              onClick={onWrapDynamicGroup}
+              className={`${buttonBaseClass} selection-menu-action`}
+              title={dynamicWrapLabel}
+            >
+              <Layers className={`${iconSizeClass} shrink-0`} />
+              <span>{dynamicWrapLabel}</span>
+            </button>
+          )}
           <button
             onClick={onWrapBackground}
             className={`${buttonBaseClass} selection-menu-action`}
@@ -175,14 +187,16 @@ export function SelectionMenu({
           <div className="selection-menu-section">
             {tr('AI 与输出', 'AI と出力', 'AI & output')}
           </div>
-          <button
-            onClick={onSendToAssistant}
-            className={`${buttonBaseClass} selection-menu-action selection-menu-ai-action`}
-            title={sendToAssistantLabel}
-          >
-            <Bot className={`${iconSizeClass} shrink-0`} />
-            <span>{sendToAssistantLabel}</span>
-          </button>
+          {canSendToAssistant && (
+            <button
+              onClick={onSendToAssistant}
+              className={`${buttonBaseClass} selection-menu-action selection-menu-ai-action`}
+              title={sendToAssistantLabel}
+            >
+              <Bot className={`${iconSizeClass} shrink-0`} />
+              <span>{sendToAssistantLabel}</span>
+            </button>
+          )}
           <button
             onClick={onBatchExport}
             className={`${buttonBaseClass} selection-menu-action`}
@@ -204,14 +218,16 @@ export function SelectionMenu({
           <div className="selection-menu-section">
             {tr('编辑选中项', '選択項目を編集', 'Edit selection')}
           </div>
-          <button
-            onClick={onArrange}
-            className={`${buttonBaseClass} selection-menu-action`}
-            title={arrangeTitle}
-          >
-            <Grid3X3 className={`${iconSizeClass} shrink-0`} />
-            <span>{arrangeLabel}</span>
-          </button>
+          {!isSingleSelection && (
+            <button
+              onClick={onArrange}
+              className={`${buttonBaseClass} selection-menu-action`}
+              title={arrangeTitle}
+            >
+              <Grid3X3 className={`${iconSizeClass} shrink-0`} />
+              <span>{arrangeLabel}</span>
+            </button>
+          )}
           <button
             onClick={onCopy}
             className={`${buttonBaseClass} selection-menu-action`}
@@ -251,15 +267,19 @@ export function SelectionMenu({
             <span className={nowrapClass}>{bgCardLabel}</span>
           </button>
           <Divider horizontal={isHorizontal} isMobile={isMobile} />
-          <button
-            onClick={onSendToAssistant}
-            className={buttonBaseClass}
-            title={sendToAssistantLabel}
-          >
-            <Bot className={`${iconSizeClass} shrink-0`} />
-            <span className={nowrapClass}>{sendToAssistantLabel}</span>
-          </button>
-          <Divider horizontal={isHorizontal} isMobile={isMobile} />
+          {canSendToAssistant && (
+            <>
+              <button
+                onClick={onSendToAssistant}
+                className={buttonBaseClass}
+                title={sendToAssistantLabel}
+              >
+                <Bot className={`${iconSizeClass} shrink-0`} />
+                <span className={nowrapClass}>{sendToAssistantLabel}</span>
+              </button>
+              <Divider horizontal={isHorizontal} isMobile={isMobile} />
+            </>
+          )}
           <button onClick={onBatchExport} className={buttonBaseClass} title={batchExportLabel}>
             <FileText className={`${iconSizeClass} shrink-0`} />
             <span className={nowrapClass}>{batchExportLabel}</span>

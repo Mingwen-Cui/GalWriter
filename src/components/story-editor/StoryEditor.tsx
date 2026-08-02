@@ -298,6 +298,12 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [selectionMenuLayout, setSelectionMenuLayout] = useState<'horizontal' | 'vertical'>(
     'vertical',
   );
+  const [singleSelectionMenuNodeId, setSingleSelectionMenuNodeId] = useState<string | null>(null);
+  const [singleSelectionMenuPosition, setSingleSelectionMenuPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [showMultiSelectionMenu, setShowMultiSelectionMenu] = useState(false);
   const [cardToolbarScale, setCardToolbarScale] = useState(1);
   const {
     playTestDarkMode,
@@ -668,6 +674,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const {
     selectedNodes,
     selectedAssistantTargetNodes,
+    selectedNodeTitle,
     showSelectionMenu,
     selectionMenuRef,
     handleViewportMove,
@@ -675,11 +682,19 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     nodes,
     getViewport,
     canvasWrapperRef,
+    singleSelectionMenuNodeId,
+    singleSelectionMenuPosition,
+    showMultiSelectionMenu,
   });
   const selectedPlaytestNodeId =
     selectedNodes.length === 1 && selectedNodes[0].type === 'storyNode'
       ? selectedNodes[0].id
       : null;
+  const canSendSelectionToAssistant =
+    selectedNodes.length > 0 &&
+    selectedNodes.every((node) =>
+      ['storyNode', 'characterNode', 'sceneNode', 'textNode'].includes(node.type || ''),
+    );
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
   const { history, setHistory, lastHistoryState, undo, redo } = useEditorHistory({
@@ -2524,6 +2539,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     defaultEdgeOptions,
     handleDeleteNode,
     handleUpdateNode,
+    onRightSelectionComplete: setShowMultiSelectionMenu,
   });
 
   useEffect(() => {
@@ -2564,6 +2580,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const handleNodeClick = useCallback(
     async (event: React.MouseEvent, node: Node) => {
+      setSingleSelectionMenuNodeId(null);
+      setSingleSelectionMenuPosition(null);
+      setShowMultiSelectionMenu(false);
       const assistantCandidateKind = node.data?.assistantCandidateKind;
       if (assistantCandidateKind === 'article-role' || assistantCandidateKind === 'article-scene') {
         event.preventDefault();
@@ -2922,10 +2941,35 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                   node.data?.locked &&
                   (node.type === 'backgroundNode' || node.type === 'groupNode')
                 ) {
+                  setSingleSelectionMenuNodeId(null);
+                  setSingleSelectionMenuPosition(null);
                   handleUpdateNode(node.id, { locked: false });
+                  return;
                 }
+                if (node.selected && selectedNodes.length > 1) {
+                  setSingleSelectionMenuNodeId(null);
+                  setSingleSelectionMenuPosition(null);
+                  return;
+                }
+                setNodes((currentNodes) =>
+                  currentNodes.map((currentNode) => ({
+                    ...currentNode,
+                    selected: currentNode.id === node.id,
+                  })),
+                );
+                setSingleSelectionMenuNodeId(node.id);
+                setSingleSelectionMenuPosition({ x: event.clientX, y: event.clientY });
               },
-              onPaneContextMenu: (event) => event.preventDefault(),
+              onPaneContextMenu: (event) => {
+                event.preventDefault();
+                setSingleSelectionMenuNodeId(null);
+                setSingleSelectionMenuPosition(null);
+              },
+              onNodeDragStart: () => {
+                setSingleSelectionMenuNodeId(null);
+                setSingleSelectionMenuPosition(null);
+                setShowMultiSelectionMenu(false);
+              },
               onSelectionEnd: () => setIsRightDragging(false),
               onMove: handleViewportMove,
               onNodeDragStop,
@@ -2941,6 +2985,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     isMobile,
                     language,
                     selectedNodeCount: selectedNodes.length,
+                    selectedNodeTitle,
+                    canSendToAssistant: canSendSelectionToAssistant,
                     ttsLoading,
                     onWrapDynamicGroup: wrapWithDynamicGroup,
                     onWrapBackground: wrapSelectedWithBackground,

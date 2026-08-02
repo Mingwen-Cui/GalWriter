@@ -33,6 +33,7 @@ interface UseCanvasInteractionsParams {
   defaultEdgeOptions: Record<string, unknown>;
   handleDeleteNode: (id: string) => void;
   handleUpdateNode: (id: string, updates: Record<string, unknown>) => void;
+  onRightSelectionComplete?: (showMenu: boolean) => void;
 }
 
 const getConvexHull = (points: { x: number; y: number }[]) => {
@@ -187,10 +188,13 @@ export const useCanvasInteractions = ({
   defaultEdgeOptions,
   handleDeleteNode,
   handleUpdateNode,
+  onRightSelectionComplete,
 }: UseCanvasInteractionsParams) => {
   const [isRightDragging, setIsRightDragging] = useState(false);
+  const [showSelectionMenuAfterRightDrag, setShowSelectionMenuAfterRightDrag] = useState(false);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const selectionIdsRef = useRef<Set<string>>(new Set());
+  const rightSelectionRef = useRef(false);
   const touchLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
   const quickConnectRef = useRef<{ sourceId: string } | null>(null);
@@ -507,8 +511,11 @@ export const useCanvasInteractions = ({
   );
 
   const startSelection = useCallback(
-    (x: number, y: number) => {
+    (x: number, y: number, showMenuOnComplete = false) => {
       setIsRightDragging(true);
+      setShowSelectionMenuAfterRightDrag(false);
+      onRightSelectionComplete?.(false);
+      rightSelectionRef.current = showMenuOnComplete;
       startPosRef.current = { x, y };
       selectionIdsRef.current = new Set(
         nodes.filter((node) => node.selected).map((node) => node.id),
@@ -519,7 +526,7 @@ export const useCanvasInteractions = ({
         selectionBoxRef.current.style.height = '0px';
       }
     },
-    [nodes, selectionBoxRef],
+    [nodes, onRightSelectionComplete, selectionBoxRef],
   );
 
   const selectNodesInRect = useCallback(
@@ -585,12 +592,14 @@ export const useCanvasInteractions = ({
 
   const endSelection = useCallback(
     (x: number, y: number) => {
+      let completedSelection = false;
       if (isRightDragging && startPosRef.current) {
         const dx = Math.abs(x - startPosRef.current.x);
         const dy = Math.abs(y - startPosRef.current.y);
 
         if (dx > 5 || dy > 5) {
           selectNodesInRect(getSelectionRect(startPosRef.current, { x, y }));
+          completedSelection = true;
         }
       }
 
@@ -598,9 +607,12 @@ export const useCanvasInteractions = ({
         selectionBoxRef.current.style.display = 'none';
       }
       setIsRightDragging(false);
+      setShowSelectionMenuAfterRightDrag(rightSelectionRef.current && completedSelection);
+      onRightSelectionComplete?.(rightSelectionRef.current && completedSelection);
+      rightSelectionRef.current = false;
       startPosRef.current = null;
     },
-    [getSelectionRect, isRightDragging, selectNodesInRect, selectionBoxRef],
+    [getSelectionRect, isRightDragging, onRightSelectionComplete, selectNodesInRect, selectionBoxRef],
   );
 
   const startQuickConnect = useCallback((event: ReactMouseEvent) => {
@@ -652,6 +664,11 @@ export const useCanvasInteractions = ({
       const target = event.target as HTMLElement;
       if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
 
+      if (event.button !== 2) {
+        setShowSelectionMenuAfterRightDrag(false);
+        onRightSelectionComplete?.(false);
+      }
+
       if (event.button === 2 && event.altKey) {
         if (startQuickConnect(event)) return;
       }
@@ -663,9 +680,9 @@ export const useCanvasInteractions = ({
       ) {
         return;
       }
-      startSelection(event.clientX, event.clientY);
+      startSelection(event.clientX, event.clientY, event.button === 2);
     },
-    [interactionMode, startQuickConnect, startSelection],
+    [interactionMode, onRightSelectionComplete, startQuickConnect, startSelection],
   );
 
   const handleMouseMove = useCallback(
@@ -702,7 +719,7 @@ export const useCanvasInteractions = ({
       touchLongPressTimerRef.current = setTimeout(() => {
         const start = touchLongPressStartRef.current;
         if (!start) return;
-        startSelection(start.x, start.y);
+        startSelection(start.x, start.y, true);
         touchLongPressTimerRef.current = null;
       }, 450);
     },
@@ -859,6 +876,7 @@ export const useCanvasInteractions = ({
 
   return {
     isRightDragging,
+    showSelectionMenuAfterRightDrag,
     setIsRightDragging,
     onNodesChange,
     onEdgesChange,

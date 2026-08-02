@@ -1288,8 +1288,8 @@ html.canvas-selection-dragging * {
 
 .assistant-panel-shell {
   transition:
-    transform 0.5s ease-in-out,
-    opacity 0.5s ease-in-out !important;
+    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
   will-change: transform, opacity;
 }
 
@@ -1317,9 +1317,9 @@ html.canvas-selection-dragging * {
   /* NOTE: 留出底部 footer 的高度（h-8 = 2rem），避免面板与悬浮 footer 重叠 */
   bottom: 2rem !important;
   transition:
-    transform 0.5s ease-in-out,
-    opacity 0.5s ease-in-out,
-    box-shadow 0.5s ease-in-out !important;
+    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
   will-change: transform, opacity;
 }
 
@@ -3211,19 +3211,6 @@ input[type='range']::-moz-range-track {
   gap: 9px !important;
   min-height: 38px !important;
   padding: 7px 10px !important;
-}
-
-.selection-menu-vertical .selection-menu-ai-action,
-.bubble-glass-mode .glass-toolbar.selection-menu-vertical .selection-menu-ai-action {
-  border-left: 3px solid rgba(99, 102, 241, 0.72) !important;
-  background: rgba(99, 102, 241, 0.08) !important;
-  color: #4f46e5 !important;
-}
-
-.selection-menu-vertical .selection-menu-ai-action:hover,
-.bubble-glass-mode .glass-toolbar.selection-menu-vertical .selection-menu-ai-action:hover {
-  background: rgba(99, 102, 241, 0.14) !important;
-  color: #4338ca !important;
 }
 
 .selection-menu-vertical .selection-menu-danger-divider {

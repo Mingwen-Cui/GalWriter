@@ -439,6 +439,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         ) ||
         terminalStories[terminalStories.length - 1] ||
         null;
+      // A fresh AI "generate cards" action should create an independent story
+      // sequence. Only attach its first card when the user explicitly chose a
+      // canvas card to continue from, or when this is a dedicated continuation
+      // / branch workflow.
+      const shouldConnectToSource = mode !== 'append' || Boolean(explicitCanvasTarget);
       const getSettingCardLayoutHeight = (card: (typeof remainingCards)[number]) => {
         if (card.type === 'character') {
           const expandedFieldCount = [
@@ -1025,7 +1030,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             nodeIndex >= 0 && nodeIndex < firstEndingIndex && node.id !== inferredBranchSource.id
           );
         });
-        if (sourceNode && preBranchNodes[0]) {
+        if (shouldConnectToSource && sourceNode && preBranchNodes[0]) {
           pushFlowEdge(sourceNode, preBranchNodes[0], 'bottom');
         }
         for (let index = 0; index < preBranchNodes.length - 1; index += 1) {
@@ -1036,6 +1041,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           );
         }
         if (
+          shouldConnectToSource &&
           sourceNode &&
           inferredBranchSource.id !== sourceNode.id &&
           preBranchNodes.length === 0
@@ -1054,7 +1060,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           );
         });
       } else if (hasExplicitConnections && mode !== 'adjacent-revision') {
-        if (sourceNode && flowNodesToLink[0]) {
+        if (shouldConnectToSource && sourceNode && flowNodesToLink[0]) {
           pushFlowEdge(sourceNode, flowNodesToLink[0], 'bottom');
         }
         remainingCards.forEach((card, index) => {
@@ -1085,6 +1091,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         });
       } else {
         if (
+          shouldConnectToSource &&
           sourceNode &&
           flowNodesToLink[0] &&
           mode !== 'future-targets' &&

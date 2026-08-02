@@ -2018,7 +2018,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         : 'opacity-0 group-hover:opacity-100'
       : 'opacity-0 pointer-events-none'
   }`;
-  const addBtnClasses = `absolute w-6 h-6 bg-[var(--card-bg)] border border-[var(--card-border)] text-blue-500 hover:text-white rounded-full shadow-md hover:bg-blue-500 transition-all duration-200 delay-0 z-50 flex items-center justify-center ${
+  const addBtnClasses = `absolute w-6 h-6 bg-[var(--card-bg)] border border-[var(--card-border)] text-blue-500 hover:text-white rounded-full shadow-md hover:bg-blue-500 transition-[opacity,background-color,color,transform] duration-200 ease-out z-50 flex items-center justify-center ${
     showNodeActions
       ? isMobileDevice
         ? selected
@@ -3910,7 +3910,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       />
       <button
         onClick={() => data.onAddNode?.(id, 'top')}
-        className={`${addBtnClasses} -top-8 left-1/2 -translate-x-1/2 group-hover:delay-0`}
+        className={`${addBtnClasses} -top-8 left-1/2 -translate-x-1/2 delay-0 group-hover:delay-0`}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -3924,7 +3924,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       />
       <button
         onClick={() => data.onAddNode?.(id, 'right')}
-        className={`${addBtnClasses} top-1/2 -right-8 -translate-y-1/2 group-hover:delay-[200ms]`}
+        className={`${addBtnClasses} top-1/2 -right-8 -translate-y-1/2 delay-[200ms] group-hover:delay-[200ms]`}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -3938,7 +3938,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       />
       <button
         onClick={() => data.onAddNode?.(id, 'bottom')}
-        className={`${addBtnClasses} -bottom-8 left-1/2 -translate-x-1/2 group-hover:delay-[150ms]`}
+        className={`${addBtnClasses} -bottom-8 left-1/2 -translate-x-1/2 delay-[150ms] group-hover:delay-[150ms]`}
       >
         <Plus className="w-4 h-4" />
       </button>
@@ -3952,7 +3952,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       />
       <button
         onClick={() => data.onAddNode?.(id, 'left')}
-        className={`${addBtnClasses} top-1/2 -left-8 -translate-y-1/2 group-hover:delay-[100ms]`}
+        className={`${addBtnClasses} top-1/2 -left-8 -translate-y-1/2 delay-[100ms] group-hover:delay-[100ms]`}
       >
         <Plus className="w-4 h-4" />
       </button>

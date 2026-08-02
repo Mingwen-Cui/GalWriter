@@ -204,7 +204,7 @@ export function StoryCanvasWorkspace({
           />
           {showMiniMap && (
             <div
-              className={`canvas-bottom-overlay ${footerSpacingClass} toolbar-bubble-surface absolute ${overlayPositionClass} bottom-4 z-[50] flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-4 duration-300`}
+              className={`canvas-bottom-overlay ${footerSpacingClass} toolbar-bubble-surface absolute ${overlayPositionClass} bottom-4 z-[50] flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-4 transition-[right] duration-500 ease-in-out`}
               style={miniMapOverlayStyle}
             >
               <div className="minimap-clip w-full overflow-hidden rounded-t-xl">
@@ -244,7 +244,7 @@ export function StoryCanvasWorkspace({
           )}
           {!showMiniMap && showControls && (
             <div
-              className={`canvas-bottom-overlay ${footerSpacingClass} toolbar-bubble-surface absolute ${overlayPositionClass} bottom-4 z-[50] h-8 w-40 overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-xl backdrop-blur-md animate-in slide-in-from-bottom-4 duration-300`}
+              className={`canvas-bottom-overlay ${footerSpacingClass} toolbar-bubble-surface absolute ${overlayPositionClass} bottom-4 z-[50] h-8 w-40 overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-xl backdrop-blur-md animate-in slide-in-from-bottom-4 transition-[right] duration-500 ease-in-out`}
               style={miniMapOverlayStyle}
             >
               <Controls
