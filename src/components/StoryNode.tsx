@@ -88,19 +88,15 @@ import {
 import { DraggableNumberInput } from './DraggableNumberInput';
 import { DurationInput } from './DurationInput';
 import { InlineActionEditor } from './InlineActionEditor';
-import { NumberInput } from './NumberInput';
+import { SolidColorPopover } from './render/video/objectInspector/ColorPopovers';
+import { renderObjectText } from './render/video/objectInspector/i18n';
+import { parseColorValue, toHex8 } from './render/video/shared/colorValue';
+import { FloatingPopover } from './render/web/webStyleInspectorControls';
 import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 import { ZenSelect } from './zen-editor/ZenSelect';
 
 const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C', '#1EC8CF'];
-const SHAPES: StoryCardVisualShape[] = [
-  'square',
-  'rounded-rectangle',
-  'diamond',
-  'trapezoid',
-  'hexagon',
-];
 const CARD_RADIUS = '12px';
 const TITLE_HEIGHT = 36;
 const AUTO_SIZE_MIN_HEIGHT = 60;
@@ -227,7 +223,6 @@ const ANIMATION_OPTIONS: { value: PresentationAnimation; label: string }[] = [
 
 export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const { alert: showDialogAlert } = useDialog();
-  const colorInputRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextHandle>(null);
   const nodeRootRef = useRef<HTMLDivElement>(null);
   const titleBlockRef = useRef<HTMLDivElement>(null);
@@ -238,16 +233,46 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
+  const [hasRichTextSelection, setHasRichTextSelection] = useState(false);
+  const [isColorPopoverOpen, setIsColorPopoverOpen] = useState(false);
   const [autoMinHeight, setAutoMinHeight] = useState(AUTO_SIZE_MIN_HEIGHT);
   const [nodeWidthForAutoSize, setNodeWidthForAutoSize] = useState(300);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
+  const updateRichTextSelectionState = useCallback(() => {
+    const editor = richTextRef.current?.getElement();
+    const selection = window.getSelection();
+    const hasSelection = Boolean(
+      editor &&
+      selection &&
+      selection.rangeCount > 0 &&
+      !selection.getRangeAt(0).collapsed &&
+      editor.contains(selection.getRangeAt(0).commonAncestorContainer) &&
+      selection.toString().trim(),
+    );
+    setHasRichTextSelection(hasSelection);
+  }, []);
+  const applyRichTextFormat = useCallback(
+    (command: 'bold' | 'italic' | 'underline' | 'insertUnorderedList') => {
+      if (!hasRichTextSelection) return;
+      document.execCommand(command, false, '');
+      updateRichTextSelectionState();
+    },
+    [hasRichTextSelection, updateRichTextSelectionState],
+  );
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', updateRichTextSelectionState);
+    return () => document.removeEventListener('selectionchange', updateRichTextSelectionState);
+  }, [updateRichTextSelectionState]);
+
   const text = data.text || '';
   const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
   const isAutoSizeMode = data.sizeMode !== 'custom';
   const color = data.color || COLORS[0];
+  const parsedCardColor = parseColorValue(color, COLORS[0]);
   const imageUrl = data.imageUrl;
   const videoUrl = data.videoUrl;
   const audioUrl = data.audioUrl;
@@ -2066,16 +2091,28 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   return (
     <div ref={nodeRootRef} className="w-full h-full relative group min-w-[100px] min-h-[60px]">
-      {isRoot && (
-        <div className="absolute -top-3 -left-3 z-50 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
-          <Play className="w-3 h-4" /> 开始
-        </div>
-      )}
-      {data.skip && (
-        <div
-          className={`absolute -top-3 ${isRoot ? 'left-10' : '-left-3'} z-50 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1`}
-        >
-          <StepForward className="w-3 h-4" /> 暂时跳过
+      {(isRoot || data.skip || data.isHighlighted || data.hidden) && (
+        <div className="pointer-events-none absolute -top-3 -left-3 z-50 flex items-center gap-1">
+          {isRoot && (
+            <div className="flex items-center gap-1 rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <Play className="h-4 w-3" /> 开始
+            </div>
+          )}
+          {data.skip && (
+            <div className="flex items-center gap-1 rounded bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <StepForward className="h-4 w-3" /> 跳过
+            </div>
+          )}
+          {data.isHighlighted && (
+            <div className="flex items-center gap-1 rounded bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <GitFork className="h-4 w-3" /> 故事线
+            </div>
+          )}
+          {data.hidden && (
+            <div className="flex items-center gap-1 rounded bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+              <EyeOff className="h-4 w-3" /> 已隐藏
+            </div>
+          )}
         </div>
       )}
       <NodeResizer
@@ -2103,144 +2140,221 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             onPointerMove={(event) => event.stopPropagation()}
             onWheel={(event) => event.stopPropagation()}
           >
-            {/* 第一行：颜色、形状、文字工具、视图 - 完全扁平化以实现平均散开分布 */}
-            <ToolbarRow className="w-full justify-between gap-0">
-              {/* 预设颜色按钮 */}
-              {COLORS.map((c) => (
+            <ToolbarRow className="flex-nowrap gap-1.5">
+              <ToolGroup>
                 <button
-                  key={c}
-                  onClick={() => updateNodeData({ color: c })}
-                  className={`w-5 h-5 rounded-full border border-[var(--toolbar-border)] transition-transform hover:scale-110 shrink-0 ${color === c ? 'ring-2 ring-white ring-offset-1 ring-offset-[var(--toolbar-bg)]' : ''}`}
-                  style={{ backgroundColor: c }}
-                  title={c === '#ffffff' ? '白色' : '更改颜色'}
-                />
-              ))}
-
-              {/* 自定义颜色按钮 */}
-              <button
-                onClick={() => colorInputRef.current?.click()}
-                className={`w-5 h-5 rounded-full border border-[var(--toolbar-border)] transition-transform hover:scale-110 shrink-0 flex items-center justify-center overflow-hidden relative ${!COLORS.includes(color) ? 'ring-2 ring-white ring-offset-1 ring-offset-[var(--toolbar-bg)]' : ''}`}
-                style={{
-                  background: !COLORS.includes(color)
-                    ? color
-                    : 'linear-gradient(45deg, #f093fb 0%, #f5576c 100%)',
-                }}
-                title="自定义颜色"
-              >
-                <Palette
-                  className={`w-3 h-3 ${!COLORS.includes(color) ? 'text-white mix-blend-difference' : 'text-white'}`}
-                />
-                <input
-                  ref={colorInputRef}
-                  type="color"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  value={COLORS.includes(color) ? '#ffffff' : color}
-                  onChange={(e) => updateNodeData({ color: e.target.value })}
-                />
-              </button>
-
-              <Separator />
-
-              {/* 形状按钮 */}
-              {SHAPES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => updateNodeData({ shape: s })}
-                  className={`w-7 h-7 flex items-center justify-center transition-transform hover:scale-110 shrink-0 rounded-md hover:bg-[var(--app-bg)] ${shape === s ? 'text-blue-400' : 'text-[var(--text-primary)]/80'}`}
-                  title={`形状: ${s}`}
+                  onClick={() => updateNodeData({ isRoot: true })}
+                  className={`${textBtnBase} gap-1 ${isRoot ? 'bg-emerald-500/20 text-emerald-500 font-bold hover:bg-emerald-500/30' : ''}`}
+                  title="起点"
                 >
-                  <div
-                    className="w-4 h-4 bg-current"
-                    style={{ clipPath: getClipPath(s), borderRadius: s === 'square' ? '2px' : 0 }}
-                  />
+                  <Play className="w-3.5 h-3.5" /> 起点
                 </button>
-              ))}
-
+                <button
+                  onClick={() => updateNodeData({ skip: !data.skip })}
+                  className={`${textBtnBase} gap-1 ${data.skip ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-600 hover:text-white' : ''}`}
+                  title={t.skipForNow}
+                >
+                  <StepForward className="w-3.5 h-3.5" /> 跳过
+                </button>
+                <button
+                  onClick={() => data.onHighlightStoryline?.(id)}
+                  className={`${textBtnBase} gap-1 ${data.isHighlighted ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.5)] hover:bg-rose-600 hover:text-white' : ''}`}
+                  title={t.showStoryline}
+                >
+                  <GitFork className={`w-3.5 h-3.5 ${data.isHighlighted ? 'animate-pulse' : ''}`} />{' '}
+                  故事线
+                </button>
+                <Separator />
+                <div className="relative flex items-center gap-1">
+                  {COLORS.map((preset) => {
+                    const isActive =
+                      parsedCardColor.hex === preset && parsedCardColor.alpha === 100;
+                    return (
+                      <button
+                        key={preset}
+                        onClick={() => {
+                          updateNodeData({ color: preset });
+                          setIsColorPopoverOpen(false);
+                        }}
+                        className={`h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)] transition-transform hover:scale-110 ${isActive ? 'ring-2 ring-violet-500 ring-offset-1 ring-offset-[var(--toolbar-bg)]' : ''}`}
+                        style={{ backgroundColor: preset }}
+                        title="填充色"
+                        aria-label="填充色"
+                      />
+                    );
+                  })}
+                  <button
+                    onClick={() => setIsColorPopoverOpen((open) => !open)}
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[conic-gradient(from_45deg,#f97316,#e879f9,#6366f1,#22d3ee,#f97316)] text-white transition-transform hover:scale-110"
+                    title="自定义填充色"
+                    aria-label="自定义填充色"
+                    aria-expanded={isColorPopoverOpen}
+                  >
+                    <Palette className="h-3 w-3" />
+                  </button>
+                  {isColorPopoverOpen && (
+                    <FloatingPopover
+                      popoverKey="solid"
+                      onClose={() => setIsColorPopoverOpen(false)}
+                      closeLabel={lang === 'zh' ? '关闭' : lang === 'ja' ? '閉じる' : 'Close'}
+                    >
+                      <SolidColorPopover
+                        tone="fill"
+                        text={renderObjectText(lang).popover}
+                        color={parsedCardColor.hex}
+                        alpha={parsedCardColor.alpha}
+                        onColorChange={(nextColor) => {
+                          const next = parseColorValue(nextColor, parsedCardColor.hex);
+                          updateNodeData({
+                            color:
+                              parsedCardColor.alpha === 100
+                                ? next.hex
+                                : toHex8(next.hex, parsedCardColor.alpha),
+                          });
+                        }}
+                        onAlphaChange={(nextAlpha) =>
+                          updateNodeData({
+                            color:
+                              nextAlpha === 100
+                                ? parsedCardColor.hex
+                                : toHex8(parsedCardColor.hex, nextAlpha),
+                          })
+                        }
+                      />
+                    </FloatingPopover>
+                  )}
+                </div>
+              </ToolGroup>
               {showRichTextTools && (
                 <>
                   <Separator />
-
-                  {/* 文字工具按钮 */}
                   <button
-                    onClick={() => document.execCommand('bold', false, '')}
-                    className={iconBtnBase}
-                    title={t.boldText}
+                    onClick={() => data.onZenMode?.(id)}
+                    className={`${iconBtnBase} bg-emerald-50 text-emerald-600 hover:bg-emerald-100`}
+                    title={lang === 'zh' ? '专注模式' : 'Zen Mode'}
                   >
-                    <Bold className="w-4 h-4" />
+                    <Maximize className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => document.execCommand('italic', false, '')}
-                    className={iconBtnBase}
-                    title={t.italicText}
-                  >
-                    <Italic className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => document.execCommand('underline', false, '')}
-                    className={iconBtnBase}
-                    title={t.underlineText}
-                  >
-                    <Underline className="w-4 h-4" />
-                  </button>
-
-                  <Separator />
-
-                  {/* 视图按钮 */}
-                  <button
-                    onClick={() => {
-                      if (recordingState === 'recording') {
-                        stopRecording();
-                      } else {
-                        void startRecording();
-                      }
-                    }}
-                    disabled={recordingState === 'encoding'}
-                    className={`${iconBtnBase} ${
-                      recordingState === 'recording'
-                        ? 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/25 hover:text-rose-500'
-                        : 'text-rose-500 hover:text-rose-500'
-                    } disabled:opacity-100`}
-                    title={
-                      recordingState === 'recording'
-                        ? lang === 'zh'
-                          ? '停止录音并保存 MP3'
-                          : 'Stop and save MP3'
-                        : recordingState === 'encoding'
-                          ? lang === 'zh'
-                            ? '正在生成 MP3'
-                            : 'Creating MP3'
-                          : lang === 'zh'
-                            ? '开始录音'
-                            : 'Start recording'
-                    }
-                  >
-                    {recordingState === 'encoding' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : recordingState === 'recording' ? (
-                      <Square className="w-4 h-4 fill-current" />
-                    ) : (
-                      <Mic className="w-4 h-4" />
-                    )}
-                  </button>
-                  {plainSpeechText && (
-                    <button
-                      onClick={handleGenerateSpeech}
-                      disabled={isGeneratingSpeech}
-                      className={`${iconBtnBase} text-sky-600 disabled:opacity-100`}
-                      title={lang === 'zh' ? '文字转音频' : 'Text to audio'}
-                    >
-                      {isGeneratingSpeech ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  )}
                 </>
               )}
             </ToolbarRow>
 
-            <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
+            <ToolbarRow className="flex-nowrap gap-1.5">
+              <ToolGroup className="gap-1.5">
+                <span className="shrink-0 text-[10px] font-black uppercase text-[var(--text-muted)]">
+                  数值
+                </span>
+                <div className="w-16 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
+                  <DraggableNumberInput
+                    value={(data.nodeValue as number) || 0}
+                    onChange={(value) => updateNodeData({ nodeValue: value })}
+                    min={-9999}
+                    max={9999}
+                    step={1}
+                    unit={null}
+                  />
+                </div>
+              </ToolGroup>
+              {showRichTextTools && (
+                <>
+                  <Separator />
+                  <ToolGroup>
+                    <button
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => applyRichTextFormat('bold')}
+                      disabled={!hasRichTextSelection}
+                      className={`${iconBtnBase} disabled:cursor-not-allowed`}
+                      title={t.boldText}
+                    >
+                      <Bold className="w-4 h-4" />
+                    </button>
+                    <button
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => applyRichTextFormat('italic')}
+                      disabled={!hasRichTextSelection}
+                      className={`${iconBtnBase} disabled:cursor-not-allowed`}
+                      title={t.italicText}
+                    >
+                      <Italic className="w-4 h-4" />
+                    </button>
+                    <button
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => applyRichTextFormat('underline')}
+                      disabled={!hasRichTextSelection}
+                      className={`${iconBtnBase} disabled:cursor-not-allowed`}
+                      title={t.underlineText}
+                    >
+                      <Underline className="w-4 h-4" />
+                    </button>
+                    <button
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => applyRichTextFormat('insertUnorderedList')}
+                      disabled={!hasRichTextSelection}
+                      className={`${iconBtnBase} disabled:cursor-not-allowed`}
+                      title="项目符号"
+                    >
+                      <List className="w-4 h-4" />
+                    </button>
+                  </ToolGroup>
+                </>
+              )}
+              <Separator />
+              <ToolGroup>
+                <button
+                  onClick={() =>
+                    recordingState === 'recording' ? stopRecording() : void startRecording()
+                  }
+                  disabled={recordingState === 'encoding'}
+                  className={`${iconBtnBase} ${recordingState === 'recording' ? 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/25 hover:text-rose-500' : 'text-rose-500 hover:text-rose-500'} disabled:opacity-100`}
+                  title={
+                    recordingState === 'recording'
+                      ? '停止录音并保存 MP3'
+                      : recordingState === 'encoding'
+                        ? '正在生成 MP3'
+                        : '开始录音'
+                  }
+                >
+                  {recordingState === 'encoding' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : recordingState === 'recording' ? (
+                    <Square className="h-3.5 w-3.5 fill-current" />
+                  ) : (
+                    <Mic className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                {plainSpeechText && (
+                  <button
+                    onClick={handleGenerateSpeech}
+                    disabled={isGeneratingSpeech}
+                    className={`${iconBtnBase} text-sky-600 disabled:opacity-100`}
+                    title={lang === 'zh' ? '文本转语音' : 'Text to audio'}
+                  >
+                    {isGeneratingSpeech ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Volume2 className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                )}
+              </ToolGroup>
+              <Separator />
+              <ToolGroup>
+                <button
+                  onClick={() => updateNodeData({ hidden: true })}
+                  className={iconBtnBase}
+                  title={t.hideNode}
+                >
+                  <EyeOff className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => data.onDelete?.(id)}
+                  className={`${iconBtnBase} text-red-400 hover:bg-red-500/10 hover:text-red-300`}
+                  title="删除"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </ToolGroup>
+            </ToolbarRow>
 
             {/* 已连接人物与场景：插入对应 Tag */}
             {hasMentionToolbarItems && (
@@ -2370,88 +2484,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 <div className="h-px w-full bg-[var(--toolbar-border)]/30" />
               </>
             )}
-
-            {/* 第二行：核心功能 */}
-            <ToolbarRow>
-              {/* 节点状态组 */}
-              <ToolGroup>
-                <button
-                  onClick={() => updateNodeData({ isRoot: true })}
-                  className={`${textBtnBase} ${isRoot ? 'bg-emerald-500/20 text-emerald-500 font-bold hover:bg-emerald-500/30' : ''}`}
-                >
-                  起点
-                </button>
-              </ToolGroup>
-
-              <Separator />
-
-              {/* 数值组 */}
-              <ToolGroup className="gap-1.5">
-                <span className="text-[10px] text-[var(--text-muted)] font-black uppercase shrink-0">
-                  数值
-                </span>
-                <NumberInput
-                  value={(data.nodeValue as number) || 0}
-                  onChange={(val) => updateNodeData({ nodeValue: val })}
-                  accentColor="indigo"
-                  className="gap-1"
-                />
-              </ToolGroup>
-
-              <Separator />
-
-              {/* 线路/流程组 */}
-              <ToolGroup>
-                <button
-                  onClick={() => data.onHighlightStoryline?.(id)}
-                  className={`${iconBtnBase} ${data.isHighlighted ? 'bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.5)] hover:bg-rose-600 hover:text-white' : ''}`}
-                  title={t.showStoryline}
-                >
-                  <GitFork className={`w-4 h-4 ${data.isHighlighted ? 'animate-pulse' : ''}`} />
-                </button>
-                <button
-                  onClick={() => updateNodeData({ skip: !data.skip })}
-                  className={`${iconBtnBase} ${data.skip ? 'bg-emerald-500/20 text-emerald-500 shadow-inner font-bold hover:bg-emerald-500/30' : ''}`}
-                  title={t.skipForNow}
-                >
-                  <StepForward className="w-4 h-4" />
-                </button>
-              </ToolGroup>
-
-              <Separator />
-              {/* 可见性组 */}
-              <ToolGroup>
-                <button
-                  onClick={() => updateNodeData({ hidden: true })}
-                  className={iconBtnBase}
-                  title={t.hideNode}
-                >
-                  <EyeOff className="w-4 h-4" />
-                </button>
-                {showRichTextTools && (
-                  <button
-                    onClick={() => data.onZenMode?.(id)}
-                    className={`${iconBtnBase} bg-emerald-50 text-emerald-600 hover:bg-emerald-100`}
-                    title={lang === 'zh' ? '专注模式' : 'Zen Mode'}
-                  >
-                    <Maximize className="w-4 h-4" />
-                  </button>
-                )}
-              </ToolGroup>
-
-              <>
-                <Separator />
-                <ToolGroup>
-                  <button
-                    onClick={() => data.onDelete?.(id)}
-                    className={`${iconBtnBase} text-red-400 hover:text-red-300 hover:bg-red-500/10`}
-                    title="删除"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </ToolGroup>
-              </>
-            </ToolbarRow>
           </div>
         </div>
       </NodeToolbar>

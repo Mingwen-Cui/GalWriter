@@ -1,5 +1,0 @@
-[mcp_servers.rhino]
-url = "http://localhost:3001/mcp"
-startup_timeout_sec = 20
-tool_timeout_sec = 120
-default_tools_approval_mode = "prompt"
