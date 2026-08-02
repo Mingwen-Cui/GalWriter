@@ -19,6 +19,7 @@ import {
   useAssistantPanel,
 } from '../../editor-features/assistant/useAssistantPanel';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
+import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
 import type { Language } from '../../lib/i18n';
 import {
   applyAssistantStoryTags,
@@ -111,6 +112,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     showToast,
     requestSettingsAttention,
   } = params;
+  const assistantCopy = assistantPanelCopy(language);
 
   const { fitView, setCenter } = useReactFlow();
 
@@ -158,6 +160,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           type: getDraftType(card),
           key: cleanText(card.key),
           chapterTitle: cleanText(card.chapterTitle),
+          batchTitle: cleanText(card.batchTitle),
           title: cleanText(card.title),
           text: cleanText(card.text),
           nodeValue:
@@ -847,6 +850,66 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         });
       }
 
+      const defaultBatchTitle = (type: (typeof remainingCards)[number]['type']) => {
+        if (type === 'character') {
+          return assistantCopy.profileFlow.batchBackgrounds.character;
+        }
+        if (type === 'scene') {
+          return assistantCopy.profileFlow.batchBackgrounds.scene;
+        }
+        if (type === 'number-condition') {
+          return assistantCopy.profileFlow.batchBackgrounds.logic;
+        }
+        return assistantCopy.profileFlow.batchBackgrounds.story;
+      };
+      const chapterStoryIndexes = new Set(
+        storyIndexes.filter((index) => Boolean(remainingCards[index].chapterTitle)),
+      );
+      const batchGroups = new Map<string, { title: string; indexes: number[] }>();
+      remainingCards.forEach((card, index) => {
+        if (card.type === 'story' && chapterStoryIndexes.has(index)) return;
+        const title = card.batchTitle || defaultBatchTitle(card.type);
+        const key = `${card.type}:${title}`;
+        const group = batchGroups.get(key) || { title, indexes: [] };
+        group.indexes.push(index);
+        batchGroups.set(key, group);
+      });
+      const batchBackgroundColors = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fff7ed', '#fdf2f8'];
+      const batchBackgroundNodes = Array.from(batchGroups.values()).map((group, groupIndex) => {
+        const padding = 48;
+        const bounds = group.indexes.reduce(
+          (result, index) => {
+            const node = newNodes[index];
+            const layout = cardLayouts[index];
+            if (!node || !layout) return result;
+            return {
+              left: Math.min(result.left, node.position.x),
+              top: Math.min(result.top, node.position.y),
+              right: Math.max(result.right, node.position.x + layout.width),
+              bottom: Math.max(result.bottom, node.position.y + layout.height),
+            };
+          },
+          { left: Number.POSITIVE_INFINITY, top: Number.POSITIVE_INFINITY, right: 0, bottom: 0 },
+        );
+        const id = uuidv4();
+        return {
+          id,
+          type: 'backgroundNode',
+          position: { x: bounds.left - padding, y: bounds.top - padding },
+          dragHandle: '.custom-drag-handle',
+          style: {
+            width: Math.max(280, bounds.right - bounds.left + padding * 2),
+            height: Math.max(220, bounds.bottom - bounds.top + padding * 2),
+            zIndex: -3,
+          },
+          data: {
+            id,
+            title: group.title,
+            color: batchBackgroundColors[groupIndex % batchBackgroundColors.length],
+          },
+        } satisfies Node;
+      });
+
       const nodeByDraftRef = new Map<string, Node>();
       remainingCards.forEach((card, index) => {
         const node = newNodes[index];
@@ -1020,6 +1083,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           .filter((node) => !(shouldReplaceInitialRoot && isDefaultInitialStoryNode(node))),
         ...newNodes,
         ...chapterBackgroundNodes,
+        ...batchBackgroundNodes,
       ]);
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
       return {
@@ -1028,7 +1092,16 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         nodeIds: [...filledTargetNodeIds, ...newNodes.map((node) => node.id)],
       };
     },
-    [edges, nodes, setNodes, setEdges, getCenterPosition, getViewportZoom, language],
+    [
+      assistantCopy.profileFlow.batchBackgrounds,
+      edges,
+      nodes,
+      setNodes,
+      setEdges,
+      getCenterPosition,
+      getViewportZoom,
+      language,
+    ],
   );
 
   // =========================================================================

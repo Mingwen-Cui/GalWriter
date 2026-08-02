@@ -30,9 +30,13 @@ const migrateLegacyRenderStyleDefaults = (
     titleFontSize: style.titleFontSize === 56 ? 28 : style.titleFontSize,
     bodyFontSize: style.bodyFontSize === 38 ? 18 : style.bodyFontSize,
     titleFontFamily:
-      style.titleFontFamily === LEGACY_RENDER_STYLE_FONT ? NEXT_RENDER_STYLE_FONT : style.titleFontFamily,
+      style.titleFontFamily === LEGACY_RENDER_STYLE_FONT
+        ? NEXT_RENDER_STYLE_FONT
+        : style.titleFontFamily,
     bodyFontFamily:
-      style.bodyFontFamily === LEGACY_RENDER_STYLE_FONT ? NEXT_RENDER_STYLE_FONT : style.bodyFontFamily,
+      style.bodyFontFamily === LEGACY_RENDER_STYLE_FONT
+        ? NEXT_RENDER_STYLE_FONT
+        : style.bodyFontFamily,
   };
 };
 
@@ -45,6 +49,26 @@ const clampCardToolbarScale = (value: unknown) => {
         : Number.NaN;
   if (!Number.isFinite(parsed)) return 1;
   return Math.min(3, Math.max(0.5, parsed));
+};
+
+const normalizePlaytestWindowSettings = (
+  value: ImportedProjectSettings['playTestWindowSettings'],
+) => {
+  const bounds = value?.bounds;
+  const validBounds =
+    bounds &&
+    Number.isFinite(bounds.x) &&
+    Number.isFinite(bounds.y) &&
+    Number.isFinite(bounds.width) &&
+    Number.isFinite(bounds.height) &&
+    bounds.width > 0 &&
+    bounds.height > 0;
+
+  return {
+    bounds: validBounds ? bounds : null,
+    followSelectedCard: value?.followSelectedCard === true,
+    autoScaleOnHover: value?.autoScaleOnHover === true,
+  };
 };
 
 const DEFAULT_EDGE_COLOR = '#6366f1';
@@ -272,11 +296,7 @@ const sanitizeAssetPart = (value: string) =>
     .replace(/^_+|_+$/g, '')
     .slice(0, 80) || 'media';
 
-const shouldPackUrlField = (
-  key: string,
-  value: string,
-  parent: Record<string, unknown> | null,
-) => {
+const shouldPackUrlField = (key: string, value: string, parent: Record<string, unknown> | null) => {
   if (!isEmbeddableMediaUrl(value)) return false;
   if (PROJECT_MEDIA_URL_FIELDS.has(key)) return true;
   if (!PROJECT_MEDIA_OBJECT_URL_FIELDS.has(key) || !parent) return false;
@@ -435,9 +455,7 @@ const restoreProjectMediaValue = async (
   }
 
   if (Array.isArray(value)) {
-    return Promise.all(
-      value.map((item) => restoreProjectMediaValue(item, zip, null, '')),
-    );
+    return Promise.all(value.map((item) => restoreProjectMediaValue(item, zip, null, '')));
   }
 
   if (isRecord(value)) {
@@ -501,7 +519,9 @@ const applyProjectSettings = (
   if (incomingSettings.saveAssistantConversations !== undefined) {
     setters.setSaveAssistantConversations(incomingSettings.saveAssistantConversations);
   }
-  setters.setAllowAssistantImageGeneration(incomingSettings.allowAssistantImageGeneration !== false);
+  setters.setAllowAssistantImageGeneration(
+    incomingSettings.allowAssistantImageGeneration !== false,
+  );
   setters.setSkipAssistantAgentAnimation(incomingSettings.skipAssistantAgentAnimation === true);
   setters.setAssistantMemorySkillEnabled(incomingSettings.assistantMemorySkillEnabled === true);
   setters.setAssistantMemoryNotes(
@@ -665,13 +685,15 @@ const applyProjectSettings = (
   if (incomingSettings.playTestHideSceneTags !== undefined) {
     setters.setPlayTestHideSceneTags(incomingSettings.playTestHideSceneTags);
   }
+  setters.setPlayTestWindowSettings(
+    normalizePlaytestWindowSettings(incomingSettings.playTestWindowSettings),
+  );
 };
 
 const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
   Promise.all(
     nodes.map(async (node) => {
-      const isAutoSizedStoryNode =
-        node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
+      const isAutoSizedStoryNode = node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
       const restoredNode: Node = {
         ...node,
         ...(isAutoSizedStoryNode
@@ -683,10 +705,7 @@ const restoreProjectNodes = async (nodes: Node[], zip: JSZip | null) =>
         data: { ...node.data },
         dragHandle: node.type === 'backgroundNode' ? '.custom-drag-handle' : node.dragHandle,
       };
-      restoredNode.data = (await restoreProjectMediaValue(
-        restoredNode.data,
-        zip,
-      )) as Node['data'];
+      restoredNode.data = (await restoreProjectMediaValue(restoredNode.data, zip)) as Node['data'];
 
       return restoredNode;
     }),
@@ -760,19 +779,16 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
     activeAssistantTaskId: string;
   }) => {
     const simpleNodes = nodes.map((node) => {
-      const isAutoSizedStoryNode =
-        node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
+      const isAutoSizedStoryNode = node.type === 'storyNode' && node.data?.sizeMode !== 'custom';
 
-        return {
-          id: node.id,
-          position: node.position,
-          type: node.type,
-          style: isAutoSizedStoryNode
-            ? stripAutoStoryNodeRuntimeStyle(node.style)
-            : node.style,
-          data: { ...node.data },
-          width: node.measured?.width || node.width,
-          height: node.measured?.height || node.height,
+      return {
+        id: node.id,
+        position: node.position,
+        type: node.type,
+        style: isAutoSizedStoryNode ? stripAutoStoryNodeRuntimeStyle(node.style) : node.style,
+        data: { ...node.data },
+        width: node.measured?.width || node.width,
+        height: node.measured?.height || node.height,
         dragHandle: node.dragHandle,
       };
     }) as StoryNode[];

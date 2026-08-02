@@ -96,6 +96,18 @@ export type AssistantMessageOption = {
   label: string;
   value: string;
   description?: string;
+  selected?: boolean;
+};
+
+export type AssistantStoryProfile = {
+  version: 1;
+  persona: string[];
+  genres: string[];
+  dynamics: string[];
+  worlds: string[];
+  plots: string[];
+  customNotes?: string[];
+  updatedAt: number;
 };
 
 export type AssistantTask = {
@@ -111,6 +123,19 @@ export type AssistantTask = {
   reviewContext?: string;
   messages: AssistantMessage[];
 };
+
+export interface PlaytestWindowBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PlaytestWindowSettings {
+  bounds: PlaytestWindowBounds | null;
+  followSelectedCard: boolean;
+  autoScaleOnHover: boolean;
+}
 
 export interface PlaytestSettings {
   playTestDarkMode: boolean;
@@ -129,6 +154,7 @@ export interface PlaytestSettings {
   playTestAutoAdvanceDelay: number;
   playTestHideCharacterTags: boolean;
   playTestHideSceneTags: boolean;
+  playTestWindowSettings: PlaytestWindowSettings;
 }
 
 export interface PlaytestSettingsSetters {
@@ -148,6 +174,7 @@ export interface PlaytestSettingsSetters {
   setPlayTestAutoAdvanceDelay: Dispatch<SetStateAction<number>>;
   setPlayTestHideCharacterTags: Dispatch<SetStateAction<boolean>>;
   setPlayTestHideSceneTags: Dispatch<SetStateAction<boolean>>;
+  setPlayTestWindowSettings: Dispatch<SetStateAction<PlaytestWindowSettings>>;
 }
 
 export type PlaytestSettingsState = PlaytestSettings & PlaytestSettingsSetters;

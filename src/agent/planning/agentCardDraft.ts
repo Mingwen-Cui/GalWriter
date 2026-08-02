@@ -2,6 +2,7 @@ export type AssistantCardDraft = {
   type?: 'story' | 'character' | 'scene' | 'number-condition';
   key?: string;
   chapterTitle?: string;
+  batchTitle?: string;
   title?: string;
   text?: string;
   nodeValue?: number;

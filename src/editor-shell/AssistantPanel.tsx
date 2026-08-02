@@ -66,7 +66,9 @@ interface AssistantPanelProps {
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
-  handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
+  handleStartAssistantFlow: (
+    flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
+  ) => Promise<void>;
   handleAssistantDocumentUpload: (
     files: FileList | null,
     intent?: 'article-to-galgame',
@@ -462,9 +464,21 @@ export function AssistantPanel({
   };
 
   const welcomePrompts = [
-    { icon: <Lightbulb className="h-4 w-4" />, ...ui.welcomePrompts.idea },
-    { icon: <PencilLine className="h-4 w-4" />, ...ui.welcomePrompts.continue },
-    { icon: <SearchCheck className="h-4 w-4" />, ...ui.welcomePrompts.article },
+    {
+      icon: <UserRound className="h-4 w-4" />,
+      action: 'profile' as const,
+      ...ui.profileFlow.welcome,
+    },
+    {
+      icon: <PencilLine className="h-4 w-4" />,
+      action: 'continue' as const,
+      ...ui.welcomePrompts.continue,
+    },
+    {
+      icon: <SearchCheck className="h-4 w-4" />,
+      action: 'article' as const,
+      ...ui.welcomePrompts.article,
+    },
   ];
 
   const isLegacyAssistantWelcomeMessage = (message: AssistantMessage) =>
@@ -537,7 +551,9 @@ export function AssistantPanel({
     return handleAssistantSend(overrideText);
   };
 
-  const startAssistantFlowWithGradientExit = (flow: 'idea' | 'starter' | 'revision' | 'future') => {
+  const startAssistantFlowWithGradientExit = (
+    flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
+  ) => {
     fadeOutWelcomeGradient();
     return handleStartAssistantFlow(flow);
   };
@@ -1014,17 +1030,21 @@ export function AssistantPanel({
             <div className="assistant-welcome-prompts">
               <div className="assistant-welcome-prompt-title">{ui.tryAsking}</div>
               <div className="assistant-welcome-options">
-                {welcomePrompts.map((item, index) => (
+                {welcomePrompts.map((item) => (
                   <button
                     key={item.title}
                     type="button"
-                    onClick={() =>
-                      index === 0
-                        ? void startAssistantFlowWithGradientExit('idea')
-                        : index === 2
-                          ? openArticleUploadFlow()
-                          : void sendAssistantMessage(item.prompt)
-                    }
+                    onClick={() => {
+                      if (item.action === 'profile') {
+                        void startAssistantFlowWithGradientExit('profile');
+                        return;
+                      }
+                      if (item.action === 'article') {
+                        openArticleUploadFlow();
+                        return;
+                      }
+                      void sendAssistantMessage(item.prompt);
+                    }}
                     disabled={assistantLoading}
                     className="assistant-welcome-option"
                   >
@@ -1121,13 +1141,18 @@ export function AssistantPanel({
                             type="button"
                             onClick={() => void handleAssistantOptionSelect(option.value)}
                             disabled={assistantLoading}
-                            className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-left transition-colors hover:border-indigo-400 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60"
+                            className={`rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60 ${
+                              option.selected
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/70 dark:text-indigo-100'
+                                : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'
+                            }`}
                           >
-                            <span className="block text-xs font-black text-indigo-700 dark:text-indigo-200">
+                            <span className="flex items-center gap-1.5 text-xs font-black text-indigo-700 dark:text-indigo-200">
+                              {option.selected && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
                               {option.label}
                             </span>
                             {option.description && (
-                              <span className="mt-1 block text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                              <span className="mt-1 block whitespace-pre-wrap text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                                 {option.description}
                               </span>
                             )}

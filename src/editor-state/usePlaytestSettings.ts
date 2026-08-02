@@ -4,6 +4,7 @@ import type {
   PlaytestChoicesPosition,
   PlaytestLayoutMode,
   PlaytestSettingsState,
+  PlaytestWindowSettings,
 } from './editorConfig';
 
 const getStoredBoolean = (key: string, fallback: boolean) => {
@@ -26,6 +27,39 @@ const getStoredString = <T extends string>(key: string, fallback: T, allowed?: r
   if (!saved) return fallback;
   if (allowed && !allowed.includes(saved as T)) return fallback;
   return saved as T;
+};
+
+const getStoredWindowSettings = (): PlaytestWindowSettings => {
+  const fallback: PlaytestWindowSettings = {
+    bounds: null,
+    followSelectedCard: false,
+    autoScaleOnHover: false,
+  };
+  if (typeof window === 'undefined') return fallback;
+
+  try {
+    const legacyBounds = JSON.parse(
+      window.localStorage.getItem('galwriter-playtest-window-bounds:v1') || 'null',
+    ) as PlaytestWindowSettings['bounds'];
+    const bounds =
+      legacyBounds &&
+      Number.isFinite(legacyBounds.x) &&
+      Number.isFinite(legacyBounds.y) &&
+      Number.isFinite(legacyBounds.width) &&
+      Number.isFinite(legacyBounds.height) &&
+      legacyBounds.width > 0 &&
+      legacyBounds.height > 0
+        ? legacyBounds
+        : null;
+
+    return {
+      bounds,
+      followSelectedCard: false,
+      autoScaleOnHover: false,
+    };
+  } catch {
+    return fallback;
+  }
 };
 
 export const usePlaytestSettings = (): PlaytestSettingsState => {
@@ -85,6 +119,7 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
   const [playTestHideSceneTags, setPlayTestHideSceneTags] = useState(() =>
     getStoredBoolean('playtest-hide-scene-tags', true),
   );
+  const [playTestWindowSettings, setPlayTestWindowSettings] = useState(getStoredWindowSettings);
 
   useEffect(() => {
     window.localStorage.setItem('playtest-dark-mode', String(playTestDarkMode));
@@ -158,5 +193,7 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
     setPlayTestHideCharacterTags,
     playTestHideSceneTags,
     setPlayTestHideSceneTags,
+    playTestWindowSettings,
+    setPlayTestWindowSettings,
   };
 };

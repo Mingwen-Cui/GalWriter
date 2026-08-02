@@ -1,5 +1,7 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import type { Dispatch, SetStateAction } from 'react';
 
+import type { PlaytestWindowSettings } from '../../../domain/project';
 import type { Language } from '../../../lib/i18n';
 import type { SharedCanvasSettings } from '../canvas/canvasSettings';
 import type { RenderStyle } from '../video/shared/types';
@@ -11,6 +13,9 @@ export interface PlayTestProps {
   edges: FlowEdge[];
   onClose: () => void;
   displayMode: PlayTestDisplayMode;
+  onDisplayModeChange: (mode: PlayTestDisplayMode) => void;
+  windowSettings: PlaytestWindowSettings;
+  setWindowSettings: Dispatch<SetStateAction<PlaytestWindowSettings>>;
   selectedNodeId?: string | null;
   language: Language;
   onLanguageChange: (lang: Language) => void;

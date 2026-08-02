@@ -2,6 +2,7 @@ import { DBSchema, IDBPDatabase, openDB } from 'idb';
 
 import type {
   ApiKeySettings,
+  AssistantStoryProfile,
   ProjectSettings,
   SavedAIProfile,
   StoryProject,
@@ -35,6 +36,7 @@ export interface LocalAppSettings {
   closeButtonBehavior: 'minimize' | 'quit';
   projectFilePaths: Record<string, string>;
   defaultProjectSaveDir: string | null;
+  assistantStoryProfile?: AssistantStoryProfile | null;
 }
 
 export type LocalApiKeySettings = ApiKeySettings &
@@ -110,6 +112,7 @@ const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   closeButtonBehavior: 'quit',
   projectFilePaths: {},
   defaultProjectSaveDir: null,
+  assistantStoryProfile: null,
 };
 const AI_PROFILES_KEY = 'current';
 const DEFAULT_AI_PROFILES_STATE: LocalAIProfilesState = {

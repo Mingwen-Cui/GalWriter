@@ -1,16 +1,10 @@
 import { ScanSearch, ZoomIn } from 'lucide-react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import type { PlaytestWindowBounds } from '../../../domain/project';
 import type { Language } from '../../../lib/i18n';
 import { getPlaytestWindowText } from './i18n/playtest-window';
-
-type WindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
 
 type ResizeEdge =
   | 'top'
@@ -33,30 +27,31 @@ type ResizeState = {
   edge: ResizeEdge;
   startX: number;
   startY: number;
-  bounds: WindowBounds;
+  bounds: PlaytestWindowBounds;
 };
 
-const STORAGE_KEY = 'galwriter-playtest-window-bounds:v1';
 const VIEWPORT_PADDING = 16;
 const DEFAULT_WIDTH = 760;
-const DEFAULT_HEIGHT = 560;
-const WINDOW_ASPECT_RATIO = DEFAULT_WIDTH / DEFAULT_HEIGHT;
 const MIN_WIDTH = 520;
-const HOVER_SCALE = 1.12;
+const HOVER_SCALE = 1.18;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const normalizeAspectRatio = (value: number) =>
+  Number.isFinite(value) && value > 0 ? value : 16 / 9;
 
 const clampBounds = (
-  bounds: WindowBounds,
+  bounds: PlaytestWindowBounds,
+  aspectRatio: number,
   viewportWidth = window.innerWidth,
   viewportHeight = window.innerHeight,
-): WindowBounds => {
+): PlaytestWindowBounds => {
   const availableWidth = Math.max(280, viewportWidth - VIEWPORT_PADDING * 2);
   const availableHeight = Math.max(240, viewportHeight - VIEWPORT_PADDING * 2);
-  const maxWidth = Math.min(availableWidth, availableHeight * WINDOW_ASPECT_RATIO);
+  const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
+  const maxWidth = Math.min(availableWidth, availableHeight * normalizedAspectRatio);
   const minWidth = Math.min(MIN_WIDTH, maxWidth);
   const width = clamp(bounds.width, minWidth, maxWidth);
-  const height = width / WINDOW_ASPECT_RATIO;
+  const height = width / normalizedAspectRatio;
   const maxX = Math.max(VIEWPORT_PADDING, viewportWidth - width - VIEWPORT_PADDING);
   const maxY = Math.max(VIEWPORT_PADDING, viewportHeight - height - VIEWPORT_PADDING);
 
@@ -68,15 +63,16 @@ const clampBounds = (
   };
 };
 
-const createDefaultBounds = (): WindowBounds => {
+const createDefaultBounds = (aspectRatio: number): PlaytestWindowBounds => {
   const viewportWidth = typeof window === 'undefined' ? 1440 : window.innerWidth;
   const viewportHeight = typeof window === 'undefined' ? 900 : window.innerHeight;
+  const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
   const availableWidth = Math.min(
     viewportWidth - VIEWPORT_PADDING * 2,
-    (viewportHeight - VIEWPORT_PADDING * 2) * WINDOW_ASPECT_RATIO,
+    (viewportHeight - VIEWPORT_PADDING * 2) * normalizedAspectRatio,
   );
   const width = clamp(viewportWidth * 0.5, Math.min(MIN_WIDTH, availableWidth), DEFAULT_WIDTH);
-  const height = width / WINDOW_ASPECT_RATIO;
+  const height = width / normalizedAspectRatio;
 
   return clampBounds(
     {
@@ -85,41 +81,10 @@ const createDefaultBounds = (): WindowBounds => {
       width,
       height,
     },
+    normalizedAspectRatio,
     viewportWidth,
     viewportHeight,
   );
-};
-
-const readStoredBounds = (): WindowBounds => {
-  if (typeof window === 'undefined') return createDefaultBounds();
-  try {
-    const stored = JSON.parse(
-      window.localStorage.getItem(STORAGE_KEY) || 'null',
-    ) as Partial<WindowBounds> | null;
-    if (
-      stored &&
-      typeof stored.x === 'number' &&
-      typeof stored.y === 'number' &&
-      typeof stored.width === 'number' &&
-      typeof stored.height === 'number'
-    ) {
-      return clampBounds(stored as WindowBounds);
-    }
-  } catch {
-    // Ignore invalid local window state and restore the default bounds.
-  }
-  return createDefaultBounds();
-};
-
-const getHoveredBounds = (bounds: WindowBounds): WindowBounds => {
-  const width = bounds.width * HOVER_SCALE;
-  const height = bounds.height * HOVER_SCALE;
-  return clampBounds({
-    x: bounds.x - (width - bounds.width) / 2,
-    y: bounds.y - (height - bounds.height) / 2,
-    width,
-    height,
-  });
 };
 
 const resizeHandleClass = (edge: ResizeEdge) => {
@@ -156,44 +121,54 @@ const resizeEdges: ResizeEdge[] = [
 
 interface PlaytestFloatingWindowProps {
   language: Language;
+  aspectRatio: number;
+  initialBounds: PlaytestWindowBounds | null;
   autoScaleOnHover: boolean;
+  onBoundsChange: (bounds: PlaytestWindowBounds) => void;
   children: ReactNode;
 }
 
 export function PlaytestFloatingWindow({
   language,
+  aspectRatio,
+  initialBounds,
   autoScaleOnHover,
+  onBoundsChange,
   children,
 }: PlaytestFloatingWindowProps) {
   const text = getPlaytestWindowText(language);
-  const [bounds, setBounds] = useState(readStoredBounds);
+  const normalizedAspectRatio = normalizeAspectRatio(aspectRatio);
+  const [bounds, setBounds] = useState(() =>
+    initialBounds
+      ? clampBounds(initialBounds, normalizedAspectRatio)
+      : createDefaultBounds(normalizedAspectRatio),
+  );
   const [hovered, setHovered] = useState(false);
   const [interacting, setInteracting] = useState(false);
   const boundsRef = useRef(bounds);
-  const displayedBoundsRef = useRef(bounds);
+  const onBoundsChangeRef = useRef(onBoundsChange);
   const dragRef = useRef<DragState | null>(null);
   const resizeRef = useRef<ResizeState | null>(null);
 
   useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
+
+  useEffect(() => {
     boundsRef.current = bounds;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bounds));
-    } catch {
-      // The floating window remains usable when local storage is unavailable.
-    }
+    const persistTimer = window.setTimeout(() => {
+      onBoundsChangeRef.current(bounds);
+    }, 120);
+    return () => window.clearTimeout(persistTimer);
   }, [bounds]);
 
   useEffect(() => {
-    const handleViewportResize = () => setBounds((current) => clampBounds(current));
+    setBounds((current) => clampBounds(current, normalizedAspectRatio));
+    const handleViewportResize = () =>
+      setBounds((current) => clampBounds(current, normalizedAspectRatio));
     window.addEventListener('resize', handleViewportResize);
     return () => window.removeEventListener('resize', handleViewportResize);
-  }, []);
-
-  const displayedBounds = useMemo(
-    () => (autoScaleOnHover && hovered && !interacting ? getHoveredBounds(bounds) : bounds),
-    [autoScaleOnHover, bounds, hovered, interacting],
-  );
-  displayedBoundsRef.current = displayedBounds;
+  }, [normalizedAspectRatio]);
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -201,11 +176,11 @@ export function PlaytestFloatingWindow({
     if (!target.closest('[data-playtest-window-drag-handle]')) return;
     if (target.closest('button,input,select,textarea,a,[role="button"]')) return;
 
-    const displayed = displayedBoundsRef.current;
+    const displayed = event.currentTarget.getBoundingClientRect();
     dragRef.current = {
       pointerId: event.pointerId,
-      anchorX: clamp((event.clientX - displayed.x) / displayed.width, 0, 1),
-      anchorY: clamp((event.clientY - displayed.y) / displayed.height, 0, 1),
+      anchorX: clamp((event.clientX - displayed.left) / displayed.width, 0, 1),
+      anchorY: clamp((event.clientY - displayed.top) / displayed.height, 0, 1),
     };
     setInteracting(true);
     event.preventDefault();
@@ -217,11 +192,14 @@ export function PlaytestFloatingWindow({
     if (drag?.pointerId === event.pointerId) {
       const current = boundsRef.current;
       setBounds(
-        clampBounds({
-          ...current,
-          x: event.clientX - current.width * drag.anchorX,
-          y: event.clientY - current.height * drag.anchorY,
-        }),
+        clampBounds(
+          {
+            ...current,
+            x: event.clientX - current.width * drag.anchorX,
+            y: event.clientY - current.height * drag.anchorY,
+          },
+          normalizedAspectRatio,
+        ),
       );
       return;
     }
@@ -236,7 +214,7 @@ export function PlaytestFloatingWindow({
     const verticalHeight = resize.edge.includes('top')
       ? resize.bounds.height - deltaY
       : resize.bounds.height + deltaY;
-    const verticalWidth = verticalHeight * WINDOW_ASPECT_RATIO;
+    const verticalWidth = verticalHeight * normalizedAspectRatio;
     const usesHorizontalEdge = resize.edge.includes('left') || resize.edge.includes('right');
     const usesVerticalEdge = resize.edge.includes('top') || resize.edge.includes('bottom');
     const width =
@@ -248,7 +226,7 @@ export function PlaytestFloatingWindow({
         : usesHorizontalEdge
           ? horizontalWidth
           : verticalWidth;
-    const height = width / WINDOW_ASPECT_RATIO;
+    const height = width / normalizedAspectRatio;
     const next = {
       ...resize.bounds,
       width,
@@ -265,7 +243,7 @@ export function PlaytestFloatingWindow({
           : resize.bounds.y + (resize.bounds.height - height) / 2,
     };
 
-    setBounds(clampBounds(next));
+    setBounds(clampBounds(next, normalizedAspectRatio));
   };
 
   const endPointerInteraction = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -295,11 +273,26 @@ export function PlaytestFloatingWindow({
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
+  const hoverScale = autoScaleOnHover && hovered && !interacting ? HOVER_SCALE : 1;
+  const horizontalOrigin =
+    bounds.x <= VIEWPORT_PADDING * 2
+      ? 'left'
+      : bounds.x + bounds.width >= window.innerWidth - VIEWPORT_PADDING * 2
+        ? 'right'
+        : 'center';
+  const verticalOrigin =
+    bounds.y <= VIEWPORT_PADDING * 2
+      ? 'top'
+      : bounds.y + bounds.height >= window.innerHeight - VIEWPORT_PADDING * 2
+        ? 'bottom'
+        : 'center';
   const style: CSSProperties = {
-    left: displayedBounds.x,
-    top: displayedBounds.y,
-    width: displayedBounds.width,
-    height: displayedBounds.height,
+    left: bounds.x,
+    top: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    transform: `scale(${hoverScale})`,
+    transformOrigin: `${horizontalOrigin} ${verticalOrigin}`,
   };
 
   return (
@@ -308,9 +301,7 @@ export function PlaytestFloatingWindow({
         role="dialog"
         aria-label={text.windowTitle}
         className={`pointer-events-auto absolute overflow-visible rounded-[18px] shadow-2xl shadow-slate-950/35 ${
-          interacting
-            ? 'transition-none'
-            : 'transition-[left,top,width,height] duration-200 ease-out'
+          interacting ? 'transition-none' : 'transition-transform duration-200 ease-out'
         }`}
         style={style}
         onPointerDownCapture={beginDrag}

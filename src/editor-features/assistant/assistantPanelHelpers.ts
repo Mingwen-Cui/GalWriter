@@ -6,6 +6,7 @@ import type {
   AssistantCardPlacementMode,
 } from '../../agent/planning/agentCardDraft';
 import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
+import type { AssistantStoryProfile } from '../../domain/project';
 import type { Language } from '../../lib/i18n';
 import { htmlToSpeechText } from '../../lib/tts';
 import { createArticleTeachingRoleTemplateCards } from './article-card-templates';
@@ -40,6 +41,23 @@ export type AssistantHistorySnapshot = {
 export type AssistantWorkflowState =
   | { type: 'idle' }
   | { type: 'idea-awaiting' }
+  | {
+      type: 'profile-collecting';
+      step: AssistantStoryProfileStep;
+      profile: AssistantStoryProfile;
+      waitingForText?: boolean;
+    }
+  | {
+      type: 'profile-awaiting-opening';
+      profile: AssistantStoryProfile;
+      openings: AssistantStoryOpening[];
+    }
+  | {
+      type: 'profile-ready-to-generate';
+      profile: AssistantStoryProfile;
+      opening: AssistantStoryOpening;
+      discussing?: boolean;
+    }
   | { type: 'starter-theme' }
   | { type: 'starter-style'; theme: string; style?: string; supplement?: string }
   | { type: 'starter-supplement'; theme: string; style: string }
@@ -97,6 +115,27 @@ export type AssistantArticleAnalysisStep = {
   evidence?: string;
 };
 
+export type AssistantStoryProfileStep = 'persona' | 'genre' | 'dynamics' | 'world' | 'plot';
+
+export type AssistantStoryOpening = {
+  title: string;
+  world: string;
+  plot: string;
+  matchReason: string;
+  opening: string;
+};
+
+export const createAssistantStoryProfile = (): AssistantStoryProfile => ({
+  version: 1,
+  persona: [],
+  genres: [],
+  dynamics: [],
+  worlds: [],
+  plots: [],
+  customNotes: [],
+  updatedAt: Date.now(),
+});
+
 export type AssistantArticleAnalysisState = {
   status: 'idle' | 'reading' | 'analyzing' | 'ready' | 'error';
   summary: string;
@@ -134,7 +173,10 @@ export const createInitialAssistantTask = (language: Language): AssistantTask =>
 export const cloneAssistantTasks = (tasks: AssistantTask[]): AssistantTask[] =>
   tasks.map((task) => ({
     ...task,
-    messages: task.messages.map((message) => ({ ...message })),
+    messages: task.messages.map((message) => ({
+      ...message,
+      options: message.options?.map((option) => ({ ...option })),
+    })),
   }));
 
 export type AssistantGeneratedOption = {

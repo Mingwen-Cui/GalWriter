@@ -9,9 +9,14 @@ import type {
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
+import { localPersistenceService } from '../../editor-services/localPersistenceService';
 import { useDialog } from '../../editor-shell/DialogProvider';
 import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
-import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
+import type {
+  AssistantMessage,
+  AssistantStoryProfile,
+  AssistantTask,
+} from '../../editor-state/editorConfig';
 import {
   type AssistantDocument,
   buildAssistantDocumentContext,
@@ -28,12 +33,15 @@ import {
   type AssistantCardPlacementResult,
   type AssistantCardStreamEvent,
   assistantCardStreamProtocol,
+  type AssistantStoryOpening,
+  type AssistantStoryProfileStep,
   type AssistantHistorySnapshot,
   type AssistantSpeechRecognitionCtor,
   type AssistantSpeechRecognitionEvent,
   type AssistantWorkflowState,
   buildAssistantPlaceholderCards,
   cloneAssistantTasks,
+  createAssistantStoryProfile,
   createArticleCustomSceneCards,
   createArticleDefaultSceneCards,
   createArticleRoleCandidateCards,
@@ -61,6 +69,45 @@ export type {
 
 const formatLocalizedCopy = (template: string, values: Record<string, string | number>) =>
   template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''));
+
+const STORY_PROFILE_STEPS: AssistantStoryProfileStep[] = [
+  'persona',
+  'genre',
+  'dynamics',
+  'world',
+  'plot',
+];
+
+const storyProfileValues = (profile: AssistantStoryProfile, step: AssistantStoryProfileStep) => {
+  if (step === 'genre') return profile.genres;
+  if (step === 'dynamics') return profile.dynamics;
+  if (step === 'world') return profile.worlds;
+  if (step === 'plot') return profile.plots;
+  return profile.persona;
+};
+
+const updateStoryProfileValues = (
+  profile: AssistantStoryProfile,
+  step: AssistantStoryProfileStep,
+  values: string[],
+) => {
+  const next = { ...profile, updatedAt: Date.now() };
+  if (step === 'genre') return { ...next, genres: values };
+  if (step === 'dynamics') return { ...next, dynamics: values };
+  if (step === 'world') return { ...next, worlds: values };
+  if (step === 'plot') return { ...next, plots: values };
+  return { ...next, persona: values };
+};
+
+const formatStoryProfileForPrompt = (profile: AssistantStoryProfile) =>
+  [
+    `persona: ${profile.persona.join(', ') || '-'}`,
+    `genres: ${profile.genres.join(', ') || '-'}`,
+    `relationship and tension: ${profile.dynamics.join(', ') || '-'}`,
+    `worldbuilding: ${profile.worlds.join(', ') || '-'}`,
+    `plot direction: ${profile.plots.join(', ') || '-'}`,
+    ...(profile.customNotes?.length ? [`notes: ${profile.customNotes.join(' | ')}`] : []),
+  ].join('\n');
 
 interface UseAssistantPanelParams {
   language: Language;
@@ -136,7 +183,9 @@ interface UseAssistantPanelResult {
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleAssistantOptionSelect: (value: string) => Promise<void>;
   handleAssistantCandidateNodeSelect: (nodeId: string) => Promise<void>;
-  handleStartAssistantFlow: (flow: 'idea' | 'starter' | 'revision' | 'future') => Promise<void>;
+  handleStartAssistantFlow: (
+    flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
+  ) => Promise<void>;
   handleAssistantDocumentUpload: (
     files: FileList | null,
     intent?: 'article-to-galgame',
@@ -222,6 +271,7 @@ export const useAssistantPanel = ({
   const assistantHistoryPastRef = useRef<AssistantHistorySnapshot[]>([]);
   const assistantHistoryFutureRef = useRef<AssistantHistorySnapshot[]>([]);
   const assistantWorkflowRef = useRef<AssistantWorkflowState>({ type: 'idle' });
+  const [savedStoryProfile, setSavedStoryProfile] = useState<AssistantStoryProfile | null>(null);
   const assistantVisualizationRequestsRef = useRef(new Map<string, string[]>());
   const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
 
@@ -251,6 +301,16 @@ export const useAssistantPanel = ({
   useEffect(() => {
     assistantInputContextsRef.current = assistantInputContexts;
   }, [assistantInputContexts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void localPersistenceService.loadAssistantStoryProfile().then((profile) => {
+      if (!cancelled) setSavedStoryProfile(profile);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const createAssistantHistorySnapshot = useCallback(
     (): AssistantHistorySnapshot => ({
@@ -1259,6 +1319,212 @@ The previous streaming response did not complete every placeholder card. Return 
     ],
   );
 
+  const getStoryProfileQuestionCopy = useCallback(
+    (step: AssistantStoryProfileStep) => {
+      const profileCopy = assistantPanelCopy(language).profileFlow;
+      if (step === 'persona') {
+        return {
+          title: profileCopy.questions.persona.title,
+          choices: [
+            profileCopy.questions.persona.action,
+            profileCopy.questions.persona.observer,
+            profileCopy.questions.persona.tender,
+            profileCopy.questions.persona.unpredictable,
+          ],
+          multiple: false,
+        };
+      }
+      if (step === 'genre') {
+        return {
+          title: profileCopy.questions.genre.title,
+          choices: [
+            profileCopy.questions.genre.mystery,
+            profileCopy.questions.genre.romance,
+            profileCopy.questions.genre.healing,
+            profileCopy.questions.genre.fantasy,
+            profileCopy.questions.genre.scifi,
+            profileCopy.questions.genre.youth,
+          ],
+          multiple: true,
+        };
+      }
+      if (step === 'dynamics') {
+        return {
+          title: profileCopy.questions.dynamics.title,
+          choices: [
+            profileCopy.questions.dynamics.slowburn,
+            profileCopy.questions.dynamics.rivals,
+            profileCopy.questions.dynamics.reunion,
+            profileCopy.questions.dynamics.power,
+            profileCopy.questions.dynamics.contrast,
+            profileCopy.questions.dynamics.trust,
+          ],
+          multiple: true,
+        };
+      }
+      if (step === 'world') {
+        return {
+          title: profileCopy.questions.world.title,
+          choices: [
+            profileCopy.questions.world.city,
+            profileCopy.questions.world.campus,
+            profileCopy.questions.world.fantasy,
+            profileCopy.questions.world.future,
+            profileCopy.questions.world.closed,
+            profileCopy.questions.world.ordinary,
+          ],
+          multiple: false,
+        };
+      }
+      return {
+        title: profileCopy.questions.plot.title,
+        choices: [
+          profileCopy.questions.plot.mission,
+          profileCopy.questions.plot.mystery,
+          profileCopy.questions.plot.encounter,
+          profileCopy.questions.plot.return,
+          profileCopy.questions.plot.choice,
+          profileCopy.questions.plot.growth,
+        ],
+        multiple: false,
+      };
+    },
+    [language],
+  );
+
+  const generateStoryProfileOpenings = useCallback(
+    async (profile: AssistantStoryProfile) => {
+      const profileCopy = assistantPanelCopy(language).profileFlow;
+      if (!hasTextApiKey) {
+        onMissingTextApiKeyRequest?.();
+        return;
+      }
+      setAssistantLoading(true);
+      setAssistantMessages((messages) => [
+        ...messages,
+        { id: uuidv4(), role: 'assistant', content: profileCopy.generating },
+      ]);
+      try {
+        const prompt = formatLocalizedCopy(profileCopy.openingPrompt, {
+          profile: formatStoryProfileForPrompt(profile),
+        });
+        const result = await callAIForTextResult(prompt);
+        const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
+          openings?: Partial<AssistantStoryOpening>[];
+        };
+        const openings = (parsed.openings || [])
+          .map((opening) => ({
+            title: String(opening.title || '').trim(),
+            world: String(opening.world || '').trim(),
+            plot: String(opening.plot || '').trim(),
+            matchReason: String(opening.matchReason || '').trim(),
+            opening: String(opening.opening || '').trim(),
+          }))
+          .filter((opening) => opening.title && opening.opening && opening.world && opening.plot)
+          .slice(0, 3);
+        if (openings.length !== 3) throw new Error(profileCopy.failure);
+
+        assistantWorkflowRef.current = {
+          type: 'profile-awaiting-opening',
+          profile,
+          openings,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: profileCopy.resultIntro,
+            options: [
+              ...openings.map((opening, index) => ({
+                id: uuidv4(),
+                label: `${profileCopy.chooseOpening} · ${opening.title}`,
+                description: `${opening.world} · ${opening.plot}\n${opening.opening}\n${opening.matchReason}`,
+                value: `__profile_opening__:${index}`,
+              })),
+              {
+                id: uuidv4(),
+                label: profileCopy.regenerate,
+                value: '__profile_regenerate__',
+              },
+              {
+                id: uuidv4(),
+                label: profileCopy.save,
+                value: '__profile_save__',
+              },
+            ],
+          },
+        ]);
+      } catch {
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'assistant', content: profileCopy.failure },
+        ]);
+      } finally {
+        setAssistantLoading(false);
+      }
+    },
+    [
+      callAIForTextResult,
+      hasTextApiKey,
+      language,
+      onMissingTextApiKeyRequest,
+      setAssistantMessages,
+    ],
+  );
+
+  const askStoryProfileQuestion = useCallback(
+    (profile: AssistantStoryProfile, stepIndex: number) => {
+      const step = STORY_PROFILE_STEPS[stepIndex];
+      if (!step) {
+        void generateStoryProfileOpenings(profile);
+        return;
+      }
+      const profileCopy = assistantPanelCopy(language).profileFlow;
+      const question = getStoryProfileQuestionCopy(step);
+      const selectedValues = storyProfileValues(profile, step);
+      assistantWorkflowRef.current = { type: 'profile-collecting', step, profile };
+      setAssistantMessages((messages) => [
+        ...messages,
+        {
+          id: uuidv4(),
+          role: 'assistant',
+          content: `${formatLocalizedCopy(profileCopy.progress, { current: stepIndex + 1 })}\n${question.title}\n${
+            question.multiple ? profileCopy.chooseUpToThree : profileCopy.chooseOne
+          }`,
+          options: [
+            ...question.choices.map((label, index) => ({
+              id: uuidv4(),
+              label,
+              value: `${question.multiple ? '__profile_toggle__' : '__profile_choice__'}:${step}:${index}`,
+              selected: selectedValues.includes(label),
+            })),
+            ...(question.multiple
+              ? [
+                  {
+                    id: uuidv4(),
+                    label: profileCopy.done,
+                    value: `__profile_confirm__:${step}`,
+                  },
+                ]
+              : []),
+            {
+              id: uuidv4(),
+              label: profileCopy.custom,
+              value: `__profile_custom__:${step}`,
+            },
+            {
+              id: uuidv4(),
+              label: profileCopy.skip,
+              value: `__profile_skip__:${step}`,
+            },
+          ],
+        },
+      ]);
+    },
+    [generateStoryProfileOpenings, getStoryProfileQuestionCopy, language, setAssistantMessages],
+  );
+
   const handleAssistantSend = useCallback(
     async (overrideText?: string) => {
       const draftText = (overrideText ?? assistantInput).trim();
@@ -1311,6 +1577,17 @@ The previous streaming response did not complete every placeholder card. Return 
 
       const workflow = assistantWorkflowRef.current;
       const isIdeaWorkflow = workflow.type === 'idea-awaiting';
+      if (workflow.type === 'profile-collecting' && workflow.waitingForText) {
+        const nextProfile = updateStoryProfileValues(workflow.profile, workflow.step, [draftText]);
+        nextProfile.customNotes = [
+          ...(workflow.profile.customNotes || []),
+          `${workflow.step}: ${draftText}`,
+        ].slice(-12);
+        const stepIndex = STORY_PROFILE_STEPS.indexOf(workflow.step);
+        askStoryProfileQuestion(nextProfile, stepIndex + 1);
+        setAssistantLoading(false);
+        return;
+      }
       if (workflow.type === 'starter-theme') {
         assistantWorkflowRef.current = { type: 'starter-style', theme: userText };
         setAssistantMessages((messages) => [
@@ -1487,6 +1764,11 @@ The previous streaming response did not complete every placeholder card. Return 
               .map((note, index) => `${index + 1}. ${note}`)
               .join('\n')
           : '';
+      const savedStoryProfileContext = savedStoryProfile
+        ? formatLocalizedCopy(assistantPanelCopy(language).profileFlow.persistentContext, {
+            profile: formatStoryProfileForPrompt(savedStoryProfile),
+          })
+        : '';
       if (assistantMemorySkillEnabled && memoryNote) {
         setAssistantMemoryNotes((notes) => mergeAssistantMemoryNote(notes, memoryNote));
       }
@@ -1495,7 +1777,20 @@ The previous streaming response did not complete every placeholder card. Return 
       let forcedMode: AssistantCardPlacementMode | undefined;
       let placementOptions: AssistantCardPlacementOptions | undefined;
       const isShortDramaBundleRequest = /短剧|短劇|short drama|短編ドラマ/i.test(userText);
-      if (isIdeaWorkflow) {
+      if (workflow.type === 'profile-ready-to-generate' && !workflow.discussing) {
+        effectiveUserText = formatLocalizedCopy(assistantPanelCopy(language).profileFlow.generatePrompt, {
+          profile: formatStoryProfileForPrompt(workflow.profile),
+          opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
+        });
+        assistantWorkflowRef.current = { type: 'idle' };
+      } else if (workflow.type === 'profile-ready-to-generate' && workflow.discussing) {
+        effectiveUserText = formatLocalizedCopy(assistantPanelCopy(language).profileFlow.discussPrompt, {
+          profile: formatStoryProfileForPrompt(workflow.profile),
+          opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
+          message: userText,
+        });
+        assistantWorkflowRef.current = { type: 'idle' };
+      } else if (isIdeaWorkflow) {
         effectiveUserText = `请把这个新脑洞扩展成可落地的视觉小说开篇。用户脑洞：${userText}。请生成主要人物卡、核心场景卡，并生成6到10张按顺序推进的剧情卡，重点补足故事设定、角色关系、核心冲突和第一幕推进。`;
         assistantWorkflowRef.current = { type: 'idle' };
       } else if (isShortDramaBundleRequest) {
@@ -1609,6 +1904,8 @@ ${numberLogicInstruction}
 用户偏好记忆 skill：
 ${assistantMemoryContext || '未启用或暂无记录。'}
 如果上方有偏好记录，请优先遵守；这些记录只作为写作习惯参考，不要在 reply 中复述“我记得你的习惯”。
+
+${savedStoryProfileContext}
 
 用户请求：
 ${effectiveUserText}
@@ -1850,6 +2147,7 @@ ${canvasContext || '无'}`;
       }
     },
     [
+      askStoryProfileQuestion,
       assistantInputContexts,
       assistantInput,
       assistantLoading,
@@ -1869,6 +2167,7 @@ ${canvasContext || '无'}`;
       playAssistantThought,
       pushAssistantHistory,
       runStructuredCardStream,
+      savedStoryProfile,
       selectedAssistantTargetNodes,
       setAssistantMessages,
       setAssistantMemoryNotes,
@@ -1976,8 +2275,47 @@ options 必须正好有 3 项。`);
   );
 
   const handleStartAssistantFlow = useCallback(
-    async (flow: 'idea' | 'starter' | 'revision' | 'future') => {
+    async (flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future') => {
       if (assistantLoading) return;
+
+      if (flow === 'profile') {
+        const profileCopy = assistantPanelCopy(language).profileFlow;
+        if (savedStoryProfile) {
+          assistantWorkflowRef.current = {
+            type: 'profile-collecting',
+            step: 'persona',
+            profile: savedStoryProfile,
+          };
+          setAssistantMessages((messages) => [
+            ...messages,
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: profileCopy.savedIntro,
+              options: [
+                {
+                  id: uuidv4(),
+                  label: profileCopy.useSaved,
+                  value: '__profile_use_saved__',
+                },
+                {
+                  id: uuidv4(),
+                  label: profileCopy.refresh,
+                  value: '__profile_refresh__',
+                },
+              ],
+            },
+          ]);
+        } else {
+          const profile = createAssistantStoryProfile();
+          setAssistantMessages((messages) => [
+            ...messages,
+            { id: uuidv4(), role: 'assistant', content: profileCopy.intro },
+          ]);
+          askStoryProfileQuestion(profile, 0);
+        }
+        return;
+      }
 
       if (flow === 'idea') {
         assistantWorkflowRef.current = { type: 'idea-awaiting' };
@@ -2109,12 +2447,14 @@ cards 必须正好有 3 张。`);
       }
     },
     [
+      askStoryProfileQuestion,
       assistantLoading,
       callAIForTextResult,
       createAssistantCards,
       hasTextApiKey,
       language,
       onMissingTextApiKeyRequest,
+      savedStoryProfile,
       selectedAssistantTargetNodes,
       setAssistantMessages,
       startAgentWaiting,
@@ -2127,6 +2467,220 @@ cards 必须正好有 3 张。`);
       const cardReviewSuggestionPrefix = '__card_review_suggestion__:';
       if (value.startsWith(cardReviewSuggestionPrefix)) {
         setAssistantInput(value.slice(cardReviewSuggestionPrefix.length));
+        return;
+      }
+
+      const profileCopy = assistantPanelCopy(language).profileFlow;
+      if (value.startsWith('__profile_toggle__:')) {
+        const [, rawStep, rawIndex] = value.split(':');
+        const step = rawStep as AssistantStoryProfileStep;
+        const workflow = assistantWorkflowRef.current;
+        if (
+          !STORY_PROFILE_STEPS.includes(step) ||
+          workflow.type !== 'profile-collecting' ||
+          workflow.step !== step
+        ) {
+          return;
+        }
+        const question = getStoryProfileQuestionCopy(step);
+        const choice = question.choices[Number(rawIndex)];
+        if (!choice || !question.multiple) return;
+        const selectedValues = storyProfileValues(workflow.profile, step);
+        const nextValues = selectedValues.includes(choice)
+          ? selectedValues.filter((selected) => selected !== choice)
+          : selectedValues.length < 3
+            ? [...selectedValues, choice]
+            : selectedValues;
+        const profile = updateStoryProfileValues(workflow.profile, step, nextValues);
+        assistantWorkflowRef.current = { ...workflow, profile };
+        setAssistantMessages((messages) =>
+          messages.map((message) => ({
+            ...message,
+            options: message.options?.map((option) =>
+              option.value.startsWith(`__profile_toggle__:${step}:`)
+                ? { ...option, selected: nextValues.includes(option.label) }
+                : option,
+            ),
+          })),
+        );
+        return;
+      }
+
+      if (value.startsWith('__profile_confirm__:')) {
+        const step = value.slice('__profile_confirm__:'.length) as AssistantStoryProfileStep;
+        const workflow = assistantWorkflowRef.current;
+        if (
+          !STORY_PROFILE_STEPS.includes(step) ||
+          workflow.type !== 'profile-collecting' ||
+          workflow.step !== step
+        ) {
+          return;
+        }
+        const selectedValues = storyProfileValues(workflow.profile, step);
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'user',
+            content: selectedValues.join(' · ') || profileCopy.skip,
+          },
+        ]);
+        askStoryProfileQuestion(workflow.profile, STORY_PROFILE_STEPS.indexOf(step) + 1);
+        return;
+      }
+
+      if (value.startsWith('__profile_choice__:')) {
+        const [, rawStep, rawIndex] = value.split(':');
+        const step = rawStep as AssistantStoryProfileStep;
+        const workflow = assistantWorkflowRef.current;
+        if (
+          !STORY_PROFILE_STEPS.includes(step) ||
+          workflow.type !== 'profile-collecting' ||
+          workflow.step !== step
+        ) {
+          return;
+        }
+        const choice = getStoryProfileQuestionCopy(step).choices[Number(rawIndex)];
+        if (!choice) return;
+        const profile = updateStoryProfileValues(workflow.profile, step, [choice]);
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'user', content: choice },
+        ]);
+        askStoryProfileQuestion(profile, STORY_PROFILE_STEPS.indexOf(step) + 1);
+        return;
+      }
+
+      if (value.startsWith('__profile_skip__:')) {
+        const step = value.slice('__profile_skip__:'.length) as AssistantStoryProfileStep;
+        const workflow = assistantWorkflowRef.current;
+        if (
+          !STORY_PROFILE_STEPS.includes(step) ||
+          workflow.type !== 'profile-collecting' ||
+          workflow.step !== step
+        ) {
+          return;
+        }
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'user', content: profileCopy.skip },
+        ]);
+        askStoryProfileQuestion(workflow.profile, STORY_PROFILE_STEPS.indexOf(step) + 1);
+        return;
+      }
+
+      if (value.startsWith('__profile_custom__:')) {
+        const step = value.slice('__profile_custom__:'.length) as AssistantStoryProfileStep;
+        const workflow = assistantWorkflowRef.current;
+        if (
+          !STORY_PROFILE_STEPS.includes(step) ||
+          workflow.type !== 'profile-collecting' ||
+          workflow.step !== step
+        ) {
+          return;
+        }
+        assistantWorkflowRef.current = { ...workflow, waitingForText: true };
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'assistant', content: profileCopy.customHint },
+        ]);
+        return;
+      }
+
+      if (value === '__profile_use_saved__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'profile-collecting') return;
+        await generateStoryProfileOpenings(workflow.profile);
+        return;
+      }
+
+      if (value === '__profile_refresh__') {
+        const profile = createAssistantStoryProfile();
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'assistant', content: profileCopy.intro },
+        ]);
+        askStoryProfileQuestion(profile, 0);
+        return;
+      }
+
+      if (value.startsWith('__profile_opening__:')) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'profile-awaiting-opening') return;
+        const opening = workflow.openings[Number(value.slice('__profile_opening__:'.length))];
+        if (!opening) return;
+        assistantWorkflowRef.current = {
+          type: 'profile-ready-to-generate',
+          profile: workflow.profile,
+          opening,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'user', content: opening.title },
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: formatLocalizedCopy(profileCopy.openingSelected, { title: opening.title }),
+            options: [
+              {
+                id: uuidv4(),
+                label: profileCopy.generateCards,
+                value: '__profile_generate__',
+              },
+              { id: uuidv4(), label: profileCopy.discuss, value: '__profile_discuss__' },
+              { id: uuidv4(), label: profileCopy.save, value: '__profile_save__' },
+            ],
+          },
+        ]);
+        return;
+      }
+
+      if (value === '__profile_regenerate__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'profile-awaiting-opening') return;
+        await generateStoryProfileOpenings(workflow.profile);
+        return;
+      }
+
+      if (value === '__profile_save__') {
+        const workflow = assistantWorkflowRef.current;
+        if (
+          workflow.type !== 'profile-awaiting-opening' &&
+          workflow.type !== 'profile-ready-to-generate'
+        ) {
+          return;
+        }
+        try {
+          await localPersistenceService.saveAssistantStoryProfile(workflow.profile);
+          setSavedStoryProfile(workflow.profile);
+          setAssistantMessages((messages) => [
+            ...messages,
+            { id: uuidv4(), role: 'assistant', content: profileCopy.saved },
+          ]);
+        } catch {
+          setAssistantMessages((messages) => [
+            ...messages,
+            { id: uuidv4(), role: 'assistant', content: profileCopy.saveFailed },
+          ]);
+        }
+        return;
+      }
+
+      if (value === '__profile_generate__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'profile-ready-to-generate') return;
+        await handleAssistantSend(profileCopy.generateCards);
+        return;
+      }
+
+      if (value === '__profile_discuss__') {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'profile-ready-to-generate') return;
+        assistantWorkflowRef.current = { ...workflow, discussing: true };
+        setAssistantMessages((messages) => [
+          ...messages,
+          { id: uuidv4(), role: 'assistant', content: profileCopy.discussHint },
+        ]);
         return;
       }
 
@@ -2530,11 +3084,15 @@ cards 必须正好有 3 张。`);
       }
     },
     [
+      askStoryProfileQuestion,
+      generateStoryProfileOpenings,
+      getStoryProfileQuestionCopy,
       handleAssistantSend,
       language,
       onGenerateAssistantImagesRequest,
       requestAssistantOptions,
       setAssistantMessages,
+      setSavedStoryProfile,
     ],
   );
 

@@ -5,6 +5,8 @@ import {
   ListMusic,
   Maximize2,
   Minimize2,
+  Monitor,
+  PictureInPicture2,
   PlayCircle,
   RotateCcw,
   RotateCw,
@@ -17,6 +19,7 @@ import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getSceneBackgroundStyle, getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
 import { getPlaytestText } from './i18n';
+import { getPlaytestWindowText } from './i18n/playtest-window';
 import {
   applyPlaytestRuntimeSettingsPatch,
   createPlaytestRuntimeSettings,
@@ -124,8 +127,7 @@ export function PlayTestModal(props: PlayTestProps) {
     classicMediaFrameStyle,
   } = usePlaytestRuntime(props);
   const isWindowed = props.displayMode === 'windowed';
-  const [followSelectedCard, setFollowSelectedCard] = React.useState(false);
-  const [autoScaleOnHover, setAutoScaleOnHover] = React.useState(false);
+  const { followSelectedCard, autoScaleOnHover } = props.windowSettings;
 
   React.useEffect(() => {
     if (!isWindowed || !followSelectedCard || !props.selectedNodeId) return;
@@ -141,6 +143,7 @@ export function PlayTestModal(props: PlayTestProps) {
   }, [containerRef, isWindowed, setShowSettings]);
 
   const playtestText = getPlaytestText(language);
+  const playtestWindowText = getPlaytestWindowText(language);
   const playtestRootClassName = `${isWindowed ? 'absolute inset-0 rounded-[18px]' : 'fixed inset-0'} ${
     isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-800'
   } z-[100] overflow-hidden transition-colors duration-300 ${
@@ -148,7 +151,13 @@ export function PlayTestModal(props: PlayTestProps) {
   }`;
   const wrapWindowedContent = (content: React.ReactNode) =>
     isWindowed ? (
-      <PlaytestFloatingWindow language={language} autoScaleOnHover={autoScaleOnHover}>
+      <PlaytestFloatingWindow
+        language={language}
+        aspectRatio={canvasSettings.canvasWidth / canvasSettings.canvasHeight}
+        initialBounds={props.windowSettings.bounds}
+        autoScaleOnHover={autoScaleOnHover}
+        onBoundsChange={(bounds) => props.setWindowSettings((current) => ({ ...current, bounds }))}
+      >
         {content}
       </PlaytestFloatingWindow>
     ) : (
@@ -256,8 +265,8 @@ export function PlayTestModal(props: PlayTestProps) {
       className={`${className} inline-flex h-12 w-12 items-center justify-center rounded-full border p-0 leading-none shadow-xl backdrop-blur-lg transition-colors duration-200 active:scale-95 [&>svg]:block [&>svg]:shrink-0 ${
         isFocusMode
           ? isDarkMode
-            ? 'border-sky-500/40 bg-slate-800/80 text-sky-400 shadow-sky-950/20 hover:bg-slate-800'
-            : 'border-sky-500/30 bg-black/80 text-sky-400 shadow-black/20 hover:bg-black'
+            ? 'border-white/10 bg-slate-900/35 text-slate-400 shadow-black/10 hover:bg-slate-900/50 hover:text-slate-300'
+            : 'border-black/10 bg-black/35 text-white/55 shadow-black/10 hover:bg-black/45 hover:text-white/75'
           : isDarkMode
             ? 'border-white/10 bg-slate-900/20 text-slate-100 shadow-slate-950/30 hover:bg-slate-900/40 hover:text-white'
             : 'border-black/10 bg-white/20 text-slate-400 shadow-slate-200/30 hover:bg-white/40 hover:text-slate-900'
@@ -265,7 +274,7 @@ export function PlayTestModal(props: PlayTestProps) {
       style={style}
       title={isFocusMode ? t.exitZenMode : t.enterZenMode}
     >
-      {isFocusMode ? <EyeOff className="h-5 w-5 animate-pulse" /> : <Eye className="h-5 w-5" />}
+      {isFocusMode ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
     </button>
   );
 
@@ -346,6 +355,30 @@ export function PlayTestModal(props: PlayTestProps) {
         />
       </div>
 
+      <button
+        type="button"
+        onClick={() => {
+          setShowSettings(false);
+          setShowAudioPlaylist(false);
+          props.onDisplayModeChange(isWindowed ? 'fullscreen' : 'windowed');
+        }}
+        className={`${playtestRoundIconButtonClass} transition-colors ${
+          layoutMode === 'immersive'
+            ? 'bg-white/10 text-white hover:bg-white/20'
+            : isDarkMode
+              ? 'bg-white/10 text-white hover:bg-white/20'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+        }`}
+        title={
+          isWindowed ? playtestWindowText.switchToFullscreen : playtestWindowText.switchToWindowed
+        }
+        aria-label={
+          isWindowed ? playtestWindowText.switchToFullscreen : playtestWindowText.switchToWindowed
+        }
+      >
+        {isWindowed ? <Monitor className="h-5 w-5" /> : <PictureInPicture2 className="h-5 w-5" />}
+      </button>
+
       {isWindowed && (
         <PlaytestWindowActions
           language={language}
@@ -355,8 +388,18 @@ export function PlayTestModal(props: PlayTestProps) {
           followSelectedCard={followSelectedCard}
           hasSelectedCard={Boolean(props.selectedNodeId)}
           autoScaleOnHover={autoScaleOnHover}
-          onFollowSelectedCardChange={setFollowSelectedCard}
-          onAutoScaleOnHoverChange={setAutoScaleOnHover}
+          onFollowSelectedCardChange={(active) =>
+            props.setWindowSettings((current) => ({
+              ...current,
+              followSelectedCard: active,
+            }))
+          }
+          onAutoScaleOnHoverChange={(active) =>
+            props.setWindowSettings((current) => ({
+              ...current,
+              autoScaleOnHover: active,
+            }))
+          }
         />
       )}
 

@@ -1,5 +1,6 @@
 import type {
   ApiKeySettings,
+  AssistantStoryProfile,
   ProjectSettings,
   SavedAIProfile,
   StoryProject,
@@ -81,6 +82,14 @@ export const localPersistenceService = {
 
   loadAppSettings() {
     return getAppSettings();
+  },
+
+  async loadAssistantStoryProfile(): Promise<AssistantStoryProfile | null> {
+    return (await getAppSettings()).assistantStoryProfile ?? null;
+  },
+
+  async saveAssistantStoryProfile(profile: AssistantStoryProfile | null) {
+    await saveAppSettings({ assistantStoryProfile: profile });
   },
 
   saveAIProfiles(state: LocalAIProfilesSnapshot) {

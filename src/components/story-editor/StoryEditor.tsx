@@ -300,6 +300,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setPlayTestHideCharacterTags,
     playTestHideSceneTags,
     setPlayTestHideSceneTags,
+    playTestWindowSettings,
+    setPlayTestWindowSettings,
   } = usePlaytestSettings();
   const canvasWorkspaceKey = currentProjectId || currentProjectFilePath || 'draft';
   const sharedCanvas = useSharedCanvasSettings(canvasWorkspaceKey, {
@@ -805,6 +807,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       playTestAutoAdvanceDelay,
       playTestHideCharacterTags,
       playTestHideSceneTags,
+      playTestWindowSettings,
       sharedRenderStyle,
     }),
     [
@@ -854,6 +857,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       playTestAutoAdvanceDelay,
       playTestHideCharacterTags,
       playTestHideSceneTags,
+      playTestWindowSettings,
       playTestTypewriterSpeed,
       playTestVideoAutoPlay,
       sharedRenderStyle,
@@ -952,6 +956,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setPlayTestAutoAdvanceDelay,
       setPlayTestHideCharacterTags,
       setPlayTestHideSceneTags,
+      setPlayTestWindowSettings,
       setSharedRenderStyle,
     }),
     [
@@ -1009,6 +1014,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setPlayTestAutoAdvanceDelay,
       setPlayTestHideCharacterTags,
       setPlayTestHideSceneTags,
+      setPlayTestWindowSettings,
       setSharedRenderStyle,
     ],
   );
@@ -2512,6 +2518,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             nodes={nodes}
             edges={edges}
             displayMode={playTestDisplayMode}
+            onDisplayModeChange={setPlayTestDisplayMode}
+            windowSettings={playTestWindowSettings}
+            setWindowSettings={setPlayTestWindowSettings}
             selectedNodeId={selectedPlaytestNodeId}
             onClose={() => setPlayTestDisplayMode(null)}
             language={language}
