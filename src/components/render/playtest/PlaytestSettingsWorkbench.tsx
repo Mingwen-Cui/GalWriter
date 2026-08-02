@@ -277,7 +277,7 @@ export function PlaytestSettingsWorkbench({
 
   const inspector = (
     <div className="video-render-workspace min-w-0 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="grid grid-cols-[28px_minmax(0,1fr)_32px] items-center gap-3">
         <button
           type="button"
           onClick={() => setShowParameterDescriptions((visible) => !visible)}
@@ -296,6 +296,30 @@ export function PlaytestSettingsWorkbench({
         >
           <CircleAlert className="h-3.5 w-3.5" />
         </button>
+
+        <div className="grid min-w-0 grid-cols-4 gap-2 rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
+          {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              aria-pressed={selection === kind}
+              data-render-selection={kind}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => {
+                setSelection(kind);
+                updateRenderStyle('selectedRenderObject', kind);
+              }}
+              className={`h-9 min-w-0 truncate rounded-lg px-2 text-left text-xs font-bold transition-colors ${
+                selection === kind
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-100/90 text-slate-700 hover:bg-slate-200/90 dark:bg-white/[0.06] dark:text-slate-200 dark:hover:bg-white/10'
+              }`}
+            >
+              {objectText.object[kind]}
+            </button>
+          ))}
+        </div>
+
         <button
           type="button"
           onClick={() => setPreviewOpen((open) => !open)}
@@ -310,29 +334,6 @@ export function PlaytestSettingsWorkbench({
         >
           <MonitorPlay className="h-4 w-4" />
         </button>
-      </div>
-
-      <div className="grid grid-cols-4 gap-2 rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
-        {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            aria-pressed={selection === kind}
-            data-render-selection={kind}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => {
-              setSelection(kind);
-              updateRenderStyle('selectedRenderObject', kind);
-            }}
-            className={`h-9 min-w-0 truncate rounded-lg px-2 text-left text-xs font-bold transition-colors ${
-              selection === kind
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-100/90 text-slate-700 hover:bg-slate-200/90 dark:bg-white/[0.06] dark:text-slate-200 dark:hover:bg-white/10'
-            }`}
-          >
-            {objectText.object[kind]}
-          </button>
-        ))}
       </div>
 
       <div className="grid min-w-0 gap-x-4 gap-y-5 lg:grid-cols-2">
@@ -733,62 +734,71 @@ function PlaytestRuntimeSettingsSection({
       </div>
 
       {!collapsed && (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <RuntimeField label={text.choiceColumns} disabled={choicesPosition === 'center'}>
-            <Segmented
-              value={String(value.choicesColumns)}
-              options={[
-                ['1', '1'],
-                ['2', '2'],
-                ['3', '3'],
-              ]}
-              onChange={(choicesColumns) => onChange({ choicesColumns: Number(choicesColumns) })}
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+            <RuntimeField label={text.choiceColumns} disabled={choicesPosition === 'center'}>
+              <Segmented
+                value={String(value.choicesColumns)}
+                options={[
+                  ['1', '1'],
+                  ['2', '2'],
+                  ['3', '3'],
+                ]}
+                onChange={(choicesColumns) => onChange({ choicesColumns: Number(choicesColumns) })}
+              />
+            </RuntimeField>
+            <RuntimeNumber
+              label={text.typewriterSpeed}
+              value={value.typewriterSpeed}
+              unit="ms"
+              min={0}
+              max={500}
+              onChange={(typewriterSpeed) => onChange({ typewriterSpeed })}
             />
-          </RuntimeField>
-          <RuntimeNumber
-            label={text.typewriterSpeed}
-            value={value.typewriterSpeed}
-            unit="ms"
-            min={0}
-            max={500}
-            onChange={(typewriterSpeed) => onChange({ typewriterSpeed })}
-          />
-          <RuntimeField label={text.blurBackground}>
-            <Segmented
-              value={value.blurBackground ? 'on' : 'off'}
-              options={[
-                ['on', text.on],
-                ['off', text.off],
-              ]}
-              onChange={(next) => onChange({ blurBackground: next === 'on' })}
+            <div className="h-10 w-11" aria-hidden="true" />
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+            <RuntimeField label={text.blurBackground}>
+              <Segmented
+                value={value.blurBackground ? 'on' : 'off'}
+                options={[
+                  ['on', text.on],
+                  ['off', text.off],
+                ]}
+                onChange={(next) => onChange({ blurBackground: next === 'on' })}
+              />
+            </RuntimeField>
+            <RuntimeField label={text.blurText} disabled={!value.blurBackground}>
+              <Segmented
+                value={value.blurText ? 'on' : 'off'}
+                options={[
+                  ['on', text.on],
+                  ['off', text.off],
+                ]}
+                onChange={(next) => onChange({ blurText: next === 'on' })}
+              />
+            </RuntimeField>
+            <div className="h-10 w-11" aria-hidden="true" />
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+            <RuntimeNumber
+              label={text.choiceDelay}
+              value={value.choiceDelay}
+              unit="s"
+              min={0}
+              max={60}
+              onChange={(choiceDelay) => onChange({ choiceDelay })}
             />
-          </RuntimeField>
-          <RuntimeField label={text.blurText} disabled={!value.blurBackground}>
-            <Segmented
-              value={value.blurText ? 'on' : 'off'}
-              options={[
-                ['on', text.on],
-                ['off', text.off],
-              ]}
-              onChange={(next) => onChange({ blurText: next === 'on' })}
+            <RuntimeNumber
+              label={text.autoAdvanceDelay}
+              value={value.autoAdvanceDelay}
+              unit="s"
+              min={0}
+              max={60}
+              onChange={(autoAdvanceDelay) => onChange({ autoAdvanceDelay })}
             />
-          </RuntimeField>
-          <RuntimeNumber
-            label={text.choiceDelay}
-            value={value.choiceDelay}
-            unit="s"
-            min={0}
-            max={60}
-            onChange={(choiceDelay) => onChange({ choiceDelay })}
-          />
-          <RuntimeNumber
-            label={text.autoAdvanceDelay}
-            value={value.autoAdvanceDelay}
-            unit="s"
-            min={0}
-            max={60}
-            onChange={(autoAdvanceDelay) => onChange({ autoAdvanceDelay })}
-          />
+            <div className="h-10 w-11" aria-hidden="true" />
+          </div>
         </div>
       )}
     </section>

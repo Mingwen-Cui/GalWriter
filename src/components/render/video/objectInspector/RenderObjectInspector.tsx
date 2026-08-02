@@ -199,7 +199,13 @@ export function RenderObjectInspector({
   const advancedVideoDisabled = false;
 
   return (
-    <div className={`${surface === 'playtest' ? 'grid items-start gap-3 lg:grid-cols-2' : 'space-y-3'} text-[12px] text-slate-900`}>
+    <div
+      className={`${
+        surface === 'playtest'
+          ? 'columns-1 gap-3 lg:columns-2 [&>*]:mb-3 [&>*]:break-inside-avoid'
+          : 'space-y-3'
+      } text-[12px] text-slate-900`}
+    >
       {!hideObjectSelector && <div className={`${surface === 'playtest' ? 'rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 lg:col-span-2' : ''} grid grid-cols-4 gap-2`}>
         {objectKinds.map((kind) => (
           <button
