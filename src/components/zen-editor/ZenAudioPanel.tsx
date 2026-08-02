@@ -1,14 +1,4 @@
-import {
-  Loader2,
-  Mic,
-  Pause,
-  Play,
-  SkipForward,
-  Square,
-  Trash2,
-  Upload,
-  Volume2,
-} from 'lucide-react';
+import { Loader2, Mic, Pause, Play, SkipForward, Square, Trash2, Upload, Volume2 } from 'lucide-react';
 import type { RefObject } from 'react';
 
 import type { StoryAudioClip } from '../../domain/project';

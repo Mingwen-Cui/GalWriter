@@ -1,14 +1,5 @@
 import { NodeProps, useStore, useStoreApi } from '@xyflow/react';
-import {
-  BookOpen,
-  ChevronDown,
-  ChevronRight,
-  Layers,
-  Loader2,
-  Play,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, Layers, Loader2, Play, RefreshCw, Trash2 } from 'lucide-react';
 import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useDialog } from '../editor-shell/DialogProvider';
@@ -425,7 +416,7 @@ export function PlotStructureNode({ id, data, selected }: NodeProps) {
           >
             {isGenerating ? (
               <>
-                <Loader2 className="w-3 h-3 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
                 {tr('生成中...', '生成中...', 'Generating...')}
               </>
             ) : (

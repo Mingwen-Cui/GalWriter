@@ -344,9 +344,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
     }
 
     return currentImages.map((image, index) =>
-      index === 0
-        ? { ...image, imageUrl: url, videoUrl: undefined, isPanorama: false }
-        : image,
+      index === 0 ? { ...image, imageUrl: url, videoUrl: undefined, isPanorama: false } : image,
     );
   };
 
@@ -659,7 +657,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                   title={lang === 'zh' ? '摇色子生成/扩写场景设定' : 'Roll scene setting'}
                 >
                   {isRollingSetting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Dices className="w-4 h-4" />
                   )}
@@ -674,7 +672,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                     }
                   >
                     {isGeneratingSettingImage ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <WandSparkles className="w-4 h-4" />
                     )}

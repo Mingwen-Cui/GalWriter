@@ -1544,20 +1544,23 @@ JSON schema:
           <div className="flex min-w-0 items-center gap-2">
             {startMenuPreviewMode === 'edit' && (
               <>
-                <IconToolButton
+                <AddElementButton
                   icon={Type}
                   label={t('添加文字', 'テキスト追加', 'Add text')}
                   onClick={addCurrentSurfaceText}
+                  tone="indigo"
                 />
-                <IconToolButton
+                <AddElementButton
                   icon={ImagePlus}
                   label={t('添加图片', '画像追加', 'Add image')}
                   onClick={addCurrentSurfaceImage}
+                  tone="emerald"
                 />
-                <IconToolButton
+                <AddElementButton
                   icon={MousePointerClick}
                   label={t('添加按钮', 'ボタン追加', 'Add button')}
                   onClick={addCurrentSurfaceButton}
+                  tone="amber"
                 />
               </>
             )}
@@ -2288,6 +2291,56 @@ JSON schema:
 const isReactNodeIcon = (icon: LucideIcon | ReactNode): icon is ReactNode => isValidElement(icon);
 
 const createIconElement = (Icon: LucideIcon) => createElement(Icon, { className: 'h-3.5 w-3.5' });
+
+const addElementButtonToneClasses = {
+  indigo: {
+    button:
+      'border-indigo-500/25 bg-indigo-500/10 text-indigo-700 hover:border-indigo-500/45 hover:bg-indigo-500/15 dark:text-indigo-200',
+    icon: 'bg-indigo-600 text-white ring-indigo-500/30',
+  },
+  emerald: {
+    button:
+      'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/45 hover:bg-emerald-500/15 dark:text-emerald-200',
+    icon: 'bg-emerald-600 text-white ring-emerald-500/30',
+  },
+  amber: {
+    button:
+      'border-amber-500/30 bg-amber-500/10 text-amber-700 hover:border-amber-500/50 hover:bg-amber-500/15 dark:text-amber-200',
+    icon: 'bg-amber-500 text-slate-950 ring-amber-500/30',
+  },
+} as const;
+
+function AddElementButton({
+  icon: Icon,
+  label,
+  onClick,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  tone: keyof typeof addElementButtonToneClasses;
+}) {
+  const toneClasses = addElementButtonToneClasses[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex h-9 min-w-0 items-center gap-2 rounded-xl border py-1 pl-1 pr-2.5 text-[11px] font-bold transition-[transform,background-color,border-color,box-shadow] hover:-translate-y-px hover:shadow-sm active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vr-surface-soft)] ${toneClasses.button}`}
+      title={label}
+      aria-label={label}
+    >
+      <span
+        className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg shadow-sm ring-1 ring-inset transition-transform group-hover:scale-105 ${toneClasses.icon}`}
+        aria-hidden="true"
+      >
+        <Icon className="h-[17px] w-[17px] stroke-[2.25]" />
+      </span>
+      <span className="min-w-0 truncate">{label}</span>
+    </button>
+  );
+}
 
 function IconToolButton({
   icon: Icon,

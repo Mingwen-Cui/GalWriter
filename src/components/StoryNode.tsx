@@ -317,15 +317,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     plainSpeechText === '' ||
     Boolean(data.showTextOverlay && !hasScenePresentationImage);
   const objectFit = !data.objectFit || data.objectFit === 'contain' ? 'playtest' : data.objectFit;
-  const usesPlaytestPresentationLayout =
-    objectFit === 'playtest' && hasPresentationVisualMedia;
+  const usesPlaytestPresentationLayout = objectFit === 'playtest' && hasPresentationVisualMedia;
   const mediaStyle: React.CSSProperties = {
     objectFit: objectFit === 'fill' ? 'fill' : objectFit === 'cover' ? 'cover' : 'contain',
     objectPosition: '50% 50%',
   };
   const getSceneMediaStyle = (scene?: ScenePresentation): React.CSSProperties => {
     const cropMode =
-      scene?.cropMode || (objectFit === 'fill' ? 'stretch' : objectFit === 'cover' ? 'cover' : 'contain');
+      scene?.cropMode ||
+      (objectFit === 'fill' ? 'stretch' : objectFit === 'cover' ? 'cover' : 'contain');
     return {
       objectFit: cropMode === 'stretch' ? 'fill' : cropMode,
       objectPosition: '50% 50%',
@@ -400,7 +400,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   useEffect(() => {
     const checkMobile = () => {
-      const forceMobileUi = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mobile') === '1';
+      const forceMobileUi =
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('mobile') === '1';
       setIsMobileDevice(forceMobileUi || window.innerWidth < 768);
     };
     checkMobile();
@@ -893,18 +895,20 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       !currentNode.data?.audioUrl;
     const shouldNormalizeDefaultInitialCard =
       isDefaultInitialRoot || isDefaultInitialBranch || isEmptyStoryCard;
-    const nextHeight = shouldNormalizeDefaultInitialCard || initialAutoSizeSyncSettledRef.current
-      ? targetHeight
-      : Math.max(currentHeight, targetHeight);
-    const initialBranch =
-      isDefaultInitialRoot
-        ? storeApi.getState().nodes.find(
+    const nextHeight =
+      shouldNormalizeDefaultInitialCard || initialAutoSizeSyncSettledRef.current
+        ? targetHeight
+        : Math.max(currentHeight, targetHeight);
+    const initialBranch = isDefaultInitialRoot
+      ? storeApi
+          .getState()
+          .nodes.find(
             (node) =>
               node.id === 'initial-branch' &&
               node.data?.title === '分支' &&
               node.data?.text === '山里有座庙',
           )
-        : undefined;
+      : undefined;
     const normalizedInitialBranchY = initialBranch
       ? currentNode.position.y + nextHeight + 120
       : undefined;
@@ -939,10 +943,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 ...node,
                 position: { ...node.position, y: normalizedInitialBranchY! },
               }
-          : node,
+            : node,
       ),
     );
-
   }, [
     computeAutoMinHeight,
     hasMediaTextLayout,
@@ -1067,8 +1070,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       // should opt it back into auto sizing instead of preserving a redundant
       // custom height.
       const automaticMinimum = computeAutoMinHeight(params.width) ?? autoMinHeight;
-      const hasReturnedToAutomaticMinimum =
-        Math.abs(params.height - automaticMinimum) <= 1;
+      const hasReturnedToAutomaticMinimum = Math.abs(params.height - automaticMinimum) <= 1;
 
       if (hasReturnedToAutomaticMinimum) {
         if (data.sizeMode === 'custom') updateNodeData({ sizeMode: 'auto' });
@@ -1177,7 +1179,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       const name =
         typeof sourceNode.data.characterName === 'string'
           ? sourceNode.data.characterName.trim()
-        : '';
+          : '';
       return Boolean(name && characterMentionNames.has(name));
     });
     const remainingCharacterIds = new Set(
@@ -1262,12 +1264,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             showTextOverlay: true,
           }
         : removedScene
-        ? {
-            imageUrl: removedScene.previousImageUrl,
-            videoUrl: removedScene.previousVideoUrl,
-            showTextOverlay: removedScene.previousShowTextOverlay ?? data.showTextOverlay,
-          }
-        : {}),
+          ? {
+              imageUrl: removedScene.previousImageUrl,
+              videoUrl: removedScene.previousVideoUrl,
+              showTextOverlay: removedScene.previousShowTextOverlay ?? data.showTextOverlay,
+            }
+          : {}),
       presentation: {
         ...presentation,
         scene: nextScene,
@@ -1594,7 +1596,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         const sceneMedia =
           sourceNode.type === 'sceneNode'
             ? getScenePrimaryMedia(sourceNode.data as SceneNodeData)
-            : { imageUrl: sourceNode.data.coverImageUrl as string | undefined, videoUrl: undefined };
+            : {
+                imageUrl: sourceNode.data.coverImageUrl as string | undefined,
+                videoUrl: undefined,
+              };
         updateNodeData({
           imageUrl: sceneMedia.imageUrl,
           videoUrl: sceneMedia.videoUrl,
@@ -1633,7 +1638,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       mentionId: mention.id,
       placement: mention.placement,
     });
-    if (mention.placement !== 'inline') replayPresentation(mention.kind, sourceNode.id, placementPhase);
+    if (mention.placement !== 'inline')
+      replayPresentation(mention.kind, sourceNode.id, placementPhase);
   };
 
   const handleGenerateImage = async () => {
@@ -1976,7 +1982,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       : '';
 
   const inlinePreviewDurationFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
-    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+    inlineActionPreview?.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? Math.max(80, inlineActionPreview.action.duration || 300)
       : 0;
 
@@ -1988,12 +1995,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       : undefined;
 
   const inlinePreviewCssVarsFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
-    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+    inlineActionPreview?.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? inlineActionCssVars(inlineActionPreview.action)
       : {};
 
   const inlinePreviewNonceFor = (kind: 'character' | 'scene', sourceNodeId: string) =>
-    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+    inlineActionPreview?.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? inlineActionPreview.nonce
       : 0;
 
@@ -2208,7 +2217,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     }
                   >
                     {recordingState === 'encoding' ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : recordingState === 'recording' ? (
                       <Square className="w-4 h-4 fill-current" />
                     ) : (
@@ -2223,7 +2232,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       title={lang === 'zh' ? '文字转音频' : 'Text to audio'}
                     >
                       {isGeneratingSpeech ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Volume2 className="w-4 h-4" />
                       )}
@@ -2433,16 +2442,16 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               </ToolGroup>
 
               <>
-                  <Separator />
-                  <ToolGroup>
-                    <button
-                      onClick={() => data.onDelete?.(id)}
-                      className={`${iconBtnBase} text-red-400 hover:text-red-300 hover:bg-red-500/10`}
-                      title="删除"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </ToolGroup>
+                <Separator />
+                <ToolGroup>
+                  <button
+                    onClick={() => data.onDelete?.(id)}
+                    className={`${iconBtnBase} text-red-400 hover:text-red-300 hover:bg-red-500/10`}
+                    title="删除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </ToolGroup>
               </>
             </ToolbarRow>
           </div>
@@ -2553,7 +2562,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               )
                             : '',
                           storyPresentation.scene
-                            ? inlinePreviewTransformFor('scene', storyPresentation.scene.sourceNodeId)
+                            ? inlinePreviewTransformFor(
+                                'scene',
+                                storyPresentation.scene.sourceNodeId,
+                              )
                             : '',
                         ]
                           .filter(Boolean)
@@ -2573,9 +2585,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         presentationPreview.sourceNodeId === storyPresentation.scene.sourceNodeId
                           ? `transform ${storyPresentation.scene[presentationPreview.phase].duration}ms ease, opacity ${storyPresentation.scene[presentationPreview.phase].duration}ms ease`
                           : storyPresentation.scene &&
-                              inlinePreviewDurationFor('scene', storyPresentation.scene.sourceNodeId)
+                              inlinePreviewDurationFor(
+                                'scene',
+                                storyPresentation.scene.sourceNodeId,
+                              )
                             ? `transform ${inlinePreviewDurationFor('scene', storyPresentation.scene.sourceNodeId)}ms ease`
-                          : undefined,
+                            : undefined,
                       zIndex: storyPresentation.scene
                         ? clampCharacterLayer(storyPresentation.scene.layer)
                         : 0,
@@ -2589,7 +2604,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     alt=""
                   />
                 )}
-                {(hasScenePresentationVideo || (hasScenePresentationImage && previewSceneMedia.videoUrl)) && (
+                {(hasScenePresentationVideo ||
+                  (hasScenePresentationImage && previewSceneMedia.videoUrl)) && (
                   <video
                     key={`scene-video-preview-${presentationPreview?.nonce || 0}-${storyPresentation.scene ? inlinePreviewNonceFor('scene', storyPresentation.scene.sourceNodeId) : 0}`}
                     src={previewSceneMedia.videoUrl || videoUrl}
@@ -2607,48 +2623,50 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     playsInline
                   />
                 )}
-                {presentedCharacters.map(({ config, imageUrl: characterImageUrl, data: characterData, name }) => {
-                  const previewMatches =
-                    presentationPreview?.kind === 'character' &&
-                    presentationPreview.sourceNodeId === config.sourceNodeId;
-                  const phase = presentationPreview?.phase === 'exit' ? 'exit' : 'enter';
-                  const motion = config[phase];
-                  const animated = isPreviewAnimatedState('character', config.sourceNodeId);
-                  const previewImageUrl =
-                    resolveCharacterImageUrl(
-                      characterData,
-                      config,
-                      inlinePreviewSwitchFor('character', config.sourceNodeId),
-                    ) || characterImageUrl;
-                  return (
-                    <img
-                      key={`${config.sourceNodeId}-${presentationPreview?.nonce || 0}-${inlinePreviewNonceFor('character', config.sourceNodeId)}`}
-                      src={previewImageUrl}
-                      alt={name}
-                      className="absolute w-auto object-contain object-bottom"
-                      style={{
-                        ...getCharacterStageBounds(config),
-                        zIndex: clampCharacterLayer(config.layer),
-                        opacity: animated && motion.type === 'fade' ? 0 : 1,
-                        transform: `translate(-50%, 0) ${
-                          animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
-                        } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlinePreviewTransformFor(
-                          'character',
-                          config.sourceNodeId,
-                        )}`,
-                        transformOrigin: 'bottom center',
-                        transition:
-                          previewMatches && motion.type !== 'none' && motion.duration > 0
-                            ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
-                            : inlinePreviewDurationFor('character', config.sourceNodeId)
-                              ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
-                            : undefined,
-                        animation: inlinePreviewAnimationFor('character', config.sourceNodeId),
-                        ...inlinePreviewCssVarsFor('character', config.sourceNodeId),
-                      }}
-                    />
-                  );
-                })}
+                {presentedCharacters.map(
+                  ({ config, imageUrl: characterImageUrl, data: characterData, name }) => {
+                    const previewMatches =
+                      presentationPreview?.kind === 'character' &&
+                      presentationPreview.sourceNodeId === config.sourceNodeId;
+                    const phase = presentationPreview?.phase === 'exit' ? 'exit' : 'enter';
+                    const motion = config[phase];
+                    const animated = isPreviewAnimatedState('character', config.sourceNodeId);
+                    const previewImageUrl =
+                      resolveCharacterImageUrl(
+                        characterData,
+                        config,
+                        inlinePreviewSwitchFor('character', config.sourceNodeId),
+                      ) || characterImageUrl;
+                    return (
+                      <img
+                        key={`${config.sourceNodeId}-${presentationPreview?.nonce || 0}-${inlinePreviewNonceFor('character', config.sourceNodeId)}`}
+                        src={previewImageUrl}
+                        alt={name}
+                        className="absolute w-auto object-contain object-bottom"
+                        style={{
+                          ...getCharacterStageBounds(config),
+                          zIndex: clampCharacterLayer(config.layer),
+                          opacity: animated && motion.type === 'fade' ? 0 : 1,
+                          transform: `translate(-50%, 0) ${
+                            animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
+                          } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlinePreviewTransformFor(
+                            'character',
+                            config.sourceNodeId,
+                          )}`,
+                          transformOrigin: 'bottom center',
+                          transition:
+                            previewMatches && motion.type !== 'none' && motion.duration > 0
+                              ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
+                              : inlinePreviewDurationFor('character', config.sourceNodeId)
+                                ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
+                                : undefined,
+                          animation: inlinePreviewAnimationFor('character', config.sourceNodeId),
+                          ...inlinePreviewCssVarsFor('character', config.sourceNodeId),
+                        }}
+                      />
+                    );
+                  },
+                )}
               </div>
             </VirtualPresentationStage>
           )}
@@ -2771,7 +2789,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         title="AI 操作"
       >
         {data.isAILoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <Sparkles className="w-4 h-4" />
         )}
@@ -3297,260 +3315,266 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   })()
                 : presentationMenu.placement !== 'inline'
                   ? (() => {
-                    const presentation = getPresentation();
-                    const current =
-                      presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
-                        ? presentation.scene
-                        : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
-                    const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
-                    return (
-                      <div className="space-y-3 text-xs">
-                        <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                copyScenePresentationSettings(current);
-                                setPresentationClipboardVersion((version) => version + 1);
-                              }}
-                              className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors flex items-center justify-center"
-                              title="复制设置"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!hasScenePresentationClipboard()}
-                              onClick={() =>
-                                updateScenePresentation(
-                                  presentationMenu.sourceNodeId,
-                                  pasteScenePresentationSettings,
-                                )
-                              }
-                              className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[var(--text-secondary)] disabled:hover:bg-transparent flex items-center justify-center"
-                              title="粘贴设置"
-                            >
-                              <ClipboardPaste className="h-4 w-4" />
-                            </button>
-                          </div>
-                          <div className="w-px h-4 bg-[var(--card-border)]/40 shrink-0" />
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleCreateSceneTemplate(current)}
-                              className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors flex items-center justify-center"
-                              title="新建模板"
-                            >
-                              <Save className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowSceneTemplateList(!showSceneTemplateList)}
-                              className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${showSceneTemplateList ? 'text-blue-500 bg-blue-500/10' : 'text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10'}`}
-                              title="模板列表"
-                            >
-                              <List className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                        {showSceneTemplateList && (
-                          <div className="mt-2 border border-[var(--card-border)]/40 rounded-lg bg-[var(--app-bg)]/50 p-2 space-y-1.5 max-h-48 overflow-y-auto">
-                            <div className="text-[10px] font-bold text-[var(--text-muted)] px-1 flex justify-between items-center">
-                              <span>已存场景模板</span>
-                              {sceneTemplates.length === 0 && (
-                                <span className="font-normal">暂无模板</span>
-                              )}
-                            </div>
-                            {sceneTemplates.map((tpl) => (
-                              <div
-                                key={tpl.id}
-                                className="flex items-center justify-between gap-1.5 bg-[var(--card-bg)] p-1.5 rounded border border-[var(--card-border)]/30 hover:border-blue-500/30 transition-colors"
+                      const presentation = getPresentation();
+                      const current =
+                        presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
+                          ? presentation.scene
+                          : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
+                      const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
+                      return (
+                        <div className="space-y-3 text-xs">
+                          <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  copyScenePresentationSettings(current);
+                                  setPresentationClipboardVersion((version) => version + 1);
+                                }}
+                                className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors flex items-center justify-center"
+                                title="复制设置"
                               >
-                                <input
-                                  type="text"
-                                  value={tpl.name}
-                                  onChange={(e) =>
-                                    handleRenameSceneTemplate(tpl.id, e.target.value)
-                                  }
-                                  className="flex-1 min-w-0 bg-transparent text-xs font-semibold text-[var(--text-primary)] outline-none border-b border-transparent focus:border-blue-500/50 pb-0.5 px-0.5"
-                                  placeholder="模板名称"
-                                />
-                                <div className="flex items-center gap-0.5 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleApplySceneTemplate(tpl)}
-                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
-                                    title="应用模板"
-                                  >
-                                    使用
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteSceneTemplate(tpl.id)}
-                                    className="p-1 rounded text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                                    title="删除模板"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                                </div>
+                                <Copy className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!hasScenePresentationClipboard()}
+                                onClick={() =>
+                                  updateScenePresentation(
+                                    presentationMenu.sourceNodeId,
+                                    pasteScenePresentationSettings,
+                                  )
+                                }
+                                className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[var(--text-secondary)] disabled:hover:bg-transparent flex items-center justify-center"
+                                title="粘贴设置"
+                              >
+                                <ClipboardPaste className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div className="w-px h-4 bg-[var(--card-border)]/40 shrink-0" />
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleCreateSceneTemplate(current)}
+                                className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors flex items-center justify-center"
+                                title="新建模板"
+                              >
+                                <Save className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowSceneTemplateList(!showSceneTemplateList)}
+                                className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${showSceneTemplateList ? 'text-blue-500 bg-blue-500/10' : 'text-[var(--text-secondary)] hover:text-blue-500 hover:bg-blue-500/10'}`}
+                                title="模板列表"
+                              >
+                                <List className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          {showSceneTemplateList && (
+                            <div className="mt-2 border border-[var(--card-border)]/40 rounded-lg bg-[var(--app-bg)]/50 p-2 space-y-1.5 max-h-48 overflow-y-auto">
+                              <div className="text-[10px] font-bold text-[var(--text-muted)] px-1 flex justify-between items-center">
+                                <span>已存场景模板</span>
+                                {sceneTemplates.length === 0 && (
+                                  <span className="font-normal">暂无模板</span>
+                                )}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                        <label className="flex items-center gap-2">
-                          <span className="shrink-0 font-bold">
-                            缩放：{Math.round(current.scale * 100)}%
-                          </span>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="2"
-                            step="0.05"
-                            value={current.scale}
-                            onChange={(event) =>
-                              updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                ...item,
-                                scale: Number(event.target.value),
-                              }))
-                            }
-                            className="min-w-0 flex-1"
-                          />
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <label className="min-w-0 space-y-1">
-                            <span className="block truncate font-bold">水平偏移</span>
-                            <DraggableNumberInput
-                              value={current.offsetX}
-                              min={-100}
-                              max={100}
-                              unit="%"
-                              onChange={(value) =>
-                                updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                  ...item,
-                                  offsetX: value,
-                                }))
-                              }
-                            />
-                          </label>
-                          <label className="min-w-0 space-y-1">
-                            <span className="block truncate font-bold">垂直偏移</span>
-                            <DraggableNumberInput
-                              value={current.offsetY}
-                              min={-100}
-                              max={100}
-                              unit="%"
-                              onChange={(value) =>
-                                updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
-                                  ...item,
-                                  offsetY: value,
-                                }))
-                              }
-                            />
-                          </label>
-                        </div>
-                        {([activePhase] as const).map((phase) => (
-                          <div key={phase} className="flex items-center gap-2">
+                              {sceneTemplates.map((tpl) => (
+                                <div
+                                  key={tpl.id}
+                                  className="flex items-center justify-between gap-1.5 bg-[var(--card-bg)] p-1.5 rounded border border-[var(--card-border)]/30 hover:border-blue-500/30 transition-colors"
+                                >
+                                  <input
+                                    type="text"
+                                    value={tpl.name}
+                                    onChange={(e) =>
+                                      handleRenameSceneTemplate(tpl.id, e.target.value)
+                                    }
+                                    className="flex-1 min-w-0 bg-transparent text-xs font-semibold text-[var(--text-primary)] outline-none border-b border-transparent focus:border-blue-500/50 pb-0.5 px-0.5"
+                                    placeholder="模板名称"
+                                  />
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApplySceneTemplate(tpl)}
+                                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
+                                      title="应用模板"
+                                    >
+                                      使用
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteSceneTemplate(tpl.id)}
+                                      className="p-1 rounded text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                      title="删除模板"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <label className="flex items-center gap-2">
                             <span className="shrink-0 font-bold">
-                              {phase === 'enter' ? '入场动画' : '出场动画'}
+                              缩放：{Math.round(current.scale * 100)}%
                             </span>
-                            <label className="min-w-0 flex-1">
-                              <ZenSelect
-                                value={current[phase].type}
-                                onChange={(type) =>
-                                  updateScenePresentation(
-                                    presentationMenu.sourceNodeId,
-                                    (item) => ({
-                                      ...item,
-                                      [phase]: {
-                                        ...item[phase],
-                                        type,
-                                      },
-                                    }),
-                                    phase,
-                                  )
-                                }
-                                options={ANIMATION_OPTIONS}
-                                ariaLabel={phase === 'enter' ? '入场动画' : '出场动画'}
-                                menuMinWidth={140}
-                                menuTextScale={presentationMenuScale}
-                              />
-                            </label>
-                            <span className="ml-auto shrink-0 font-bold">时长</span>
-                            <label className="w-[58px] shrink-0">
-                              <DurationInput
-                                value={current[phase].duration}
-                                onChange={(duration) =>
-                                  updateScenePresentation(
-                                    presentationMenu.sourceNodeId,
-                                    (item) => ({
-                                      ...item,
-                                      [phase]: {
-                                        ...item[phase],
-                                        duration,
-                                      },
-                                    }),
-                                    phase,
-                                  )
-                                }
-                              />
-                            </label>
-                          </div>
-                        ))}
-                        <div className="flex items-center justify-between gap-2">
-                          <label className="flex min-w-0 items-center gap-2">
-                            <span className="shrink-0 font-bold">Z轴</span>
-                            <div className="w-20">
+                            <input
+                              type="range"
+                              min="0.5"
+                              max="2"
+                              step="0.05"
+                              value={current.scale}
+                              onChange={(event) =>
+                                updateScenePresentation(presentationMenu.sourceNodeId, (item) => ({
+                                  ...item,
+                                  scale: Number(event.target.value),
+                                }))
+                              }
+                              className="min-w-0 flex-1"
+                            />
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="min-w-0 space-y-1">
+                              <span className="block truncate font-bold">水平偏移</span>
                               <DraggableNumberInput
-                                value={clampCharacterLayer(current.layer)}
-                                min={1}
-                                max={20}
-                                unit={null}
+                                value={current.offsetX}
+                                min={-100}
+                                max={100}
+                                unit="%"
                                 onChange={(value) =>
                                   updateScenePresentation(
                                     presentationMenu.sourceNodeId,
                                     (item) => ({
                                       ...item,
-                                      layer: clampCharacterLayer(value),
+                                      offsetX: value,
                                     }),
                                   )
                                 }
                               />
+                            </label>
+                            <label className="min-w-0 space-y-1">
+                              <span className="block truncate font-bold">垂直偏移</span>
+                              <DraggableNumberInput
+                                value={current.offsetY}
+                                min={-100}
+                                max={100}
+                                unit="%"
+                                onChange={(value) =>
+                                  updateScenePresentation(
+                                    presentationMenu.sourceNodeId,
+                                    (item) => ({
+                                      ...item,
+                                      offsetY: value,
+                                    }),
+                                  )
+                                }
+                              />
+                            </label>
+                          </div>
+                          {([activePhase] as const).map((phase) => (
+                            <div key={phase} className="flex items-center gap-2">
+                              <span className="shrink-0 font-bold">
+                                {phase === 'enter' ? '入场动画' : '出场动画'}
+                              </span>
+                              <label className="min-w-0 flex-1">
+                                <ZenSelect
+                                  value={current[phase].type}
+                                  onChange={(type) =>
+                                    updateScenePresentation(
+                                      presentationMenu.sourceNodeId,
+                                      (item) => ({
+                                        ...item,
+                                        [phase]: {
+                                          ...item[phase],
+                                          type,
+                                        },
+                                      }),
+                                      phase,
+                                    )
+                                  }
+                                  options={ANIMATION_OPTIONS}
+                                  ariaLabel={phase === 'enter' ? '入场动画' : '出场动画'}
+                                  menuMinWidth={140}
+                                  menuTextScale={presentationMenuScale}
+                                />
+                              </label>
+                              <span className="ml-auto shrink-0 font-bold">时长</span>
+                              <label className="w-[58px] shrink-0">
+                                <DurationInput
+                                  value={current[phase].duration}
+                                  onChange={(duration) =>
+                                    updateScenePresentation(
+                                      presentationMenu.sourceNodeId,
+                                      (item) => ({
+                                        ...item,
+                                        [phase]: {
+                                          ...item[phase],
+                                          duration,
+                                        },
+                                      }),
+                                      phase,
+                                    )
+                                  }
+                                />
+                              </label>
                             </div>
-                          </label>
-                          <label
-                            className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold ${
-                              activePhase === 'enter'
-                                ? '!bg-emerald-500/10 !text-emerald-600'
-                                : '!bg-rose-500/10 !text-rose-500'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={autoPreviewPresentationMotion}
-                              onChange={(event) =>
-                                setAutoPreviewPresentationMotion(event.target.checked)
-                              }
-                              className={`h-4 w-4 ${
-                                activePhase === 'enter' ? 'accent-emerald-500' : 'accent-rose-500'
+                          ))}
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="flex min-w-0 items-center gap-2">
+                              <span className="shrink-0 font-bold">Z轴</span>
+                              <div className="w-20">
+                                <DraggableNumberInput
+                                  value={clampCharacterLayer(current.layer)}
+                                  min={1}
+                                  max={20}
+                                  unit={null}
+                                  onChange={(value) =>
+                                    updateScenePresentation(
+                                      presentationMenu.sourceNodeId,
+                                      (item) => ({
+                                        ...item,
+                                        layer: clampCharacterLayer(value),
+                                      }),
+                                    )
+                                  }
+                                />
+                              </div>
+                            </label>
+                            <label
+                              className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold ${
+                                activePhase === 'enter'
+                                  ? '!bg-emerald-500/10 !text-emerald-600'
+                                  : '!bg-rose-500/10 !text-rose-500'
                               }`}
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                replayPresentation(
-                                  'scene',
-                                  presentationMenu.sourceNodeId,
-                                  activePhase,
-                                )
-                              }
-                              className="flex items-center gap-1.5"
                             >
-                              {activePhase === 'enter' ? '预览入场' : '预览出场'}
-                            </button>
-                          </label>
+                              <input
+                                type="checkbox"
+                                checked={autoPreviewPresentationMotion}
+                                onChange={(event) =>
+                                  setAutoPreviewPresentationMotion(event.target.checked)
+                                }
+                                className={`h-4 w-4 ${
+                                  activePhase === 'enter' ? 'accent-emerald-500' : 'accent-rose-500'
+                                }`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  replayPresentation(
+                                    'scene',
+                                    presentationMenu.sourceNodeId,
+                                    activePhase,
+                                  )
+                                }
+                                className="flex items-center gap-1.5"
+                              >
+                                {activePhase === 'enter' ? '预览入场' : '预览出场'}
+                              </button>
+                            </label>
+                          </div>
                         </div>
-                      </div>
-                    );
+                      );
                     })()
                   : null}
             </div>
@@ -3566,7 +3590,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           title={lang === 'zh' ? '生成图片' : 'Generate Image'}
         >
           {isGeneratingImage ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <ImageIcon className="w-4 h-4" />
           )}

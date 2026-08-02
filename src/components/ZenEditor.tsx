@@ -34,6 +34,11 @@ import type {
 import { useDialog } from '../editor-shell/DialogProvider';
 import { convertRecordingToMp3 } from '../lib/audioRecording';
 import {
+  inlineActionAnimation,
+  inlineActionCssVars,
+  inlineActionTransform,
+} from '../lib/inlinePresentationPlayback';
+import {
   clampCharacterLayer,
   copyCharacterPresentationSettings,
   copyScenePresentationSettings,
@@ -48,21 +53,16 @@ import {
   pasteCharacterPresentationSettings,
   pasteScenePresentationSettings,
 } from '../lib/presentation';
-import {
-  inlineActionAnimation,
-  inlineActionCssVars,
-  inlineActionTransform,
-} from '../lib/inlinePresentationPlayback';
+import { DraggableNumberInput } from './DraggableNumberInput';
+import { DurationInput } from './DurationInput';
 import { InlineActionEditor } from './InlineActionEditor';
 import { RichText, RichTextHandle } from './RichText';
-import { DurationInput } from './DurationInput';
-import { DraggableNumberInput } from './DraggableNumberInput';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
+import type { ZenRightPanel } from './zen-editor/types';
 import { ZenAudioPanel } from './zen-editor/ZenAudioPanel';
 import { ZenMobileTagStrip } from './zen-editor/ZenMobileTagStrip';
 import { ZenPanelTabs } from './zen-editor/ZenPanelTabs';
 import { ZenSelect } from './zen-editor/ZenSelect';
-import type { ZenRightPanel } from './zen-editor/types';
 
 type ZenTag = {
   id: string;
@@ -134,7 +134,12 @@ export function ZenEditor({
   const [waveformLevels, setWaveformLevels] = useState<number[]>(() => Array(24).fill(0.08));
   const [toolbarMenu, setToolbarMenu] = useState<'colors' | 'sizes' | null>(null);
   const [presentationMenu, setPresentationMenu] = useState<
-    (ZenTag & { kind: 'character' | 'scene'; mentionId?: string; placement?: 'start' | 'end' | 'inline' }) | null
+    | (ZenTag & {
+        kind: 'character' | 'scene';
+        mentionId?: string;
+        placement?: 'start' | 'end' | 'inline';
+      })
+    | null
   >(null);
   const [preview, setPreview] = useState<{
     kind: 'character' | 'scene';
@@ -496,9 +501,7 @@ export function ZenEditor({
     });
   };
 
-  const deletePresentationTarget = (
-    menu: NonNullable<typeof presentationMenu>,
-  ) => {
+  const deletePresentationTarget = (menu: NonNullable<typeof presentationMenu>) => {
     onPresentationChange?.(
       menu.kind === 'character'
         ? {
@@ -559,7 +562,8 @@ export function ZenEditor({
       });
     }
     setPresentationMenu({ ...tag, kind: 'character', ...options });
-    if (options.placement !== 'inline') replayCharacter(tag.id, presentationPhaseForPlacement(options.placement));
+    if (options.placement !== 'inline')
+      replayCharacter(tag.id, presentationPhaseForPlacement(options.placement));
   };
 
   const replayScene = (
@@ -615,7 +619,8 @@ export function ZenEditor({
       });
     }
     setPresentationMenu({ ...tag, kind: 'scene', ...options });
-    if (options.placement !== 'inline') replayScene(tag.id, presentationPhaseForPlacement(options.placement));
+    if (options.placement !== 'inline')
+      replayScene(tag.id, presentationPhaseForPlacement(options.placement));
   };
 
   const cardVideoMentionName = '卡片视频';
@@ -625,11 +630,7 @@ export function ZenEditor({
 
   useEffect(() => {
     if (!presentationMenu) return;
-    if (
-      presentationMenu.kind === 'scene' &&
-      videoUrl &&
-      presentationMenu.id === nodeId
-    ) {
+    if (presentationMenu.kind === 'scene' && videoUrl && presentationMenu.id === nodeId) {
       return;
     }
     const tags = presentationMenu.kind === 'character' ? characterTags : sceneTags;
@@ -931,7 +932,8 @@ export function ZenEditor({
       : '';
 
   const inlinePreviewDurationFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
-    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+    inlineActionPreview?.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? Math.max(80, inlineActionPreview.action.duration || 300)
       : 0;
 
@@ -943,12 +945,14 @@ export function ZenEditor({
       : undefined;
 
   const inlinePreviewCssVarsFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
-    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+    inlineActionPreview?.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? inlineActionCssVars(inlineActionPreview.action)
       : {};
 
   const inlinePreviewNonceFor = (kind: 'character' | 'scene', sourceNodeId?: string) =>
-    inlineActionPreview?.action.kind === kind && inlineActionPreview.action.sourceNodeId === sourceNodeId
+    inlineActionPreview?.action.kind === kind &&
+    inlineActionPreview.action.sourceNodeId === sourceNodeId
       ? inlineActionPreview.nonce
       : 0;
 
@@ -1347,8 +1351,11 @@ export function ZenEditor({
                                   ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
                                   : inlinePreviewDurationFor('character', config.sourceNodeId)
                                     ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
-                                  : undefined,
-                              animation: inlinePreviewAnimationFor('character', config.sourceNodeId),
+                                    : undefined,
+                              animation: inlinePreviewAnimationFor(
+                                'character',
+                                config.sourceNodeId,
+                              ),
                               ...inlinePreviewCssVarsFor('character', config.sourceNodeId),
                             }}
                           />
@@ -2331,7 +2338,6 @@ export function ZenEditor({
               deleteClip={deleteClip}
             />
           )}
-
         </div>
       </aside>
     </div>

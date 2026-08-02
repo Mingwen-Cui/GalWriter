@@ -7,7 +7,6 @@ import {
   FileText,
   Film,
   Gamepad2,
-  Loader2,
   Maximize2,
   Minimize2,
   PanelLeftClose,
@@ -23,6 +22,7 @@ import {
 } from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
+import { LoadingAnimation } from '../../../LoadingAnimation';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import { type CodeTextKey, getCodeText } from '../../code/i18n';
 import { getPptCopy } from '../../ppt/i18n';
@@ -487,7 +487,7 @@ export function RenderHeader({
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
         >
           {isRendering ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoadingAnimation className="h-4 w-4" />
           ) : (
             <Download className="h-4 w-4" />
           )}

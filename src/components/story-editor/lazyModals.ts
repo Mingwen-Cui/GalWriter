@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 
 export const PlayTestModal = lazy(() =>
-  import('../PlayTestModal').then((module) => ({ default: module.PlayTestModal })),
+  import('../render/playtest/PlayTestModal').then((module) => ({ default: module.PlayTestModal })),
 );
 export const ZenEditor = lazy(() =>
   import('../ZenEditor').then((module) => ({ default: module.ZenEditor })),

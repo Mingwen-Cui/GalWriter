@@ -1,0 +1,32 @@
+.loading-animation {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.loading-animation__player {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.loading-animation__reduced-mark {
+  display: none;
+  width: 42%;
+  height: 42%;
+  border-radius: 9999px;
+  background: #1927e2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-animation__player {
+    display: none;
+  }
+
+  .loading-animation__reduced-mark {
+    display: block;
+  }
+}

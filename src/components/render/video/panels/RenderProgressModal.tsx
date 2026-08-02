@@ -1,6 +1,7 @@
-import { Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
+import { LoadingAnimation } from '../../../LoadingAnimation';
 import { renderCopy } from '../shared/renderCopy';
 
 type RenderProgressModalProps = {
@@ -32,7 +33,7 @@ export function RenderProgressModal({
       <div className="w-full max-w-md rounded-[28px] border border-[var(--vr-border)] bg-[var(--vr-surface)] p-7 shadow-[0_32px_90px_rgba(15,23,42,0.42)]">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--vr-accent-soft)] text-[var(--vr-accent)]">
-            <Loader2 className="h-7 w-7 animate-spin" />
+            <LoadingAnimation className="h-7 w-7" />
           </div>
           <div className="min-w-0">
             <h3
@@ -76,7 +77,7 @@ export function RenderProgressModal({
           disabled={cancelling}
           className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/70 px-4 py-3 text-sm font-black text-rose-500 transition-colors hover:bg-rose-500/10 disabled:cursor-wait disabled:opacity-55"
         >
-          {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+          {cancelling ? <LoadingAnimation className="h-4 w-4" /> : <X className="h-4 w-4" />}
           {cancelling
             ? t('正在取消...', 'キャンセル中...', 'Cancelling...')
             : t('取消渲染', 'レンダリングをキャンセル', 'Cancel render')}

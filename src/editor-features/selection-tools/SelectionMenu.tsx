@@ -54,7 +54,11 @@ export function SelectionMenu({
     : isMobileGrid
       ? 'grid w-56 grid-cols-2 gap-0.5'
       : 'flex flex-col w-40';
-  const shellSizeClass = isMobile ? 'p-1 rounded-lg' : isHorizontal ? 'p-1.5 rounded-xl' : 'p-1 rounded-xl';
+  const shellSizeClass = isMobile
+    ? 'p-1 rounded-lg'
+    : isHorizontal
+      ? 'p-1.5 rounded-xl'
+      : 'p-1 rounded-xl';
   const buttonSizeClass = isMobile
     ? 'px-1.5 py-1 text-[10px] gap-1 rounded-md'
     : isHorizontal
@@ -67,11 +71,14 @@ export function SelectionMenu({
 
   const dynamicWrapLabel = language === 'zh' ? '\u52a8\u6001\u5305\u88f9' : t.dynamicWrap;
   const bgCardLabel = language === 'zh' ? '\u80cc\u666f\u5361\u7247' : t.bgCard;
-  const batchExportLabel = language === 'zh' ? '\u6279\u91cf\u6587\u672c\u5bfc\u51fa' : 'Batch Export';
+  const batchExportLabel =
+    language === 'zh' ? '\u6279\u91cf\u6587\u672c\u5bfc\u51fa' : 'Batch Export';
   const narrationLabel = language === 'zh' ? '\u751f\u6210\u6717\u8bfb\u97f3\u9891' : 'Narration';
-  const narrationTitle = language === 'zh' ? '\u751f\u6210\u6717\u8bfb\u97f3\u9891' : 'Generate narration audio';
+  const narrationTitle =
+    language === 'zh' ? '\u751f\u6210\u6717\u8bfb\u97f3\u9891' : 'Generate narration audio';
   const arrangeLabel = language === 'zh' ? '\u6574\u7406\u5361\u7247' : 'Arrange';
-  const arrangeTitle = language === 'zh' ? '\u6574\u7406\u9009\u4e2d\u7684\u5361\u7247' : 'Arrange selected cards';
+  const arrangeTitle =
+    language === 'zh' ? '\u6574\u7406\u9009\u4e2d\u7684\u5361\u7247' : 'Arrange selected cards';
   const deleteLabel = language === 'zh' ? '\u5220\u9664' : 'Delete';
   const copyLabel = language === 'zh' ? '\u590d\u5236' : 'Copy';
   const hideLabel = language === 'zh' ? '\u9690\u85cf' : 'Hide';

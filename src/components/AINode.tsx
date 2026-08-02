@@ -224,7 +224,7 @@ export function AINode({ id, data, selected }: NodeProps<AIFlowNode>) {
                   className={`flex-1 min-w-[100px] py-2 px-1 ${mode.color} hover:opacity-90 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-50`}
                   title={mode.label}
                 >
-                  {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : mode.icon}
+                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : mode.icon}
                   {mode.label}
                 </button>
               ))}
@@ -263,7 +263,7 @@ export function AINode({ id, data, selected }: NodeProps<AIFlowNode>) {
                       title="根据以上分析获取修改解法"
                     >
                       {loading ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         <Lightbulb className="w-3 h-3" />
                       )}

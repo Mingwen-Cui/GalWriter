@@ -1,9 +1,10 @@
+import '../styles/agent.css';
+
 import { MousePointer2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import type { AgentCursorTarget, AgentRunState, AgentStep } from '../core/agentTypes';
 import type { Language } from '../../lib/i18n';
-import '../styles/agent.css';
+import type { AgentCursorTarget, AgentRunState, AgentStep } from '../core/agentTypes';
 
 interface AgentOverlayProps {
   state: AgentRunState;
@@ -127,9 +128,7 @@ export function AgentOverlay({ state, language }: AgentOverlayProps) {
           : '正在处理...';
   const lockedNodeIdsKey = useMemo(() => state.lockedNodeIds.join('|'), [state.lockedNodeIds]);
   const cursorVisible = isCursorInViewport(displayCursor, viewport);
-  const offscreenIndicator = cursorVisible
-    ? null
-    : getOffscreenIndicator(displayCursor, viewport);
+  const offscreenIndicator = cursorVisible ? null : getOffscreenIndicator(displayCursor, viewport);
 
   useEffect(() => {
     const updateViewport = () => {

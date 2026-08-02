@@ -1,7 +1,7 @@
 import {
   BrainCircuit,
-  ChevronDown,
   CheckCircle2,
+  ChevronDown,
   Download,
   FileText,
   Image,
@@ -12,8 +12,8 @@ import {
   PencilLine,
   Plus,
   PlusCircle,
-  RefreshCw,
   Redo2,
+  RefreshCw,
   SearchCheck,
   Send,
   Trash2,
@@ -33,11 +33,11 @@ import type {
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
 import type {
   AssistantArticleAnalysisState,
   AssistantInputContext,
 } from '../editor-features/assistant/useAssistantPanel';
+import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 import { assistantPanelCopy } from './i18n/assistant';
@@ -605,9 +605,7 @@ export function AssistantPanel({
             onClick={handleNewAssistantTask}
             disabled={assistantLoading}
             className="assistant-glass-action assistant-glass-action-new flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-            title={
-              ui.newConversation
-            }
+            title={ui.newConversation}
           >
             <PlusCircle className="h-3.5 w-3.5" />
             {ui.newConversation}
@@ -779,9 +777,7 @@ export function AssistantPanel({
                   <CheckCircle2 className="h-7 w-7" />
                 )}
               </div>
-              <p className="assistant-article-upload-kicker">
-                {ui.articleToGalgame}
-              </p>
+              <p className="assistant-article-upload-kicker">{ui.articleToGalgame}</p>
               <h2>
                 {effectiveArticleStage === 'upload'
                   ? ui.articleFlow.uploadTitle
@@ -792,7 +788,9 @@ export function AssistantPanel({
                     : ui.articleFlow.readyTitle}
               </h2>
               <p>
-                {effectiveArticleStage === 'upload' ? ui.articleFlow.uploadDescription : articleAnalysisSummary}
+                {effectiveArticleStage === 'upload'
+                  ? ui.articleFlow.uploadDescription
+                  : articleAnalysisSummary}
               </p>
             </div>
             {effectiveArticleStage === 'upload' ? (
@@ -922,19 +920,13 @@ export function AssistantPanel({
                 </div>
                 {effectiveArticleStage === 'ready' && (
                   <div className="assistant-article-teach-choice">
-                    <p>
-                      {ui.articleFlow.learningPrompt}
-                    </p>
+                    <p>{ui.articleFlow.learningPrompt}</p>
                     <button
                       type="button"
                       onClick={() => void handleAssistantOptionSelect('__article_roles_create__')}
                     >
-                      <span>
-                        {ui.generateCharacters}
-                      </span>
-                      <small>
-                        {ui.articleFlow.characterDescription}
-                      </small>
+                      <span>{ui.generateCharacters}</span>
+                      <small>{ui.articleFlow.characterDescription}</small>
                     </button>
                   </div>
                 )}
@@ -945,19 +937,13 @@ export function AssistantPanel({
           <section className="assistant-welcome-card">
             <div className="assistant-welcome-hero">
               <div className="assistant-welcome-copy">
-                <p className="assistant-welcome-kicker">
-                  {ui.storyPartner}
-                </p>
-                <h2>
-                  {ui.heroTitle}
-                </h2>
+                <p className="assistant-welcome-kicker">{ui.storyPartner}</p>
+                <h2>{ui.heroTitle}</h2>
               </div>
               <img src="./glass.png" alt="" className="assistant-welcome-logo" />
             </div>
             <div className="assistant-welcome-prompts">
-              <div className="assistant-welcome-prompt-title">
-                {ui.tryAsking}
-              </div>
+              <div className="assistant-welcome-prompt-title">{ui.tryAsking}</div>
               <div className="assistant-welcome-options">
                 {welcomePrompts.map((item, index) => (
                   <button
@@ -1121,9 +1107,7 @@ export function AssistantPanel({
               ) : (
                 <UploadCloud className="h-3.5 w-3.5" />
               )}
-              <span>
-                {ui.documents}
-              </span>
+              <span>{ui.documents}</span>
             </button>
             {assistantDocuments.length > 0 && (
               <div className="custom-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
@@ -1243,8 +1227,20 @@ export function AssistantPanel({
                             )
                           }
                           className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-indigo-600 transition-colors hover:bg-indigo-100 hover:text-indigo-800 dark:text-indigo-200 dark:hover:bg-indigo-400/20 dark:hover:text-white"
-                          title={language === 'zh' ? '移除区域内容' : language === 'ja' ? 'エリア内容を削除' : 'Remove area content'}
-                          aria-label={language === 'zh' ? '移除区域内容' : language === 'ja' ? 'エリア内容を削除' : 'Remove area content'}
+                          title={
+                            language === 'zh'
+                              ? '移除区域内容'
+                              : language === 'ja'
+                                ? 'エリア内容を削除'
+                                : 'Remove area content'
+                          }
+                          aria-label={
+                            language === 'zh'
+                              ? '移除区域内容'
+                              : language === 'ja'
+                                ? 'エリア内容を削除'
+                                : 'Remove area content'
+                          }
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -1332,7 +1328,10 @@ export function AssistantPanel({
                     )}
                     <button
                       onClick={() => void sendAssistantMessage()}
-                      disabled={assistantLoading || (!assistantInput.trim() && assistantInputContexts.length === 0)}
+                      disabled={
+                        assistantLoading ||
+                        (!assistantInput.trim() && assistantInputContexts.length === 0)
+                      }
                       className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
                       title={ui.send}
                     >
@@ -1426,7 +1425,10 @@ export function AssistantPanel({
                   )}
                   <button
                     onClick={() => void sendAssistantMessage()}
-                    disabled={assistantLoading || (!assistantInput.trim() && assistantInputContexts.length === 0)}
+                    disabled={
+                      assistantLoading ||
+                      (!assistantInput.trim() && assistantInputContexts.length === 0)
+                    }
                     className="assistant-send-button flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600"
                     title={ui.send}
                   >
@@ -1578,9 +1580,7 @@ export function AssistantPanel({
               className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-200"
             >
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>
-                {ui.futureWriting}
-              </span>
+              <span>{ui.futureWriting}</span>
             </button>
           </div>,
           document.body,

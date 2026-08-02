@@ -30,11 +30,11 @@ import {
 import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+import type { CharacterFlowNode, CharacterNodeData, CharacterOutfit } from '../domain/project';
 import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
-import type { CharacterFlowNode, CharacterNodeData, CharacterOutfit } from '../domain/project';
 
 const TRAIT_TEXTAREA_CLASS =
   'w-full flex-1 min-h-[60px] h-0 resize-none overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)] text-xs p-2.5 rounded-lg outline-none border border-[var(--card-border)] focus:border-purple-400 placeholder:text-[var(--text-muted)] custom-scrollbar';
@@ -374,7 +374,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   };
 
   const syncPrimaryOutfitImage = (currentOutfits: CharacterOutfit[], url: string) => {
-    const primaryName = lang === 'zh' ? '人物照片' : lang === 'ja' ? 'キャラクター画像' : 'Character Photo';
+    const primaryName =
+      lang === 'zh' ? '人物照片' : lang === 'ja' ? 'キャラクター画像' : 'Character Photo';
 
     if (currentOutfits.length === 0) {
       return [{ id: uuidv4(), name: primaryName, imageUrl: url }];
@@ -736,7 +737,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                 title={lang === 'zh' ? '摇色子生成/扩写人物设定' : 'Roll character setting'}
               >
                 {isRollingSetting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Dices className="w-4 h-4" />
                 )}
@@ -751,7 +752,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   }
                 >
                   {isGeneratingSettingImage ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <WandSparkles className="w-4 h-4" />
                   )}

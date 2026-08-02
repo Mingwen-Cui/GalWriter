@@ -12,6 +12,7 @@ import {
   PaintBucket,
   Palette,
   Pin,
+  Plus,
   Radius,
   RotateCw,
   Ruler,
@@ -19,12 +20,12 @@ import {
   Strikethrough,
   Type,
   Underline,
-  Plus,
 } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { InlineColorControl, InlineGradientControl } from '../../web/StartMenuElementInspector';
 import {
   AlignButtons,
   ControlRow,
@@ -34,7 +35,6 @@ import {
   InspectorGroup,
   NumberField,
 } from '../../web/webStyleInspectorControls';
-import { InlineColorControl, InlineGradientControl } from '../../web/StartMenuElementInspector';
 import {
   getRenderObjects,
   getVideoRenderObjects,
@@ -199,14 +199,14 @@ export function RenderObjectInspector({
   const advancedVideoDisabled = false;
 
   return (
-    <div className="space-y-3 text-[12px] text-slate-900">
-      {!hideObjectSelector && <div className="grid grid-cols-2 gap-2">
+    <div className={`${surface === 'playtest' ? 'grid items-start gap-3 lg:grid-cols-2' : 'space-y-3'} text-[12px] text-slate-900`}>
+      {!hideObjectSelector && <div className={`${surface === 'playtest' ? 'rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 lg:col-span-2' : ''} grid grid-cols-4 gap-2`}>
         {objectKinds.map((kind) => (
           <button
             key={kind}
             type="button"
             onClick={() => setSelectedKind(kind)}
-            className={`h-9 rounded-lg px-2 text-left font-bold transition-colors ${
+            className={`h-9 min-w-0 truncate rounded-lg px-2 text-left font-bold transition-colors ${
               selectedKind === kind
                 ? 'bg-indigo-600 text-white'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -320,6 +320,8 @@ export function RenderObjectInspector({
           title={text.group.text}
           icon={<Type className="h-3.5 w-3.5" />}
           tone="text"
+          showDescriptions={showDescriptions}
+          secondaryDescription={text.field.font}
           secondary={
             <HeaderSelect
               icon={<Type className="h-4 w-4" />}

@@ -39,8 +39,11 @@ import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import {
+  normalizeSharedCanvasSettings,
+  type SharedCanvasSettings,
+} from '../../canvas/canvasSettings';
 import { CanvasSettingsSection } from '../../canvas/CanvasSettingsSection';
-import { normalizeSharedCanvasSettings, type SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { DragSizeControl, RangeControl } from '../controls/RenderControls';
 import {
   EXPORT_FORMAT_OPTIONS,
@@ -48,8 +51,8 @@ import {
   RESOLUTION_OPTIONS,
   TEXT_ANIMATION_OPTIONS,
 } from '../shared/constants';
-import { getVideoRenderObjects, updateVideoTextAnimations } from '../shared/renderObjects';
 import { renderCopy } from '../shared/renderCopy';
+import { getVideoRenderObjects, updateVideoTextAnimations } from '../shared/renderObjects';
 import type {
   ExportFormat,
   ExportSettingsMode,
@@ -199,15 +202,21 @@ export function VideoExportSettingsPanel({
 }: VideoExportSettingsPanelProps) {
   const t = (zh: string, ja: string, en: string) => renderCopy(language, zh, ja, en);
   const initialRatioDivisor = greatestCommonDivisor(resolutionWidth, resolutionHeight);
-  const [canvasRatioWidth, setCanvasRatioWidth] = useState(() => Math.max(1, Math.round(resolutionWidth / initialRatioDivisor)));
-  const [canvasRatioHeight, setCanvasRatioHeight] = useState(() => Math.max(1, Math.round(resolutionHeight / initialRatioDivisor)));
+  const [canvasRatioWidth, setCanvasRatioWidth] = useState(() =>
+    Math.max(1, Math.round(resolutionWidth / initialRatioDivisor)),
+  );
+  const [canvasRatioHeight, setCanvasRatioHeight] = useState(() =>
+    Math.max(1, Math.round(resolutionHeight / initialRatioDivisor)),
+  );
   const [canvasRatioLocked, setCanvasRatioLocked] = useState(true);
-  const [videoCanvasOptions, setVideoCanvasOptions] = useState(() => normalizeSharedCanvasSettings({
-    canvasWidth: resolutionWidth,
-    canvasHeight: resolutionHeight,
-    hideCharacterTags,
-    hideSceneTags,
-  }));
+  const [videoCanvasOptions, setVideoCanvasOptions] = useState(() =>
+    normalizeSharedCanvasSettings({
+      canvasWidth: resolutionWidth,
+      canvasHeight: resolutionHeight,
+      hideCharacterTags,
+      hideSceneTags,
+    }),
+  );
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();
     if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
@@ -228,19 +237,19 @@ export function VideoExportSettingsPanel({
     renderStyle.dialogGradientStops?.length >= 2
       ? [...renderStyle.dialogGradientStops].sort((a, b) => a.position - b.position)
       : [
-        {
-          id: 'start',
-          color: colorInputValue(renderStyle.dialogGradientStartColor),
-          alpha: 0,
-          position: 0,
-        },
-        {
-          id: 'end',
-          color: colorInputValue(renderStyle.dialogGradientColor),
-          alpha: 86,
-          position: 100,
-        },
-      ];
+          {
+            id: 'start',
+            color: colorInputValue(renderStyle.dialogGradientStartColor),
+            alpha: 0,
+            position: 0,
+          },
+          {
+            id: 'end',
+            color: colorInputValue(renderStyle.dialogGradientColor),
+            alpha: 86,
+            position: 100,
+          },
+        ];
   const getVisibleGradientRange = () => {
     const boxWidth = Math.max(
       1,
@@ -250,7 +259,9 @@ export function VideoExportSettingsPanel({
       1,
       resolutionHeight * Math.min(0.75, Math.max(0.16, renderStyle.dialogHeight / 100)),
     );
-    const safeAngle = Number.isFinite(renderStyle.dialogGradientAngle) ? renderStyle.dialogGradientAngle : 90;
+    const safeAngle = Number.isFinite(renderStyle.dialogGradientAngle)
+      ? renderStyle.dialogGradientAngle
+      : 90;
     const angle = ((safeAngle - 90) * Math.PI) / 180;
     const diagonal = Math.hypot(boxWidth, boxHeight);
     const visibleHalfRange =
@@ -268,7 +279,7 @@ export function VideoExportSettingsPanel({
         0,
         ((position / 100 - visibleGradientRange.start) /
           (visibleGradientRange.end - visibleGradientRange.start)) *
-        100,
+          100,
       ),
     );
   const mapVisibleTrackToGradientStop = (position: number) =>
@@ -279,7 +290,7 @@ export function VideoExportSettingsPanel({
           0,
           (visibleGradientRange.start +
             (position / 100) * (visibleGradientRange.end - visibleGradientRange.start)) *
-          100,
+            100,
         ),
       ),
     );
@@ -426,8 +437,9 @@ export function VideoExportSettingsPanel({
         >
           <span className="min-w-0 truncate">{selectedLabel}</span>
           <ChevronDown
-            className={`h-3.5 w-3.5 shrink-0 text-[var(--vr-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''
-              }`}
+            className={`h-3.5 w-3.5 shrink-0 text-[var(--vr-text-muted)] transition-transform ${
+              isOpen ? 'rotate-180' : ''
+            }`}
           />
         </button>
         {isOpen && (
@@ -448,10 +460,11 @@ export function VideoExportSettingsPanel({
                   onChange(option.value);
                   setOpenSelectId(null);
                 }}
-                className={`flex h-9 w-full items-center justify-end rounded-lg px-2 text-right text-xs font-normal transition-colors ${option.value === value
-                  ? 'bg-[var(--vr-accent)] text-white'
-                  : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'
-                  }`}
+                className={`flex h-9 w-full items-center justify-end rounded-lg px-2 text-right text-xs font-normal transition-colors ${
+                  option.value === value
+                    ? 'bg-[var(--vr-accent)] text-white'
+                    : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)]'
+                }`}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
               </button>
@@ -534,14 +547,15 @@ export function VideoExportSettingsPanel({
               onClick={() => {
                 if (canToggle) setStyle(visibleKey, !visible as never);
               }}
-              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${isTitle
-                ? visible
-                  ? 'bg-[#1d4ed8] text-white'
-                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-                : visible
-                  ? 'bg-white/12 text-[var(--vr-text)]'
-                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
-                } ${canToggle ? '' : 'cursor-default'}`}
+              className={`flex h-9 w-full items-center justify-start gap-1 rounded-lg px-2 text-left text-[11px] font-normal ${
+                isTitle
+                  ? visible
+                    ? 'bg-[#1d4ed8] text-white'
+                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
+                  : visible
+                    ? 'bg-white/12 text-[var(--vr-text)]'
+                    : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)]'
+              } ${canToggle ? '' : 'cursor-default'}`}
               aria-label={label}
             >
               {canToggle &&
@@ -570,7 +584,14 @@ export function VideoExportSettingsPanel({
             />,
           )}
         </div>
-        <div className="pointer-events-none grid grid-cols-3 gap-2 select-none opacity-40 grayscale" title={t('视频文字动画暂不可用', '動画テキストアニメーションは現在利用できません', 'Video text animation is currently unavailable')}>
+        <div
+          className="pointer-events-none grid grid-cols-3 gap-2 select-none opacity-40 grayscale"
+          title={t(
+            '视频文字动画暂不可用',
+            '動画テキストアニメーションは現在利用できません',
+            'Video text animation is currently unavailable',
+          )}
+        >
           {iconSelect(
             Sparkles,
             `${kind}-animation`,
@@ -667,10 +688,11 @@ export function VideoExportSettingsPanel({
                   key={value}
                   type="button"
                   onClick={() => setStyle(alignKey, value as never)}
-                  className={`h-9 text-xs font-normal ${align === value
-                    ? 'bg-[var(--vr-accent)] text-white'
-                    : 'text-[var(--vr-text-soft)]'
-                    }`}
+                  className={`h-9 text-xs font-normal ${
+                    align === value
+                      ? 'bg-[var(--vr-accent)] text-white'
+                      : 'text-[var(--vr-text-soft)]'
+                  }`}
                 >
                   {value === 'left'
                     ? t('左', '左', 'L')
@@ -721,10 +743,11 @@ export function VideoExportSettingsPanel({
           <button
             type="button"
             onClick={() => setShowSettingDescriptions((current) => !current)}
-            className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${showSettingDescriptions
-              ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
-              : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-              }`}
+            className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+              showSettingDescriptions
+                ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
+                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+            }`}
             title={
               showSettingDescriptions
                 ? t('隐藏参数说明', '説明を非表示', 'Hide descriptions')
@@ -745,10 +768,11 @@ export function VideoExportSettingsPanel({
               key={mode}
               type="button"
               onClick={() => setExportSettingsMode(mode)}
-              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${exportSettingsMode === mode
-                ? 'bg-[var(--vr-accent)] text-white shadow-sm'
-                : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                }`}
+              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
+                exportSettingsMode === mode
+                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+              }`}
               title={
                 mode === 'video'
                   ? t('切换到导出设置', '書き出し設定を表示', 'Show export settings')
@@ -769,33 +793,41 @@ export function VideoExportSettingsPanel({
       <div className="video-render-scroll min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
         {exportSettingsMode === 'video' ? (
           <div className="flex flex-col gap-4">
-            {showCanvasSettings && <CanvasSettingsSection
-              language={language}
-              showDescriptions={showSettingDescriptions}
-              variant="video"
-              value={normalizeSharedCanvasSettings({
-                ...videoCanvasOptions,
-                ...canvasSettings,
-                canvasWidth: resolutionWidth,
-                canvasHeight: resolutionHeight,
-                canvasRatioWidth,
-                canvasRatioHeight,
-                canvasRatioLocked,
-                hideCharacterTags,
-                hideSceneTags,
-              })}
-              onChange={(patch) => {
-                setVideoCanvasOptions((current) => normalizeSharedCanvasSettings({ ...current, ...patch }));
-                onCanvasSettingsChange(patch);
-                if (patch.canvasWidth !== undefined) setResolutionWidth(patch.canvasWidth);
-                if (patch.canvasHeight !== undefined) setResolutionHeight(patch.canvasHeight);
-                if (patch.canvasRatioWidth !== undefined) setCanvasRatioWidth(patch.canvasRatioWidth);
-                if (patch.canvasRatioHeight !== undefined) setCanvasRatioHeight(patch.canvasRatioHeight);
-                if (patch.canvasRatioLocked !== undefined) setCanvasRatioLocked(patch.canvasRatioLocked);
-                if (patch.hideCharacterTags !== undefined) setHideCharacterTags(patch.hideCharacterTags);
-                if (patch.hideSceneTags !== undefined) setHideSceneTags(patch.hideSceneTags);
-              }}
-            />}
+            {showCanvasSettings && (
+              <CanvasSettingsSection
+                language={language}
+                showDescriptions={showSettingDescriptions}
+                variant="video"
+                value={normalizeSharedCanvasSettings({
+                  ...videoCanvasOptions,
+                  ...canvasSettings,
+                  canvasWidth: resolutionWidth,
+                  canvasHeight: resolutionHeight,
+                  canvasRatioWidth,
+                  canvasRatioHeight,
+                  canvasRatioLocked,
+                  hideCharacterTags,
+                  hideSceneTags,
+                })}
+                onChange={(patch) => {
+                  setVideoCanvasOptions((current) =>
+                    normalizeSharedCanvasSettings({ ...current, ...patch }),
+                  );
+                  onCanvasSettingsChange(patch);
+                  if (patch.canvasWidth !== undefined) setResolutionWidth(patch.canvasWidth);
+                  if (patch.canvasHeight !== undefined) setResolutionHeight(patch.canvasHeight);
+                  if (patch.canvasRatioWidth !== undefined)
+                    setCanvasRatioWidth(patch.canvasRatioWidth);
+                  if (patch.canvasRatioHeight !== undefined)
+                    setCanvasRatioHeight(patch.canvasRatioHeight);
+                  if (patch.canvasRatioLocked !== undefined)
+                    setCanvasRatioLocked(patch.canvasRatioLocked);
+                  if (patch.hideCharacterTags !== undefined)
+                    setHideCharacterTags(patch.hideCharacterTags);
+                  if (patch.hideSceneTags !== undefined) setHideSceneTags(patch.hideSceneTags);
+                }}
+              />
+            )}
 
             <RenderObjectSettingsSection
               language={language}
@@ -806,7 +838,6 @@ export function VideoExportSettingsPanel({
               surface="video"
               showDescriptions={showSettingDescriptions}
             />
-
           </div>
         ) : (
           <div className="space-y-4">
@@ -818,15 +849,15 @@ export function VideoExportSettingsPanel({
                 <p className="text-xs font-bold leading-5 text-[var(--vr-text-muted)]">
                   {selectedAudioClipCount > 0
                     ? t(
-                      `正在调整 ${selectedAudioClipCount} 个音频片段`,
-                      `${selectedAudioClipCount} 個の音声クリップを調整中`,
-                      `Editing ${selectedAudioClipCount} audio clip(s)`,
-                    )
+                        `正在调整 ${selectedAudioClipCount} 个音频片段`,
+                        `${selectedAudioClipCount} 個の音声クリップを調整中`,
+                        `Editing ${selectedAudioClipCount} audio clip(s)`,
+                      )
                     : t(
-                      '请在时间线中选择带音频的卡片。',
-                      'タイムラインで音声付きカードを選択してください。',
-                      'Select an audio-enabled card in the timeline.',
-                    )}
+                        '请在时间线中选择带音频的卡片。',
+                        'タイムラインで音声付きカードを選択してください。',
+                        'Select an audio-enabled card in the timeline.',
+                      )}
                 </p>
                 <RangeControl
                   label={t('音量', '音量', 'Volume')}
@@ -907,10 +938,11 @@ export function VideoExportSettingsPanel({
                 <button
                   type="button"
                   onClick={isRecordingVoiceover ? stopVoiceoverRecording : startVoiceoverRecording}
-                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${isRecordingVoiceover
-                    ? 'bg-rose-500 text-white hover:bg-rose-600'
-                    : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
-                    }`}
+                  className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition-colors ${
+                    isRecordingVoiceover
+                      ? 'bg-rose-500 text-white hover:bg-rose-600'
+                      : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:border-[var(--vr-border-strong)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
+                  }`}
                 >
                   <Mic className="h-4 w-4 shrink-0" />
                   <span className="truncate">
@@ -974,10 +1006,13 @@ function ExportSettingCard({
   const hasIcon = Boolean(Icon);
   return (
     <div className="space-y-1">
-      {description && <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>}
+      {description && (
+        <div className="px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">{description}</div>
+      )}
       <div
-        className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
-          }`}
+        className={`grid h-9 items-center overflow-hidden rounded-lg bg-[var(--vr-surface-soft)] ${
+          hasIcon ? 'grid-cols-[28px_minmax(0,1fr)]' : 'grid-cols-1'
+        }`}
       >
         {Icon ? (
           <div className="flex h-full items-center justify-center text-[var(--vr-text-muted)]">
@@ -1014,10 +1049,11 @@ function ExportToggleButton({
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${active && highlightActive
-        ? 'bg-[var(--vr-accent)] text-white'
-        : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
-        } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+      className={`flex h-9 w-full min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+        active && highlightActive
+          ? 'bg-[var(--vr-accent)] text-white'
+          : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+      } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
       aria-pressed={active}
     >
       {icon}
@@ -1054,10 +1090,11 @@ function ExportPillToggleGroup({
             type="button"
             onClick={() => onChange(option.value)}
             disabled={option.disabled}
-            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${active
-              ? 'bg-[var(--vr-accent)] text-white'
-              : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
-              } ${option.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+            className={`flex h-9 min-w-0 items-center justify-center gap-1 border-0 px-2 text-[10px] font-black transition-colors ${
+              active
+                ? 'bg-[var(--vr-accent)] text-white'
+                : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'
+            } ${option.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
             title={option.title ?? option.label}
             aria-pressed={active}
           >

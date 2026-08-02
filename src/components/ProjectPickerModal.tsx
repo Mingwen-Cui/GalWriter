@@ -4,8 +4,8 @@ import {
   Download,
   EllipsisVertical,
   FilePlus2,
-  Image as ImageIcon,
   FolderOpen,
+  Image as ImageIcon,
   LayoutTemplate,
   Pencil,
   Search,
@@ -13,7 +13,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { type MouseEvent, type WheelEvent, useEffect, useState } from 'react';
+import { type MouseEvent, useEffect, useState, type WheelEvent } from 'react';
 
 import type { LocalProjectSummary } from '../lib/db';
 import type { Language } from '../lib/i18n';
@@ -201,7 +201,9 @@ export function ProjectPickerModal({
     p.projectName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
   const filteredTemplates = exampleTemplates.filter((template) =>
-    `${template.title} ${template.description || ''}`.toLowerCase().includes(searchQuery.toLowerCase()),
+    `${template.title} ${template.description || ''}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase()),
   );
   const sortedProjects =
     projectSortMode === 'name'
@@ -317,9 +319,7 @@ export function ProjectPickerModal({
         <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
           {isZh ? '正在读取模板...' : 'Loading templates...'}
         </div>
-      ) : examplesError || filteredTemplates.length === 0 ? (
-        null
-      ) : (
+      ) : examplesError || filteredTemplates.length === 0 ? null : (
         filteredTemplates.map((template) => (
           <div
             key={template.id}
@@ -454,9 +454,7 @@ export function ProjectPickerModal({
         </div>
 
         <div
-          className={`flex min-h-0 flex-1 overflow-hidden ${
-            isMobile ? 'flex-col' : 'flex-row'
-          }`}
+          className={`flex min-h-0 flex-1 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}
         >
           <div
             className={`shrink-0 border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 ${
@@ -478,14 +476,12 @@ export function ProjectPickerModal({
                   {isZh ? '从空白画布开始新的故事。' : 'Start from a blank canvas.'}
                 </div>
               </div>
-              <FilePlus2 className={`${isMobile ? 'h-5 w-5' : 'h-4 w-4'} shrink-0 text-white transition-colors group-hover/create-project:text-indigo-700 dark:group-hover/create-project:text-slate-950`} />
+              <FilePlus2
+                className={`${isMobile ? 'h-5 w-5' : 'h-4 w-4'} shrink-0 text-white transition-colors group-hover/create-project:text-indigo-700 dark:group-hover/create-project:text-slate-950`}
+              />
             </button>
 
-            <button
-              type="button"
-              onClick={onImportProject}
-              className={actionButtonClass}
-            >
+            <button type="button" onClick={onImportProject} className={actionButtonClass}>
               <div>
                 <div className="text-sm font-bold">
                   {isZh ? '导入现有工程' : 'Import existing project'}
@@ -620,7 +616,9 @@ export function ProjectPickerModal({
                       ? `已选择 ${selectedProjectIds.length} 个`
                       : `${selectedProjectIds.length} selected`}
                   </div>
-                  <div className={`${isMobile ? 'w-full justify-end' : 'ml-auto'} flex items-center gap-2`}>
+                  <div
+                    className={`${isMobile ? 'w-full justify-end' : 'ml-auto'} flex items-center gap-2`}
+                  >
                     {onExportProject && (
                       <button
                         type="button"
@@ -714,68 +712,68 @@ export function ProjectPickerModal({
                     >
                       <div className={`${isMobile ? 'flex-col gap-3' : 'flex items-start gap-3'}`}>
                         <div className={isMobile ? 'flex items-start gap-3' : 'contents'}>
-                        {batchMode && (
-                          <div className="pt-0.5 text-indigo-600 dark:text-indigo-300">
-                            {selectedProjectIds.includes(project.id) ? (
-                              <CheckSquare2 className="h-4 w-4" />
+                          {batchMode && (
+                            <div className="pt-0.5 text-indigo-600 dark:text-indigo-300">
+                              {selectedProjectIds.includes(project.id) ? (
+                                <CheckSquare2 className="h-4 w-4" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </div>
+                          )}
+                          <div
+                            className={`shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 ${
+                              isMobile ? 'h-16 w-24' : 'h-12 w-16'
+                            }`}
+                          >
+                            {project.thumbnailDataUrl ? (
+                              <img
+                                src={getProjectThumbnail(project)}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                draggable={false}
+                              />
                             ) : (
-                              <Square className="h-4 w-4" />
+                              <div className="flex h-full w-full items-center justify-center text-slate-400 dark:text-slate-500">
+                                <ImageIcon className="h-4 w-4" />
+                              </div>
                             )}
                           </div>
-                        )}
-                        <div
-                          className={`shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 ${
-                            isMobile ? 'h-16 w-24' : 'h-12 w-16'
-                          }`}
-                        >
-                          {project.thumbnailDataUrl ? (
-                            <img
-                              src={getProjectThumbnail(project)}
-                              alt=""
-                              className="h-full w-full object-cover"
-                              draggable={false}
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-slate-400 dark:text-slate-500">
-                              <ImageIcon className="h-4 w-4" />
+                          <div className="min-w-0 flex-1 pr-10">
+                            {editingProjectId === project.id ? (
+                              <input
+                                value={editingProjectName}
+                                onClick={(event) => event.stopPropagation()}
+                                onChange={(event) => setEditingProjectName(event.target.value)}
+                                onBlur={() => void commitRename()}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    void commitRename();
+                                  }
+                                  if (event.key === 'Escape') {
+                                    event.preventDefault();
+                                    setEditingProjectId(null);
+                                    setEditingProjectName('');
+                                  }
+                                }}
+                                autoFocus
+                                className="w-full rounded-lg border border-indigo-200 bg-white px-2 py-1 text-sm font-black text-slate-900 outline-none focus:border-indigo-400 dark:border-indigo-500/40 dark:bg-slate-900 dark:text-white"
+                              />
+                            ) : (
+                              <div
+                                className={`block w-full truncate text-left font-black text-slate-900 transition-colors group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-200 ${
+                                  isMobile ? 'text-base' : 'text-sm'
+                                }`}
+                              >
+                                {project.projectName}
+                              </div>
+                            )}
+                            <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                              {isZh ? '最近编辑' : 'Updated'}{' '}
+                              {formatUpdatedAt(project.updatedAt, language)}
                             </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1 pr-10">
-                          {editingProjectId === project.id ? (
-                            <input
-                              value={editingProjectName}
-                              onClick={(event) => event.stopPropagation()}
-                              onChange={(event) => setEditingProjectName(event.target.value)}
-                              onBlur={() => void commitRename()}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault();
-                                  void commitRename();
-                                }
-                                if (event.key === 'Escape') {
-                                  event.preventDefault();
-                                  setEditingProjectId(null);
-                                  setEditingProjectName('');
-                                }
-                              }}
-                              autoFocus
-                              className="w-full rounded-lg border border-indigo-200 bg-white px-2 py-1 text-sm font-black text-slate-900 outline-none focus:border-indigo-400 dark:border-indigo-500/40 dark:bg-slate-900 dark:text-white"
-                            />
-                          ) : (
-                            <div
-                              className={`block w-full truncate text-left font-black text-slate-900 transition-colors group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-200 ${
-                                isMobile ? 'text-base' : 'text-sm'
-                              }`}
-                            >
-                              {project.projectName}
-                            </div>
-                          )}
-                          <div className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                            {isZh ? '最近编辑' : 'Updated'}{' '}
-                            {formatUpdatedAt(project.updatedAt, language)}
                           </div>
-                        </div>
                         </div>
 
                         <div className="absolute right-3 top-3 z-20">
@@ -797,7 +795,9 @@ export function ProjectPickerModal({
                           </button>
                         </div>
 
-                        <div className={`hidden ${isMobile ? 'grid w-full grid-cols-3 gap-2' : 'flex items-center gap-1.5'}`}>
+                        <div
+                          className={`hidden ${isMobile ? 'grid w-full grid-cols-3 gap-2' : 'flex items-center gap-1.5'}`}
+                        >
                           {onExportProject && (
                             <button
                               type="button"
