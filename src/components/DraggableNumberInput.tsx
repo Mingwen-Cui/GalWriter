@@ -9,6 +9,8 @@ export function DraggableNumberInput({
   decimals,
   unit = 'PX',
   disabled = false,
+  containerClassName = '',
+  inputClassName = '',
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -18,6 +20,8 @@ export function DraggableNumberInput({
   decimals?: number;
   unit?: string | null;
   disabled?: boolean;
+  containerClassName?: string;
+  inputClassName?: string;
 }) {
   const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
   const resolvedDecimals =
@@ -29,7 +33,7 @@ export function DraggableNumberInput({
   };
 
   return (
-    <div className="flex w-full items-center rounded-lg bg-[var(--app-bg)]">
+    <div className={`flex w-full items-center rounded-lg bg-[var(--app-bg)] ${containerClassName}`}>
       <input
         type="number"
         min={min}
@@ -65,7 +69,7 @@ export function DraggableNumberInput({
         onPointerCancel={() => {
           dragRef.current = null;
         }}
-        className="min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none disabled:cursor-not-allowed disabled:opacity-40 focus:border-0 focus:outline-none focus-visible:outline-none"
+        className={`min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none disabled:cursor-not-allowed disabled:opacity-40 focus:border-0 focus:outline-none focus-visible:outline-none ${inputClassName}`}
       />
       {unit && <span className="pr-2 text-[10px] font-bold text-[var(--text-muted)]">{unit}</span>}
     </div>

@@ -120,12 +120,15 @@ export type RenderColorStop = {
   position: number;
 };
 
+export type RenderGradientType = 'linear' | 'radial' | 'angular' | 'diamond';
+
 export type RenderFillStyle = {
   enabled: boolean;
   type: RenderFillType;
   color: string;
   alpha: number;
   gradientAngle: number;
+  gradientType?: RenderGradientType;
   gradientStops: RenderColorStop[];
   imageUrl: string;
   imageFit: 'fit' | 'max' | 'crop';
@@ -145,6 +148,7 @@ export type RenderStrokeStyle = {
   width: number;
   position: RenderStrokePosition;
   gradientAngle: number;
+  gradientType?: RenderGradientType;
   gradientStops: RenderColorStop[];
   imageUrl: string;
   dashed: boolean;

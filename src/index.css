@@ -2635,6 +2635,20 @@ input[type='range']:focus {
   background: rgba(96, 165, 250, 0.18);
 }
 
+.gradient-stop-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.gradient-stop-color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.gradient-stop-color-input::-moz-color-swatch {
+  border: 0;
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   height: 14px;

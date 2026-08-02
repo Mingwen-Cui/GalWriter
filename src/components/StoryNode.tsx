@@ -2244,7 +2244,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 <span className="shrink-0 text-[10px] font-black uppercase text-[var(--text-muted)]">
                   数值
                 </span>
-                <div className="w-16 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
+                <div className="w-12 border-b border-[var(--card-border)]">
                   <DraggableNumberInput
                     value={(data.nodeValue as number) || 0}
                     onChange={(value) => updateNodeData({ nodeValue: value })}
@@ -2252,6 +2252,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     max={9999}
                     step={1}
                     unit={null}
+                    containerClassName="h-7 rounded-none bg-transparent"
+                    inputClassName="p-0 text-center text-sm font-semibold"
                   />
                 </div>
               </ToolGroup>

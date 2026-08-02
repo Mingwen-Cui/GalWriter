@@ -98,7 +98,8 @@ export function RenderObjectInspector({
 }) {
   const text = renderObjectText(language);
   const closeLabel = language === 'zh' ? '关闭' : language === 'ja' ? '閉じる' : 'Close';
-  const objects = surface === 'video' ? getVideoRenderObjects(renderStyle) : getRenderObjects(renderStyle);
+  const objects =
+    surface === 'video' ? getVideoRenderObjects(renderStyle) : getRenderObjects(renderStyle);
   const selectedKind = renderStyle.selectedRenderObject || 'dialogBox';
   const selected = objects[selectedKind];
   const textObject = isTextRenderObject(selectedKind)
@@ -109,7 +110,12 @@ export function RenderObjectInspector({
       ? { inside: '在对话框内', outside: '在对话框外', follow: '跟随角色', fixed: '固定位置' }
       : language === 'ja'
         ? { inside: '会話枠内', outside: '会話枠外', follow: 'キャラに追従', fixed: '固定位置' }
-        : { inside: 'Inside dialog', outside: 'Outside dialog', follow: 'Follow character', fixed: 'Fixed position' };
+        : {
+            inside: 'Inside dialog',
+            outside: 'Outside dialog',
+            follow: 'Follow character',
+            fixed: 'Fixed position',
+          };
   const shadowModeLabels =
     language === 'zh'
       ? { outer: '外阴影', inner: '内阴影', innerBlur: '内部模糊' }
@@ -223,121 +229,125 @@ export function RenderObjectInspector({
           : 'space-y-3'
       } text-[12px] text-slate-900`}
     >
-      {!hideObjectSelector && <div className={`${surface === 'playtest' ? 'rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 lg:col-span-2' : ''} grid grid-cols-4 gap-2`}>
-        {objectKinds.map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            onClick={() => setSelectedKind(kind)}
-            className={`h-9 min-w-0 truncate rounded-lg px-2 text-left font-bold transition-colors ${
-              selectedKind === kind
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            {text.object[kind]}
-          </button>
-        ))}
-      </div>}
+      {!hideObjectSelector && (
+        <div
+          className={`${surface === 'playtest' ? 'rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 lg:col-span-2' : ''} grid grid-cols-4 gap-2`}
+        >
+          {objectKinds.map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => setSelectedKind(kind)}
+              className={`h-9 min-w-0 truncate rounded-lg px-2 text-left font-bold transition-colors ${
+                selectedKind === kind
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              {text.object[kind]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {showsGroup('position') && (
-      <InspectorGroup
-        title={positionTitle}
-        icon={<PositionVisibilityIcon visible={selected.visible} />}
-        tone="position"
-        onTitleClick={() => setObject({ visible: !selected.visible })}
-        titleActive
-        showDescriptions={showDescriptions}
-        secondaryHasDescription
-        secondary={
-          <NumberField
-            icon={<Radius className="h-4 w-4" />}
-            label={text.field.radius}
-            description={showDescriptions ? text.help.radius : undefined}
-            value={selected.radius}
-            min={0}
-            max={200}
-            onChange={(value) => setObject({ radius: value })}
-          />
-        }
-      >
-        <ControlRow>
-          <NumberField
-            icon={<MoveHorizontal className="h-4 w-4" />}
-            label={text.field.x}
-            description={showDescriptions ? text.help.x : undefined}
-            value={selected.x}
-            min={-200}
-            max={200}
-            onChange={(value) => setObject({ x: value })}
-          />
-          <NumberField
-            icon={<MoveVertical className="h-4 w-4" />}
-            label={text.field.y}
-            description={showDescriptions ? text.help.y : undefined}
-            value={selected.y}
-            min={-200}
-            max={200}
-            onChange={(value) => setObject({ y: value })}
-          />
-        </ControlRow>
-        <ControlRow className="mt-2">
-          <NumberField
-            icon={<Ruler className="h-4 w-4" />}
-            label={text.field.width}
-            description={showDescriptions ? text.help.width : undefined}
-            value={selected.width}
-            min={0}
-            max={200}
-            onChange={(value) => setObject({ width: value })}
-          />
-          <NumberField
-            icon={<Box className="h-4 w-4" />}
-            label={text.field.height}
-            description={showDescriptions ? text.help.height : undefined}
-            value={selected.height}
-            min={0}
-            max={200}
-            onChange={(value) => setObject({ height: value })}
-          />
-        </ControlRow>
-        {selectedKind === 'nameplate' && (
-          <>
-            <ControlRow className="mt-2">
-              <IconChoicePair
-                value={renderStyle.nameplateInside}
-                onChange={(value) => updateRenderStyle('nameplateInside', value)}
-                leftIcon={<Box className="h-4 w-4" />}
-                rightIcon={<Expand className="h-4 w-4" />}
-                leftLabel={nameplateToggleText.inside}
-                rightLabel={nameplateToggleText.outside}
-              />
-              <IconChoicePair
-                value={renderStyle.nameplateFollowCharacter}
-                onChange={(value) => updateRenderStyle('nameplateFollowCharacter', value)}
-                leftIcon={<Crosshair className="h-4 w-4" />}
-                rightIcon={<Pin className="h-4 w-4" />}
-                leftLabel={nameplateToggleText.follow}
-                rightLabel={nameplateToggleText.fixed}
-              />
-            </ControlRow>
-            {renderStyle.nameplateInside && (
+        <InspectorGroup
+          title={positionTitle}
+          icon={<PositionVisibilityIcon visible={selected.visible} />}
+          tone="position"
+          onTitleClick={() => setObject({ visible: !selected.visible })}
+          titleActive
+          showDescriptions={showDescriptions}
+          secondaryHasDescription
+          secondary={
+            <NumberField
+              icon={<Radius className="h-4 w-4" />}
+              label={text.field.radius}
+              description={showDescriptions ? text.help.radius : undefined}
+              value={selected.radius}
+              min={0}
+              max={200}
+              onChange={(value) => setObject({ radius: value })}
+            />
+          }
+        >
+          <ControlRow>
+            <NumberField
+              icon={<MoveHorizontal className="h-4 w-4" />}
+              label={text.field.x}
+              description={showDescriptions ? text.help.x : undefined}
+              value={selected.x}
+              min={-200}
+              max={200}
+              onChange={(value) => setObject({ x: value })}
+            />
+            <NumberField
+              icon={<MoveVertical className="h-4 w-4" />}
+              label={text.field.y}
+              description={showDescriptions ? text.help.y : undefined}
+              value={selected.y}
+              min={-200}
+              max={200}
+              onChange={(value) => setObject({ y: value })}
+            />
+          </ControlRow>
+          <ControlRow className="mt-2">
+            <NumberField
+              icon={<Ruler className="h-4 w-4" />}
+              label={text.field.width}
+              description={showDescriptions ? text.help.width : undefined}
+              value={selected.width}
+              min={0}
+              max={200}
+              onChange={(value) => setObject({ width: value })}
+            />
+            <NumberField
+              icon={<Box className="h-4 w-4" />}
+              label={text.field.height}
+              description={showDescriptions ? text.help.height : undefined}
+              value={selected.height}
+              min={0}
+              max={200}
+              onChange={(value) => setObject({ height: value })}
+            />
+          </ControlRow>
+          {selectedKind === 'nameplate' && (
+            <>
               <ControlRow className="mt-2">
-                <NumberField
-                  icon={<MoveVertical className="h-4 w-4" />}
-                  label={text.field.textGap}
-                  description={showDescriptions ? text.help.textGap : undefined}
-                  value={renderStyle.nameplateTextGap ?? 8}
-                  min={-60}
-                  max={80}
-                  onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
+                <IconChoicePair
+                  value={renderStyle.nameplateInside}
+                  onChange={(value) => updateRenderStyle('nameplateInside', value)}
+                  leftIcon={<Box className="h-4 w-4" />}
+                  rightIcon={<Expand className="h-4 w-4" />}
+                  leftLabel={nameplateToggleText.inside}
+                  rightLabel={nameplateToggleText.outside}
                 />
-                <div aria-hidden="true" />
+                <IconChoicePair
+                  value={renderStyle.nameplateFollowCharacter}
+                  onChange={(value) => updateRenderStyle('nameplateFollowCharacter', value)}
+                  leftIcon={<Crosshair className="h-4 w-4" />}
+                  rightIcon={<Pin className="h-4 w-4" />}
+                  leftLabel={nameplateToggleText.follow}
+                  rightLabel={nameplateToggleText.fixed}
+                />
               </ControlRow>
-            )}
-          </>
-        )}
-      </InspectorGroup>
+              {renderStyle.nameplateInside && (
+                <ControlRow className="mt-2">
+                  <NumberField
+                    icon={<MoveVertical className="h-4 w-4" />}
+                    label={text.field.textGap}
+                    description={showDescriptions ? text.help.textGap : undefined}
+                    value={renderStyle.nameplateTextGap ?? 8}
+                    min={-60}
+                    max={80}
+                    onChange={(value) => updateRenderStyle('nameplateTextGap', value)}
+                  />
+                  <div aria-hidden="true" />
+                </ControlRow>
+              )}
+            </>
+          )}
+        </InspectorGroup>
       )}
 
       {showsGroup('text') && textObject && (
@@ -428,307 +438,423 @@ export function RenderObjectInspector({
       )}
 
       {showsGroup('fill') && (
-      <InspectorGroup
-        title={text.group.fill}
-        icon={<PaintBucket className="h-3.5 w-3.5" />}
-        tone="fill"
-        onTitleClick={() => setFill({ enabled: !selected.fill.enabled })}
-        titleActive={selected.fill.enabled}
-        secondary={
-          <FillTabs
-            value={selected.fill.type}
-            labels={text.option}
-            onChange={(type) => {
-              setFill({ type });
-              setPopover({ group: 'fill', type });
-            }}
-          />
-        }
-      >
-        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-          {selected.fill.type === 'solid' ? (
-            <InlineColorControl
-              label={text.popover.solidTitle}
-              color={selected.fill.color}
-              alpha={selected.fill.alpha}
-              alphaLabel={text.field.opacity}
-              hexLabel={text.popover.hex}
-              onColorChange={(color) => setFill({ color })}
-              onAlphaChange={(alpha) => setFill({ alpha })}
-              onOpen={() => setPopover({ group: 'fill', type: 'solid' })}
+        <InspectorGroup
+          title={text.group.fill}
+          icon={<PaintBucket className="h-3.5 w-3.5" />}
+          tone="fill"
+          onTitleClick={() => setFill({ enabled: !selected.fill.enabled })}
+          titleActive={selected.fill.enabled}
+          secondary={
+            <FillTabs
+              value={selected.fill.type}
+              labels={text.option}
+              onChange={(type) => {
+                setFill({ type });
+                setPopover({ group: 'fill', type });
+              }}
             />
-          ) : selected.fill.type === 'gradient' ? (
-            <InlineGradientControl
-              label={text.popover.gradientTitle}
-              stops={selected.fill.gradientStops}
-              onOpen={() => setPopover({ group: 'fill', type: 'gradient' })}
-              onAlphaChange={(alpha) =>
-                setFill({ gradientStops: selected.fill.gradientStops.map((stop) => ({ ...stop, alpha })) })
-              }
-            />
-          ) : (
-            <button type="button" onClick={() => setPopover({ group: 'fill', type: 'image' })} className="grid h-10 min-w-0 grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950" title={text.popover.imageTitle}>
-              <span className="h-full bg-slate-100 bg-cover bg-center" style={selected.fill.imageUrl ? { backgroundImage: `url("${selected.fill.imageUrl.replace(/"/g, '\\"')}")` } : undefined} />
-              <span className="min-w-0 truncate px-3 leading-10">{text.popover.imageTitle}</span>
-            </button>
+          }
+        >
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+            {selected.fill.type === 'solid' ? (
+              <InlineColorControl
+                label={text.popover.solidTitle}
+                color={selected.fill.color}
+                alpha={selected.fill.alpha}
+                alphaLabel={text.field.opacity}
+                hexLabel={text.popover.hex}
+                onColorChange={(color) => setFill({ color })}
+                onAlphaChange={(alpha) => setFill({ alpha })}
+                onOpen={() => setPopover({ group: 'fill', type: 'solid' })}
+              />
+            ) : selected.fill.type === 'gradient' ? (
+              <InlineGradientControl
+                label={text.popover.gradientTitle}
+                stops={selected.fill.gradientStops}
+                onOpen={() => setPopover({ group: 'fill', type: 'gradient' })}
+                onAlphaChange={(alpha) =>
+                  setFill({
+                    gradientStops: selected.fill.gradientStops.map((stop) => ({ ...stop, alpha })),
+                  })
+                }
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPopover({ group: 'fill', type: 'image' })}
+                className="grid h-10 min-w-0 grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950"
+                title={text.popover.imageTitle}
+              >
+                <span
+                  className="h-full bg-slate-100 bg-cover bg-center"
+                  style={
+                    selected.fill.imageUrl
+                      ? { backgroundImage: `url("${selected.fill.imageUrl.replace(/"/g, '\\"')}")` }
+                      : undefined
+                  }
+                />
+                <span className="min-w-0 truncate px-3 leading-10">{text.popover.imageTitle}</span>
+              </button>
+            )}
+            <div className="h-10 w-11" aria-hidden="true" />
+          </div>
+          {popover?.group === 'fill' && selected.fill.type === 'solid' && (
+            <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
+              <SolidColorPopover
+                tone="fill"
+                text={text.popover}
+                color={selected.fill.color}
+                alpha={selected.fill.alpha}
+                onColorChange={(color) => setFill({ color })}
+                onAlphaChange={(alpha) => setFill({ alpha })}
+              />
+            </FloatingPopover>
           )}
-          <div className="h-10 w-11" aria-hidden="true" />
-        </div>
-        {popover?.group === 'fill' && selected.fill.type === 'solid' && (
-          <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
-            <SolidColorPopover
-              tone="fill"
-              text={text.popover}
-              color={selected.fill.color}
-              alpha={selected.fill.alpha}
-              onColorChange={(color) => setFill({ color })}
-              onAlphaChange={(alpha) => setFill({ alpha })}
-            />
-          </FloatingPopover>
-        )}
-        {popover?.group === 'fill' && selected.fill.type === 'gradient' && (
-          <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
-            <GradientPopover
-              tone="fill"
-              text={text.popover}
-              angle={selected.fill.gradientAngle}
-              stops={selected.fill.gradientStops}
-              onAngleChange={(gradientAngle) => setFill({ gradientAngle })}
-              onStopsChange={(gradientStops) => setFill({ gradientStops })}
-            />
-          </FloatingPopover>
-        )}
-        {popover?.group === 'fill' && selected.fill.type === 'image' && (
-          <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
-            <ImageFillPopover
-              tone="fill"
-              text={text.popover}
-              value={selected.fill}
-              onChange={setFill}
-            />
-          </FloatingPopover>
-        )}
-      </InspectorGroup>
+          {popover?.group === 'fill' && selected.fill.type === 'gradient' && (
+            <FloatingPopover
+              popoverKey="gradient"
+              onClose={() => setPopover(null)}
+              closeLabel={closeLabel}
+            >
+              <GradientPopover
+                tone="fill"
+                text={text.popover}
+                angle={selected.fill.gradientAngle}
+                gradientType={selected.fill.gradientType}
+                stops={selected.fill.gradientStops}
+                onAngleChange={(gradientAngle) => setFill({ gradientAngle })}
+                onGradientTypeChange={(gradientType) => setFill({ gradientType })}
+                onStopsChange={(gradientStops) => setFill({ gradientStops })}
+              />
+            </FloatingPopover>
+          )}
+          {popover?.group === 'fill' && selected.fill.type === 'image' && (
+            <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
+              <ImageFillPopover
+                tone="fill"
+                text={text.popover}
+                value={selected.fill}
+                onChange={setFill}
+              />
+            </FloatingPopover>
+          )}
+        </InspectorGroup>
       )}
 
       {showsGroup('stroke') && (
-      <InspectorGroup
-        title={text.group.stroke}
-        icon={<Minus className="h-3.5 w-3.5" />}
-        tone="stroke"
-        onTitleClick={() =>
-          setObject({ stroke: { ...selected.stroke, enabled: !selected.stroke.enabled } })
-        }
-        titleActive={selected.stroke.enabled}
-        showDescriptions={showDescriptions}
-        secondaryDescription={strokeLabels.style}
-        secondary={
-          <TwoOptionTabs
-            value={selected.stroke.type === 'gradient' ? 'gradient' : 'solid'}
-            onChange={(type) => {
-              setObject({ stroke: { ...selected.stroke, type } });
-              setPopover({ group: 'stroke', type });
-            }}
-            solidLabel={text.option.solid}
-            gradientLabel={text.option.gradient}
-          />
-        }
-      >
-        <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
-        <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
-          <ControlRow>
-            <NumberField
-              icon={<Ruler className="h-4 w-4" />}
-              label={text.field.strokeWidth}
-              description={showDescriptions ? text.field.strokeWidth : undefined}
-              value={selected.stroke.width}
-              min={0}
-              max={40}
-              onChange={(width) => setObject({ stroke: { ...selected.stroke, width } })}
-            />
-            <SettingDescription show={showDescriptions} label={text.field.strokePosition}>
-              <ThreeOptionTabs
-                value={selected.stroke.position}
-                onChange={(position) => setObject({ stroke: { ...selected.stroke, position } })}
-              />
-            </SettingDescription>
-          </ControlRow>
-          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            <SettingDescription className="min-w-0" show={showDescriptions} label={strokeLabels.color}>
-              {selected.stroke.type === 'gradient' ? (
-                <InlineGradientControl
-                  label={text.popover.gradientTitle}
-                  stops={selected.stroke.gradientStops}
-                  onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
-                  onAlphaChange={(alpha) =>
-                    setObject({ stroke: { ...selected.stroke, gradientStops: selected.stroke.gradientStops.map((stop) => ({ ...stop, alpha })) } })
-                  }
-                />
-              ) : (
-                <InlineColorControl
-                  label={text.field.color}
-                  color={selected.stroke.color}
-                  alpha={selected.stroke.alpha}
-                  alphaLabel={text.field.opacity}
-                  hexLabel={text.popover.hex}
-                  onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
-                  onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
-                  onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
-                />
-              )}
-            </SettingDescription>
-            <div className="h-10 w-11" aria-hidden="true" />
-          </div>
-          {popover?.group === 'stroke' && (
-            <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
-              {selected.stroke.type === 'gradient' ? (
-                <GradientPopover
-                  tone="stroke"
-                  text={text.popover}
-                  angle={selected.stroke.gradientAngle}
-                  stops={selected.stroke.gradientStops}
-                  onAngleChange={(gradientAngle) =>
-                    setObject({ stroke: { ...selected.stroke, gradientAngle } })
-                  }
-                  onStopsChange={(gradientStops) =>
-                    setObject({ stroke: { ...selected.stroke, gradientStops } })
-                  }
-                />
-              ) : (
-                <SolidColorPopover
-                  tone="stroke"
-                  text={text.popover}
-                  color={selected.stroke.color}
-                  alpha={selected.stroke.alpha}
-                  onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
-                  onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
-                />
-              )}
-            </FloatingPopover>
-          )}
-        </div>
-      </InspectorGroup>
-      )}
-
-      {showsGroup('shadow') && shadowLayers.map((shadow, index) => (
         <InspectorGroup
-          key={`${selectedKind}-shadow-${index}`}
-          title={index === 0 ? text.group.shadow : `${text.group.shadow} ${index + 1}`}
-          icon={<Palette className="h-3.5 w-3.5" />}
-          tone="shadow"
-          onTitleClick={index === 0 ? toggleShadow : undefined}
-          titleActive={shadow.enabled}
+          title={text.group.stroke}
+          icon={<Minus className="h-3.5 w-3.5" />}
+          tone="stroke"
+          onTitleClick={() =>
+            setObject({ stroke: { ...selected.stroke, enabled: !selected.stroke.enabled } })
+          }
+          titleActive={selected.stroke.enabled}
           showDescriptions={showDescriptions}
-          secondaryDescription={shadowLabels.type}
+          secondaryDescription={strokeLabels.style}
           secondary={
-            <ShadowModeTabs
-              value={shadow.type}
-              onChange={(type) => setShadowLayer(index, { type })}
-              labels={shadowModeLabels}
-              outerOnly={surface === 'video'}
+            <TwoOptionTabs
+              value={selected.stroke.type === 'gradient' ? 'gradient' : 'solid'}
+              onChange={(type) => {
+                setObject({ stroke: { ...selected.stroke, type } });
+                setPopover({ group: 'stroke', type });
+              }}
+              solidLabel={text.option.solid}
+              gradientLabel={text.option.gradient}
             />
           }
         >
           <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
           <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.opacity} description={showDescriptions ? text.field.opacity : undefined} value={shadow.alpha} min={0} max={100} onChange={(alpha) => setShadowLayer(index, { alpha })} />
-              <NumberField icon={<Blend className="h-4 w-4" />} label={text.field.blur} description={showDescriptions ? text.field.blur : undefined} value={shadow.blur} min={0} max={120} onChange={(blur) => setShadowLayer(index, { blur })} />
-              <SettingDescription show={showDescriptions} label={shadowLabels.add}>
-                <button type="button" onClick={addShadowLayer} disabled={shadowLayers.length >= 6} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 hover:bg-fuchsia-100 disabled:opacity-35" title={shadowLabels.add} aria-label={shadowLabels.add}><Plus className="h-5 w-5" /></button>
-              </SettingDescription>
-            </div>
-            <ControlRow className="mt-2">
-              <NumberField icon={<MoveHorizontal className="h-4 w-4" />} label={text.field.x} description={showDescriptions ? text.field.x : undefined} value={shadow.x} min={-120} max={120} onChange={(x) => setShadowLayer(index, { x })} />
-              <NumberField icon={<MoveVertical className="h-4 w-4" />} label={text.field.y} description={showDescriptions ? text.field.y : undefined} value={shadow.y} min={-120} max={120} onChange={(y) => setShadowLayer(index, { y })} />
-            </ControlRow>
-            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-              <SettingDescription className="min-w-0" show={showDescriptions} label={shadowLabels.color}>
-                <InlineColorControl
-                  label={text.field.color}
-                  color={shadow.color}
-                  alpha={shadow.alpha}
-                  alphaLabel={text.field.opacity}
-                  hexLabel={text.popover.hex}
-                  onColorChange={(color) => setShadowLayer(index, { color })}
-                  onAlphaChange={(alpha) => setShadowLayer(index, { alpha })}
-                  onOpen={() => setPopover({ group: 'shadow', type: 'solid' })}
+            <ControlRow>
+              <NumberField
+                icon={<Ruler className="h-4 w-4" />}
+                label={text.field.strokeWidth}
+                description={showDescriptions ? text.field.strokeWidth : undefined}
+                value={selected.stroke.width}
+                min={0}
+                max={40}
+                onChange={(width) => setObject({ stroke: { ...selected.stroke, width } })}
+              />
+              <SettingDescription show={showDescriptions} label={text.field.strokePosition}>
+                <ThreeOptionTabs
+                  value={selected.stroke.position}
+                  onChange={(position) => setObject({ stroke: { ...selected.stroke, position } })}
                 />
               </SettingDescription>
-              {index > 0 ? <button type="button" onClick={() => removeShadowLayer(index)} className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 hover:bg-rose-50" title="Remove shadow" aria-label="Remove shadow"><Minus className="h-5 w-5" /></button> : <div />}
+            </ControlRow>
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+              <SettingDescription
+                className="min-w-0"
+                show={showDescriptions}
+                label={strokeLabels.color}
+              >
+                {selected.stroke.type === 'gradient' ? (
+                  <InlineGradientControl
+                    label={text.popover.gradientTitle}
+                    stops={selected.stroke.gradientStops}
+                    onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
+                    onAlphaChange={(alpha) =>
+                      setObject({
+                        stroke: {
+                          ...selected.stroke,
+                          gradientStops: selected.stroke.gradientStops.map((stop) => ({
+                            ...stop,
+                            alpha,
+                          })),
+                        },
+                      })
+                    }
+                  />
+                ) : (
+                  <InlineColorControl
+                    label={text.field.color}
+                    color={selected.stroke.color}
+                    alpha={selected.stroke.alpha}
+                    alphaLabel={text.field.opacity}
+                    hexLabel={text.popover.hex}
+                    onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
+                    onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
+                    onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
+                  />
+                )}
+              </SettingDescription>
+              <div className="h-10 w-11" aria-hidden="true" />
             </div>
-            {popover?.group === 'shadow' && index === 0 && (
-              <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}><SolidColorPopover tone="shadow" text={text.popover} color={shadow.color} alpha={shadow.alpha} onColorChange={(color) => setShadowLayer(index, { color })} onAlphaChange={(alpha) => setShadowLayer(index, { alpha })} /></FloatingPopover>
+            {popover?.group === 'stroke' && (
+              <FloatingPopover
+                popoverKey={selected.stroke.type === 'gradient' ? 'gradient' : 'solid'}
+                onClose={() => setPopover(null)}
+                closeLabel={closeLabel}
+              >
+                {selected.stroke.type === 'gradient' ? (
+                  <GradientPopover
+                    tone="stroke"
+                    text={text.popover}
+                    angle={selected.stroke.gradientAngle}
+                    gradientType={selected.stroke.gradientType}
+                    stops={selected.stroke.gradientStops}
+                    onAngleChange={(gradientAngle) =>
+                      setObject({ stroke: { ...selected.stroke, gradientAngle } })
+                    }
+                    onGradientTypeChange={(gradientType) =>
+                      setObject({ stroke: { ...selected.stroke, gradientType } })
+                    }
+                    onStopsChange={(gradientStops) =>
+                      setObject({ stroke: { ...selected.stroke, gradientStops } })
+                    }
+                  />
+                ) : (
+                  <SolidColorPopover
+                    tone="stroke"
+                    text={text.popover}
+                    color={selected.stroke.color}
+                    alpha={selected.stroke.alpha}
+                    onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
+                    onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
+                  />
+                )}
+              </FloatingPopover>
             )}
           </div>
         </InspectorGroup>
-      ))}
+      )}
+
+      {showsGroup('shadow') &&
+        shadowLayers.map((shadow, index) => (
+          <InspectorGroup
+            key={`${selectedKind}-shadow-${index}`}
+            title={index === 0 ? text.group.shadow : `${text.group.shadow} ${index + 1}`}
+            icon={<Palette className="h-3.5 w-3.5" />}
+            tone="shadow"
+            onTitleClick={index === 0 ? toggleShadow : undefined}
+            titleActive={shadow.enabled}
+            showDescriptions={showDescriptions}
+            secondaryDescription={shadowLabels.type}
+            secondary={
+              <ShadowModeTabs
+                value={shadow.type}
+                onChange={(type) => setShadowLayer(index, { type })}
+                labels={shadowModeLabels}
+                outerOnly={surface === 'video'}
+              />
+            }
+          >
+            <DisabledNotice show={advancedVideoDisabled} label={text.disabled.videoOnly} />
+            <div className={advancedVideoDisabled ? 'pointer-events-none opacity-45' : ''}>
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+                <NumberField
+                  icon={<Blend className="h-4 w-4" />}
+                  label={text.field.opacity}
+                  description={showDescriptions ? text.field.opacity : undefined}
+                  value={shadow.alpha}
+                  min={0}
+                  max={100}
+                  onChange={(alpha) => setShadowLayer(index, { alpha })}
+                />
+                <NumberField
+                  icon={<Blend className="h-4 w-4" />}
+                  label={text.field.blur}
+                  description={showDescriptions ? text.field.blur : undefined}
+                  value={shadow.blur}
+                  min={0}
+                  max={120}
+                  onChange={(blur) => setShadowLayer(index, { blur })}
+                />
+                <SettingDescription show={showDescriptions} label={shadowLabels.add}>
+                  <button
+                    type="button"
+                    onClick={addShadowLayer}
+                    disabled={shadowLayers.length >= 6}
+                    className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 hover:bg-fuchsia-100 disabled:opacity-35"
+                    title={shadowLabels.add}
+                    aria-label={shadowLabels.add}
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </SettingDescription>
+              </div>
+              <ControlRow className="mt-2">
+                <NumberField
+                  icon={<MoveHorizontal className="h-4 w-4" />}
+                  label={text.field.x}
+                  description={showDescriptions ? text.field.x : undefined}
+                  value={shadow.x}
+                  min={-120}
+                  max={120}
+                  onChange={(x) => setShadowLayer(index, { x })}
+                />
+                <NumberField
+                  icon={<MoveVertical className="h-4 w-4" />}
+                  label={text.field.y}
+                  description={showDescriptions ? text.field.y : undefined}
+                  value={shadow.y}
+                  min={-120}
+                  max={120}
+                  onChange={(y) => setShadowLayer(index, { y })}
+                />
+              </ControlRow>
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
+                <SettingDescription
+                  className="min-w-0"
+                  show={showDescriptions}
+                  label={shadowLabels.color}
+                >
+                  <InlineColorControl
+                    label={text.field.color}
+                    color={shadow.color}
+                    alpha={shadow.alpha}
+                    alphaLabel={text.field.opacity}
+                    hexLabel={text.popover.hex}
+                    onColorChange={(color) => setShadowLayer(index, { color })}
+                    onAlphaChange={(alpha) => setShadowLayer(index, { alpha })}
+                    onOpen={() => setPopover({ group: 'shadow', type: 'solid' })}
+                  />
+                </SettingDescription>
+                {index > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => removeShadowLayer(index)}
+                    className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 hover:bg-rose-50"
+                    title="Remove shadow"
+                    aria-label="Remove shadow"
+                  >
+                    <Minus className="h-5 w-5" />
+                  </button>
+                ) : (
+                  <div />
+                )}
+              </div>
+              {popover?.group === 'shadow' && index === 0 && (
+                <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
+                  <SolidColorPopover
+                    tone="shadow"
+                    text={text.popover}
+                    color={shadow.color}
+                    alpha={shadow.alpha}
+                    onColorChange={(color) => setShadowLayer(index, { color })}
+                    onAlphaChange={(alpha) => setShadowLayer(index, { alpha })}
+                  />
+                </FloatingPopover>
+              )}
+            </div>
+          </InspectorGroup>
+        ))}
 
       {showsGroup('animation') && (selectedKind === 'title' || selectedKind === 'body') && (
-      <div className={surface === 'video' ? 'pointer-events-none select-none opacity-40 grayscale' : undefined}>
-      <InspectorGroup
-        title={text.group.animation}
-        icon={<Sparkles className="h-3.5 w-3.5" />}
-        tone="animation"
-        showDescriptions={showDescriptions}
-        secondaryHasDescription
-        secondary={
-          <SettingDescription show={showDescriptions} label={animationLabels.type}>
-            <SelectField
-              label={text.group.animation}
-              value={selected.animation.animation}
-              options={[
-                { value: 'none', label: text.option.none },
-                { value: 'fade', label: text.option.fade },
-                { value: 'slideUp', label: text.option.slideUp },
-                { value: 'typewriter', label: text.option.typewriter },
-              ]}
-              onChange={(value) =>
-                setObject({ animation: { ...selected.animation, animation: value as TextAnimation } })
-              }
-            />
-          </SettingDescription>
-        }
-      >
-        <ControlRow>
-          <NumberField
-            icon={<RotateCw className="h-4 w-4" />}
-            label={text.field.duration}
-            description={showDescriptions ? text.field.duration : undefined}
-            value={selected.animation.durationMs}
-            min={0}
-            max={10000}
-            step={50}
-            onChange={(durationMs) =>
-              setObject({ animation: { ...selected.animation, durationMs } })
+        <div
+          className={
+            surface === 'video' ? 'pointer-events-none select-none opacity-40 grayscale' : undefined
+          }
+        >
+          <InspectorGroup
+            title={text.group.animation}
+            icon={<Sparkles className="h-3.5 w-3.5" />}
+            tone="animation"
+            showDescriptions={showDescriptions}
+            secondaryHasDescription
+            secondary={
+              <SettingDescription show={showDescriptions} label={animationLabels.type}>
+                <SelectField
+                  label={text.group.animation}
+                  value={selected.animation.animation}
+                  options={[
+                    { value: 'none', label: text.option.none },
+                    { value: 'fade', label: text.option.fade },
+                    { value: 'slideUp', label: text.option.slideUp },
+                    { value: 'typewriter', label: text.option.typewriter },
+                  ]}
+                  onChange={(value) =>
+                    setObject({
+                      animation: { ...selected.animation, animation: value as TextAnimation },
+                    })
+                  }
+                />
+              </SettingDescription>
             }
-          />
-          <SettingDescription show={showDescriptions} label={animationLabels.typewriter}>
-            <SelectField
-              label={text.field.typewriter}
-              value={selected.animation.typewriterMode}
-              options={[
-                { value: 'character', label: text.option.character },
-                { value: 'sentence', label: text.option.sentence },
-                { value: 'line', label: text.option.line },
-              ]}
-              onChange={(value) =>
-                setObject({
-                  animation: { ...selected.animation, typewriterMode: value as TypewriterMode },
-                })
-              }
-            />
-          </SettingDescription>
-        </ControlRow>
-      </InspectorGroup>
-      {surface === 'video' && (
-        <p className="mt-1 px-2 text-[10px] text-slate-500">
-          {language === 'zh' ? '视频文字动画暂不可用' : language === 'ja' ? '動画テキストアニメーションは現在利用できません' : 'Video text animation is currently unavailable'}
-        </p>
+          >
+            <ControlRow>
+              <NumberField
+                icon={<RotateCw className="h-4 w-4" />}
+                label={text.field.duration}
+                description={showDescriptions ? text.field.duration : undefined}
+                value={selected.animation.durationMs}
+                min={0}
+                max={10000}
+                step={50}
+                onChange={(durationMs) =>
+                  setObject({ animation: { ...selected.animation, durationMs } })
+                }
+              />
+              <SettingDescription show={showDescriptions} label={animationLabels.typewriter}>
+                <SelectField
+                  label={text.field.typewriter}
+                  value={selected.animation.typewriterMode}
+                  options={[
+                    { value: 'character', label: text.option.character },
+                    { value: 'sentence', label: text.option.sentence },
+                    { value: 'line', label: text.option.line },
+                  ]}
+                  onChange={(value) =>
+                    setObject({
+                      animation: { ...selected.animation, typewriterMode: value as TypewriterMode },
+                    })
+                  }
+                />
+              </SettingDescription>
+            </ControlRow>
+          </InspectorGroup>
+          {surface === 'video' && (
+            <p className="mt-1 px-2 text-[10px] text-slate-500">
+              {language === 'zh'
+                ? '视频文字动画暂不可用'
+                : language === 'ja'
+                  ? '動画テキストアニメーションは現在利用できません'
+                  : 'Video text animation is currently unavailable'}
+            </p>
+          )}
+        </div>
       )}
-      </div>
-      )}
-
     </div>
   );
 }
@@ -805,7 +931,12 @@ function syncLegacyFields(
 
 function PositionVisibilityIcon({ visible }: { visible: boolean }) {
   if (visible) return <Box className="h-3.5 w-3.5" />;
-  return <span className="relative inline-grid h-3.5 w-3.5 place-items-center" aria-hidden="true"><Box className="h-3.5 w-3.5" /><span className="absolute h-[1.5px] w-[18px] rotate-[-45deg] rounded-full bg-current" /></span>;
+  return (
+    <span className="relative inline-grid h-3.5 w-3.5 place-items-center" aria-hidden="true">
+      <Box className="h-3.5 w-3.5" />
+      <span className="absolute h-[1.5px] w-[18px] rotate-[-45deg] rounded-full bg-current" />
+    </span>
+  );
 }
 
 function SelectField({
@@ -932,13 +1063,27 @@ function TwoOptionTabs({
 }) {
   return (
     <div className="grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white">
-      {([
-        ['solid', solidLabel],
-        ['gradient', gradientLabel],
-      ] as const).map(([option, label]) => (
-        <button key={option} type="button" onClick={() => onChange(option)} className={`grid place-items-center text-xs font-bold ${value === option ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-indigo-50'}`}>
+      {(
+        [
+          ['solid', solidLabel],
+          ['gradient', gradientLabel],
+        ] as const
+      ).map(([option, label]) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onChange(option)}
+          className={`grid place-items-center text-xs font-bold ${value === option ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-indigo-50'}`}
+        >
           <span title={label} aria-label={label}>
-            {option === 'solid' ? <Palette className="h-4 w-4" /> : <span className="block h-3.5 w-3.5 rounded-full border border-current/30" style={{ background: 'linear-gradient(135deg, currentColor 0%, transparent 100%)' }} />}
+            {option === 'solid' ? (
+              <Palette className="h-4 w-4" />
+            ) : (
+              <span
+                className="block h-3.5 w-3.5 rounded-full border border-current/30"
+                style={{ background: 'linear-gradient(135deg, currentColor 0%, transparent 100%)' }}
+              />
+            )}
           </span>
         </button>
       ))}
@@ -956,11 +1101,28 @@ function ThreeOptionTabs({
   return (
     <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
       {(['inside', 'center', 'outside'] as const).map((option) => (
-        <button key={option} type="button" onClick={() => onChange(option)} className={`grid place-items-center text-[10px] font-bold ${value === option ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-indigo-50'}`} title={option}>
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" aria-hidden="true">
+        <button
+          key={option}
+          type="button"
+          onClick={() => onChange(option)}
+          className={`grid place-items-center text-[10px] font-bold ${value === option ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-indigo-50'}`}
+          title={option}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
             <rect x="5" y="5" width="14" height="14" rx="2" opacity="0.35" />
             {option === 'inside' && <rect x="7" y="7" width="10" height="10" rx="2" />}
-            {option === 'center' && <rect x="5" y="5" width="14" height="14" rx="2" strokeDasharray="3 3" />}
+            {option === 'center' && (
+              <rect x="5" y="5" width="14" height="14" rx="2" strokeDasharray="3 3" />
+            )}
             {option === 'outside' && <rect x="3" y="3" width="18" height="18" rx="2" />}
           </svg>
         </button>

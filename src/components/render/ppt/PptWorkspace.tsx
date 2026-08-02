@@ -1283,11 +1283,18 @@ const alphaColor = (value: string, alpha: number) => {
 const fillPaint = (object: RenderEditableObject) => {
   const fill = object.fill;
   if (fill.type === 'image' && fill.imageUrl) return `url("${fill.imageUrl.replace(/"/g, '\\"')}")`;
-  if (fill.type === 'gradient')
-    return `linear-gradient(${fill.gradientAngle}deg, ${[...fill.gradientStops]
+  if (fill.type === 'gradient') {
+    const stops = [...fill.gradientStops]
       .sort((a, b) => a.position - b.position)
       .map((stop) => `${alphaColor(stop.color, stop.alpha)} ${stop.position}%`)
-      .join(', ')})`;
+      .join(', ');
+    if (fill.gradientType === 'radial') return `radial-gradient(circle at center, ${stops})`;
+    if (fill.gradientType === 'angular')
+      return `conic-gradient(from ${fill.gradientAngle}deg at center, ${stops})`;
+    if (fill.gradientType === 'diamond')
+      return `conic-gradient(from ${fill.gradientAngle + 45}deg at center, ${stops})`;
+    return `linear-gradient(${fill.gradientAngle}deg, ${stops})`;
+  }
   return alphaColor(fill.color, fill.alpha);
 };
 const objectPaint = (object: RenderEditableObject): React.CSSProperties => ({

@@ -342,21 +342,54 @@ export function AlignButtons({
   );
 }
 
-function PositionAlignIcon({ axis, value }: { axis: 'x' | 'y'; value: 'start' | 'center' | 'end' }) {
+function PositionAlignIcon({
+  axis,
+  value,
+}: {
+  axis: 'x' | 'y';
+  value: 'start' | 'center' | 'end';
+}) {
   const guide = value === 'start' ? 4 : value === 'center' ? 12 : 20;
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       {axis === 'x' ? (
         <>
           <path d={`M${guide} 3v18`} opacity="0.78" />
-          <rect x={value === 'start' ? 7 : value === 'center' ? 8 : 9} y="7" width="8" height="10" rx="2" />
-          <path d={value === 'start' ? 'M4 12h3' : value === 'center' ? 'M8 12h8' : 'M17 12h3'} opacity="0.55" />
+          <rect
+            x={value === 'start' ? 7 : value === 'center' ? 8 : 9}
+            y="7"
+            width="8"
+            height="10"
+            rx="2"
+          />
+          <path
+            d={value === 'start' ? 'M4 12h3' : value === 'center' ? 'M8 12h8' : 'M17 12h3'}
+            opacity="0.55"
+          />
         </>
       ) : (
         <>
           <path d={`M3 ${guide}h18`} opacity="0.78" />
-          <rect x="7" y={value === 'start' ? 7 : value === 'center' ? 8 : 9} width="10" height="8" rx="2" />
-          <path d={value === 'start' ? 'M12 4v3' : value === 'center' ? 'M12 8v8' : 'M12 17v3'} opacity="0.55" />
+          <rect
+            x="7"
+            y={value === 'start' ? 7 : value === 'center' ? 8 : 9}
+            width="10"
+            height="8"
+            rx="2"
+          />
+          <path
+            d={value === 'start' ? 'M12 4v3' : value === 'center' ? 'M12 8v8' : 'M12 17v3'}
+            opacity="0.55"
+          />
         </>
       )}
     </svg>
@@ -504,7 +537,13 @@ export function FloatingPopover({
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    left: number;
+    top: number;
+  } | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const storageKey = `galwriter-inspector-popover-position:${popoverKey}`;
   const clampPosition = useCallback((left: number, top: number) => {
@@ -514,14 +553,20 @@ export function FloatingPopover({
     const gap = 12;
     return {
       left: Math.max(gap, Math.min(left, window.innerWidth - width - gap)),
-      top: Math.max(gap, Math.min(top, window.innerHeight - Math.min(height, window.innerHeight - gap * 2) - gap)),
+      top: Math.max(
+        gap,
+        Math.min(top, window.innerHeight - Math.min(height, window.innerHeight - gap * 2) - gap),
+      ),
     };
   }, []);
   const placePanel = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
     try {
-      const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null') as { left?: number; top?: number } | null;
+      const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null') as {
+        left?: number;
+        top?: number;
+      } | null;
       if (Number.isFinite(saved?.left) && Number.isFinite(saved?.top)) {
         setPosition(clampPosition(saved!.left!, saved!.top!));
         return;
@@ -535,7 +580,8 @@ export function FloatingPopover({
   }, [clampPosition, storageKey]);
   useLayoutEffect(() => placePanel(), [placePanel]);
   useEffect(() => {
-    const keepVisible = () => setPosition((current) => current ? clampPosition(current.left, current.top) : current);
+    const keepVisible = () =>
+      setPosition((current) => (current ? clampPosition(current.left, current.top) : current));
     window.addEventListener('resize', keepVisible);
     return () => window.removeEventListener('resize', keepVisible);
   }, [clampPosition]);
@@ -548,55 +594,78 @@ export function FloatingPopover({
   return (
     <>
       <div ref={anchorRef} className="absolute inset-x-0 top-0 h-0" aria-hidden="true" />
-      {position && createPortal(
-        <div ref={panelRef} className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`} style={position} data-web-style-popover>
+      {position &&
+        createPortal(
           <div
-            className="relative flex h-7 cursor-grab touch-none items-center justify-center rounded-t-[22px] border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
-            title="Drag"
-            onPointerDown={(event) => {
-              if (event.button !== 0) return;
-              dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: position.left, top: position.top };
-              event.currentTarget.setPointerCapture(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              const drag = dragRef.current;
-              if (!drag || drag.pointerId !== event.pointerId) return;
-              setPosition(clampPosition(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y));
-            }}
-            onPointerUp={(event) => {
-              const drag = dragRef.current;
-              if (!drag || drag.pointerId !== event.pointerId) return;
-              dragRef.current = null;
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-              const next = clampPosition(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y);
-              setPosition(next);
-              try {
-                window.localStorage.setItem(storageKey, JSON.stringify(next));
-              } catch {
-                // Position persistence is optional. Large embedded media can fill
-                // localStorage; dragging the panel must still work in that case.
-              }
-            }}
-            onPointerCancel={() => { dragRef.current = null; }}
+            ref={panelRef}
+            className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : popoverKey === 'gradient' ? 'w-[min(460px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`}
+            style={position}
+            data-web-style-popover
           >
-            <GripHorizontal className="h-4 w-4" aria-hidden="true" />
-            {onClose && (
-              <button
-                type="button"
-                className="absolute right-1 grid h-5 w-5 cursor-pointer place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
-                title={closeLabel}
-                aria-label={closeLabel}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={onClose}
-              >
-                <X className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            )}
-          </div>
-          <div className="[&>div]:rounded-t-none [&>div]:rounded-b-[22px]">{children}</div>
-        </div>,
-        document.body,
-      )}
+            <div
+              className="relative flex h-7 cursor-grab touch-none items-center justify-center rounded-t-[22px] border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
+              title="Drag"
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                dragRef.current = {
+                  pointerId: event.pointerId,
+                  x: event.clientX,
+                  y: event.clientY,
+                  left: position.left,
+                  top: position.top,
+                };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                const drag = dragRef.current;
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                setPosition(
+                  clampPosition(
+                    drag.left + event.clientX - drag.x,
+                    drag.top + event.clientY - drag.y,
+                  ),
+                );
+              }}
+              onPointerUp={(event) => {
+                const drag = dragRef.current;
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                dragRef.current = null;
+                if (event.currentTarget.hasPointerCapture(event.pointerId))
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                const next = clampPosition(
+                  drag.left + event.clientX - drag.x,
+                  drag.top + event.clientY - drag.y,
+                );
+                setPosition(next);
+                try {
+                  window.localStorage.setItem(storageKey, JSON.stringify(next));
+                } catch {
+                  // Position persistence is optional. Large embedded media can fill
+                  // localStorage; dragging the panel must still work in that case.
+                }
+              }}
+              onPointerCancel={() => {
+                dragRef.current = null;
+              }}
+            >
+              <GripHorizontal className="h-4 w-4" aria-hidden="true" />
+              {onClose && (
+                <button
+                  type="button"
+                  className="absolute right-1 grid h-5 w-5 cursor-pointer place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+                  title={closeLabel}
+                  aria-label={closeLabel}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={onClose}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <div className="[&>div]:rounded-t-none [&>div]:rounded-b-[22px]">{children}</div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

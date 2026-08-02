@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react';
 
-import { getRenderObjects } from '../video/shared/renderObjects';
 import {
   resolvePresentationDialogueLayout,
   resolvePresentationTextScale,
 } from '../video/shared/presentationLayout';
+import { getRenderObjects } from '../video/shared/renderObjects';
 import { webAnimationStyle } from '../video/shared/storyNodes';
 import type { RenderStyle } from '../video/shared/types';
 import type { RenderEditableObject, RenderFillStyle } from '../video/shared/types';
@@ -36,6 +36,11 @@ const fillPaint = (fill: RenderFillStyle): string => {
       .sort((a, b) => a.position - b.position)
       .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
       .join(', ');
+    if (fill.gradientType === 'radial') return `radial-gradient(circle at center, ${stops})`;
+    if (fill.gradientType === 'angular')
+      return `conic-gradient(from ${fill.gradientAngle}deg at center, ${stops})`;
+    if (fill.gradientType === 'diamond')
+      return `conic-gradient(from ${fill.gradientAngle + 45}deg at center, ${stops})`;
     return `linear-gradient(${fill.gradientAngle}deg, ${stops})`;
   }
   if (fill.type === 'image' && fill.imageUrl) return `url("${fill.imageUrl.replace(/"/g, '\\"')}")`;
@@ -97,32 +102,32 @@ export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSPrope
 export const buildTitleStyle = (renderStyle: RenderStyle, canvasHeight: number): CSSProperties => {
   const scale = resolvePresentationTextScale(canvasHeight);
   return {
-  ...textObjectStyle(renderStyle, 'title'),
-  fontFamily: renderStyle.titleFontFamily,
-  color: textColor(renderStyle, 'title'),
-  fontSize: Math.max(18, renderStyle.titleFontSize * scale),
-  letterSpacing: `${(renderStyle.titleLetterSpacing ?? 0) * scale}px`,
-  lineHeight: renderStyle.titleLineHeight,
-  textAlign: renderStyle.titleAlign,
-  overflowWrap: 'anywhere',
-  ...webAnimationStyle(renderStyle.titleAnimation),
-  textShadow: shadowPaint(getRenderObjects(renderStyle).title),
+    ...textObjectStyle(renderStyle, 'title'),
+    fontFamily: renderStyle.titleFontFamily,
+    color: textColor(renderStyle, 'title'),
+    fontSize: Math.max(18, renderStyle.titleFontSize * scale),
+    letterSpacing: `${(renderStyle.titleLetterSpacing ?? 0) * scale}px`,
+    lineHeight: renderStyle.titleLineHeight,
+    textAlign: renderStyle.titleAlign,
+    overflowWrap: 'anywhere',
+    ...webAnimationStyle(renderStyle.titleAnimation),
+    textShadow: shadowPaint(getRenderObjects(renderStyle).title),
   };
 };
 
 export const buildBodyStyle = (renderStyle: RenderStyle, canvasHeight: number): CSSProperties => {
   const scale = resolvePresentationTextScale(canvasHeight);
   return {
-  ...textObjectStyle(renderStyle, 'body'),
-  fontFamily: renderStyle.bodyFontFamily,
-  color: textColor(renderStyle, 'body'),
-  fontSize: Math.max(16, renderStyle.bodyFontSize * scale),
-  letterSpacing: `${(renderStyle.bodyLetterSpacing ?? 0) * scale}px`,
-  lineHeight: renderStyle.bodyLineHeight,
-  textAlign: renderStyle.bodyAlign,
-  overflowWrap: 'anywhere',
-  ...webAnimationStyle(renderStyle.bodyAnimation),
-  textShadow: shadowPaint(getRenderObjects(renderStyle).body),
+    ...textObjectStyle(renderStyle, 'body'),
+    fontFamily: renderStyle.bodyFontFamily,
+    color: textColor(renderStyle, 'body'),
+    fontSize: Math.max(16, renderStyle.bodyFontSize * scale),
+    letterSpacing: `${(renderStyle.bodyLetterSpacing ?? 0) * scale}px`,
+    lineHeight: renderStyle.bodyLineHeight,
+    textAlign: renderStyle.bodyAlign,
+    overflowWrap: 'anywhere',
+    ...webAnimationStyle(renderStyle.bodyAnimation),
+    textShadow: shadowPaint(getRenderObjects(renderStyle).body),
   };
 };
 
@@ -139,9 +144,10 @@ export const buildDialogueShellStyle = (
           background: fillPaint(object.fill),
           backgroundSize: object.fill.type === 'image' ? 'cover' : undefined,
           backgroundPosition: object.fill.type === 'image' ? 'center' : undefined,
-          border: object.stroke.enabled && object.stroke.type === 'solid'
-            ? `${object.stroke.width}px solid ${withAlpha(object.stroke.color, object.stroke.alpha / 100)}`
-            : undefined,
+          border:
+            object.stroke.enabled && object.stroke.type === 'solid'
+              ? `${object.stroke.width}px solid ${withAlpha(object.stroke.color, object.stroke.alpha / 100)}`
+              : undefined,
           boxShadow: shadowPaint(object),
         }
       : {
