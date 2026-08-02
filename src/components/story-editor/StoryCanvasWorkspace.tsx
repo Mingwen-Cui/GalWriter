@@ -25,6 +25,8 @@ interface StoryCanvasWorkspaceProps {
   onMouseDown: MouseEventHandler<HTMLDivElement>;
   onMouseMove: MouseEventHandler<HTMLDivElement>;
   onMouseUp: MouseEventHandler<HTMLDivElement>;
+  onBackgroundCardPlacementStart?: MouseEventHandler<HTMLDivElement>;
+  onBackgroundCardPlacementEnd?: MouseEventHandler<HTMLDivElement>;
   onDynamicWrapSelectionStart?: MouseEventHandler<HTMLDivElement>;
   onDynamicWrapSelectionEnd?: MouseEventHandler<HTMLDivElement>;
   reactFlowProps: ReactFlowProps;
@@ -39,7 +41,13 @@ interface StoryCanvasWorkspaceProps {
   miniMapOverlayStyle?: CSSProperties;
   horizontalGuides: number[];
   verticalGuides: number[];
-  cardPlacementPreviewKind?: 'story' | 'background' | 'dynamicWrap' | null;
+  cardPlacementPreviewKind?:
+    | 'story'
+    | 'background'
+    | 'dynamicWrap'
+    | 'bodyText'
+    | 'headingText'
+    | null;
   cardPlacementPreviewTitle?: string;
   cardPlacementStartScreen?: { x: number; y: number };
   storyCardPlacementPreviewScale?: number;
@@ -54,6 +62,8 @@ export function StoryCanvasWorkspace({
   onMouseDown,
   onMouseMove,
   onMouseUp,
+  onBackgroundCardPlacementStart,
+  onBackgroundCardPlacementEnd,
   onDynamicWrapSelectionStart,
   onDynamicWrapSelectionEnd,
   reactFlowProps,
@@ -81,6 +91,16 @@ export function StoryCanvasWorkspace({
   const isPlacementPreviewVisibleRef = useRef(false);
   const [isPlacementPreviewVisible, setIsPlacementPreviewVisible] = useState(false);
   const placementPreviewScale = Math.max(0.1, storyCardPlacementPreviewScale);
+  const placementPreviewSize =
+    cardPlacementPreviewKind === 'headingText'
+      ? { width: 320, height: 90 }
+      : cardPlacementPreviewKind === 'bodyText'
+        ? { width: 200, height: 60 }
+        : { width: 300, height: 176 };
+  const isPointPlacement =
+    cardPlacementPreviewKind === 'story' ||
+    cardPlacementPreviewKind === 'bodyText' ||
+    cardPlacementPreviewKind === 'headingText';
 
   useEffect(() => {
     if (!cardPlacementPreviewKind) {
@@ -91,13 +111,9 @@ export function StoryCanvasWorkspace({
 
   const handleCanvasMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
     onMouseMove(event);
-    if (
-      cardPlacementPreviewKind === 'story' &&
-      !cardPlacementStartScreen &&
-      placementPreviewRef.current
-    ) {
-      placementPreviewRef.current.style.left = `${event.clientX - 150 * placementPreviewScale}px`;
-      placementPreviewRef.current.style.top = `${event.clientY - 110 * placementPreviewScale}px`;
+    if (isPointPlacement && !cardPlacementStartScreen && placementPreviewRef.current) {
+      placementPreviewRef.current.style.left = `${event.clientX - (placementPreviewSize.width / 2) * placementPreviewScale}px`;
+      placementPreviewRef.current.style.top = `${event.clientY - (placementPreviewSize.height / 2) * placementPreviewScale}px`;
       if (!isPlacementPreviewVisibleRef.current) {
         isPlacementPreviewVisibleRef.current = true;
         setIsPlacementPreviewVisible(true);
@@ -121,11 +137,13 @@ export function StoryCanvasWorkspace({
         className={`relative h-full w-full ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
         onMouseDownCapture={(event) => {
           onMouseDown(event);
+          onBackgroundCardPlacementStart?.(event);
           onDynamicWrapSelectionStart?.(event);
         }}
         onMouseMoveCapture={handleCanvasMouseMove}
         onMouseUpCapture={(event) => {
           onMouseUp(event);
+          onBackgroundCardPlacementEnd?.(event);
           onDynamicWrapSelectionEnd?.(event);
         }}
         onMouseLeave={() => {
@@ -134,12 +152,16 @@ export function StoryCanvasWorkspace({
         }}
         style={{ touchAction: canvasTouchAction }}
       >
-        {cardPlacementPreviewKind === 'story' && !cardPlacementStartScreen && (
+        {isPointPlacement && !cardPlacementStartScreen && (
           <div
             ref={placementPreviewRef}
             aria-hidden="true"
-            className={`card-placement-preview${isPlacementPreviewVisible ? ' card-placement-preview--visible' : ''}`}
-            style={{ transform: `scale(${placementPreviewScale})` }}
+            className={`card-placement-preview card-placement-preview--${cardPlacementPreviewKind}${isPlacementPreviewVisible ? ' card-placement-preview--visible' : ''}`}
+            style={{
+              width: placementPreviewSize.width,
+              height: placementPreviewSize.height,
+              transform: `scale(${placementPreviewScale})`,
+            }}
           >
             <span>{cardPlacementPreviewTitle}</span>
           </div>

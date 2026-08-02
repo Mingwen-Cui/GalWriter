@@ -44,15 +44,13 @@ export function TextNode({ id, data, selected }: NodeProps) {
   }, []);
 
   return (
-    <div
-      className={`w-full h-full relative group border-2 rounded-xl transition-[border-color,background-color,shadow,ring] duration-300 ${selected ? 'border-indigo-500/50 bg-indigo-50/10 shadow-md ring-2 ring-indigo-500/20' : 'border-transparent'}`}
-    >
+    <div className="w-full h-full relative group border border-transparent">
       <NodeResizer
         minWidth={50}
         minHeight={30}
         isVisible={selected && selectionCount === 1}
-        lineClassName="!border-indigo-500/50 !border-dashed"
-        handleClassName="!w-2 !h-2 !bg-indigo-500 !border-none !rounded-full"
+        lineClassName="!border !border-[var(--accent)]"
+        handleClassName="!w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
       />
 
       <NodeToolbar isVisible={selected && selectionCount === 1} position={Position.Top} offset={10}>

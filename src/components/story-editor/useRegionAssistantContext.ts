@@ -25,6 +25,23 @@ const readSize = (value: unknown, fallback: number) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const readCardTitle = (node: Node) =>
+  String(node.data?.title || node.data?.characterName || node.data?.sceneName || '').trim();
+
+const readCardFirstLine = (node: Node) => {
+  const text = String(
+    node.data?.text || node.data?.description || node.data?.traits || node.data?.background || '',
+  )
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/p\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ');
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .find(Boolean);
+};
+
 export function useRegionAssistantContext({
   assistantInputContexts,
   backgroundLabel,
@@ -101,6 +118,12 @@ export function useRegionAssistantContext({
             region!.data?.title ||
               (region!.type === 'groupNode' ? dynamicGroupLabel : backgroundLabel),
           );
+      const selectedPreviewNode = selectedNodeIds
+        ? nodes.find((node) => node.id === orderedIds[0])
+        : undefined;
+      const selectedPreviewLabel = selectedPreviewNode ? readCardTitle(selectedPreviewNode) : '';
+      const selectedPreviewText = selectedPreviewNode ? readCardFirstLine(selectedPreviewNode) : '';
+      const hasMultipleSelectedCards = Boolean(selectedNodeIds && orderedIds.length > 1);
       const contextId = selectedNodeIds
         ? `selection:${orderedIds.join('|')}`
         : region!.id;
@@ -144,11 +167,12 @@ export function useRegionAssistantContext({
 
       const nextContext: AssistantInputContext = {
         id: contextId,
-        title: regionTitle,
+        title: hasMultipleSelectedCards ? regionTitle : selectedPreviewText || regionTitle,
         content: message,
         cardCount: orderedIds.length,
         source: selectedNodeIds ? 'selection' : 'region',
         nodeIds: orderedIds,
+        previewLabel: hasMultipleSelectedCards ? undefined : selectedPreviewLabel || undefined,
         assetCounts: { images: assetUrls.images.size, videos: assetUrls.videos.size },
       };
       setAssistantInputContexts((contexts) => [

@@ -93,6 +93,7 @@ export type AssistantMessage = {
   contextPreviews?: Array<{
     id: string;
     title: string;
+    label?: string;
     imageUrl?: string;
     text?: string;
   }>;

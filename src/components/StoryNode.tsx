@@ -2123,8 +2123,8 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         onResizeStart={handleResizeStoryNodeStart}
         onResizeEnd={handleResizeStoryNodeEnd}
         isVisible={selected && selectionCount === 1}
-        lineClassName="!border-blue-500 !border-2"
-        handleClassName="!w-2.5 !h-2.5 !bg-white !border-2 !border-blue-500 !rounded-sm"
+        lineClassName="!z-20 !border !border-[var(--accent)]"
+        handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
       />
 
       {/* Floating Toolbar for styles & actions */}
@@ -2528,11 +2528,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         data-agent-node-id={id}
         className={`w-full h-full flex flex-col items-center ${
           showTitleInside || imageUrl || videoUrl ? 'justify-start' : 'justify-center'
-        } shadow-sm relative overflow-hidden border-2 transition-[border-color,ring,shadow,background-color] duration-300 ${
-          selected
-            ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg'
-            : 'border-[var(--card-border)]'
-        }`}
+        } shadow-sm relative overflow-hidden border-2 border-[var(--card-border)] transition-[background-color] duration-150`}
         style={{
           backgroundColor: nodeBg,
           color: nodeText,

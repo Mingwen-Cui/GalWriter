@@ -78,8 +78,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const traits = data.traits || '';
   const appearance = typeof data.appearance === 'string' ? data.appearance : data.features || '';
   const experience = typeof data.experience === 'string' ? data.experience : data.background || '';
-  const notes =
-    typeof data.notes === 'string' ? data.notes : data.other || data.traits || '';
+  const notes = typeof data.notes === 'string' ? data.notes : data.other || data.traits || '';
   const voiceOptions = Array.isArray(data.voiceOptions) ? data.voiceOptions : [];
   const selectedVoiceProfile = voiceOptions.find((option) => option.id === data.voiceProfileId);
   const selectedVoiceId = data.voiceId || selectedVoiceProfile?.defaultVoice || '';
@@ -100,7 +99,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     {
       key: 'avatarUrl' as const,
       url: avatarUrl,
-      surfaceClass: 'bg-gradient-to-b from-purple-50 via-white to-slate-50 dark:from-purple-950/40 dark:via-slate-950 dark:to-slate-900',
+      surfaceClass:
+        'bg-gradient-to-b from-purple-50 via-white to-slate-50 dark:from-purple-950/40 dark:via-slate-950 dark:to-slate-900',
       label: lang === 'zh' ? '正面头像' : lang === 'ja' ? '正面ポートレート' : 'Front Portrait',
       hint: lang === 'zh' ? '人物卡片' : lang === 'ja' ? '人物カード' : 'Character card',
     },
@@ -116,8 +116,14 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       url: tagSpriteUrl,
       surfaceClass:
         'bg-[repeating-conic-gradient(#f8fafc_0%_25%,#e2e8f0_0%_50%)] bg-[length:12px_12px] dark:bg-[repeating-conic-gradient(#1e293b_0%_25%,#0f172a_0%_50%)]',
-      label: lang === 'zh' ? '透明标签立绘' : lang === 'ja' ? '透過タグ立ち絵' : 'Transparent Tag Sprite',
-      hint: lang === 'zh' ? '剧情人物 Tag' : lang === 'ja' ? 'ストーリータグ' : 'Story character tag',
+      label:
+        lang === 'zh'
+          ? '透明标签立绘'
+          : lang === 'ja'
+            ? '透過タグ立ち絵'
+            : 'Transparent Tag Sprite',
+      hint:
+        lang === 'zh' ? '剧情人物 Tag' : lang === 'ja' ? 'ストーリータグ' : 'Story character tag',
     },
   ];
   const [copied, setCopied] = useState(false);
@@ -621,7 +627,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       data-agent-node-id={id}
       className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${
         isAssistantCandidate ? 'assistant-candidate-card cursor-pointer' : ''
-      } ${selected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
+      } border-[var(--card-border)] flex flex-col relative`}
       style={{
         height: isMinimized ? 'auto' : '100%',
         minHeight: isMinimized ? 'auto' : effectiveMinHeight,
@@ -635,8 +641,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         minHeight={effectiveMinHeight}
         shouldResize={shouldResizeCharacterNode}
         isVisible={!isMinimized && selected && selectionCount === 1}
-        lineStyle={{ border: 'none' }}
-        handleClassName="!w-2.5 !h-2.5 !bg-white !border-2 !border-purple-500 !rounded-full"
+        lineClassName="!z-20 !border !border-[var(--accent)]"
+        handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
       />
 
       <div ref={contentFrameRef} className="flex flex-col w-full h-full rounded-xl">
@@ -1107,7 +1113,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             <div className="px-3 pb-3">
               <div className="mb-2 flex items-center justify-between">
                 <label className="ml-1 text-[11px] font-bold text-[var(--text-secondary)]">
-                  {lang === 'zh' ? '人物素材' : lang === 'ja' ? 'キャラクター素材' : 'Character Assets'}
+                  {lang === 'zh'
+                    ? '人物素材'
+                    : lang === 'ja'
+                      ? 'キャラクター素材'
+                      : 'Character Assets'}
                 </label>
                 {isGeneratingSettingImage && (
                   <span className="text-[10px] font-medium text-fuchsia-500">
@@ -1174,7 +1184,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       <div className="truncate text-[10px] font-bold text-[var(--text-primary)]">
                         {asset.label}
                       </div>
-                      <div className="truncate text-[9px] text-[var(--text-muted)]">{asset.hint}</div>
+                      <div className="truncate text-[9px] text-[var(--text-muted)]">
+                        {asset.hint}
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -146,6 +146,7 @@ export interface AssistantInputContext {
   source?: 'region' | 'selection';
   nodeIds?: string[];
   previewImageUrl?: string;
+  previewLabel?: string;
   previewText?: string;
   assetCounts: {
     images: number;
@@ -589,6 +590,7 @@ export const useAssistantPanel = ({
               {
                 id: context.id,
                 title: context.title,
+                label: context.previewLabel,
                 imageUrl: context.previewImageUrl,
                 text: context.previewText,
               },
@@ -1607,6 +1609,7 @@ The previous streaming response did not complete every placeholder card. Return 
           .map((context) => ({
             id: context.id,
             title: context.title,
+            label: context.previewLabel,
             imageUrl: context.previewImageUrl,
             text: context.previewText,
           })),

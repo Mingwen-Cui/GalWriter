@@ -62,14 +62,7 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedSceneNodeMinHeight = (imagesCount: number) =>
-  70 +
-  73 +
-  24 +
-  4 * 75 +
-  3 * 8 +
-  24 +
-  20 +
-  (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8);
+  70 + 73 + 24 + 4 * 75 + 3 * 8 + 24 + 20 + (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8);
 
 const SCENE_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const SCENE_NODE_HEIGHT_SAFETY = 8;
@@ -494,7 +487,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
         data-agent-node-id={id}
         className={`w-full bg-[var(--card-bg)] rounded-xl shadow-lg border-2 transition-all group ${
           isAssistantCandidate ? 'assistant-candidate-card cursor-pointer' : ''
-        } ${selected ? 'border-blue-800 ring-2 ring-blue-800/30' : 'border-[var(--card-border)]'} flex flex-col relative`}
+        } border-[var(--card-border)] flex flex-col relative`}
         style={{
           height: isMinimized ? 'auto' : '100%',
           minHeight: isMinimized ? 'auto' : effectiveMinHeight,
@@ -507,8 +500,8 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
           minHeight={effectiveMinHeight}
           shouldResize={shouldResizeSceneNode}
           isVisible={!isMinimized && selected && selectionCount === 1}
-          lineStyle={{ border: 'none' }}
-          handleClassName="!w-2.5 !h-2.5 !bg-white !border-2 !border-blue-800 !rounded-full"
+          lineClassName="!z-20 !border !border-[var(--accent)]"
+          handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
         />
 
         <div ref={contentFrameRef} className="flex flex-col w-full h-full rounded-xl">
@@ -766,148 +759,154 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                       data-agent-field="notes"
                       value={notes}
                       onChange={(e) => updateNodeData({ notes: e.target.value })}
-                      placeholder={lang === 'zh' ? '其他固定的地点细节' : 'Other stable place details'}
+                      placeholder={
+                        lang === 'zh' ? '其他固定的地点细节' : 'Other stable place details'
+                      }
                       className={SCENE_TEXTAREA_CLASS}
                     />
                   </div>
                 </div>
 
                 <div className="hidden">
-                <div className="flex flex-wrap items-center gap-3 ml-1 mb-2 shrink-0">
-                  <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                    <input
-                      type="checkbox"
-                      checked={!!data.showLocation}
-                      onChange={(e) =>
-                        handleDetailVisibilityChange('showLocation', e.target.checked)
-                      }
-                      className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
-                    />
-                    {lang === 'zh' ? '位置描写' : 'Location'}
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                    <input
-                      type="checkbox"
-                      checked={!!data.showItems}
-                      onChange={(e) => handleDetailVisibilityChange('showItems', e.target.checked)}
-                      className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
-                    />
-                    {lang === 'zh' ? '场景物品' : 'Items'}
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                    <input
-                      type="checkbox"
-                      checked={!!data.showAtmosphere}
-                      onChange={(e) =>
-                        handleDetailVisibilityChange('showAtmosphere', e.target.checked)
-                      }
-                      className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
-                    />
-                    {lang === 'zh' ? '氛围环境' : 'Atmosphere'}
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                    <input
-                      type="checkbox"
-                      checked={!!data.showOther}
-                      onChange={(e) => handleDetailVisibilityChange('showOther', e.target.checked)}
-                      className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
-                    />
-                    {lang === 'zh' ? '其他' : 'Other'}
-                  </label>
-                </div>
+                  <div className="flex flex-wrap items-center gap-3 ml-1 mb-2 shrink-0">
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={!!data.showLocation}
+                        onChange={(e) =>
+                          handleDetailVisibilityChange('showLocation', e.target.checked)
+                        }
+                        className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
+                      />
+                      {lang === 'zh' ? '位置描写' : 'Location'}
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={!!data.showItems}
+                        onChange={(e) =>
+                          handleDetailVisibilityChange('showItems', e.target.checked)
+                        }
+                        className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
+                      />
+                      {lang === 'zh' ? '场景物品' : 'Items'}
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={!!data.showAtmosphere}
+                        onChange={(e) =>
+                          handleDetailVisibilityChange('showAtmosphere', e.target.checked)
+                        }
+                        className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
+                      />
+                      {lang === 'zh' ? '氛围环境' : 'Atmosphere'}
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={!!data.showOther}
+                        onChange={(e) =>
+                          handleDetailVisibilityChange('showOther', e.target.checked)
+                        }
+                        className="rounded border-[var(--card-border)] text-blue-800 focus:ring-blue-800 bg-[var(--card-bg)]"
+                      />
+                      {lang === 'zh' ? '其他' : 'Other'}
+                    </label>
+                  </div>
 
-                <div className="flex flex-col flex-1 min-h-min gap-2">
-                  {data.showLocation && (
-                    <div className={DETAIL_FIELD_CLASS}>
-                      <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0">
-                        {lang === 'zh' ? '位置描写' : 'Location Description'}
-                      </label>
-                      <textarea
-                        data-agent-field="location"
-                        value={data.location || ''}
-                        onChange={(e) => updateNodeData({ location: e.target.value })}
-                        placeholder={
-                          lang === 'zh'
-                            ? '例如：位于学校后山的小树林，阳光透过树叶洒落...'
-                            : 'e.g. A small grove behind the school...'
-                        }
-                        className={DETAIL_TEXTAREA_CLASS}
-                      />
-                    </div>
-                  )}
-                  {data.showItems && (
-                    <div className={DETAIL_FIELD_CLASS}>
-                      <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0 flex items-center gap-1">
-                        {lang === 'zh' ? '场景物品' : 'Scene Items'}
-                      </label>
-                      <textarea
-                        data-agent-field="items"
-                        value={data.items || ''}
-                        onChange={(e) => updateNodeData({ items: e.target.value })}
-                        placeholder={
-                          lang === 'zh'
-                            ? '例如：旧木长椅、生锈的秋千、散落的落叶...'
-                            : 'e.g. Old wooden bench, rusty swing...'
-                        }
-                        className={DETAIL_TEXTAREA_CLASS}
-                      />
-                    </div>
-                  )}
-                  {data.showAtmosphere && (
-                    <div className={DETAIL_FIELD_CLASS}>
-                      <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0">
-                        {lang === 'zh' ? '氛围环境' : 'Atmosphere'}
-                      </label>
-                      <textarea
-                        data-agent-field="atmosphere"
-                        value={data.atmosphere || ''}
-                        onChange={(e) => updateNodeData({ atmosphere: e.target.value })}
-                        placeholder={
-                          lang === 'zh'
-                            ? '例如：安静、略带忧伤的午后，远处传来鸟鸣...'
-                            : 'e.g. Quiet afternoon, birds chirping in the distance...'
-                        }
-                        className={DETAIL_TEXTAREA_CLASS}
-                      />
-                    </div>
-                  )}
-                  {data.showOther && (
-                    <div className={DETAIL_FIELD_CLASS}>
-                      <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0">
-                        {lang === 'zh' ? '其他' : 'Other'}
-                      </label>
-                      <textarea
-                        data-agent-field="other"
-                        value={data.other || ''}
-                        onChange={(e) => updateNodeData({ other: e.target.value })}
-                        placeholder={lang === 'zh' ? '其他场景细节...' : 'Other scene details...'}
-                        className={DETAIL_TEXTAREA_CLASS}
-                      />
-                    </div>
-                  )}
-
-                  {!data.showLocation &&
-                    !data.showItems &&
-                    !data.showAtmosphere &&
-                    !data.showOther && (
+                  <div className="flex flex-col flex-1 min-h-min gap-2">
+                    {data.showLocation && (
                       <div className={DETAIL_FIELD_CLASS}>
                         <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0">
-                          {lang === 'zh' ? '综合描述' : 'General Description'}
+                          {lang === 'zh' ? '位置描写' : 'Location Description'}
                         </label>
                         <textarea
-                          data-agent-field="description"
-                          value={description}
-                          onChange={(e) => updateNodeData({ description: e.target.value })}
+                          data-agent-field="location"
+                          value={data.location || ''}
+                          onChange={(e) => updateNodeData({ location: e.target.value })}
                           placeholder={
                             lang === 'zh'
-                              ? '例如：学校后山的小树林，阳光透过树叶...'
-                              : 'Describe the scene...'
+                              ? '例如：位于学校后山的小树林，阳光透过树叶洒落...'
+                              : 'e.g. A small grove behind the school...'
                           }
                           className={DETAIL_TEXTAREA_CLASS}
                         />
                       </div>
                     )}
-                </div>
+                    {data.showItems && (
+                      <div className={DETAIL_FIELD_CLASS}>
+                        <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0 flex items-center gap-1">
+                          {lang === 'zh' ? '场景物品' : 'Scene Items'}
+                        </label>
+                        <textarea
+                          data-agent-field="items"
+                          value={data.items || ''}
+                          onChange={(e) => updateNodeData({ items: e.target.value })}
+                          placeholder={
+                            lang === 'zh'
+                              ? '例如：旧木长椅、生锈的秋千、散落的落叶...'
+                              : 'e.g. Old wooden bench, rusty swing...'
+                          }
+                          className={DETAIL_TEXTAREA_CLASS}
+                        />
+                      </div>
+                    )}
+                    {data.showAtmosphere && (
+                      <div className={DETAIL_FIELD_CLASS}>
+                        <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0">
+                          {lang === 'zh' ? '氛围环境' : 'Atmosphere'}
+                        </label>
+                        <textarea
+                          data-agent-field="atmosphere"
+                          value={data.atmosphere || ''}
+                          onChange={(e) => updateNodeData({ atmosphere: e.target.value })}
+                          placeholder={
+                            lang === 'zh'
+                              ? '例如：安静、略带忧伤的午后，远处传来鸟鸣...'
+                              : 'e.g. Quiet afternoon, birds chirping in the distance...'
+                          }
+                          className={DETAIL_TEXTAREA_CLASS}
+                        />
+                      </div>
+                    )}
+                    {data.showOther && (
+                      <div className={DETAIL_FIELD_CLASS}>
+                        <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0">
+                          {lang === 'zh' ? '其他' : 'Other'}
+                        </label>
+                        <textarea
+                          data-agent-field="other"
+                          value={data.other || ''}
+                          onChange={(e) => updateNodeData({ other: e.target.value })}
+                          placeholder={lang === 'zh' ? '其他场景细节...' : 'Other scene details...'}
+                          className={DETAIL_TEXTAREA_CLASS}
+                        />
+                      </div>
+                    )}
+
+                    {!data.showLocation &&
+                      !data.showItems &&
+                      !data.showAtmosphere &&
+                      !data.showOther && (
+                        <div className={DETAIL_FIELD_CLASS}>
+                          <label className="block text-[10px] font-bold text-blue-800 ml-1 shrink-0">
+                            {lang === 'zh' ? '综合描述' : 'General Description'}
+                          </label>
+                          <textarea
+                            data-agent-field="description"
+                            value={description}
+                            onChange={(e) => updateNodeData({ description: e.target.value })}
+                            placeholder={
+                              lang === 'zh'
+                                ? '例如：学校后山的小树林，阳光透过树叶...'
+                                : 'Describe the scene...'
+                            }
+                            className={DETAIL_TEXTAREA_CLASS}
+                          />
+                        </div>
+                      )}
+                  </div>
                 </div>
               </div>
 

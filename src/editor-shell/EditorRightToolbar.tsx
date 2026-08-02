@@ -1,4 +1,4 @@
-import { Captions, CaptionsOff, ChevronDown, Redo2, Settings, Sparkles, Undo2 } from 'lucide-react';
+import { Bot, Captions, CaptionsOff, ChevronDown, Redo2, Settings, Undo2 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -195,7 +195,7 @@ export function EditorRightToolbar({
           language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'
         }
       >
-        <Sparkles className="h-5 w-5" />
+        <Bot className="h-5 w-5" />
         {renderToolbarLabel(sideToolbarStrings.assistant)}
       </button>
 

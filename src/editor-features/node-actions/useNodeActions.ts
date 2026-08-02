@@ -126,8 +126,8 @@ export const useNodeActions = ({
   );
 
   const addTextNode = useCallback(
-    (variant: 'body' | 'heading') => {
-      const center = getCenterPosition();
+    (variant: 'body' | 'heading', placement?: { x: number; y: number }) => {
+      const center = placement ?? getCenterPosition();
       const newId = uuidv4();
       const isHeading = variant === 'heading';
       const newNode: Node = {
@@ -166,8 +166,14 @@ export const useNodeActions = ({
     [getCenterPosition, language, setNodes],
   );
 
-  const addNewTextNode = useCallback(() => addTextNode('body'), [addTextNode]);
-  const addNewHeadingTextNode = useCallback(() => addTextNode('heading'), [addTextNode]);
+  const addNewTextNode = useCallback(
+    (placement?: { x: number; y: number }) => addTextNode('body', placement),
+    [addTextNode],
+  );
+  const addNewHeadingTextNode = useCallback(
+    (placement?: { x: number; y: number }) => addTextNode('heading', placement),
+    [addTextNode],
+  );
 
   const addNewSummaryNode = useCallback(() => {
     const center = getCenterPosition();

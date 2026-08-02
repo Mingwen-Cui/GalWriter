@@ -25,6 +25,7 @@ export const assistantPanelZh = {
     adjacentContext: '需要处理的卡片及相邻剧情',
     contextBadge: '卡片上下文',
     removeAttachment: '移除附件',
+    showSelectedCards: '显示所选卡片',
     analyzing: '正在分析卡片',
     complete: '卡片建议已生成',
     exactlyThreeError: 'AI 没有返回三条完整建议',

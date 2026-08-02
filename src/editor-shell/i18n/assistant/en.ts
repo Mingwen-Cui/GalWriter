@@ -27,6 +27,7 @@ export const assistantPanelEn = {
     adjacentContext: 'Card to edit and adjacent story context',
     contextBadge: 'Card context',
     removeAttachment: 'Remove attachment',
+    showSelectedCards: 'Show selected cards',
     analyzing: 'Analyzing card',
     complete: 'Card suggestions are ready',
     exactlyThreeError: 'AI did not return three complete suggestions',

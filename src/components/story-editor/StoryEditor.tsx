@@ -47,6 +47,7 @@ import { EditorLeftToolbar } from '../../editor-shell/EditorLeftToolbar';
 import { EditorRightToolbar } from '../../editor-shell/EditorRightToolbar';
 import { EditorToast } from '../../editor-shell/EditorToast';
 import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
+import { getSideToolbarStrings } from '../../editor-shell/i18n/side-toolbar';
 import { ProjectSavePromptModal } from '../../editor-shell/ProjectSavePromptModal';
 import { SaveProjectModal } from '../../editor-shell/SaveProjectModal';
 import {
@@ -150,9 +151,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
   const [pendingCardPlacement, setPendingCardPlacement] = useState<
-    'story' | 'background' | 'dynamicWrap' | null
+    'story' | 'background' | 'dynamicWrap' | 'bodyText' | 'headingText' | null
   >(null);
   const [cardPlacementStart, setCardPlacementStart] = useState<{
+    flow: { x: number; y: number };
+    screen: { x: number; y: number };
+  } | null>(null);
+  const [backgroundCardDragStart, setBackgroundCardDragStart] = useState<{
     flow: { x: number; y: number };
     screen: { x: number; y: number };
   } | null>(null);
@@ -1471,11 +1476,15 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     backgroundCardTitle: t.bgCard,
   });
 
-  const startCardPlacement = useCallback((kind: 'story' | 'background' | 'dynamicWrap') => {
-    setCardPlacementStart(null);
-    setDynamicWrapDragStart(null);
-    setPendingCardPlacement(kind);
-  }, []);
+  const startCardPlacement = useCallback(
+    (kind: 'story' | 'background' | 'dynamicWrap' | 'bodyText' | 'headingText') => {
+      setCardPlacementStart(null);
+      setBackgroundCardDragStart(null);
+      setDynamicWrapDragStart(null);
+      setPendingCardPlacement(kind);
+    },
+    [],
+  );
 
   const handleCardPlacement = useCallback(
     (event: React.MouseEvent) => {
@@ -1484,6 +1493,18 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       const placement = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       if (pendingCardPlacement === 'story') {
         addNewShape('square', placement);
+        setPendingCardPlacement(null);
+        return;
+      }
+
+      if (pendingCardPlacement === 'bodyText') {
+        addNewTextNode(placement);
+        setPendingCardPlacement(null);
+        return;
+      }
+
+      if (pendingCardPlacement === 'headingText') {
+        addNewHeadingTextNode(placement);
         setPendingCardPlacement(null);
         return;
       }
@@ -1517,6 +1538,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     [
       addNewBackgroundCard,
       addNewShape,
+      addNewHeadingTextNode,
+      addNewTextNode,
       cardPlacementStart,
       getIntersectingNodes,
       isMobile,
@@ -1540,6 +1563,68 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       });
     },
     [pendingCardPlacement, screenToFlowPosition],
+  );
+
+  const handleBackgroundCardPlacementStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (pendingCardPlacement !== 'background' || event.button !== 0) return;
+      const target = event.target as HTMLElement;
+      if (!target.closest('.react-flow__pane')) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setBackgroundCardDragStart({
+        flow: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+        screen: { x: event.clientX, y: event.clientY },
+      });
+    },
+    [pendingCardPlacement, screenToFlowPosition],
+  );
+
+  const handleBackgroundCardPlacementEnd = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!backgroundCardDragStart || pendingCardPlacement !== 'background' || event.button !== 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const end = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const movedEnough =
+        Math.abs(event.clientX - backgroundCardDragStart.screen.x) > 5 ||
+        Math.abs(event.clientY - backgroundCardDragStart.screen.y) > 5;
+
+      if (movedEnough) {
+        addNewBackgroundCard({
+          x: Math.min(backgroundCardDragStart.flow.x, end.x),
+          y: Math.min(backgroundCardDragStart.flow.y, end.y),
+          width: Math.abs(end.x - backgroundCardDragStart.flow.x),
+          height: Math.abs(end.y - backgroundCardDragStart.flow.y),
+        });
+        setPendingCardPlacement(null);
+        setCardPlacementStart(null);
+      } else if (!cardPlacementStart) {
+        setCardPlacementStart(backgroundCardDragStart);
+      } else {
+        addNewBackgroundCard({
+          x: Math.min(cardPlacementStart.flow.x, backgroundCardDragStart.flow.x),
+          y: Math.min(cardPlacementStart.flow.y, backgroundCardDragStart.flow.y),
+          width: Math.abs(backgroundCardDragStart.flow.x - cardPlacementStart.flow.x),
+          height: Math.abs(backgroundCardDragStart.flow.y - cardPlacementStart.flow.y),
+        });
+        setPendingCardPlacement(null);
+        setCardPlacementStart(null);
+      }
+
+      setBackgroundCardDragStart(null);
+    },
+    [
+      addNewBackgroundCard,
+      backgroundCardDragStart,
+      cardPlacementStart,
+      pendingCardPlacement,
+      screenToFlowPosition,
+    ],
   );
 
   const handleDynamicWrapSelectionEnd = useCallback(
@@ -1583,6 +1668,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     if (isMobile) {
       setPendingCardPlacement(null);
       setCardPlacementStart(null);
+      setBackgroundCardDragStart(null);
       setDynamicWrapDragStart(null);
     }
   }, [isMobile]);
@@ -1594,6 +1680,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       if (event.key === 'Escape') {
         setPendingCardPlacement(null);
         setCardPlacementStart(null);
+        setBackgroundCardDragStart(null);
         setDynamicWrapDragStart(null);
       }
     };
@@ -2666,8 +2753,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             startCardPlacement={startCardPlacement}
             addNewBackgroundCard={addNewBackgroundCard}
             addNewDynamicWrap={addNewDynamicWrap}
-            addNewTextNode={addNewTextNode}
-            addNewHeadingTextNode={addNewHeadingTextNode}
             addNewCharacterNode={addNewCharacterNode}
             addNewSceneNode={addNewSceneNode}
             addNewPlotStructureNode={addNewPlotStructureNode}
@@ -2732,17 +2817,35 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             horizontalGuides={horizontalGuides}
             verticalGuides={verticalGuides}
             cardPlacementPreviewKind={pendingCardPlacement}
-            cardPlacementPreviewTitle={storyEditorCopy.branchTitle}
+            cardPlacementPreviewTitle={
+              pendingCardPlacement === 'bodyText'
+                ? getSideToolbarStrings(language).bodyText
+                : pendingCardPlacement === 'headingText'
+                  ? getSideToolbarStrings(language).headingText
+                  : storyEditorCopy.branchTitle
+            }
             cardPlacementStartScreen={
               pendingCardPlacement === 'dynamicWrap'
                 ? dynamicWrapDragStart?.screen
-                : cardPlacementStart?.screen
+                : pendingCardPlacement === 'background'
+                  ? (backgroundCardDragStart?.screen ?? cardPlacementStart?.screen)
+                  : cardPlacementStart?.screen
             }
             storyCardPlacementPreviewScale={flowZoom}
+            onBackgroundCardPlacementStart={handleBackgroundCardPlacementStart}
+            onBackgroundCardPlacementEnd={handleBackgroundCardPlacementEnd}
             onDynamicWrapSelectionStart={handleDynamicWrapSelectionStart}
             onDynamicWrapSelectionEnd={handleDynamicWrapSelectionEnd}
             reactFlowProps={{
-              className: `story-canvas-flow${pendingCardPlacement === 'story' ? ' story-canvas-flow--placing-card' : pendingCardPlacement ? ' story-canvas-flow--placing-region' : ''}`,
+              className: `story-canvas-flow${
+                pendingCardPlacement === 'story' ||
+                pendingCardPlacement === 'bodyText' ||
+                pendingCardPlacement === 'headingText'
+                  ? ' story-canvas-flow--placing-card'
+                  : pendingCardPlacement
+                    ? ' story-canvas-flow--placing-region'
+                    : ''
+              }`,
               nodes: nodesWithCallbacks,
               edges: edgesWithData,
               onNodesChange,

@@ -198,8 +198,8 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
           minWidth={200}
           minHeight={150}
           isVisible={selected && selectionCount === 1}
-          lineClassName="!border-slate-400 !border-2"
-          handleClassName="!w-3 !h-3 !bg-white !border-2 !border-slate-400 !rounded-full"
+          lineClassName="!border !border-[var(--accent)]"
+          handleClassName="!w-2 !h-2 !bg-[var(--card-bg)] !border !border-[var(--accent)] !rounded-none"
         />
       )}
 
@@ -282,8 +282,10 @@ export function BackgroundNode({ id, data, selected }: NodeProps) {
       </NodeToolbar>
 
       <div
-        className={`w-full h-full rounded-3xl border-2 border-dashed custom-drag-handle transition-[border-color,ring,shadow] duration-300 ${
-          selected ? 'border-indigo-500 ring-4 ring-indigo-500/20 shadow-2xl' : 'border-slate-300'
+        className={`w-full h-full custom-drag-handle transition-[border-color,border-radius] duration-150 ${
+          selected
+            ? 'rounded-none border border-[var(--accent)]'
+            : 'rounded-3xl border-2 border-dashed border-slate-300'
         }`}
         style={{ backgroundColor: color + '40' }}
       >

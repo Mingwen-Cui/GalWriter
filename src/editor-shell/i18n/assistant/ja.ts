@@ -26,6 +26,7 @@ export const assistantPanelJa = {
     adjacentContext: '処理するカードと隣接するストーリー',
     contextBadge: 'カードの文脈',
     removeAttachment: '添付を削除',
+    showSelectedCards: '選択カードを表示',
     analyzing: 'カードを解析中',
     complete: 'カードの提案を生成しました',
     exactlyThreeError: 'AI が3件の完全な提案を返しませんでした',

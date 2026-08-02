@@ -144,6 +144,8 @@ type AssistantContextPreviewCardProps = {
   contextBadge: string;
   imageUrl?: string;
   text?: string;
+  onShowCards?: () => void;
+  showCardsLabel?: string;
   onRemove?: () => void;
   removeLabel?: string;
 };
@@ -153,6 +155,8 @@ const AssistantContextPreviewCard = ({
   contextBadge,
   imageUrl,
   text,
+  onShowCards,
+  showCardsLabel,
   onRemove,
   removeLabel,
 }: AssistantContextPreviewCardProps) => (
@@ -166,16 +170,31 @@ const AssistantContextPreviewCard = ({
           {title}
         </h3>
       </div>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-          title={removeLabel}
-          aria-label={removeLabel}
-        >
-          <X className="h-4 w-4" />
-        </button>
+      {(onShowCards || onRemove) && (
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          {onShowCards && (
+            <button
+              type="button"
+              onClick={onShowCards}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+              title={showCardsLabel}
+              aria-label={showCardsLabel}
+            >
+              <MapPin className="h-4 w-4" />
+            </button>
+          )}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              title={removeLabel}
+              aria-label={removeLabel}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       )}
     </header>
     {imageUrl && (
@@ -1131,7 +1150,7 @@ export function AssistantPanel({
                         <AssistantContextPreviewCard
                           key={preview.id}
                           title={preview.title}
-                          contextBadge={ui.cardReview.contextBadge}
+                          contextBadge={preview.label || ui.cardReview.contextBadge}
                           imageUrl={preview.imageUrl}
                           text={preview.text}
                         />
@@ -1333,9 +1352,15 @@ export function AssistantPanel({
                       <div key={`pending:${context.id}`} className="w-56 shrink-0">
                         <AssistantContextPreviewCard
                           title={context.title}
-                          contextBadge={ui.cardReview.contextBadge}
+                          contextBadge={context.previewLabel || ui.cardReview.contextBadge}
                           imageUrl={context.previewImageUrl}
                           text={context.previewText}
+                          onShowCards={
+                            context.nodeIds?.length
+                              ? () => onAssistantMessagePositionClick({ nodeIds: context.nodeIds })
+                              : undefined
+                          }
+                          showCardsLabel={ui.cardReview.showSelectedCards}
                           onRemove={() =>
                             setAssistantInputContexts((contexts) =>
                               contexts.filter((item) => item.id !== context.id),

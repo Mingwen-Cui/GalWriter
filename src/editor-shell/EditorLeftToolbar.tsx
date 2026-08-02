@@ -126,11 +126,11 @@ interface EditorLeftToolbarProps {
   setToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setInteractionMode: Dispatch<SetStateAction<'select' | 'box'>>;
   addNewShape: (shape: StoryCardVisualShape) => void;
-  startCardPlacement: (kind: 'story' | 'background' | 'dynamicWrap') => void;
+  startCardPlacement: (
+    kind: 'story' | 'background' | 'dynamicWrap' | 'bodyText' | 'headingText',
+  ) => void;
   addNewBackgroundCard: () => void;
   addNewDynamicWrap: () => void;
-  addNewTextNode: () => void;
-  addNewHeadingTextNode: () => void;
   addNewCharacterNode: () => void;
   addNewSceneNode: () => void;
   addNewPlotStructureNode: () => void;
@@ -169,8 +169,6 @@ export function EditorLeftToolbar({
   startCardPlacement,
   addNewBackgroundCard,
   addNewDynamicWrap,
-  addNewTextNode,
-  addNewHeadingTextNode,
   addNewCharacterNode,
   addNewSceneNode,
   addNewPlotStructureNode,
@@ -462,13 +460,13 @@ export function EditorLeftToolbar({
               id: 'body-text',
               label: sideToolbarStrings.bodyText,
               Icon: Type,
-              onSelect: addNewTextNode,
+              onSelect: () => startCardPlacement('bodyText'),
             },
             {
               id: 'heading-text',
               label: sideToolbarStrings.headingText,
               Icon: Heading1,
-              onSelect: addNewHeadingTextNode,
+              onSelect: () => startCardPlacement('headingText'),
             },
           ]
         : activeQuickMenu === 'media'
@@ -620,7 +618,7 @@ export function EditorLeftToolbar({
             {!isMobile && (
               <button
                 className="group relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-indigo-500/12 hover:text-indigo-600 dark:hover:bg-indigo-400/15 dark:hover:text-indigo-300"
-                onClick={addNewTextNode}
+                onClick={() => startCardPlacement('bodyText')}
                 onPointerEnter={(event) => openQuickMenu('text', event.currentTarget)}
                 onPointerLeave={scheduleQuickMenuClose}
                 aria-label={t.toolText}
