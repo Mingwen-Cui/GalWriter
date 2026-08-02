@@ -1,6 +1,5 @@
 import {
   Edge,
-  MarkerType,
   Node,
   useEdgesState,
   useNodesState,
@@ -136,6 +135,8 @@ import type {
   ThemePreference,
 } from './types';
 import { useAssistantSystem } from './useAssistantSystem';
+import { useEditorFooterHint } from './useEditorFooterHint';
+import { useGraphPresentation } from './useGraphPresentation';
 import { useProjectManagement } from './useProjectManagement';
 import { syncCloseButtonBehavior } from './windowBehavior';
 
@@ -2559,76 +2560,12 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     showToast,
   });
 
-  const footerHint = useMemo(() => {
-    if (assistantOpen) {
-      return language === 'zh'
-        ? 'AI 生成内容仅供参考，请结合自己的剧情判断使用。'
-        : 'AI-generated content is for reference only; review it against your own story. Save important settings and project work regularly to avoid losing changes.';
-    }
-
-    const selectedType =
-      selectedNodes.length === 1
-        ? selectedNodes[0].type
-        : selectedNodes.length > 1
-          ? 'multi'
-          : 'default';
-    const hints: Record<string, string> =
-      language === 'zh'
-        ? {
-            storyNode:
-              '剧情卡片可以编辑标题、正文和分支选项。拖动卡片边缘的连接点，可以把剧情路径串起来。',
-            characterNode:
-              '人物卡片用于整理角色名、性格、特点和背景。勾选显示项后，卡片会把对应设定展示在画布上。',
-            sceneNode:
-              '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
-            plotStructureNode:
-              '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
-            summaryNode:
-              '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
-            batchReplaceNode:
-              '批量替换卡片会处理背景区域内的文本内容。先设置查找和替换规则，再对目标区域执行。',
-            numberConditionNode:
-              '数字判断卡片用于按数值条件分出路径。设置阈值后，把不同结果连接到后续剧情。',
-            textNode: '文字标签适合做章节标注和画布说明。双击文字可以快速编辑内容。',
-            backgroundNode:
-              '背景区域可以把相关卡片包在一起管理。点击锁定按钮可以切换是否允许移动和调整。',
-            groupNode: '分组区域用于整理一组相关卡片。拖动区域可以移动整组内容的位置。',
-            aiNode:
-              'AI 汇总分析卡片会读取连接进来的剧情卡片。把需要分析的内容用箭头连入它，再执行汇总。',
-            multi:
-              '已选中多张卡片，可以一起拖动或使用框选菜单整理。批量操作前请确认选中的范围是否正确。',
-            default: t.footerHint,
-          }
-        : {
-            storyNode:
-              'Story cards let you edit titles, body text, and branch choices. Drag connection handles to link the story path.',
-            characterNode:
-              'Character cards organize names, personalities, traits, and backstory. Toggle visible fields to show those details on the canvas.',
-            sceneNode:
-              'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
-            plotStructureNode:
-              'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
-            summaryNode:
-              'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
-            batchReplaceNode:
-              'Batch replace cards process text inside a background area. Set find and replace rules before running it on the target area.',
-            numberConditionNode:
-              'Number condition cards split paths by numeric rules. Set the threshold, then connect each result to the next story step.',
-            textNode:
-              'Text labels are useful for chapter marks and canvas notes. Double-click the text to edit it quickly.',
-            backgroundNode:
-              'Background areas group related cards together. Use the lock button to switch whether it can move and resize.',
-            groupNode:
-              'Group areas organize a set of related cards. Drag the area to move the grouped content together.',
-            aiNode:
-              'AI summary cards read story cards connected into them. Connect the content you want analyzed, then run the summary.',
-            multi:
-              'Multiple cards are selected, so you can drag or organize them together. Check the selected range before using batch actions.',
-            default: t.footerHint,
-          };
-
-    return hints[selectedType || 'default'] || hints.default;
-  }, [assistantOpen, language, selectedNodes, t.footerHint]);
+  const footerHint = useEditorFooterHint({
+    assistantOpen,
+    language,
+    selectedNodes,
+    defaultHint: t.footerHint,
+  });
 
   const handleGenerateSettingText = useCallback(
     async (nodeId: string, type: 'character' | 'scene') => {
@@ -3003,157 +2940,92 @@ ${layoutConfig.label}
     [handleAssistantCandidateNodeSelect, setNodes],
   );
 
-  // Bind callbacks to nodes and edges on render
-  const nodesWithCallbacks = useMemo<Node[]>(() => {
-    return nodes.map((n) => {
-      const isHighlighted = highlightedPath?.nodes.has(n.id);
-      return {
-        ...n,
-        hidden: !!n.data?.hidden,
-        draggable: !n.data?.locked,
-        selectable: !n.data?.locked,
-        data: {
-          ...n.data,
-          canvasBg,
-          showTitles,
-          storyTitlePlacement,
-          isAILoading: aiLoadingNodeId === n.id,
-          characterImageMode,
-          hideStoryImageButtonWithTags,
-          onUpdate: handleUpdateNode,
-          onAddNode: handleAddConnectedNode,
-          onDelete: handleDeleteNode,
-          onDeleteOutputEdges: handleDeleteNodeOutputEdges,
-          onZenMode: setZenModeNodeId,
-          onAIGenerate: handleAIButtonClick,
-          onAIAnalyze: handleAIAnalyze,
-          onGenerateImage: handleGenerateStoryNodeImage,
-          onGenerateSpeech: handleGenerateStoryNodeSpeech,
-          onGenerateSettingImage: handleGenerateSettingNodeImage,
-          onRemoveCharacterImageBackground: handleRemoveCharacterImageBackground,
-          onAddTextToImage: handleAddTextToImage,
-          onRemoveTextFromImage: handleRemoveTextFromImage,
-          onExtractMedia: handleExtractMedia,
-          onGenerateSettingText: handleGenerateSettingText,
-          onPlotStructureGenerate: handlePlotStructureGenerate,
-          onConvertToGroup: convertBackgroundToDynamicGroup,
-          onConvertToBackground: convertDynamicGroupToBackground,
-          onSendToAssistant: handlePrefillAssistantFromRegion,
-          onHighlightStoryline: toggleStorylineHighlight,
-          isHighlighted,
-          pasteAsPlainText,
-          showNodeActions,
-          cardToolbarScale,
-          language,
-          theme,
-        },
-        style: {
-          ...n.style,
-          opacity: highlightedPath ? (isHighlighted ? 1 : 0.15) : 1,
-          filter: highlightedPath && !isHighlighted ? 'grayscale(0.8) blur(1px)' : 'none',
-          // NOTE: 极其重要：不要在这里使用 transition: all，否则拖拽时 transform 会有延迟，导致不跟手
-          transition: 'opacity 0.5s ease-in-out, filter 0.5s ease-in-out',
-        },
-      };
-    });
-    // NOTE: 补充 highlightedPath、handleAIAnalyze、toggleStorylineHighlight 为正确依赖，
-    // 防止闭包过期导致这些引用读到旧值
-  }, [
+  const nodeRenderData = useMemo(
+    () => ({
+      canvasBg,
+      showTitles,
+      storyTitlePlacement,
+      characterImageMode,
+      hideStoryImageButtonWithTags,
+      onUpdate: handleUpdateNode,
+      onAddNode: handleAddConnectedNode,
+      onDelete: handleDeleteNode,
+      onDeleteOutputEdges: handleDeleteNodeOutputEdges,
+      onZenMode: setZenModeNodeId,
+      onAIGenerate: handleAIButtonClick,
+      onAIAnalyze: handleAIAnalyze,
+      onGenerateImage: handleGenerateStoryNodeImage,
+      onGenerateSpeech: handleGenerateStoryNodeSpeech,
+      onGenerateSettingImage: handleGenerateSettingNodeImage,
+      onRemoveCharacterImageBackground: handleRemoveCharacterImageBackground,
+      onAddTextToImage: handleAddTextToImage,
+      onRemoveTextFromImage: handleRemoveTextFromImage,
+      onExtractMedia: handleExtractMedia,
+      onGenerateSettingText: handleGenerateSettingText,
+      onPlotStructureGenerate: handlePlotStructureGenerate,
+      onConvertToGroup: convertBackgroundToDynamicGroup,
+      onConvertToBackground: convertDynamicGroupToBackground,
+      onSendToAssistant: handlePrefillAssistantFromRegion,
+      onHighlightStoryline: toggleStorylineHighlight,
+      pasteAsPlainText,
+      showNodeActions,
+      cardToolbarScale,
+      language,
+      theme,
+    }),
+    [
+      canvasBg,
+      showTitles,
+      storyTitlePlacement,
+      characterImageMode,
+      hideStoryImageButtonWithTags,
+      handleUpdateNode,
+      handleAddConnectedNode,
+      handleDeleteNode,
+      handleDeleteNodeOutputEdges,
+      handleAIButtonClick,
+      handleAIAnalyze,
+      handleGenerateStoryNodeImage,
+      handleGenerateStoryNodeSpeech,
+      handleGenerateSettingNodeImage,
+      handleRemoveCharacterImageBackground,
+      handleAddTextToImage,
+      handleRemoveTextFromImage,
+      handleExtractMedia,
+      handleGenerateSettingText,
+      handlePlotStructureGenerate,
+      convertBackgroundToDynamicGroup,
+      convertDynamicGroupToBackground,
+      handlePrefillAssistantFromRegion,
+      toggleStorylineHighlight,
+      pasteAsPlainText,
+      showNodeActions,
+      cardToolbarScale,
+      language,
+      theme,
+    ],
+  );
+
+  const handleReverseRenderedEdge = useCallback(
+    (edge: Edge) => onEdgeDoubleClick(null as unknown as React.MouseEvent, edge),
+    [onEdgeDoubleClick],
+  );
+
+  const { nodesWithCallbacks, edgesWithData } = useGraphPresentation({
     nodes,
-    canvasBg,
-    showTitles,
-    storyTitlePlacement,
+    edges,
+    nodeRenderData,
     aiLoadingNodeId,
-    characterImageMode,
-    hideStoryImageButtonWithTags,
-    handleUpdateNode,
-    handleAddConnectedNode,
-    handleDeleteNode,
-    handleDeleteNodeOutputEdges,
-    handleAIButtonClick,
-    handleAIAnalyze,
-    handleGenerateStoryNodeImage,
-    handleGenerateStoryNodeSpeech,
-    handleGenerateSettingNodeImage,
-    handleRemoveCharacterImageBackground,
-    handleAddTextToImage,
-    handleRemoveTextFromImage,
-    handleExtractMedia,
-    handleGenerateSettingText,
-    handlePlotStructureGenerate,
-    convertBackgroundToDynamicGroup,
-    convertDynamicGroupToBackground,
-    handlePrefillAssistantFromRegion,
-    toggleStorylineHighlight,
     highlightedPath,
-    pasteAsPlainText,
-    showNodeActions,
-    cardToolbarScale,
-    language,
-    theme,
-    bubbleStyle,
-  ]);
-
-  const edgesWithData = useMemo(() => {
-    const hiddenNodeIds = new Set(nodes.filter((n) => n.data?.hidden).map((n) => n.id));
-
-    return edges.map((e) => {
-      const isHighlighted = highlightedPath?.edges.has(e.id);
-      const highlightColors = highlightedPath?.edgeColors.get(e.id) || ['#f43f5e'];
-      const highlightColor = highlightColors[0] || '#f43f5e';
-      const isHiddenByNode = hiddenNodeIds.has(e.source) || hiddenNodeIds.has(e.target);
-      const markerEnd = typeof e.markerEnd === 'object' && e.markerEnd ? e.markerEnd : {};
-
-      return {
-        ...e,
-        hidden: isHiddenByNode,
-        type: 'customEdge',
-        markerEnd: {
-          ...markerEnd,
-          type: MarkerType.ArrowClosed,
-          width: arrowSize,
-          height: arrowSize,
-          color: isHighlighted ? highlightColor : edgeColor,
-        },
-        data: {
-          ...e.data,
-          edgeStyle,
-          arrowSize,
-          arrowCornerRadius,
-          arrowTipAngle,
-          edgeColor: isHighlighted ? highlightColor : edgeColor,
-          edgeColors: isHighlighted ? highlightColors : undefined,
-          onDelete: handleEdgeDelete,
-          onReverse: () => onEdgeDoubleClick(null as any, e),
-          isHighlighted,
-          // NOTE: 传递 isMobile，以便 CustomEdge 能识别并执行手机端长按删除逻辑
-          isMobile,
-        },
-        style: {
-          ...e.style,
-          stroke: isHighlighted ? highlightColor : edgeColor,
-          strokeWidth: isHighlighted ? 6 : e.style?.strokeWidth || 3,
-          opacity: highlightedPath ? (isHighlighted ? 1 : 0.1) : 1,
-          // NOTE: 同理，连线也只针对样式属性过渡，防止 transform 延迟
-          transition:
-            'stroke 0.5s ease-in-out, stroke-width 0.5s ease-in-out, opacity 0.5s ease-in-out',
-        },
-        animated: highlightedPath ? false : e.animated,
-      };
-    });
-  }, [
+    edgeStyle,
+    edgeColor,
     arrowSize,
     arrowCornerRadius,
     arrowTipAngle,
-    edgeColor,
-    edges,
-    nodes,
-    edgeStyle,
-    handleEdgeDelete,
-    highlightedPath,
     isMobile,
-    onEdgeDoubleClick,
-  ]);
+    onDeleteEdge: handleEdgeDelete,
+    onReverseEdge: handleReverseRenderedEdge,
+  });
 
   return (
     <div
