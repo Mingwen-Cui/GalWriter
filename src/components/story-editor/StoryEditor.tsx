@@ -6,6 +6,7 @@ import { AgentOverlay } from '../../agent/animation/AgentOverlay';
 import { useAgentRuntime } from '../../agent/runtime/useAgentRuntime';
 import type {
   BackgroundRemovalAIProfile,
+  CharacterAssetType,
   CharacterImageMode,
   ImageAIProfile,
   PlotStructureGenerateDirection,
@@ -196,6 +197,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
   const [characterImageMode, setCharacterImageMode] =
     useState<CharacterImageMode>('transparent-sprite');
+  const [characterAssetTypes, setCharacterAssetTypes] = useState<CharacterAssetType[]>([
+    'portrait',
+    'three-view',
+    'tag-sprite',
+  ]);
   const [hideStoryImageButtonWithTags, setHideStoryImageButtonWithTags] = useState(true);
   const [sceneImageMode, setSceneImageMode] = useState<SceneImageMode>('storyboard-16:9');
   const [plotStructureGenerateDirection, setPlotStructureGenerateDirection] =
@@ -804,6 +810,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       ttsNarrationMode,
       thinkingMode,
       characterImageMode,
+      characterAssetTypes,
       hideStoryImageButtonWithTags,
       sceneImageMode,
       plotStructureGenerateDirection,
@@ -859,6 +866,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       skipAssistantAgentAnimation,
       bubbleStyle,
       canvasBg,
+      characterAssetTypes,
       characterImageMode,
       edgeColor,
       hideStoryImageButtonWithTags,
@@ -953,6 +961,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setTtsNarrationMode,
       setImageSize,
       setCharacterImageMode,
+      setCharacterAssetTypes,
       setHideStoryImageButtonWithTags,
       setSceneImageMode,
       setPlotStructureGenerateDirection,
@@ -1308,6 +1317,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     backgroundRemovalModel,
     backgroundRemovalProvider,
     sceneImageMode,
+    characterAssetTypes,
     showTitles: showTitles && storyTitlePlacement === 'inside',
     setImageSize,
     setNodes,
@@ -3214,6 +3224,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           setSaveAssistantConversations={setSaveAssistantConversations}
           allowAssistantImageGeneration={allowAssistantImageGeneration}
           setAllowAssistantImageGeneration={setAllowAssistantImageGeneration}
+          characterAssetTypes={characterAssetTypes}
+          setCharacterAssetTypes={setCharacterAssetTypes}
           skipAssistantAgentAnimation={skipAssistantAgentAnimation}
           setSkipAssistantAgentAnimation={setSkipAssistantAgentAnimation}
           assistantMemorySkillEnabled={assistantMemorySkillEnabled}

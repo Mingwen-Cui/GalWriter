@@ -12,8 +12,8 @@ import {
   Lock,
   MessageCircle,
   PanelTopDashed,
-  PenLine,
   Pencil,
+  PenLine,
   Plus,
   RefreshCw,
   Volume2,
@@ -23,8 +23,10 @@ import { createPortal } from 'react-dom';
 
 import type {
   BackgroundRemovalAIProfile,
+  CharacterAssetType,
   ImageAIProfile,
   SavedAIProfile,
+  SceneImageMode,
   TextAIProfile,
   VoiceAIProfile,
 } from '../domain/project';
@@ -47,8 +49,6 @@ import {
   defaultAIButtonsConfig,
   defaultAIPrompts,
 } from '../editor-state/editorConfig';
-import { Language, translations } from '../lib/i18n';
-import { aiSettingsCopy } from './i18n/ai-settings';
 import {
   HOSTED_IMAGE_PROXY_PROFILE,
   HOSTED_IMAGE_PROXY_PROFILE_ID,
@@ -57,7 +57,9 @@ import {
   HOSTED_VOICE_PROXY_PROFILE,
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../lib/hostedProxy';
+import { Language, translations } from '../lib/i18n';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
+import { aiSettingsCopy } from './i18n/ai-settings';
 
 type ProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
 type ProfileDraft = TextAIProfile | ImageAIProfile | BackgroundRemovalAIProfile | VoiceAIProfile;
@@ -1024,6 +1026,26 @@ interface AISettingsPanelProps {
   setAiGenerationBalance: (balance: AIGenerationBalance) => void;
   allowAssistantImageGeneration: boolean;
   setAllowAssistantImageGeneration: (enabled: boolean) => void;
+  characterAssetTypes: CharacterAssetType[];
+  setCharacterAssetTypes: (types: CharacterAssetType[]) => void;
+  characterAssetCopy: {
+    title: string;
+    description: string;
+    portrait: string;
+    threeView: string;
+    tagSprite: string;
+    hideWithTags: string;
+    hideWithTagsDescription: string;
+    sceneRatio: string;
+    storyboard: string;
+    storyboardDescription: string;
+    followApi: string;
+    followApiDescription: string;
+  };
+  hideStoryImageButtonWithTags: boolean;
+  setHideStoryImageButtonWithTags: (hidden: boolean) => void;
+  sceneImageMode: SceneImageMode;
+  setSceneImageMode: (mode: SceneImageMode) => void;
   assistantOptionsSlot?: React.ReactNode;
 }
 
@@ -1051,11 +1073,19 @@ export function AISettingsPanel({
   setAiGenerationBalance,
   allowAssistantImageGeneration,
   setAllowAssistantImageGeneration,
+  characterAssetTypes,
+  setCharacterAssetTypes,
+  characterAssetCopy,
+  hideStoryImageButtonWithTags,
+  setHideStoryImageButtonWithTags,
+  sceneImageMode,
+  setSceneImageMode,
   assistantOptionsSlot,
 }: AISettingsPanelProps) {
   const t = translations[language];
   const ai = aiSettingsCopy(language);
   const [editorState, setEditorState] = React.useState<EditorState | null>(null);
+  const [characterAssetsMenuOpen, setCharacterAssetsMenuOpen] = React.useState(false);
   const [deleteState, setDeleteState] = React.useState<DeleteState | null>(null);
   const [imageTemplateImportStatus, setImageTemplateImportStatus] = React.useState<
     'idle' | 'success' | 'empty' | 'blocked'
@@ -1953,11 +1983,16 @@ export function AISettingsPanel({
               <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-4 text-sm leading-6 text-fuchsia-950 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-50">
                 <p className="font-black">本机去背景组件按需下载</p>
                 <p className="mt-1 text-xs font-medium text-fuchsia-800 dark:text-fuchsia-100/80">
-                  为保持安装包小巧，GalWriter 不再内置运行器或模型。下载并放好一次后，图片只在本机处理，不会上传。
+                  为保持安装包小巧，GalWriter
+                  不再内置运行器或模型。下载并放好一次后，图片只在本机处理，不会上传。
                 </p>
                 <ol className="mt-3 list-decimal space-y-1 pl-4 text-xs font-medium text-fuchsia-900 dark:text-fuchsia-50">
-                  <li>下载 <code className="font-mono">rembg-sidecar.exe</code>（运行器，约 139 MB）。</li>
-                  <li>下载 <code className="font-mono">u2netp.onnx</code>（默认模型，约 4.6 MB）。</li>
+                  <li>
+                    下载 <code className="font-mono">rembg-sidecar.exe</code>（运行器，约 139 MB）。
+                  </li>
+                  <li>
+                    下载 <code className="font-mono">u2netp.onnx</code>（默认模型，约 4.6 MB）。
+                  </li>
                   <li>将两个文件放入下方指定位置，再保存这个 AI 配置。</li>
                 </ol>
 
@@ -1966,14 +2001,20 @@ export function AISettingsPanel({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-black">运行器路径</p>
-                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">{localRembgRuntimePath}</p>
+                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">
+                          {localRembgRuntimePath}
+                        </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => void copyLocalRembgPath(localRembgRuntimePath)}
                         className="inline-flex shrink-0 items-center gap-1 rounded-md border border-fuchsia-200 px-2 py-1 text-[10px] font-black hover:bg-fuchsia-100 dark:border-fuchsia-400/30 dark:hover:bg-fuchsia-500/20"
                       >
-                        {copiedLocalRembgPath === localRembgRuntimePath ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copiedLocalRembgPath === localRembgRuntimePath ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
                         {copiedLocalRembgPath === localRembgRuntimePath ? '已复制' : '复制'}
                       </button>
                     </div>
@@ -1982,14 +2023,20 @@ export function AISettingsPanel({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-black">默认模型路径</p>
-                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">{localRembgModelPath}</p>
+                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">
+                          {localRembgModelPath}
+                        </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => void copyLocalRembgPath(localRembgModelPath)}
                         className="inline-flex shrink-0 items-center gap-1 rounded-md border border-fuchsia-200 px-2 py-1 text-[10px] font-black hover:bg-fuchsia-100 dark:border-fuchsia-400/30 dark:hover:bg-fuchsia-500/20"
                       >
-                        {copiedLocalRembgPath === localRembgModelPath ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copiedLocalRembgPath === localRembgModelPath ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
                         {copiedLocalRembgPath === localRembgModelPath ? '已复制' : '复制'}
                       </button>
                     </div>
@@ -2025,12 +2072,14 @@ export function AISettingsPanel({
                   </button>
                 </div>
                 <p className="mt-3 text-[11px] font-medium leading-5 text-fuchsia-800 dark:text-fuchsia-100/80">
-                  选用 BiRefNet General Lite 前请确认其许可；该模型会由已安装的 rembg 运行器在首次使用时按需下载。
+                  选用 BiRefNet General Lite 前请确认其许可；该模型会由已安装的 rembg
+                  运行器在首次使用时按需下载。
                 </p>
               </div>
             )}
 
-            {draft.kind === 'background-removal' && !isLocalRembg &&
+            {draft.kind === 'background-removal' &&
+              !isLocalRembg &&
               (isLocalRembg ? (
                 <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-4 text-sm leading-6 text-fuchsia-950 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-50">
                   <p className="font-black">本机去背景：图片不会上传到服务器</p>
@@ -2045,7 +2094,9 @@ export function AISettingsPanel({
                     </div>
                     <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
                       <p className="font-black">高级：BiRefNet General Lite</p>
-                      <p className="mt-0.5">请自行确认模型许可并在此处选择；首次使用会按 rembg 的官方模型机制下载。</p>
+                      <p className="mt-0.5">
+                        请自行确认模型许可并在此处选择；首次使用会按 rembg 的官方模型机制下载。
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -2071,125 +2122,125 @@ export function AISettingsPanel({
                 </div>
               ) : (
                 <>
-                <div className="grid gap-5 md:grid-cols-2">
-                  {draft.provider === 'aliyun' && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 md:col-span-2">
-                      <p className="text-sm font-black">{ai.text24}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <a
-                          href={ALIYUN_IMAGESEG_HELP_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          {ai.text25}
-                        </a>
-                        <a
-                          href={ALIYUN_IMAGESEG_OPEN_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          {ai.text26}
-                        </a>
-                        <a
-                          href={ALIYUN_ACCESS_KEY_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          {ai.text27}
-                        </a>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    {draft.provider === 'aliyun' && (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 md:col-span-2">
+                        <p className="text-sm font-black">{ai.text24}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <a
+                            href={ALIYUN_IMAGESEG_HELP_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {ai.text25}
+                          </a>
+                          <a
+                            href={ALIYUN_IMAGESEG_OPEN_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {ai.text26}
+                          </a>
+                          <a
+                            href={ALIYUN_ACCESS_KEY_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {ai.text27}
+                          </a>
+                        </div>
+                        <p>
+                          {language === 'zh'
+                            ? `1. API URL：选择 ${ALIYUN_IMAGESEG_API_URL}。`
+                            : `1. API URL: choose ${ALIYUN_IMAGESEG_API_URL}.`}
+                        </p>
+                        <p>
+                          {language === 'zh'
+                            ? `2. Model：人物立绘填 ${ALIYUN_IMAGESEG_MODEL}；通用主体可改成 SegmentCommonImage。`
+                            : `2. Model: use ${ALIYUN_IMAGESEG_MODEL}; SegmentCommonImage is available for general subjects.`}
+                        </p>
+                        <p>{ai.text28}</p>
+                        <p>{ai.text29}</p>
                       </div>
-                      <p>
-                        {language === 'zh'
-                          ? `1. API URL：选择 ${ALIYUN_IMAGESEG_API_URL}。`
-                          : `1. API URL: choose ${ALIYUN_IMAGESEG_API_URL}.`}
-                      </p>
-                      <p>
-                        {language === 'zh'
-                          ? `2. Model：人物立绘填 ${ALIYUN_IMAGESEG_MODEL}；通用主体可改成 SegmentCommonImage。`
-                          : `2. Model: use ${ALIYUN_IMAGESEG_MODEL}; SegmentCommonImage is available for general subjects.`}
-                      </p>
-                      <p>{ai.text28}</p>
-                      <p>{ai.text29}</p>
-                    </div>
-                  )}
-                  {draft.provider === 'volcengine' && (
-                    <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold leading-6 text-orange-900 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-100 md:col-span-2">
-                      <p className="text-sm font-black">{ai.text30}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <a
-                          href={VOLCENGINE_IMAGEX_HELP_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          {ai.text31}
-                        </a>
-                        <a
-                          href={VOLCENGINE_IMAGEX_SERVICE_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          {ai.text32}
-                        </a>
-                        <a
-                          href={VOLCENGINE_ACCESS_KEY_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          {ai.text33}
-                        </a>
-                      </div>
-                      <p>
-                        {language === 'zh'
-                          ? `1. API URL：选择 ${VOLCENGINE_IMAGEX_API_URL}。`
-                          : `1. API URL: choose ${VOLCENGINE_IMAGEX_API_URL}.`}
-                      </p>
-                      <p>{ai.text34}</p>
-                      <p>
-                        {language === 'zh'
-                          ? `3. Model：填 humanv2|ServiceId|你的图片访问域名，例如 ${VOLCENGINE_IMAGEX_MODEL}。`
-                          : `3. Model: enter humanv2|ServiceId|delivery-domain, for example ${VOLCENGINE_IMAGEX_MODEL}.`}
-                      </p>
-                      <p>{ai.text35}</p>
-                    </div>
-                  )}
-                  {renderApiUrlField({
-                    draft,
-                    name: 'ai-background-removal-api-url',
-                    label: 'API URL',
-                    placeholder: 'api/proxy.php',
-                    className: 'md:col-span-2',
-                  })}
-                  <div className="space-y-2 md:col-span-2">
-                    {renderFieldLabel(
-                      draft.provider === 'aliyun' || draft.provider === 'volcengine'
-                        ? 'API Key (AccessKeyId:AccessKeySecret)'
-                        : 'API Key',
                     )}
-                    <input
-                      type="password"
-                      name="ai-background-removal-api-key"
-                      autoComplete="new-password"
-                      value={draft.apiKey}
-                      onChange={(e) => updateDraft({ apiKey: e.target.value })}
-                      className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                    <p className="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-                      {ai.text36}
-                    </p>
+                    {draft.provider === 'volcengine' && (
+                      <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold leading-6 text-orange-900 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-100 md:col-span-2">
+                        <p className="text-sm font-black">{ai.text30}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <a
+                            href={VOLCENGINE_IMAGEX_HELP_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {ai.text31}
+                          </a>
+                          <a
+                            href={VOLCENGINE_IMAGEX_SERVICE_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {ai.text32}
+                          </a>
+                          <a
+                            href={VOLCENGINE_ACCESS_KEY_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {ai.text33}
+                          </a>
+                        </div>
+                        <p>
+                          {language === 'zh'
+                            ? `1. API URL：选择 ${VOLCENGINE_IMAGEX_API_URL}。`
+                            : `1. API URL: choose ${VOLCENGINE_IMAGEX_API_URL}.`}
+                        </p>
+                        <p>{ai.text34}</p>
+                        <p>
+                          {language === 'zh'
+                            ? `3. Model：填 humanv2|ServiceId|你的图片访问域名，例如 ${VOLCENGINE_IMAGEX_MODEL}。`
+                            : `3. Model: enter humanv2|ServiceId|delivery-domain, for example ${VOLCENGINE_IMAGEX_MODEL}.`}
+                        </p>
+                        <p>{ai.text35}</p>
+                      </div>
+                    )}
+                    {renderApiUrlField({
+                      draft,
+                      name: 'ai-background-removal-api-url',
+                      label: 'API URL',
+                      placeholder: 'api/proxy.php',
+                      className: 'md:col-span-2',
+                    })}
+                    <div className="space-y-2 md:col-span-2">
+                      {renderFieldLabel(
+                        draft.provider === 'aliyun' || draft.provider === 'volcengine'
+                          ? 'API Key (AccessKeyId:AccessKeySecret)'
+                          : 'API Key',
+                      )}
+                      <input
+                        type="password"
+                        name="ai-background-removal-api-key"
+                        autoComplete="new-password"
+                        value={draft.apiKey}
+                        onChange={(e) => updateDraft({ apiKey: e.target.value })}
+                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
+                      />
+                      <p className="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+                        {ai.text36}
+                      </p>
+                    </div>
                   </div>
-                </div>
                 </>
               ))}
 
@@ -2621,6 +2672,113 @@ export function AISettingsPanel({
                               <Check className="h-3.5 w-3.5" />
                               {ai.text51}
                             </button>
+                          )}
+                          {section.kind === 'image' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setHideStoryImageButtonWithTags(!hideStoryImageButtonWithTags)
+                                }
+                                aria-pressed={hideStoryImageButtonWithTags}
+                                title={characterAssetCopy.hideWithTagsDescription}
+                                className={`inline-flex h-8 items-center rounded-md border px-2 text-[10px] font-black transition-all active:scale-95 ${
+                                  hideStoryImageButtonWithTags
+                                    ? 'border-[var(--accent)]/35 bg-[var(--accent)]/10 text-[var(--accent)]'
+                                    : 'border-[var(--card-border)] bg-white text-[var(--text-muted)] dark:bg-slate-950'
+                                }`}
+                              >
+                                Tag
+                              </button>
+                              <div
+                                className="flex items-center rounded-md border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1"
+                                aria-label={characterAssetCopy.sceneRatio}
+                              >
+                                {[
+                                  [
+                                    'storyboard-16:9',
+                                    '16:9',
+                                    characterAssetCopy.storyboardDescription,
+                                  ],
+                                  ['follow-api', 'API', characterAssetCopy.followApiDescription],
+                                ].map(([mode, label, description]) => {
+                                  const selected = sceneImageMode === mode;
+                                  return (
+                                    <button
+                                      key={mode}
+                                      type="button"
+                                      onClick={() => setSceneImageMode(mode as SceneImageMode)}
+                                      title={description}
+                                      className={`h-6 rounded px-1.5 text-[10px] font-black transition-all ${
+                                        selected
+                                          ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm'
+                                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                                      }`}
+                                    >
+                                      {label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setCharacterAssetsMenuOpen((open) => !open)}
+                                  aria-expanded={characterAssetsMenuOpen}
+                                  title={`${characterAssetCopy.title} (${characterAssetTypes.length}/3)`}
+                                  className={`inline-flex h-8 items-center gap-1 rounded-md border px-2 text-[10px] font-black transition-all active:scale-95 ${
+                                    characterAssetTypes.length > 0
+                                      ? 'border-[var(--accent)]/35 bg-[var(--accent)]/10 text-[var(--accent)]'
+                                      : 'border-[var(--card-border)] bg-white text-[var(--text-muted)] dark:bg-slate-950'
+                                  }`}
+                                >
+                                  <ImageIcon className="h-3.5 w-3.5" />
+                                  {characterAssetTypes.length}
+                                </button>
+                                {characterAssetsMenuOpen && (
+                                  <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-56 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-2 shadow-xl">
+                                    <p className="px-2 pb-1.5 text-xs font-black text-[var(--text-primary)]">
+                                      {characterAssetCopy.title}
+                                    </p>
+                                    {(
+                                      [
+                                        ['portrait', characterAssetCopy.portrait],
+                                        ['three-view', characterAssetCopy.threeView],
+                                        ['tag-sprite', characterAssetCopy.tagSprite],
+                                      ] as const
+                                    ).map(([type, label]) => {
+                                      const selected = characterAssetTypes.includes(type);
+                                      return (
+                                        <button
+                                          key={type}
+                                          type="button"
+                                          onClick={() =>
+                                            setCharacterAssetTypes(
+                                              selected
+                                                ? characterAssetTypes.filter(
+                                                    (item) => item !== type,
+                                                  )
+                                                : [...characterAssetTypes, type],
+                                            )
+                                          }
+                                          aria-pressed={selected}
+                                          className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs font-bold transition-colors ${
+                                            selected
+                                              ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                                              : 'text-[var(--text-secondary)] hover:bg-[var(--app-bg)]'
+                                          }`}
+                                        >
+                                          {label}
+                                          <Check
+                                            className={`h-3.5 w-3.5 ${selected ? 'opacity-100' : 'opacity-0'}`}
+                                          />
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </>
                           )}
                           <button
                             type="button"

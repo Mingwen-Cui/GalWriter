@@ -608,6 +608,15 @@ const applyProjectSettings = (
   } else {
     setters.setCharacterImageMode('transparent-sprite');
   }
+  const characterAssetTypes = Array.isArray(incomingSettings.characterAssetTypes)
+    ? incomingSettings.characterAssetTypes.filter(
+        (type): type is 'portrait' | 'three-view' | 'tag-sprite' =>
+          type === 'portrait' || type === 'three-view' || type === 'tag-sprite',
+      )
+    : [];
+  setters.setCharacterAssetTypes(
+    characterAssetTypes.length > 0 ? characterAssetTypes : ['portrait', 'three-view', 'tag-sprite'],
+  );
   setters.setHideStoryImageButtonWithTags(incomingSettings.hideStoryImageButtonWithTags !== false);
   if (
     incomingSettings.sceneImageMode === 'storyboard-16:9' ||
@@ -825,9 +834,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
         id: node.id,
         position: node.position,
         type: node.type,
-        style: isStoryNode
-          ? normalizeStoryNodeCardStyle(node.style)
-          : node.style,
+        style: isStoryNode ? normalizeStoryNodeCardStyle(node.style) : node.style,
         data: isStoryNode ? { ...node.data, sizeMode: 'auto' } : { ...node.data },
         width: node.measured?.width || node.width,
         height: node.measured?.height || node.height,

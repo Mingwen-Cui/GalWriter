@@ -95,6 +95,7 @@ export const settingsModalEn = {
   directionLeft: 'Left',
   directionRight: 'Right',
   actualPreview: 'Live preview',
+  actualEffect: 'Actual effect',
   nextCardPreview: 'Next card',
   previewStoryTitle: 'Start',
   previewStoryBody: 'Once upon a time, there was a mountain.',

@@ -90,6 +90,7 @@ export const settingsModalZh = {
   directionLeft: '左侧',
   directionRight: '右侧',
   actualPreview: '实际预览',
+  actualEffect: '实际效果',
   nextCardPreview: '新卡片',
   previewStoryTitle: '开始',
   previewStoryBody: '从前有座山',

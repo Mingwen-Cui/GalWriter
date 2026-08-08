@@ -4,7 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { MIN_STORY_CARD_HEIGHT } from '../../components/story-editor/constants';
-import type { CharacterNodeData, SceneImageMode } from '../../domain/project';
+import type { CharacterAssetType, CharacterNodeData, SceneImageMode } from '../../domain/project';
 import { useDialog } from '../../editor-shell/DialogProvider';
 import { formatSceneNodeText } from '../../lib/export';
 import type { Language } from '../../lib/i18n';
@@ -45,6 +45,7 @@ interface UseMediaActionsParams {
   backgroundRemovalModel?: string;
   backgroundRemovalProvider?: string;
   sceneImageMode: SceneImageMode;
+  characterAssetTypes: CharacterAssetType[];
   showTitles: boolean;
   setImageSize: Dispatch<SetStateAction<string>>;
   setNodes: Dispatch<SetStateAction<Node[]>>;
@@ -151,6 +152,7 @@ export const useMediaActions = ({
   backgroundRemovalModel,
   backgroundRemovalProvider,
   sceneImageMode,
+  characterAssetTypes,
   showTitles,
   setImageSize,
   setNodes,
@@ -569,45 +571,72 @@ export const useMediaActions = ({
             );
           };
           const characterSetting = `Character setting:\n\n${basePrompt}`;
+          const selectedAssetTypes = characterAssetTypes;
 
-          onProgress?.(1, 3, language === 'zh' ? '正面头像' : 'Card portrait');
-          const avatarUrl = await requestGeneratedImage(
-            `Create exactly ONE polished visual novel character portrait for a character card. Use a front-facing close-up or upper-body composition, with the face clear and centered. One character only. No character sheet, no alternate views, no duplicate figures, no text, no UI, and no frame. Preserve the character design described below:\n\n${characterSetting}`,
-          );
-          if (!avatarUrl) return;
-          saveCharacterAsset({ avatarUrl });
+          if (selectedAssetTypes.length === 0) {
+            showToast(
+              language === 'zh'
+                ? '请先在图片 AI 中选择要生成的人物素材'
+                : language === 'ja'
+                  ? 'Image AI で生成するキャラクター素材を選択してください'
+                  : 'Choose character assets to generate in Image AI first',
+            );
+            return;
+          }
 
-          const portraitReference: ImageReference[] = [
-            { url: avatarUrl, label: `${titleText} card portrait` },
-          ];
-          onProgress?.(2, 3, language === 'zh' ? '人物三视图' : 'Three-view sheet');
-          const threeViewUrl = await requestGeneratedImage(
-            `Create a polished visual novel character design sheet with exactly three full-body views of the SAME character: front, side, and back. Keep the face, hair, clothing, proportions, and colors consistent with the attached card portrait. Use a clean neutral background. No text labels, no UI, and no frame.\n\n${characterSetting}`,
-            { referenceImages: portraitReference },
-          );
-          if (!threeViewUrl) return;
-          saveCharacterAsset({ threeViewUrl });
+          const total = selectedAssetTypes.length;
+          let current = 0;
+          const reportProgress = (label: string) => onProgress?.(++current, total, label);
+          const generatedAssetLabels: string[] = [];
+          let portraitReference: ImageReference[] = node.data.avatarUrl
+            ? [{ url: node.data.avatarUrl as string, label: `${titleText} card portrait` }]
+            : [];
 
-          onProgress?.(3, 3, language === 'zh' ? '透明标签立绘' : 'Transparent tag sprite');
-          const tagSpriteUrl = await requestGeneratedImage(
-            `Create exactly ONE polished visual novel character sprite of the SAME character as the attached card portrait. Show one single front-facing full-body figure, head to toe. This is NOT a character sheet or turnaround. Do not generate side views, back views, duplicate figures, multiple poses, panels, scenery, floor, cast shadow, text, labels, UI, or frame. Use a clean transparent background.\n\n${characterSetting}`,
-            {
-              transparentBackground: true,
-              negativePromptOverride:
-                'character sheet, turnaround, three views, multiple views, side view, back view, multiple poses, duplicate character, split panel, collage, contact sheet, scenery, floor, shadow, text, UI, frame',
-              referenceImages: portraitReference,
-            },
-          );
-          if (!tagSpriteUrl) return;
-          saveCharacterAsset({ tagSpriteUrl });
+          if (selectedAssetTypes.includes('portrait')) {
+            reportProgress(language === 'zh' ? '正面头像' : 'Card portrait');
+            const avatarUrl = await requestGeneratedImage(
+              `Create exactly ONE polished visual novel character portrait for a character card. Use a front-facing close-up or upper-body composition, with the face clear and centered. One character only. No character sheet, no alternate views, no duplicate figures, no text, no UI, and no frame. Preserve the character design described below:\n\n${characterSetting}`,
+            );
+            if (!avatarUrl) return;
+            saveCharacterAsset({ avatarUrl });
+            portraitReference = [{ url: avatarUrl, label: `${titleText} card portrait` }];
+            generatedAssetLabels.push(language === 'zh' ? '头像' : 'portrait');
+          }
 
-          onProgress?.(3, 3, language === 'zh' ? '已完成' : 'Complete');
+          if (selectedAssetTypes.includes('three-view')) {
+            reportProgress(language === 'zh' ? '人物三视图' : 'Three-view sheet');
+            const threeViewUrl = await requestGeneratedImage(
+              `Create a polished visual novel character design sheet with exactly three full-body views of the SAME character: front, side, and back. Keep the face, hair, clothing, proportions, and colors consistent with the attached card portrait. Use a clean neutral background. No text labels, no UI, and no frame.\n\n${characterSetting}`,
+              portraitReference.length > 0 ? { referenceImages: portraitReference } : undefined,
+            );
+            if (!threeViewUrl) return;
+            saveCharacterAsset({ threeViewUrl });
+            generatedAssetLabels.push(language === 'zh' ? '三视图' : 'three-view sheet');
+          }
+
+          if (selectedAssetTypes.includes('tag-sprite')) {
+            reportProgress(language === 'zh' ? '透明标签立绘' : 'Transparent tag sprite');
+            const tagSpriteUrl = await requestGeneratedImage(
+              `Create exactly ONE polished visual novel character sprite of the SAME character as the attached card portrait. Show one single front-facing full-body figure, head to toe. This is NOT a character sheet or turnaround. Do not generate side views, back views, duplicate figures, multiple poses, panels, scenery, floor, cast shadow, text, labels, UI, or frame. Use a clean transparent background.\n\n${characterSetting}`,
+              {
+                transparentBackground: true,
+                negativePromptOverride:
+                  'character sheet, turnaround, three views, multiple views, side view, back view, multiple poses, duplicate character, split panel, collage, contact sheet, scenery, floor, shadow, text, UI, frame',
+                ...(portraitReference.length > 0 ? { referenceImages: portraitReference } : {}),
+              },
+            );
+            if (!tagSpriteUrl) return;
+            saveCharacterAsset({ tagSpriteUrl });
+            generatedAssetLabels.push(language === 'zh' ? '透明标签立绘' : 'transparent sprite');
+          }
+
+          onProgress?.(total, total, language === 'zh' ? '已完成' : 'Complete');
           showToast(
             language === 'zh'
-              ? '人物素材已生成：头像、三视图、透明标签立绘'
+              ? `人物素材已生成：${generatedAssetLabels.join('、')}`
               : language === 'ja'
-                ? 'キャラクター素材を生成しました：ポートレート・三面図・透過立ち絵'
-                : 'Character assets generated: portrait, three-view, and transparent sprite',
+                ? 'キャラクター素材を生成しました'
+                : `Character assets generated: ${generatedAssetLabels.join(', ')}`,
           );
           return;
         }
@@ -734,7 +763,15 @@ export const useMediaActions = ({
         });
       }
     },
-    [language, nodes, requestGeneratedImage, sceneImageMode, setNodes, showToast],
+    [
+      characterAssetTypes,
+      language,
+      nodes,
+      requestGeneratedImage,
+      sceneImageMode,
+      setNodes,
+      showToast,
+    ],
   );
 
   const handleGenerateStoryNodeImage = useCallback(

@@ -213,6 +213,7 @@ export interface ApiKeySettings {
 
 export type AIProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
 export type CharacterImageMode = 'three-view' | 'transparent-sprite';
+export type CharacterAssetType = 'portrait' | 'three-view' | 'tag-sprite';
 export type SceneImageMode = 'storyboard-16:9' | 'follow-api';
 
 export interface TextAIProfile {
@@ -326,6 +327,7 @@ export interface ProjectSettings extends PlaytestSettings {
   ttsNarrationMode: TtsNarrationMode;
   thinkingMode: boolean;
   characterImageMode: CharacterImageMode;
+  characterAssetTypes: CharacterAssetType[];
   hideStoryImageButtonWithTags: boolean;
   sceneImageMode: SceneImageMode;
   plotStructureGenerateDirection: PlotStructureGenerateDirection;
@@ -379,6 +381,7 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setTtsNarrationMode: Dispatch<SetStateAction<TtsNarrationMode>>;
   setImageSize: Dispatch<SetStateAction<string>>;
   setCharacterImageMode: Dispatch<SetStateAction<CharacterImageMode>>;
+  setCharacterAssetTypes: Dispatch<SetStateAction<CharacterAssetType[]>>;
   setHideStoryImageButtonWithTags: Dispatch<SetStateAction<boolean>>;
   setSceneImageMode: Dispatch<SetStateAction<SceneImageMode>>;
   setPlotStructureGenerateDirection: Dispatch<SetStateAction<PlotStructureGenerateDirection>>;

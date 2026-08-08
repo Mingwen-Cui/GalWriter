@@ -23,16 +23,17 @@ export const settingsModalJa = {
   characterTransparentSprite: '透過背景立ち絵',
   characterTransparentSpriteDescription: '透過背景の全身立ち絵を生成します。',
   characterAssets: 'キャラクター素材',
-  characterAssetsDescription: 'AI生成ごとに3種類の素材を順番に生成し、用途に応じて自動で使い分けます。',
+  characterAssetsDescription:
+    'AI生成ごとに3種類の素材を順番に生成し、用途に応じて自動で使い分けます。',
   characterPortraitAsset: '正面ポートレート',
   characterPortraitAssetDescription: 'キャラクターカードの顔写真に使います。',
   characterThreeViewAsset: '三面図',
   characterThreeViewAssetDescription: '立ち絵と背景の再描画時に外見の参照として使います。',
   characterTagSpriteAsset: '透過タグ立ち絵',
-  characterTagSpriteAssetDescription: 'ストーリーのキャラクタータグに使い、未設定時はポートレートを使います。',
+  characterTagSpriteAssetDescription:
+    'ストーリーのキャラクタータグに使い、未設定時はポートレートを使います。',
   hideStoryImageWithTags: 'タグがある場合、ストーリーカードの画像生成ボタンを非表示',
-  hideStoryImageWithTagsDescription:
-    '本文にキャラクターまたはシーンタグがある場合に有効です。',
+  hideStoryImageWithTagsDescription: '本文にキャラクターまたはシーンタグがある場合に有効です。',
   sceneImageRatio: 'シーン画像比率',
   sceneImageRatioDescription:
     'シーンカードの画像生成にのみ適用され、画像 API のサイズ設定より優先されます。',
@@ -95,6 +96,7 @@ export const settingsModalJa = {
   directionLeft: '左',
   directionRight: '右',
   actualPreview: '実際のプレビュー',
+  actualEffect: '実際の表示',
   nextCardPreview: '次のカード',
   previewStoryTitle: '開始',
   previewStoryBody: '昔々、あるところに山がありました。',

@@ -10,6 +10,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Eye,
   EyeOff,
   GitFork,
   HelpCircle,
@@ -24,6 +25,7 @@ import {
   Palette,
   Play,
   PlayCircle,
+  Plus,
   ShieldAlert,
   StepForward,
   Trash2,
@@ -36,6 +38,7 @@ import { createPortal } from 'react-dom';
 
 import type {
   BackgroundRemovalAIProfile,
+  CharacterAssetType,
   ImageAIProfile,
   PlotStructureGenerateDirection,
   SavedAIProfile,
@@ -198,6 +201,8 @@ interface SettingsModalProps {
   setSaveAssistantConversations: (val: boolean) => void;
   allowAssistantImageGeneration: boolean;
   setAllowAssistantImageGeneration: (val: boolean) => void;
+  characterAssetTypes: CharacterAssetType[];
+  setCharacterAssetTypes: (types: CharacterAssetType[]) => void;
   skipAssistantAgentAnimation: boolean;
   setSkipAssistantAgentAnimation: (val: boolean) => void;
   assistantMemorySkillEnabled: boolean;
@@ -375,6 +380,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setSaveAssistantConversations,
   allowAssistantImageGeneration,
   setAllowAssistantImageGeneration,
+  characterAssetTypes,
+  setCharacterAssetTypes,
   skipAssistantAgentAnimation,
   setSkipAssistantAgentAnimation,
   assistantMemorySkillEnabled,
@@ -474,6 +481,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [accentHexDraft, setAccentHexDraft] = useState('');
   const [editingEdgeHex, setEditingEdgeHex] = useState(false);
   const [edgeHexDraft, setEdgeHexDraft] = useState('');
+  const [isToolbarPreviewHovering, setIsToolbarPreviewHovering] = useState(false);
+  const [isToolbarPreviewLocked, setIsToolbarPreviewLocked] = useState(false);
+  const [isToolbarPreviewManuallyCollapsed, setIsToolbarPreviewManuallyCollapsed] = useState(false);
   React.useEffect(() => {
     if (showSettings && settingsAttentionTarget) {
       setActiveSettingsTab('ai');
@@ -509,7 +519,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const previewStageHeight = 360 + previewToolbarOversizeOffset;
   const previewCardTop = 128 + previewToolbarOversizeOffset;
   const previewToolbarTop = 24 + previewToolbarOversizeOffset;
+  const previewCollapsedHeight = Math.min(
+    previewStageHeight,
+    Math.max(previewCardTop + 96, previewToolbarTop + 104 * previewToolbarScale + 16),
+  );
+  const isToolbarPreviewExpanded =
+    isToolbarPreviewLocked || (isToolbarPreviewHovering && !isToolbarPreviewManuallyCollapsed);
   const cardToolbarScalePercent = ((cardToolbarScale - 0.5) / 2.5) * 100;
+  // Keep the card-spacing sample literal: every displayed gap is the canvas
+  // value at 20% scale, matching the relationship users see around a card.
+  const nodeSpacingPreviewScale = 0.2;
+  const nodePreviewCardWidth = 32;
+  const nodePreviewCardHeight = 20;
+  const nodePreviewMargin = 10;
+  const nodePreviewActionSize = 12;
+  const nodePreviewActionGap = 3;
+  const nodePreviewHorizontalGap = nodeHorizontalSpacing * nodeSpacingPreviewScale;
+  const nodePreviewVerticalGap = nodeVerticalSpacing * nodeSpacingPreviewScale;
+  const nodePreviewFirstX = nodePreviewMargin + nodePreviewActionSize + nodePreviewActionGap;
+  const nodePreviewFirstY = nodePreviewMargin + nodePreviewActionSize + nodePreviewActionGap;
+  const nodePreviewSecondY = nodePreviewFirstY + nodePreviewCardHeight + nodePreviewVerticalGap;
+  const nodePreviewThirdX = nodePreviewFirstX + nodePreviewCardWidth + nodePreviewHorizontalGap;
+  const nodePreviewWidth = Math.max(
+    128,
+    Math.ceil(nodePreviewThirdX + nodePreviewCardWidth + nodePreviewMargin),
+  );
+  const nodePreviewHeight = Math.max(
+    96,
+    Math.ceil(nodePreviewSecondY + nodePreviewCardHeight + nodePreviewMargin),
+  );
   const applyProjectCountLabel = s.applyProjectCount(selectedApplyProjectIds.length);
   const compactSegmentButtonClass = (active: boolean) =>
     `web-segment-button min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
@@ -519,12 +557,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }`;
   const compactTextButtonClass = (active: boolean) =>
     `min-w-0 flex-1 truncate rounded-md px-2 py-2.5 text-xs font-bold transition-all ${
-      active
-        ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
-        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-    }`;
-  const optionCardButtonClass = (active: boolean) =>
-    `rounded-lg px-3 py-3 text-left transition-all ${
       active
         ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
@@ -1368,29 +1400,103 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       </div>
                       <div
-                        className={`relative h-24 w-32 shrink-0 overflow-hidden rounded-lg border bg-[var(--app-bg)]/40 transition-opacity ${showNodeActions ? 'border-[var(--card-border)]' : 'border-[var(--card-border)] opacity-35 grayscale'}`}
+                        className={`relative shrink-0 overflow-hidden rounded-lg border bg-[var(--app-bg)]/40 transition-[width,height,opacity] ${showNodeActions ? 'border-[var(--card-border)]' : 'border-[var(--card-border)] opacity-35 grayscale'}`}
+                        style={{ width: `${nodePreviewWidth}px`, height: `${nodePreviewHeight}px` }}
                       >
-                        <svg
-                          className="absolute inset-0 h-full w-full overflow-visible"
-                          viewBox="0 0 128 96"
-                          fill="none"
-                          aria-hidden="true"
+                        <span
+                          className="absolute rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]"
+                          style={{
+                            left: `${nodePreviewFirstX}px`,
+                            top: `${nodePreviewFirstY}px`,
+                            width: `${nodePreviewCardWidth}px`,
+                            height: `${nodePreviewCardHeight}px`,
+                          }}
+                        />
+                        <span
+                          className="absolute rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]"
+                          style={{
+                            left: `${nodePreviewFirstX}px`,
+                            top: `${nodePreviewSecondY}px`,
+                            width: `${nodePreviewCardWidth}px`,
+                            height: `${nodePreviewCardHeight}px`,
+                          }}
+                        />
+                        <span
+                          className="absolute rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]"
+                          style={{
+                            left: `${nodePreviewThirdX}px`,
+                            top: `${nodePreviewSecondY}px`,
+                            width: `${nodePreviewCardWidth}px`,
+                            height: `${nodePreviewCardHeight}px`,
+                          }}
+                        />
+                        {showNodeActions &&
+                          [
+                            {
+                              left:
+                                nodePreviewFirstX +
+                                nodePreviewCardWidth / 2 -
+                                nodePreviewActionSize / 2,
+                              top: nodePreviewFirstY - nodePreviewActionGap - nodePreviewActionSize,
+                            },
+                            {
+                              left: nodePreviewFirstX + nodePreviewCardWidth + nodePreviewActionGap,
+                              top:
+                                nodePreviewFirstY +
+                                nodePreviewCardHeight / 2 -
+                                nodePreviewActionSize / 2,
+                            },
+                            {
+                              left:
+                                nodePreviewFirstX +
+                                nodePreviewCardWidth / 2 -
+                                nodePreviewActionSize / 2,
+                              top: nodePreviewFirstY + nodePreviewCardHeight + nodePreviewActionGap,
+                            },
+                            {
+                              left:
+                                nodePreviewFirstX - nodePreviewActionGap - nodePreviewActionSize,
+                              top:
+                                nodePreviewFirstY +
+                                nodePreviewCardHeight / 2 -
+                                nodePreviewActionSize / 2,
+                            },
+                          ].map((position, index) => (
+                            <span
+                              key={index}
+                              className="absolute flex items-center justify-center rounded-full border border-blue-500/45 bg-[var(--card-bg)] text-blue-500 shadow-sm"
+                              style={{
+                                left: `${position.left}px`,
+                                top: `${position.top}px`,
+                                width: `${nodePreviewActionSize}px`,
+                                height: `${nodePreviewActionSize}px`,
+                              }}
+                              aria-hidden="true"
+                            >
+                              <Plus className="h-2.5 w-2.5" strokeWidth={2.5} />
+                            </span>
+                          ))}
+                        <span
+                          className="absolute flex -translate-y-1/2 flex-col items-center rounded bg-[var(--app-bg)]/90 px-0.5 text-[8px] font-bold leading-none text-[var(--text-muted)]"
+                          style={{
+                            left: `${nodePreviewFirstX + nodePreviewCardWidth + 3}px`,
+                            top: `${nodePreviewFirstY + nodePreviewCardHeight + nodePreviewVerticalGap / 2}px`,
+                          }}
                         >
-                          <path d="M 25 29 L 25 64" stroke="var(--accent)" strokeWidth="1.5" />
-                          <path
-                            d="M 38 76 C 55 76, 62 76, 82 76"
-                            stroke="var(--accent)"
-                            strokeWidth="1.5"
-                          />
-                        </svg>
-                        <span className="absolute left-2 top-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
-                        <span className="absolute bottom-2 left-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
-                        <span className="absolute bottom-2 right-2 h-5 w-8 rounded border border-[var(--accent)]/55 bg-[var(--card-bg)]" />
-                        <span className="absolute left-8 top-[39px] rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">
+                          <ArrowUp className="h-2 w-2" strokeWidth={2.5} />
                           {nodeVerticalSpacing}px
+                          <ArrowDown className="h-2 w-2" strokeWidth={2.5} />
                         </span>
-                        <span className="absolute left-[49px] bottom-8 rounded bg-[var(--app-bg)] px-0.5 text-[8px] font-bold text-[var(--text-muted)]">
+                        <span
+                          className="absolute flex -translate-x-1/2 items-center gap-px rounded bg-[var(--app-bg)]/90 px-0.5 text-[8px] font-bold leading-none text-[var(--text-muted)]"
+                          style={{
+                            left: `${nodePreviewFirstX + nodePreviewCardWidth + nodePreviewHorizontalGap / 2}px`,
+                            top: `${nodePreviewSecondY + nodePreviewCardHeight / 2 - 4}px`,
+                          }}
+                        >
+                          <ArrowLeft className="h-2 w-2" strokeWidth={2.5} />
                           {nodeHorizontalSpacing}px
+                          <ArrowRight className="h-2 w-2" strokeWidth={2.5} />
                         </span>
                       </div>
                     </div>
@@ -1506,58 +1612,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
                       </h3>
 
-                      <div className="min-w-0 flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-5 py-4 shadow-sm">
-                        <div className="mb-4 flex items-center justify-between text-[10px] font-black tracking-wide text-[var(--text-muted)]">
-                          <span>0.50×</span>
-                          <span className="rounded-lg bg-[var(--accent)]/10 px-2.5 py-1 font-mono text-xs text-[var(--accent)]">
+                      <div className="min-w-0 flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3 shadow-sm">
+                        <div className="flex items-center gap-4">
+                          <span className="shrink-0 rounded-lg bg-[var(--accent)]/10 px-2.5 py-1 font-mono text-xs font-black text-[var(--accent)]">
                             {cardToolbarScale.toFixed(2)}×
                           </span>
-                          <span>3.00×</span>
-                        </div>
-                        <div className="relative h-5">
-                          <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-[var(--card-border)]/70">
+                          <div className="relative h-4 min-w-0 flex-1">
+                            <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-[var(--card-border)]/70">
+                              <span
+                                className="block h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
+                                style={{ width: `${cardToolbarScalePercent}%` }}
+                              />
+                            </div>
+                            {[0, 20, 40, 60, 80, 100].map((tick) => (
+                              <span
+                                key={tick}
+                                className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--card-bg)]/90"
+                                style={{ left: `${tick}%` }}
+                              />
+                            ))}
                             <span
-                              className="block h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
-                              style={{ width: `${cardToolbarScalePercent}%` }}
+                              className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[var(--card-bg)] bg-[var(--accent)] shadow-md transition-[left] duration-150"
+                              style={{ left: `${cardToolbarScalePercent}%` }}
+                            />
+                            <input
+                              type="range"
+                              min={0.5}
+                              max={3}
+                              step={0.05}
+                              value={cardToolbarScale}
+                              onChange={(event) =>
+                                setCardToolbarScale(parseFloat(event.target.value))
+                              }
+                              aria-label={s.cardToolbarScale}
+                              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                             />
                           </div>
-                          {[0, 20, 40, 60, 80, 100].map((tick) => (
-                            <span
-                              key={tick}
-                              className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--card-bg)]/90"
-                              style={{ left: `${tick}%` }}
-                            />
-                          ))}
-                          <span
-                            className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[var(--card-bg)] bg-[var(--accent)] shadow-md transition-[left] duration-150"
-                            style={{ left: `${cardToolbarScalePercent}%` }}
-                          />
-                          <input
-                            type="range"
-                            min={0.5}
-                            max={3}
-                            step={0.05}
-                            value={cardToolbarScale}
-                            onChange={(event) =>
-                              setCardToolbarScale(parseFloat(event.target.value))
-                            }
-                            aria-label={s.cardToolbarScale}
-                            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                          />
                         </div>
                       </div>
                     </div>
 
                     <div
-                      className="relative w-full overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/30 shadow-sm transition-[height] duration-200"
-                      style={{ height: `${previewStageHeight}px` }}
+                      className="relative w-full overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/30 shadow-sm transition-[height] duration-200 ease-out"
+                      style={{
+                        height: `${isToolbarPreviewExpanded ? previewStageHeight : previewCollapsedHeight}px`,
+                      }}
+                      onMouseEnter={() => {
+                        setIsToolbarPreviewHovering(true);
+                        setIsToolbarPreviewManuallyCollapsed(false);
+                      }}
+                      onMouseLeave={() => {
+                        setIsToolbarPreviewHovering(false);
+                        setIsToolbarPreviewManuallyCollapsed(false);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          setIsToolbarPreviewLocked(false);
+                          setIsToolbarPreviewManuallyCollapsed(true);
+                        }
+                      }}
                     >
-                      <span className="absolute left-3 top-3 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)]/90 px-2 py-1 text-[10px] font-black text-[var(--text-muted)] shadow-sm">
-                        {s.actualPreview}
-                      </span>
+                      <button
+                        type="button"
+                        className={`absolute left-3 top-3 z-50 flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-black shadow-sm transition-colors ${
+                          isToolbarPreviewLocked
+                            ? 'border-[var(--accent)]/45 bg-[var(--accent)]/12 text-[var(--accent)]'
+                            : 'border-[var(--card-border)] bg-[var(--card-bg)]/90 text-[var(--text-muted)] hover:border-[var(--accent)]/35 hover:text-[var(--accent)]'
+                        }`}
+                        aria-pressed={isToolbarPreviewLocked}
+                        onClick={() => {
+                          if (isToolbarPreviewLocked) {
+                            setIsToolbarPreviewLocked(false);
+                            setIsToolbarPreviewManuallyCollapsed(true);
+                            return;
+                          }
+                          setIsToolbarPreviewLocked(true);
+                          setIsToolbarPreviewManuallyCollapsed(false);
+                        }}
+                      >
+                        <Eye className="h-3 w-3" />
+                        {s.actualEffect}
+                      </button>
 
                       <div
-                        className="absolute left-1/2 z-10 w-[360px] max-w-[calc(100%-48px)] -translate-x-1/2 transition-[top] duration-200"
+                        className={`absolute left-1/2 z-10 w-[360px] max-w-[calc(100%-48px)] -translate-x-1/2 transition-[top,transform] duration-200 ease-out ${
+                          isToolbarPreviewExpanded ? 'translate-y-0' : 'translate-y-3'
+                        }`}
                         style={{ top: `${previewCardTop}px` }}
                       >
                         <div className="relative aspect-[5/3] rounded-xl border-2 border-[var(--accent)] bg-[var(--card-bg)] px-5 py-4 shadow-sm">
@@ -1579,8 +1720,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
 
                       <div className="contents">
+                        <span
+                          className={`pointer-events-none absolute inset-x-0 bottom-0 z-40 h-16 bg-gradient-to-b from-transparent to-[var(--app-bg)] transition-opacity duration-200 ${
+                            isToolbarPreviewExpanded ? 'opacity-0' : 'opacity-100'
+                          }`}
+                          aria-hidden="true"
+                        />
                         <div
-                          className="absolute left-1/2 z-30 w-max -translate-x-1/2 transition-[top] duration-200"
+                          className={`absolute left-1/2 z-30 w-max -translate-x-1/2 transition-[top,transform] duration-200 ease-out ${
+                            isToolbarPreviewExpanded ? 'translate-y-0' : 'translate-y-3'
+                          }`}
                           style={{ top: `${previewToolbarTop}px` }}
                         >
                           <div
@@ -1681,80 +1830,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       )}
                     </h3>
 
-                    <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
-                      <div className="relative h-[300px] overflow-hidden bg-[var(--app-bg)]/30">
-                        <div className="absolute left-1/2 top-1/2 h-[500px] w-[640px] origin-center -translate-x-1/2 -translate-y-1/2 scale-50">
+                    <div className="flex min-w-0 flex-1 items-stretch gap-3 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-3 shadow-sm">
+                      <div className="order-2 relative h-[140px] min-w-0 flex-1 overflow-hidden rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)]/30">
+                        <div className="absolute left-1/2 top-1/2 h-[400px] w-[640px] origin-center -translate-x-1/2 -translate-y-1/2 scale-[0.34]">
                           <div
-                            className={`absolute z-10 h-[150px] rounded-3xl border-4 border-blue-500 bg-[var(--card-bg)] shadow-xl ${
+                            className={`absolute z-10 h-[120px] rounded-3xl border-4 border-[var(--accent)] bg-[var(--card-bg)] shadow-xl ${
                               plotStructureGenerateDirection === 'down'
-                                ? 'left-1/2 top-10 w-[300px] -translate-x-1/2'
+                                ? 'left-1/2 top-4 w-[240px] -translate-x-1/2'
                                 : plotStructureGenerateDirection === 'up'
-                                  ? 'bottom-10 left-1/2 w-[300px] -translate-x-1/2'
+                                  ? 'bottom-4 left-1/2 w-[240px] -translate-x-1/2'
                                   : plotStructureGenerateDirection === 'left'
-                                    ? 'right-20 top-1/2 w-[160px] -translate-y-1/2'
-                                    : 'left-20 top-1/2 w-[160px] -translate-y-1/2'
+                                    ? 'right-4 top-1/2 w-[240px] -translate-y-1/2'
+                                    : 'left-4 top-1/2 w-[240px] -translate-y-1/2'
                             }`}
                           >
-                            <span className="absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
-                            <span className="absolute -right-2.5 -top-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
-                            <span className="absolute -bottom-2.5 -left-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
-                            <span className="absolute -bottom-2.5 -right-2.5 h-5 w-5 rounded-full border-[3px] border-blue-500 bg-[var(--card-bg)]" />
+                            <span className="absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full border-[3px] border-[var(--accent)] bg-[var(--card-bg)]" />
+                            <span className="absolute -right-2.5 -top-2.5 h-5 w-5 rounded-full border-[3px] border-[var(--accent)] bg-[var(--card-bg)]" />
+                            <span className="absolute -bottom-2.5 -left-2.5 h-5 w-5 rounded-full border-[3px] border-[var(--accent)] bg-[var(--card-bg)]" />
+                            <span className="absolute -bottom-2.5 -right-2.5 h-5 w-5 rounded-full border-[3px] border-[var(--accent)] bg-[var(--card-bg)]" />
                           </div>
 
                           <div
-                            className={`absolute z-20 flex items-center justify-center text-indigo-500 ${
+                            className={`absolute z-20 flex items-center justify-center text-[var(--accent)] ${
                               plotStructureGenerateDirection === 'down'
-                                ? 'left-1/2 top-[210px] h-20 -translate-x-1/2'
+                                ? 'left-1/2 top-[170px] h-16 -translate-x-1/2'
                                 : plotStructureGenerateDirection === 'up'
-                                  ? 'bottom-[210px] left-1/2 h-20 -translate-x-1/2'
+                                  ? 'bottom-[170px] left-1/2 h-16 -translate-x-1/2'
                                   : plotStructureGenerateDirection === 'left'
-                                    ? 'left-[280px] top-1/2 w-20 -translate-y-1/2'
-                                    : 'left-[280px] top-1/2 w-20 -translate-y-1/2'
+                                    ? 'left-[310px] top-1/2 w-20 -translate-y-1/2'
+                                    : 'left-[310px] top-1/2 w-20 -translate-y-1/2'
                             }`}
                           >
                             {React.createElement(selectedPlotDirection.icon, {
                               className: `${
                                 plotStructureGenerateDirection === 'up' ||
                                 plotStructureGenerateDirection === 'down'
-                                  ? 'h-20 w-10'
-                                  : 'h-10 w-20'
+                                  ? 'h-16 w-8'
+                                  : 'h-8 w-16'
                               } shrink-0`,
                               strokeWidth: 3.25,
                             })}
                           </div>
 
                           <div
-                            className={`absolute z-0 h-[150px] rounded-3xl border-4 border-[var(--card-border)] bg-[var(--card-bg)] shadow-lg ${
+                            className={`absolute z-0 h-[120px] rounded-3xl border-4 border-[var(--accent)]/60 bg-[var(--card-bg)] shadow-lg ${
                               plotStructureGenerateDirection === 'down'
-                                ? 'bottom-10 left-1/2 w-[300px] -translate-x-1/2'
+                                ? 'bottom-4 left-1/2 w-[240px] -translate-x-1/2'
                                 : plotStructureGenerateDirection === 'up'
-                                  ? 'left-1/2 top-10 w-[300px] -translate-x-1/2'
+                                  ? 'left-1/2 top-4 w-[240px] -translate-x-1/2'
                                   : plotStructureGenerateDirection === 'left'
-                                    ? 'left-20 top-1/2 w-[160px] -translate-y-1/2'
-                                    : 'right-20 top-1/2 w-[160px] -translate-y-1/2'
+                                    ? 'left-4 top-1/2 w-[240px] -translate-y-1/2'
+                                    : 'right-4 top-1/2 w-[240px] -translate-y-1/2'
                             }`}
                           />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-4 border-t border-[var(--card-border)] bg-[var(--card-bg)] p-2">
+                      <div className="order-1 grid h-[140px] w-[140px] shrink-0 grid-cols-2 content-center gap-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--app-bg)]/35 p-1.5">
                         {plotDirectionOptions.map((item) => {
                           const selected = plotStructureGenerateDirection === item.id;
                           const Icon = item.icon;
+                          const isVerticalDirection = item.id === 'up' || item.id === 'down';
                           return (
                             <button
                               key={item.id}
                               type="button"
                               aria-pressed={selected}
                               onClick={() => setPlotStructureGenerateDirection(item.id)}
-                              className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-black ${
+                              style={{
+                                order:
+                                  item.id === 'up'
+                                    ? 0
+                                    : item.id === 'left'
+                                      ? 1
+                                      : item.id === 'right'
+                                        ? 2
+                                        : 3,
+                              }}
+                              className={`flex min-w-0 items-center justify-center rounded-lg px-2 py-1.5 ${
+                                isVerticalDirection
+                                  ? 'col-span-2 justify-self-center'
+                                  : 'w-10 justify-self-center px-0'
+                              } ${
                                 selected
                                   ? 'bg-[var(--accent)] text-white shadow-sm'
                                   : 'text-[var(--text-muted)] hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]'
                               }`}
+                              title={item.label}
+                              aria-label={item.label}
                             >
                               <Icon className="h-3.5 w-3.5 shrink-0" />
-                              <span className="truncate">{item.label}</span>
                             </button>
                           );
                         })}
@@ -1787,104 +1952,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {item.label}
                         </button>
                       ))}
-                    </div>
-                  </section>
-
-                  <div className="border-t border-[var(--header-border)]" />
-
-                  <section className="space-y-3">
-                    <div className={settingsRowClass}>
-                      <div className={settingsRowTitleClass}>
-                        {renderSettingHint(s.characterAssets, s.characterAssetsDescription)}
-                      </div>
-                      <div className="grid flex-1 grid-cols-3 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
-                        {[
-                          {
-                            title: s.characterPortraitAsset,
-                            description: s.characterPortraitAssetDescription,
-                          },
-                          {
-                            title: s.characterThreeViewAsset,
-                            description: s.characterThreeViewAssetDescription,
-                          },
-                          {
-                            title: s.characterTagSpriteAsset,
-                            description: s.characterTagSpriteAssetDescription,
-                          },
-                        ].map((option) => (
-                          <div
-                            key={option.title}
-                            className="min-w-0 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2.5"
-                          >
-                            {renderSettingHint(
-                              <span className="text-sm font-black">{option.title}</span>,
-                              option.description,
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setHideStoryImageButtonWithTags(!hideStoryImageButtonWithTags)}
-                      className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-3 text-left transition-all ${
-                        hideStoryImageButtonWithTags
-                          ? 'text-[var(--text-primary)]'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                      }`}
-                    >
-                      {renderSettingHint(
-                        <div className="text-sm font-black">{s.hideStoryImageWithTags}</div>,
-                        s.hideStoryImageWithTagsDescription,
-                      )}
-                      <span
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                          hideStoryImageButtonWithTags
-                            ? 'bg-[var(--accent)] shadow-md'
-                            : 'border border-[var(--header-border)] bg-[var(--app-bg)]'
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                            hideStoryImageButtonWithTags ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </span>
-                    </button>
-                  </section>
-
-                  <section className={settingsRowClass}>
-                    <div className={settingsRowTitleClass}>
-                      {renderSettingHint(s.sceneImageRatio, s.sceneImageRatioDescription)}
-                    </div>
-                    <div className="grid flex-1 grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
-                      {[
-                        {
-                          value: 'storyboard-16:9' as const,
-                          title: s.sceneStoryboard,
-                          description: s.sceneStoryboardDescription,
-                        },
-                        {
-                          value: 'follow-api' as const,
-                          title: s.sceneFollowApi,
-                          description: s.sceneFollowApiDescription,
-                        },
-                      ].map((option) => {
-                        const selected = sceneImageMode === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setSceneImageMode(option.value)}
-                            className={optionCardButtonClass(selected)}
-                          >
-                            {renderSettingHint(
-                              <span className="text-sm font-black">{option.title}</span>,
-                              option.description,
-                            )}
-                          </button>
-                        );
-                      })}
                     </div>
                   </section>
 
@@ -2405,6 +2472,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAiGenerationBalance={setAiGenerationBalance}
                     allowAssistantImageGeneration={allowAssistantImageGeneration}
                     setAllowAssistantImageGeneration={setAllowAssistantImageGeneration}
+                    characterAssetTypes={characterAssetTypes}
+                    setCharacterAssetTypes={setCharacterAssetTypes}
+                    characterAssetCopy={{
+                      title: s.characterAssets,
+                      description: s.characterAssetsDescription,
+                      portrait: s.characterPortraitAsset,
+                      threeView: s.characterThreeViewAsset,
+                      tagSprite: s.characterTagSpriteAsset,
+                      hideWithTags: s.hideStoryImageWithTags,
+                      hideWithTagsDescription: s.hideStoryImageWithTagsDescription,
+                      sceneRatio: s.sceneImageRatio,
+                      storyboard: s.sceneStoryboard,
+                      storyboardDescription: s.sceneStoryboardDescription,
+                      followApi: s.sceneFollowApi,
+                      followApiDescription: s.sceneFollowApiDescription,
+                    }}
+                    hideStoryImageButtonWithTags={hideStoryImageButtonWithTags}
+                    setHideStoryImageButtonWithTags={setHideStoryImageButtonWithTags}
+                    sceneImageMode={sceneImageMode}
+                    setSceneImageMode={setSceneImageMode}
                     assistantOptionsSlot={
                       <div className="grid gap-4">
                         <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
