@@ -48,11 +48,7 @@ import type {
   TtsNarrationMode,
   VoiceAIProfile,
 } from '../domain/project';
-import {
-  type AIButtonsConfig,
-  type AIGenerationBalance,
-  type AIPromptsConfig,
-} from '../editor-state/editorConfig';
+import { type AIButtonsConfig, type AIPromptsConfig } from '../editor-state/editorConfig';
 import type { LocalProjectSummary } from '../lib/db';
 import { Language } from '../lib/i18n';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
@@ -243,8 +239,6 @@ interface SettingsModalProps {
   setSceneImageMode: (mode: SceneImageMode) => void;
   plotStructureGenerateDirection: PlotStructureGenerateDirection;
   setPlotStructureGenerateDirection: (direction: PlotStructureGenerateDirection) => void;
-  aiGenerationBalance: AIGenerationBalance;
-  setAiGenerationBalance: (balance: AIGenerationBalance) => void;
   customAiPromptsEnabled: boolean;
   setCustomAiPromptsEnabled: (enabled: boolean) => void;
   aiPrompts: AIPromptsConfig;
@@ -419,8 +413,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setSceneImageMode,
   plotStructureGenerateDirection,
   setPlotStructureGenerateDirection,
-  aiGenerationBalance,
-  setAiGenerationBalance,
   customAiPromptsEnabled,
   setCustomAiPromptsEnabled,
   aiPrompts,
@@ -2468,8 +2460,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setAiPrompts={setAiPrompts}
                     aiButtonsConfig={aiButtonsConfig}
                     setAiButtonsConfig={setAiButtonsConfig}
-                    aiGenerationBalance={aiGenerationBalance}
-                    setAiGenerationBalance={setAiGenerationBalance}
                     allowAssistantImageGeneration={allowAssistantImageGeneration}
                     setAllowAssistantImageGeneration={setAllowAssistantImageGeneration}
                     characterAssetTypes={characterAssetTypes}

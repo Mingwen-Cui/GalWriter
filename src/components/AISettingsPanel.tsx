@@ -44,7 +44,6 @@ import {
 import { ConfirmActionModal } from '../editor-shell/ConfirmActionModal';
 import {
   type AIButtonsConfig,
-  type AIGenerationBalance,
   type AIPromptsConfig,
   defaultAIButtonsConfig,
   defaultAIPrompts,
@@ -1022,8 +1021,6 @@ interface AISettingsPanelProps {
   setAiPrompts: (prompts: AIPromptsConfig) => void;
   aiButtonsConfig: AIButtonsConfig;
   setAiButtonsConfig: (config: AIButtonsConfig) => void;
-  aiGenerationBalance: AIGenerationBalance;
-  setAiGenerationBalance: (balance: AIGenerationBalance) => void;
   allowAssistantImageGeneration: boolean;
   setAllowAssistantImageGeneration: (enabled: boolean) => void;
   characterAssetTypes: CharacterAssetType[];
@@ -1069,8 +1066,6 @@ export function AISettingsPanel({
   setAiPrompts,
   aiButtonsConfig,
   setAiButtonsConfig,
-  aiGenerationBalance,
-  setAiGenerationBalance,
   allowAssistantImageGeneration,
   setAllowAssistantImageGeneration,
   characterAssetTypes,
@@ -2955,66 +2950,6 @@ export function AISettingsPanel({
                     <span className="flex-1 text-sm font-semibold">{item.label}</span>
                   </div>
                 ))}
-              </div>
-            </section>
-
-            <section className="border-t border-[var(--header-border)] pt-5">
-              <div className="grid items-center gap-3 md:grid-cols-[minmax(132px,auto)_minmax(0,1fr)]">
-                <div className="flex items-center gap-2">
-                  {renderInfoHint(
-                    <h3 className="whitespace-nowrap text-base font-black text-[var(--text-primary)]">
-                      {ai.text68}
-                    </h3>,
-                    ai.text69,
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/50 p-1.5">
-                  {(
-                    [
-                      {
-                        value: 'dialogue' as const,
-                        Icon: MessageCircle,
-                        label: ai.text70,
-                        description: ai.text71,
-                      },
-                      {
-                        value: 'action' as const,
-                        Icon: Feather,
-                        label: ai.text72,
-                        description: ai.text73,
-                      },
-                    ] satisfies Array<{
-                      value: AIGenerationBalance;
-                      Icon: typeof MessageCircle;
-                      label: string;
-                      description: string;
-                    }>
-                  ).map((item) => {
-                    const selected = aiGenerationBalance === item.value;
-                    return (
-                      <button
-                        key={item.value}
-                        type="button"
-                        onClick={() => setAiGenerationBalance(item.value)}
-                        className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
-                          selected
-                            ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]'
-                            : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                        }`}
-                      >
-                        <span className={optionIconClass(selected)}>
-                          <item.Icon className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          {renderInfoHint(
-                            <span className="text-sm font-black leading-tight">{item.label}</span>,
-                            item.description,
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
             </section>
 

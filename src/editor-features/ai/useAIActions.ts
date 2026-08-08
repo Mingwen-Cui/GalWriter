@@ -1,15 +1,15 @@
 import type { Edge, Node } from '@xyflow/react';
 import { useCallback } from 'react';
 
-import type { AIGenerationBalance, AIPromptsConfig } from '../../editor-state/editorConfig';
 import type { AiProvider, CharacterNodeData, SceneNodeData } from '../../domain/project';
+import type { AIActionType } from '../../domain/project';
 import {
-  createAIClient,
   type AITextResult,
   type AITextStreamHandlers,
+  createAIClient,
 } from '../../editor-services/aiClient';
+import type { AIPromptsConfig } from '../../editor-state/editorConfig';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
-import type { AIActionType } from '../../domain/project';
 
 interface UseAIActionsParams {
   nodes: Node[];
@@ -21,7 +21,6 @@ interface UseAIActionsParams {
   textModel: string;
   thinkingMode: boolean;
   generateLength: string;
-  aiGenerationBalance: AIGenerationBalance;
   handleUpdateNode: (nodeId: string, updates: Record<string, unknown>) => void;
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
   setThinkingContent: React.Dispatch<React.SetStateAction<string | null>>;
@@ -55,7 +54,6 @@ export const useAIActions = ({
   textModel,
   thinkingMode,
   generateLength,
-  aiGenerationBalance,
   handleUpdateNode,
   setNodes,
   setThinkingContent,
@@ -172,13 +170,6 @@ export const useAIActions = ({
       const base = aiPrompts.basePrompt
         .replace('{{contextText}}', contextText || '')
         .replace('{{currentText}}', currentText || '');
-      const balanceInstruction =
-        action === 'scene_only' || action === 'dialogue_only'
-          ? ''
-          : aiGenerationBalance === 'action'
-            ? '\n\n写作倾向：在不破坏原有风格的前提下，增加动作、场面调度和事件推进的比例，减少纯对白堆叠。'
-            : '\n\n写作倾向：在不破坏原有风格的前提下，增加人物对话、台词交锋和情绪反应的比例，动作描写保持必要即可。';
-
       let specificPrompt = '';
       if (action === 'continue') specificPrompt = aiPrompts.continue;
       else if (action === 'creative') specificPrompt = aiPrompts.creative;
@@ -190,14 +181,12 @@ export const useAIActions = ({
           .replace('{{contextText}}', contextText || '')
           .replace('{{currentText}}', currentText || '')
           .replace('{{nextText}}', nextText || '');
-        return specificPrompt.replace('{{generateLength}}', generateLength) + balanceInstruction;
+        return specificPrompt.replace('{{generateLength}}', generateLength);
       }
 
-      return (
-        base + specificPrompt.replace('{{generateLength}}', generateLength) + balanceInstruction
-      );
+      return base + specificPrompt.replace('{{generateLength}}', generateLength);
     },
-    [aiGenerationBalance, aiPrompts, generateLength],
+    [aiPrompts, generateLength],
   );
 
   const aiClient = createAIClient({

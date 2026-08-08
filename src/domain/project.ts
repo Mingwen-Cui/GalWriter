@@ -41,7 +41,6 @@ export type MediaObjectFit = 'cover' | 'contain' | 'fill' | 'playtest';
 export type BatchReplaceScope = 'selected' | 'all' | 'group';
 export type PlotDetailLevel = 'brief' | 'standard' | 'detailed';
 export type PlotStructureGenerateDirection = 'up' | 'down' | 'left' | 'right';
-export type AIGenerationBalance = 'dialogue' | 'action';
 export type AIActionType =
   | 'continue'
   | 'creative'
@@ -331,7 +330,6 @@ export interface ProjectSettings extends PlaytestSettings {
   hideStoryImageButtonWithTags: boolean;
   sceneImageMode: SceneImageMode;
   plotStructureGenerateDirection: PlotStructureGenerateDirection;
-  aiGenerationBalance: AIGenerationBalance;
   customAiPromptsEnabled: boolean;
   aiPrompts?: AIPromptsConfig;
   aiButtonsConfig: AIButtonsConfig;
@@ -385,7 +383,6 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setHideStoryImageButtonWithTags: Dispatch<SetStateAction<boolean>>;
   setSceneImageMode: Dispatch<SetStateAction<SceneImageMode>>;
   setPlotStructureGenerateDirection: Dispatch<SetStateAction<PlotStructureGenerateDirection>>;
-  setAiGenerationBalance: Dispatch<SetStateAction<AIGenerationBalance>>;
   setCustomAiPromptsEnabled: Dispatch<SetStateAction<boolean>>;
   setAiPrompts: Dispatch<SetStateAction<AIPromptsConfig>>;
   setAiButtonsConfig: Dispatch<SetStateAction<AIButtonsConfig>>;

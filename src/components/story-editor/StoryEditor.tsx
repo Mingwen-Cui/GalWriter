@@ -53,7 +53,6 @@ import { ProjectSavePromptModal } from '../../editor-shell/ProjectSavePromptModa
 import { SaveProjectModal } from '../../editor-shell/SaveProjectModal';
 import {
   type AIButtonsConfig,
-  type AIGenerationBalance,
   type AIPromptsConfig,
   defaultAIButtonsConfig,
   defaultAIPrompts,
@@ -209,7 +208,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
-  const [aiGenerationBalance, setAiGenerationBalance] = useState<AIGenerationBalance>('dialogue');
   const [opaqueAssistantMessagesInGlass, setOpaqueAssistantMessagesInGlass] = useState(false);
   const [opaqueFooterInGlass, setOpaqueFooterInGlass] = useState(false);
 
@@ -814,7 +812,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       hideStoryImageButtonWithTags,
       sceneImageMode,
       plotStructureGenerateDirection,
-      aiGenerationBalance,
       customAiPromptsEnabled,
       aiPrompts,
       aiButtonsConfig,
@@ -851,7 +848,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     }),
     [
       aiButtonsConfig,
-      aiGenerationBalance,
       aiPrompts,
       aiProvider,
       arrowSize,
@@ -965,7 +961,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setHideStoryImageButtonWithTags,
       setSceneImageMode,
       setPlotStructureGenerateDirection,
-      setAiGenerationBalance,
       setCustomAiPromptsEnabled,
       setAiPrompts,
       setAiButtonsConfig,
@@ -1280,7 +1275,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     textModel: activeTextProfile?.model ?? DEFAULT_TEXT_MODEL,
     thinkingMode,
     generateLength,
-    aiGenerationBalance,
     handleUpdateNode,
     setNodes,
     setThinkingContent,
@@ -3263,8 +3257,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           setSceneImageMode={setSceneImageMode}
           plotStructureGenerateDirection={plotStructureGenerateDirection}
           setPlotStructureGenerateDirection={setPlotStructureGenerateDirection}
-          aiGenerationBalance={aiGenerationBalance}
-          setAiGenerationBalance={setAiGenerationBalance}
           customAiPromptsEnabled={customAiPromptsEnabled}
           setCustomAiPromptsEnabled={setCustomAiPromptsEnabled}
           aiPrompts={aiPrompts}

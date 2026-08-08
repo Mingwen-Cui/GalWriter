@@ -69,12 +69,6 @@ export const aiSettingsEn = {
   text65: 'Fill in the gap',
   text66: 'Scene description only',
   text67: 'Dialogue only',
-  text68: 'AI Writing Balance',
-  text69: 'Choose whether general generation leans toward dialogue or action-driven progress.',
-  text70: 'More Dialogue',
-  text71: 'Default: more character speech and emotional response.',
-  text72: 'More Action',
-  text73: 'More physical action, staging, and plot movement.',
   text74: 'Allow AI assistant to call image generation API',
   text75:
     'When enabled, the assistant can use the active Image AI profile to generate images from chat.',
