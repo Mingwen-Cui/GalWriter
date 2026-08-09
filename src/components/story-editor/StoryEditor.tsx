@@ -2075,6 +2075,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleStartCreativeStory,
     handleCreativeStoryDecision,
     handleWithdrawCreativeStoryDecision,
+    handleReturnCreativeStoryToPreviousDecision,
     handleExitCreativeStory,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
@@ -3147,6 +3148,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     loading: Boolean(creativeStorySession.pendingDecision),
                     onDecision: handleCreativeStoryDecision,
                     onWithdrawDecision: handleWithdrawCreativeStoryDecision,
+                    canReturnToPreviousDecision: creativeStorySession.turns.length > 1,
+                    onReturnToPreviousDecision: handleReturnCreativeStoryToPreviousDecision,
                   }
                 : undefined
             }

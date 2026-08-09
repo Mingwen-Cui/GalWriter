@@ -418,11 +418,13 @@ export const createCreativeStorySessionHandlers = ({
       (task) => task.creativeSession && (!sessionId || task.creativeSession.id === sessionId),
     ) || null;
   const updateSession = (taskId: string, session: CreativeStorySession) =>
-    setTasks((current) =>
-      current.map((task) =>
+    setTasks((current) => {
+      const nextTasks = current.map((task) =>
         task.id === taskId ? { ...task, creativeSession: session, updatedAt: session.updatedAt } : task,
-      ),
-    );
+      );
+      tasksRef.current = nextTasks;
+      return nextTasks;
+    });
 
   const openStoryDoors = async (taskId: string, session: CreativeStorySession) => {
     if (!hasTextApiKey) return onMissingTextApiKeyRequest?.();
@@ -850,6 +852,8 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       if (!hasTextApiKey) onMissingTextApiKeyRequest?.();
       return;
     }
+    const generation = ++continuationGenerationRef.current;
+    updateSession(task.id, { ...session, pendingDecision: input, updatedAt: Date.now() });
     setLoading(true);
     try {
       const previous = session.turns.at(-1);
@@ -871,6 +875,8 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       } catch {
         continuation = null;
       }
+      // The player can withdraw while AI is writing; ignore that stale response.
+      if (generation !== continuationGenerationRef.current) return;
       const next = continuation || buildFallbackContinuation(session, input);
       const summary = summarize ? next.chapterSummary || `${session.chapter} 章：${history.slice(-260)}` : '';
       let placement: AssistantCardPlacementResult | undefined;
@@ -879,10 +885,11 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
           ...(previous ? [{ type: 'story' as const, title: 'AI 创作提问', text: previous.question }, { type: 'story' as const, title: '作者决定', text: input }] : []),
           ...(summary ? [{ type: 'story' as const, title: `第 ${session.chapter} 章创作总结`, text: summary }] : []),
           ...next.cards,
-        ], 'append');
+        ], 'append', previous?.nodeId ? { targetNodeIds: [previous.nodeId] } : undefined);
       } catch {
         placement = undefined;
       }
+      if (generation !== continuationGenerationRef.current) return;
       const now = Date.now();
       const nextTurn = {
         id: uuidv4(), chapter: summarize ? session.chapter + 1 : session.chapter,
@@ -890,22 +897,53 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
         question: next.question,
         options: next.options.length > 0 ? next.options : buildFallbackContinuation(session, input).options,
         sceneName: next.sceneName || previous?.sceneName || session.background?.name || session.direction?.genre,
+        nodeId: placement?.nodeIds?.[(previous ? 2 : 0) + (summary ? 1 : 0)],
         createdAt: now,
       };
       updateSession(task.id, {
-        ...session, status: 'playing', chapter: nextTurn.chapter,
+        ...session, status: 'playing', chapter: nextTurn.chapter, pendingDecision: undefined,
         turns: summarize ? [nextTurn] : [...session.turns.slice(0, -1), ...(previous ? [{ ...previous, decision: input }] : []), nextTurn],
         chapterSummaries: summary ? [...session.chapterSummaries, summary] : session.chapterSummaries, updatedAt: now,
       });
       setMessages((messages) => [...messages, { id: uuidv4(), role: 'user', content: input }, { id: uuidv4(), role: 'assistant', content: nextTurn.story, cardPosition: placement?.position, cardNodeIds: placement?.nodeIds }]);
     } finally {
-      setLoading(false);
+      if (generation === continuationGenerationRef.current) setLoading(false);
     }
   };
 
   const exit = () => {
+    continuationGenerationRef.current += 1;
     const task = getTask(creativeStorySession?.id);
     if (task?.creativeSession) updateSession(task.id, { ...task.creativeSession, status: 'paused', updatedAt: Date.now() });
+  };
+
+  const withdrawPendingDecision = () => {
+    const task = getTask(creativeStorySession?.id);
+    const session = task?.creativeSession;
+    if (!task || !session?.pendingDecision) return;
+    continuationGenerationRef.current += 1;
+    updateSession(task.id, {
+      ...session,
+      pendingDecision: undefined,
+      updatedAt: Date.now(),
+    });
+    setLoading(false);
+  };
+
+  const returnToPreviousDecision = () => {
+    const task = getTask(creativeStorySession?.id);
+    const session = task?.creativeSession;
+    if (!task || !session || session.turns.length < 2) return;
+    continuationGenerationRef.current += 1;
+    // Keep generated canvas cards intact. Only move the active play session back
+    // to the earlier question so the next choice creates a sibling branch.
+    updateSession(task.id, {
+      ...session,
+      pendingDecision: undefined,
+      turns: session.turns.slice(0, -1),
+      updatedAt: Date.now(),
+    });
+    setLoading(false);
   };
 
   return {
@@ -923,6 +961,8 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
     surpriseMe,
     start,
     decide,
+    withdrawPendingDecision,
+    returnToPreviousDecision,
     exit,
   };
 };

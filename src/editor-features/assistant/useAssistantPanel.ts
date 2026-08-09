@@ -281,6 +281,7 @@ interface UseAssistantPanelResult {
   handleStartCreativeStory: () => Promise<void>;
   handleCreativeStoryDecision: (decision: string) => Promise<void>;
   handleWithdrawCreativeStoryDecision: () => void;
+  handleReturnCreativeStoryToPreviousDecision: () => void;
   handleExitCreativeStory: () => void;
   handleAssistantDocumentUpload: (
     files: FileList | null,
@@ -1686,6 +1687,7 @@ The previous streaming response did not complete every placeholder card. Return 
     start: handleStartCreativeStory,
     decide: handleCreativeStoryDecision,
     withdrawPendingDecision: handleWithdrawCreativeStoryDecision,
+    returnToPreviousDecision: handleReturnCreativeStoryToPreviousDecision,
     exit: handleExitCreativeStory,
   } = createCreativeStorySessionHandlers({
     activeTask: activeAssistantTask,
@@ -4039,6 +4041,7 @@ cards 必须正好有 3 张。`);
     handleStartCreativeStory,
     handleCreativeStoryDecision,
     handleWithdrawCreativeStoryDecision,
+    handleReturnCreativeStoryToPreviousDecision,
     handleExitCreativeStory,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,

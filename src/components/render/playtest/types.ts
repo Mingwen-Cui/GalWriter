@@ -18,6 +18,8 @@ export type PlaytestCreativeInteraction = {
   loading?: boolean;
   onDecision: (decision: string) => Promise<void>;
   onWithdrawDecision?: () => void;
+  canReturnToPreviousDecision?: boolean;
+  onReturnToPreviousDecision?: () => void;
 };
 
 export interface PlayTestProps {

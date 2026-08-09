@@ -607,18 +607,21 @@ export function AssistantPanel({
 
   const welcomePrompts = [
     {
-      icon: <UserRound className="h-4 w-4" />,
+      icon: '/assistant/welcome/profile-preferences.png',
       action: 'profile' as const,
+      stickerTone: 'profile',
       ...ui.profileFlow.welcome,
     },
     {
-      icon: <PencilLine className="h-4 w-4" />,
+      icon: '/assistant/welcome/interactive-story.png',
       action: 'creative' as const,
+      stickerTone: 'creative',
       ...ui.welcomePrompts.continue,
     },
     {
-      icon: <SearchCheck className="h-4 w-4" />,
+      icon: '/assistant/welcome/article-to-galgame.png',
       action: 'article' as const,
+      stickerTone: 'article',
       ...ui.welcomePrompts.article,
     },
   ];
@@ -1213,7 +1216,11 @@ export function AssistantPanel({
                 <p className="assistant-welcome-kicker">{ui.storyPartner}</p>
                 <h2>{ui.heroTitle}</h2>
               </div>
-              <img src="./glass.png" alt="" className="assistant-welcome-logo" />
+              <img
+                src="/assistant/welcome/story-partner-logo.png"
+                alt=""
+                className="assistant-welcome-logo"
+              />
             </div>
             <div className="assistant-welcome-prompts">
               <div className="assistant-welcome-prompt-title">{ui.tryAsking}</div>
@@ -1238,14 +1245,15 @@ export function AssistantPanel({
                       }
                     }}
                     disabled={assistantLoading}
-                    className="assistant-welcome-option"
+                    className={`assistant-welcome-option assistant-welcome-option--${item.stickerTone}`}
                   >
-                    <span className="assistant-welcome-option-icon">{item.icon}</span>
+                    <span className="assistant-welcome-option-icon">
+                      <img src={item.icon} alt="" />
+                    </span>
                     <span className="assistant-welcome-option-copy">
                       <span className="assistant-welcome-option-title">{item.title}</span>
                       <span className="assistant-welcome-option-desc">{item.description}</span>
                     </span>
-                    <ChevronDown className="assistant-welcome-option-arrow h-4 w-4" />
                   </button>
                 ))}
               </div>

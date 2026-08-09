@@ -3,6 +3,7 @@ import {
   EyeOff,
   FastForward,
   ListMusic,
+  Loader2,
   Maximize2,
   Minimize2,
   Monitor,
@@ -13,6 +14,7 @@ import {
   RotateCw,
   Send,
   Settings,
+  Undo2,
   X,
 } from 'lucide-react';
 import React from 'react';
@@ -134,11 +136,40 @@ export function PlayTestModal(props: PlayTestProps) {
   const [showMobileWindowMenu, setShowMobileWindowMenu] = React.useState(false);
   const [customCreativeDecision, setCustomCreativeDecision] = React.useState('');
   const creativeInteraction = props.creativeInteraction;
-  const activeChoicesReady = creativeInteraction ? true : choicesReady;
+  const [creativeDisplayedStory, setCreativeDisplayedStory] = React.useState('');
+  const [creativeTextAnimationCompleted, setCreativeTextAnimationCompleted] = React.useState(true);
+  const activeChoicesReady = creativeInteraction ? creativeTextAnimationCompleted : choicesReady;
 
   React.useEffect(() => {
     setCustomCreativeDecision('');
   }, [creativeInteraction?.turnId]);
+
+  React.useEffect(() => {
+    if (!creativeInteraction) {
+      setCreativeDisplayedStory('');
+      setCreativeTextAnimationCompleted(true);
+      return;
+    }
+    const story = creativeInteraction.story || '';
+    const shouldAnimate = interactionMode === 'typewriter' && story.length > 0;
+    if (!shouldAnimate) {
+      setCreativeDisplayedStory(story);
+      setCreativeTextAnimationCompleted(true);
+      return;
+    }
+    setCreativeDisplayedStory('');
+    setCreativeTextAnimationCompleted(false);
+    let index = 0;
+    const interval = window.setInterval(() => {
+      index += 1;
+      setCreativeDisplayedStory(story.slice(0, index));
+      if (index >= story.length) {
+        window.clearInterval(interval);
+        setCreativeTextAnimationCompleted(true);
+      }
+    }, Math.max(12, typewriterSpeed));
+    return () => window.clearInterval(interval);
+  }, [creativeInteraction?.turnId, creativeInteraction?.story, interactionMode, typewriterSpeed]);
 
   const submitCreativeDecision = (decision: string) => {
     if (!creativeInteraction || creativeInteraction.loading || !decision.trim()) return;
@@ -154,6 +185,37 @@ export function PlayTestModal(props: PlayTestProps) {
           ? 'または、自分の言葉で次の展開を AI に伝えてください…'
           : 'Or tell AI, in your own words, what should happen next…';
     const sendLabel = language === 'zh' ? '继续故事' : language === 'ja' ? '物語を続ける' : 'Continue story';
+    if (creativeInteraction.loading) {
+      return (
+        <section
+          className={`w-full rounded-2xl border p-4 shadow-lg backdrop-blur-md ${
+            isImmersive
+              ? 'border-amber-100/30 bg-amber-50/95 text-slate-900'
+              : isDarkMode
+                ? 'border-white/15 bg-slate-900/95 text-slate-100'
+                : 'border-slate-200 bg-white/95 text-slate-900'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-indigo-500" />
+            <div>
+              <p className="text-sm font-black">AI 正在续写，请耐心等待…</p>
+              <p className="mt-0.5 text-xs opacity-65">现在撤回，还能回到这个分歧重新选择。</p>
+            </div>
+          </div>
+          {creativeInteraction.onWithdrawDecision && (
+            <button
+              type="button"
+              onClick={creativeInteraction.onWithdrawDecision}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-current/20 px-3 py-2 text-sm font-bold transition hover:bg-black/5"
+            >
+              <Undo2 className="h-4 w-4" />
+              撤回这次选择
+            </button>
+          )}
+        </section>
+      );
+    }
     return (
       <section
         className={`w-full rounded-2xl border p-3 shadow-lg backdrop-blur-md ${
@@ -213,6 +275,17 @@ export function PlayTestModal(props: PlayTestProps) {
             <Send className="h-4 w-4" />
           </button>
         </div>
+        {creativeInteraction.canReturnToPreviousDecision &&
+          creativeInteraction.onReturnToPreviousDecision && (
+            <button
+              type="button"
+              onClick={creativeInteraction.onReturnToPreviousDecision}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold opacity-65 transition hover:opacity-100"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              回到上一个分歧，换一条路
+            </button>
+          )}
       </section>
     );
   };
@@ -947,7 +1020,7 @@ export function PlayTestModal(props: PlayTestProps) {
                         onClick={(event) => selectRenderObject(event, 'body')}
                       >
                         {creativeInteraction ? (
-                          creativeInteraction.story
+                          creativeDisplayedStory
                         ) : (
                           <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                         )}
@@ -1218,7 +1291,7 @@ export function PlayTestModal(props: PlayTestProps) {
                     onClick={(event) => selectRenderObject(event, 'body')}
                   >
                     {creativeInteraction ? (
-                      creativeInteraction.story
+                      creativeDisplayedStory
                     ) : (
                       <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                     )}
