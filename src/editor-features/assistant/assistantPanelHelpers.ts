@@ -40,6 +40,43 @@ export type AssistantHistorySnapshot = {
 export type AssistantWorkflowState =
   | { type: 'idle' }
   | { type: 'idea-awaiting' }
+  | { type: 'creative-genre-awaiting' }
+  | {
+      type: 'creative-role-preference-awaiting';
+      sessionId: string;
+    }
+  | {
+      type: 'creative-role-preference-custom-awaiting';
+      sessionId: string;
+    }
+  | { type: 'creative-background-awaiting' }
+  | {
+      type: 'creative-background-candidate-awaiting';
+      sessionId: string;
+      candidates: Array<{
+        id: string;
+        name: string;
+        description: string;
+        scene: AssistantCardDraft;
+      }>;
+    }
+  | { type: 'creative-direction-custom-awaiting'; sessionId: string }
+  | { type: 'creative-background-custom-awaiting' }
+  | {
+      type: 'creative-player-awaiting';
+      sessionId: string;
+      backgroundNodeId: string;
+      backgroundName: string;
+      candidates: Array<{ nodeId: string; name: string; imageUrl?: string }>;
+    }
+  | {
+      type: 'creative-lead-awaiting';
+      sessionId: string;
+      backgroundNodeId: string;
+      backgroundName: string;
+      player: { nodeId: string; name: string; imageUrl?: string };
+      candidates: Array<{ nodeId: string; name: string; imageUrl?: string }>;
+    }
   | {
       type: 'profile-collecting';
       step: AssistantStoryProfileStep;

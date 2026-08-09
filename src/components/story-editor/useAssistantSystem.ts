@@ -80,6 +80,7 @@ interface UseAssistantSystemParams {
 
   showToast: (message: string, tone?: 'success' | 'error') => void;
   requestSettingsAttention: (target: 'text' | 'image' | 'background-removal' | 'voice') => void;
+  onOpenCreativePlaytest?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     selectedAssistantTargetNodes,
     showToast,
     requestSettingsAttention,
+    onOpenCreativePlaytest,
   } = params;
   const assistantCopy = assistantPanelCopy(language);
   const streamingHeightReflowTimerRef = React.useRef<number | null>(null);
@@ -2427,6 +2429,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     handleAssistantOptionSelect,
     handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,
+    creativeStorySession,
+    handleStartCreativeStory,
+    handleCreativeStoryDecision,
+    handleWithdrawCreativeStoryDecision,
+    handleExitCreativeStory,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
     handleAssistantVoiceInput,
@@ -2464,6 +2471,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     settingLibraryContext,
     savedSettingLibraryItems,
     presetSettingLibraryItems,
+    onOpenCreativePlaytest,
   });
 
   const miniMapOverlayStyle =
@@ -2508,6 +2516,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     handleAssistantOptionSelect,
     handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,
+    creativeStorySession,
+    handleStartCreativeStory,
+    handleCreativeStoryDecision,
+    handleWithdrawCreativeStoryDecision,
+    handleExitCreativeStory,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
     handleAssistantVoiceInput,

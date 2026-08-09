@@ -95,6 +95,7 @@ export function usePlaytestRuntime(
     renderStyle,
     updateRenderStyle,
     isMobile = false,
+    creativeInteraction,
   }: PlayTestProps,
   { windowContentWidth }: { windowContentWidth?: number | null } = {},
 ) {
@@ -833,6 +834,7 @@ export function usePlaytestRuntime(
       (layoutMode === 'classic' || !sceneImageUrl);
 
     if (
+      creativeInteraction ||
       !autoAdvance ||
       !currentNode ||
       currentNodeId === 'THE_END' ||
@@ -884,6 +886,7 @@ export function usePlaytestRuntime(
     sceneImageUrl,
     sceneVideoUrl,
     outEdges.length,
+    creativeInteraction,
   ]);
 
   const handleTextContainerClick = () => {

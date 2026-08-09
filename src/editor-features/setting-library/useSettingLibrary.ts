@@ -53,6 +53,7 @@ const hasCharacterSettingContent = (data: CharacterNodeData) => {
       data.voiceProfileId,
       data.voiceId,
       data.avatarUrl,
+      data.placeholderIdentityId,
       data.threeViewUrl,
       data.tagSpriteUrl,
     ].some(hasText) ||

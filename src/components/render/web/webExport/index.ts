@@ -1,6 +1,7 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
+import { resolveCharacterImageUrl } from '../../../../lib/inlineAssetSwitch';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { buildDefaultRenderObjects } from '../../video/shared/renderObjects';
 import { filterMentionTags } from '../../video/shared/storyNodes';
@@ -543,10 +544,7 @@ export async function buildInteractiveWebZipBlob(
         const charNode = nodes.find((n) => n.id === charConfig.sourceNodeId);
         if (charNode && charNode.type === 'characterNode') {
           const charData = charNode.data as any;
-          const outfit = charConfig.outfitId
-            ? charData.outfits?.find((item: any) => item.id === charConfig.outfitId)
-            : charData.outfits?.find((item: any) => item.imageUrl);
-          const rawCharImgUrl = outfit?.imageUrl || charData.avatarUrl;
+          const rawCharImgUrl = resolveCharacterImageUrl(charData, charConfig);
           const charName = charData.characterName || charData.name || '';
 
           if (typeof rawCharImgUrl === 'string' && rawCharImgUrl.trim()) {

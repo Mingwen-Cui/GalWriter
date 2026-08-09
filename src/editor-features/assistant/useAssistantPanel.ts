@@ -18,6 +18,7 @@ import type {
   AssistantMessage,
   AssistantStoryProfile,
   AssistantTask,
+  CreativeStorySession,
 } from '../../editor-state/editorConfig';
 import {
   type AssistantDocument,
@@ -27,6 +28,7 @@ import {
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import type { Language } from '../../lib/i18n';
 import { htmlToSpeechText } from '../../lib/tts';
+import { createCreativeStorySessionHandlers } from './creativeStorySession';
 import {
   alignAssistantCardsToPlaceholders,
   ASSISTANT_VISUALIZE_OPTION_PREFIX,
@@ -221,6 +223,7 @@ interface UseAssistantPanelParams {
   settingLibraryContext: string;
   savedSettingLibraryItems: SettingLibraryItem[];
   presetSettingLibraryItems: SettingLibraryItem[];
+  onOpenCreativePlaytest?: () => void;
 }
 
 export interface AssistantInputContext {
@@ -274,6 +277,11 @@ interface UseAssistantPanelResult {
   handleStartAssistantFlow: (
     flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
   ) => Promise<void>;
+  creativeStorySession: CreativeStorySession | null;
+  handleStartCreativeStory: () => Promise<void>;
+  handleCreativeStoryDecision: (decision: string) => Promise<void>;
+  handleWithdrawCreativeStoryDecision: () => void;
+  handleExitCreativeStory: () => void;
   handleAssistantDocumentUpload: (
     files: FileList | null,
     intent?: 'article-to-galgame',
@@ -314,6 +322,7 @@ export const useAssistantPanel = ({
   settingLibraryContext,
   savedSettingLibraryItems,
   presetSettingLibraryItems,
+  onOpenCreativePlaytest,
 }: UseAssistantPanelParams): UseAssistantPanelResult => {
   const { alert: showDialogAlert } = useDialog();
   const [assistantOpen, setAssistantOpen] = useState(!isMobile);
@@ -368,6 +377,7 @@ export const useAssistantPanel = ({
   const articleRoleCandidatesRef = useRef(new Map<string, Node>());
   const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
   const assistantAbortControllerRef = useRef<AbortController | null>(null);
+  const creativeStoryGenerationRef = useRef(0);
 
   const assistantPanelWidth = Math.min(
     Math.max(assistantWidth, 300),
@@ -379,7 +389,6 @@ export const useAssistantPanel = ({
     [assistantTasks, activeAssistantTaskId],
   );
   const assistantMessages = activeAssistantTask?.messages || [];
-
   const buildArticleRoleLibraryPicker = useCallback(() => {
     const libraryCandidates = [
       ...createArticleRoleLibraryNodes(savedSettingLibraryItems, 'saved'),
@@ -1661,6 +1670,41 @@ The previous streaming response did not complete every placeholder card. Return 
     [generateStoryProfileOpenings, getStoryProfileQuestionCopy, language, setAssistantMessages],
   );
 
+  const {
+    creativeStorySession,
+    getTask: getCreativeTask,
+    updateSession: updateCreativeStorySession,
+    beginCharacterSelection: beginCreativeCharacterSelection,
+    prepareOpening: prepareCreativeOpening,
+    chooseGenre: handleCreativeStoryGenre,
+    chooseRolePreference: handleCreativeStoryRolePreference,
+    startCustomDirection: handleCreativeStoryCustomDirection,
+    submitCustomDirection: submitCreativeStoryCustomDirection,
+    startRolePreferenceCustom: handleCreativeStoryRolePreferenceCustom,
+    submitRolePreference: submitCreativeStoryRolePreference,
+    surpriseMe: handleCreativeStorySurprise,
+    start: handleStartCreativeStory,
+    decide: handleCreativeStoryDecision,
+    withdrawPendingDecision: handleWithdrawCreativeStoryDecision,
+    exit: handleExitCreativeStory,
+  } = createCreativeStorySessionHandlers({
+    activeTask: activeAssistantTask,
+    tasks: assistantTasks,
+    tasksRef: assistantTasksRef,
+    activeTaskIdRef: activeAssistantTaskIdRef,
+    setTasks: setAssistantTasks,
+    setActiveTaskId: setActiveAssistantTaskId,
+    setMessages: setAssistantMessages,
+    setLoading: setAssistantLoading,
+    workflowRef: assistantWorkflowRef,
+    language,
+    hasTextApiKey,
+    onMissingTextApiKeyRequest,
+    onOpenCreativePlaytest,
+    callAIForTextResult,
+    createAssistantCards,
+    continuationGenerationRef: creativeStoryGenerationRef,
+  });
   const handleAssistantSend = useCallback(
     async (overrideText?: string) => {
       const draftText = (overrideText ?? assistantInput).trim();
@@ -1716,6 +1760,52 @@ The previous streaming response did not complete every placeholder card. Return 
 
       const workflow = assistantWorkflowRef.current;
       const isIdeaWorkflow = workflow.type === 'idea-awaiting';
+      if (workflow.type === 'creative-role-preference-custom-awaiting') {
+        await submitCreativeStoryRolePreference(draftText);
+        return;
+      }
+      if (workflow.type === 'creative-direction-custom-awaiting') {
+        await submitCreativeStoryCustomDirection(draftText);
+        return;
+      }
+      if (workflow.type === 'creative-background-custom-awaiting') {
+        const task = getCreativeTask();
+        if (!task?.creativeSession) return;
+        try {
+          const result = await callAIForTextResult(`将用户描述的故事背景整理成一张视觉小说场景设定卡。只返回 JSON：
+{"cards":[{"type":"scene","sceneName":"","location":"","time":"","weather":"","visual":"","sound":"","items":"","notes":""}]}
+用户描述：${draftText}`);
+          const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
+            cards?: AssistantCardDraft[];
+          };
+          const scene = (parsed.cards || []).find(
+            (card) => getAssistantDraftType(card) === 'scene',
+          );
+          if (!scene) throw new Error('Missing scene');
+          const placement = await createAssistantCards([scene], 'append', {
+            lockPlacedNodes: true,
+          });
+          const nodeId = placement.nodeIds?.[0];
+          if (!nodeId) throw new Error('Missing scene node');
+          const session: CreativeStorySession = {
+            ...task.creativeSession,
+            background: {
+              nodeId,
+              name: scene.sceneName || scene.title || draftText.slice(0, 24),
+              imageUrl: scene.coverImageUrl,
+            },
+            updatedAt: Date.now(),
+          };
+          updateCreativeStorySession(task.id, session);
+          await beginCreativeCharacterSelection(task.id, session);
+        } catch {
+          setAssistantMessages((messages) => [
+            ...messages,
+            { id: uuidv4(), role: 'assistant', content: assistantPanelCopy(language).creativeStory.openingFailed },
+          ]);
+        }
+        return;
+      }
       if (workflow.type === 'profile-collecting' && workflow.waitingForText) {
         const nextProfile = updateStoryProfileValues(workflow.profile, workflow.step, [draftText]);
         nextProfile.customNotes = [
@@ -2434,11 +2524,13 @@ ${availableSettingLibraryContext || '无'}`;
       assistantMessages,
       callAIForTextResult,
       callAIForTextStream,
+      beginCreativeCharacterSelection,
       createAssistantCards,
       hasTextApiKey,
       assistantMemorySkillEnabled,
       assistantMemoryNotes,
       language,
+      getCreativeTask,
       nodes,
       onGenerateAssistantImagesRequest,
       onMissingTextApiKeyRequest,
@@ -2454,6 +2546,9 @@ ${availableSettingLibraryContext || '无'}`;
       stopAgentWaiting,
       updateStreamingAssistantCards,
       setAssistantNodesLocked,
+      submitCreativeStoryCustomDirection,
+      submitCreativeStoryRolePreference,
+      updateCreativeStorySession,
     ],
   );
 
@@ -2748,6 +2843,133 @@ cards 必须正好有 3 张。`);
       const shortDramaSceneLibraryPrefix = '__short_drama_scene_library__:';
       const allLibraryItems = [...savedSettingLibraryItems, ...presetSettingLibraryItems];
       const shortDramaCopy = assistantPanelCopy(language).shortDramaFlow;
+
+      if (value.startsWith('__creative_genre__:')) {
+        handleCreativeStoryGenre(value.slice('__creative_genre__:'.length));
+        return;
+      }
+
+      if (value.startsWith('__creative_role_preference__:')) {
+        await handleCreativeStoryRolePreference(value.slice('__creative_role_preference__:'.length));
+        return;
+      }
+
+      if (value === '__creative_surprise__') {
+        await handleCreativeStorySurprise();
+        return;
+      }
+
+      if (value === '__creative_direction_custom__') {
+        handleCreativeStoryCustomDirection();
+        return;
+      }
+
+      if (value === '__creative_role_preference_custom__') {
+        handleCreativeStoryRolePreferenceCustom();
+        return;
+      }
+
+      if (value === '__creative_background_custom__') {
+        assistantWorkflowRef.current = { type: 'creative-background-custom-awaiting' };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: assistantPanelCopy(language).creativeStory.backgroundHint,
+          },
+        ]);
+        return;
+      }
+
+      if (value.startsWith('__creative_background__:')) {
+        const nodeId = value.slice('__creative_background__:'.length);
+        const sceneNode = nodes.find((node) => node.id === nodeId && node.type === 'sceneNode');
+        const task = getCreativeTask();
+        if (!sceneNode || !task?.creativeSession) return;
+        const imageUrl =
+          typeof sceneNode.data.coverImageUrl === 'string'
+            ? sceneNode.data.coverImageUrl
+            : Array.isArray(sceneNode.data.images) && typeof sceneNode.data.images[0]?.url === 'string'
+              ? sceneNode.data.images[0].url
+              : undefined;
+        const session: CreativeStorySession = {
+          ...task.creativeSession,
+          background: {
+            nodeId,
+            name: String(sceneNode.data.sceneName || sceneNode.data.title || '未命名场景'),
+            imageUrl,
+          },
+          updatedAt: Date.now(),
+        };
+        updateCreativeStorySession(task.id, session);
+        await beginCreativeCharacterSelection(task.id, session);
+        return;
+      }
+
+      if (value.startsWith('__creative_player__:')) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'creative-player-awaiting') return;
+        const player = workflow.candidates.find(
+          (candidate) => candidate.nodeId === value.slice('__creative_player__:'.length),
+        );
+        if (!player) return;
+        const task = getCreativeTask(workflow.sessionId);
+        if (!task?.creativeSession) return;
+        const session = { ...task.creativeSession, player, updatedAt: Date.now() };
+        updateCreativeStorySession(task.id, session);
+        assistantWorkflowRef.current = {
+          type: 'creative-lead-awaiting',
+          sessionId: workflow.sessionId,
+          backgroundNodeId: workflow.backgroundNodeId,
+          backgroundName: workflow.backgroundName,
+          player,
+          candidates: workflow.candidates,
+        };
+        setAssistantMessages((messages) => [
+          ...messages,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: assistantPanelCopy(language).creativeStory.chooseLead,
+            options: workflow.candidates
+              .filter((candidate) => candidate.nodeId !== player.nodeId)
+              .map((candidate) => ({
+                id: uuidv4(),
+                label: candidate.name,
+                value: `__creative_lead__:${candidate.nodeId}`,
+              })),
+          },
+        ]);
+        return;
+      }
+
+      if (value.startsWith('__creative_lead__:')) {
+        const workflow = assistantWorkflowRef.current;
+        if (workflow.type !== 'creative-lead-awaiting') return;
+        const lead = workflow.candidates.find(
+          (candidate) => candidate.nodeId === value.slice('__creative_lead__:'.length),
+        );
+        const task = getCreativeTask(workflow.sessionId);
+        if (!lead || !task?.creativeSession) return;
+        const session = { ...task.creativeSession, lead, updatedAt: Date.now() };
+        updateCreativeStorySession(task.id, session);
+        assistantWorkflowRef.current = { type: 'idle' };
+        await prepareCreativeOpening(task.id, session);
+        return;
+      }
+
+      if (value === '__creative_enter__') {
+        const task = getCreativeTask();
+        if (!task?.creativeSession) return;
+        updateCreativeStorySession(task.id, {
+          ...task.creativeSession,
+          status: 'playing',
+          updatedAt: Date.now(),
+        });
+        onOpenCreativePlaytest?.();
+        return;
+      }
 
       if (value.startsWith(shortDramaCharacterLibraryPrefix)) {
         const workflow = assistantWorkflowRef.current;
@@ -3615,20 +3837,30 @@ cards 必须正好有 3 张。`);
     },
     [
       askStoryProfileQuestion,
+      beginCreativeCharacterSelection,
       buildArticleRoleLibraryPicker,
       callAIForTextResult,
       createAssistantCards,
       generateStoryProfileOpenings,
       getStoryProfileQuestionCopy,
       handleAssistantSend,
+      getCreativeTask,
+      handleCreativeStoryCustomDirection,
+      handleCreativeStoryGenre,
+      handleCreativeStoryRolePreference,
+      handleCreativeStoryRolePreferenceCustom,
+      handleCreativeStorySurprise,
       language,
       onGenerateAssistantImagesRequest,
+      onOpenCreativePlaytest,
       nodes,
+      prepareCreativeOpening,
       requestAssistantOptions,
       presetSettingLibraryItems,
       savedSettingLibraryItems,
       setAssistantMessages,
       setSavedStoryProfile,
+      updateCreativeStorySession,
     ],
   );
 
@@ -3803,6 +4035,11 @@ cards 必须正好有 3 张。`);
     handleAssistantOptionSelect,
     handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,
+    creativeStorySession,
+    handleStartCreativeStory,
+    handleCreativeStoryDecision,
+    handleWithdrawCreativeStoryDecision,
+    handleExitCreativeStory,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
     handleAssistantVoiceInput,

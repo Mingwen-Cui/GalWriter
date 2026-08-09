@@ -37,6 +37,37 @@ export const assistantPanelEn = {
     fallbackCharacterName: 'AI character',
     fallbackSceneName: 'AI scene',
   },
+  creativeStory: {
+    taskTitle: 'Live story creation',
+    chooseGenre: 'You do not need a full setting yet. What kind of story do you want to step into today?',
+    surpriseMe: 'I am not sure — show me some story doors',
+    chooseRolePreference: 'The genre is set. What kind of character would you like to play?',
+    rolePreferenceHint: 'Describe the role, identity, or contrast you want to play in one sentence.',
+    chooseOpening: 'This direction has a feeling. How would you like the story to begin?',
+    customDirection: 'I want to describe it myself',
+    directionHint: 'Describe a genre mix, atmosphere, or story feeling in one sentence.',
+    chooseStoryDoor:
+      'I opened three story doors from your choices. Pick the one you most want to enter, or ask for another set.',
+    changeDoors: 'Show me another set',
+    storyDoorFailed: 'I could not open the story doors yet. Try another direction or try again.',
+    chooseBackground:
+      'Choose a story setting for the first act, or describe a new setting in your own words.',
+    describeBackground: 'Describe my own setting',
+    backgroundHint: 'Describe the story setting you want to enter.',
+    choosePlayer: 'The genre and role direction are ready. Choose the character you will play.',
+    characterFallback:
+      'AI returned an incomplete format, so I prepared four character prototypes you can keep creating with.',
+    chooseLead:
+      'Now choose the other key character. The story will grow around the relationship between you.',
+    preparing:
+      'The cast and first act are ready. In play mode, AI will pause at key moments for your decision.',
+    enter: 'Enter and start playing',
+    resume: 'Continue last creation',
+    generatedCharactersFailed: 'AI could not prepare the characters. Please try again.',
+    openingFallback:
+      'AI returned an incomplete format, so I prepared a playable first act from your genre and characters.',
+    openingFailed: 'AI could not prepare the first act. Please try again.',
+  },
   cardReview: {
     taskTitlePrefix: 'Review',
     requestText:
@@ -160,9 +191,10 @@ Return JSON only:
       prompt: 'I have a new idea. Help me expand it into a complete story.',
     },
     continue: {
-      title: 'I want to keep writing',
-      description: 'Continue the current plot with the next scene, dialogue, or storyboard.',
-      prompt: 'I want to continue writing. Help me move the current story forward.',
+      title: 'Play, chat, and create a story',
+      description: 'Choose a story setting first, then decide each next step with AI as you play.',
+      prompt:
+        'I want to create a story by playing and talking with AI. Do not continue or generate cards yet. First, briefly guide me to choose or describe a story setting; then advance only one small beat at a time and ask me what should happen next at key moments.',
     },
     article: {
       title: 'I want to turn an article into a Galgame',

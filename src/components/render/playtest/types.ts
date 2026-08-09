@@ -9,6 +9,17 @@ import type { RenderStyle } from '../video/shared/types';
 export type PlayTestDisplayMode = 'fullscreen' | 'windowed';
 export type PlaytestWindowLayer = 'workspace' | 'above-settings';
 
+export type PlaytestCreativeInteraction = {
+  turnId: string;
+  story: string;
+  question: string;
+  options: string[];
+  sceneName?: string;
+  loading?: boolean;
+  onDecision: (decision: string) => Promise<void>;
+  onWithdrawDecision?: () => void;
+};
+
 export interface PlayTestProps {
   nodes: FlowNode[];
   edges: FlowEdge[];
@@ -57,4 +68,5 @@ export interface PlayTestProps {
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   isMobile?: boolean;
+  creativeInteraction?: PlaytestCreativeInteraction;
 }

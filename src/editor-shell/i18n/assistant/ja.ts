@@ -37,6 +37,36 @@ export const assistantPanelJa = {
     fallbackCharacterName: 'AI キャラクター',
     fallbackSceneName: 'AI シーン',
   },
+  creativeStory: {
+    taskTitle: 'リアルタイム創作',
+    chooseGenre: '最初から舞台を決める必要はありません。今日はどんな物語に入りたいですか？',
+    surpriseMe: 'まだ決めていないので、物語の扉を見せて',
+    chooseRolePreference: 'ジャンルが決まりました。どんな人物を演じたいですか？',
+    rolePreferenceHint: '演じたい役割、身分、ギャップを一文で書いてください。',
+    chooseOpening: 'この方向には雰囲気があります。物語をどこから始めますか？',
+    customDirection: '自分の言葉で説明する',
+    directionHint: '混ぜたいジャンル、雰囲気、物語の感触を一文で書いてください。',
+    chooseStoryDoor: '選択から三つの物語の扉を開きました。一番入りたいものを選ぶか、別の組を表示してください。',
+    changeDoors: '別の物語の扉を見る',
+    storyDoorFailed: '物語の扉を開けませんでした。別の方向を選ぶか、もう一度試してください。',
+    chooseBackground:
+      '最初の章となる物語の舞台を選ぶか、自分の言葉で新しい舞台を説明してください。',
+    describeBackground: '自分で舞台を説明する',
+    backgroundHint: '入りたい物語の舞台を説明してください。',
+    choosePlayer: 'ジャンルと人物の方向が決まりました。演じる人物を候補から選んでください。',
+    characterFallback:
+      'AI の出力形式が不完全だったため、創作を続けられる4人の人物原型を用意しました。',
+    chooseLead:
+      '次に、もう一人の重要人物を選んでください。二人の関係を中心に物語が進みます。',
+    preparing:
+      '登場人物と第一幕の準備ができました。プレイ中、AI は重要な場面で決定を待ちます。',
+    enter: 'ゲームを始める',
+    resume: '前回の創作を続ける',
+    generatedCharactersFailed: '人物を準備できませんでした。もう一度お試しください。',
+    openingFallback:
+      'AI の出力形式が不完全だったため、ジャンルと人物からすぐ始められる第一幕を用意しました。',
+    openingFailed: '第一幕を準備できませんでした。もう一度お試しください。',
+  },
   cardReview: {
     taskTitlePrefix: '提案',
     requestText: 'このカードと前後の物語に基づいて、具体的な修正案を出してください。',
@@ -156,9 +186,10 @@ JSONのみを返してください：
       prompt: '新しいアイデアがあります。完成した物語に広げるのを手伝ってください。',
     },
     continue: {
-      title: '続きを書きたい',
-      description: '現在の物語を次のシーン、会話、絵コンテへ進めます。',
-      prompt: '続きを書きたいです。現在の内容から物語を進めてください。',
+      title: '遊びながら物語をつくる',
+      description: 'まず舞台を選び、遊びながら AI と次の展開を決めます。',
+      prompt:
+        'AI と会話しながら遊ぶ形で物語をつくりたいです。まだ続きやカードは生成せず、まず短い質問で物語の舞台を選ぶか説明できるようにしてください。その後は一度に少しだけ進め、重要な場面ごとに次の展開を聞いてください。',
     },
     article: {
       title: '文章をGalgameに変換したい',

@@ -38,6 +38,12 @@ import type { CharacterFlowNode, CharacterNodeData } from '../domain/project';
 import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
+import {
+  CHARACTER_PLACEHOLDER_OPTIONS,
+  getCharacterPlaceholderAvatarUrl,
+  getCharacterPlaceholderId,
+  getCharacterPlaceholderSpriteUrl,
+} from '../lib/characterPlaceholders';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
 import { SettingLibraryMenu } from './SettingLibraryMenu';
@@ -87,6 +93,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const avatarUrl = data.avatarUrl;
   const threeViewUrl = data.threeViewUrl;
   const tagSpriteUrl = data.tagSpriteUrl;
+  const placeholderIdentityId = getCharacterPlaceholderId(id, data.placeholderIdentityId);
+  const placeholderAvatarUrl = getCharacterPlaceholderAvatarUrl(placeholderIdentityId);
+  const placeholderSpriteUrl = getCharacterPlaceholderSpriteUrl(placeholderIdentityId);
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
   const cardToolbarScale =
@@ -99,7 +108,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const characterAssetSlots = [
     {
       key: 'avatarUrl' as const,
-      url: avatarUrl,
+      url: avatarUrl || placeholderAvatarUrl,
       surfaceClass:
         'bg-gradient-to-b from-purple-50 via-white to-slate-50 dark:from-purple-950/40 dark:via-slate-950 dark:to-slate-900',
       label: lang === 'zh' ? '正面头像' : lang === 'ja' ? '正面ポートレート' : 'Front Portrait',
@@ -114,7 +123,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     },
     {
       key: 'tagSpriteUrl' as const,
-      url: tagSpriteUrl,
+      url: tagSpriteUrl || placeholderSpriteUrl,
       surfaceClass:
         'bg-[repeating-conic-gradient(#f8fafc_0%_25%,#e2e8f0_0%_50%)] bg-[length:12px_12px] dark:bg-[repeating-conic-gradient(#1e293b_0%_25%,#0f172a_0%_50%)]',
       label:
@@ -138,6 +147,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [previewAssetKey, setPreviewAssetKey] = useState<
     'avatarUrl' | 'threeViewUrl' | 'tagSpriteUrl' | null
   >(null);
+  const [isPlaceholderPickerOpen, setIsPlaceholderPickerOpen] = useState(false);
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
   const contentFrameRef = useRef<HTMLDivElement>(null);
@@ -741,7 +751,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       className="w-full h-full object-cover bg-white"
                     />
                   ) : (
-                    <UserCircle2 className="w-6 h-6 text-purple-400" />
+                    <img
+                      src={placeholderAvatarUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                   )}
                 </div>
                 <div className="absolute inset-0 overflow-hidden rounded-full bg-black/55 opacity-0 transition-opacity group-hover/avatar:opacity-100">
@@ -1188,6 +1202,19 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           />
                         </label>
                       )}
+                      {asset.key === 'avatarUrl' && !avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setIsPlaceholderPickerOpen(true);
+                          }}
+                          className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border border-white/70 bg-white/85 text-purple-500 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/90"
+                          title="Choose silhouette"
+                        >
+                          <Dices className="h-3 w-3" />
+                        </button>
+                      )}
                       {asset.url && (
                         <label
                           className="absolute right-1.5 top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-white/70 bg-white/85 text-purple-500 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/90"
@@ -1351,7 +1378,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             {avatarUrl ? (
               <img src={avatarUrl} className="w-full h-full object-cover bg-white" />
             ) : (
-              <UserCircle2 className="w-3 h-3 text-purple-500" />
+              <img src={placeholderAvatarUrl} alt="" className="h-full w-full object-cover" />
             )}
           </div>
           <span className="text-[10px] text-[var(--text-primary)] font-bold truncate">
@@ -1383,6 +1410,51 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             )}
           </React.Fragment>
         ))}
+
+      {isPlaceholderPickerOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-5 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Choose silhouette"
+            onMouseDown={() => setIsPlaceholderPickerOpen(false)}
+          >
+            <div
+              className="relative grid w-full max-w-[330px] grid-cols-3 gap-3 rounded-2xl border border-white/70 bg-[var(--card-bg)] p-4 shadow-2xl"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setIsPlaceholderPickerOpen(false)}
+                className="absolute right-2 top-2 rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              {CHARACTER_PLACEHOLDER_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    updateNodeData({ placeholderIdentityId: option.id });
+                    setIsPlaceholderPickerOpen(false);
+                  }}
+                  className={`overflow-hidden rounded-xl border-2 bg-slate-950 transition-transform hover:scale-[1.035] focus:outline-none focus:ring-2 focus:ring-purple-400 ${
+                    option.id === placeholderIdentityId
+                      ? 'border-purple-400 shadow-[0_0_0_3px_rgba(168,85,247,0.16)]'
+                      : 'border-transparent'
+                  }`}
+                  aria-label="Choose silhouette"
+                >
+                  <img src={option.avatarUrl} alt="" className="aspect-square w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Main Handles (only when not global) */}
       {!isGlobal && (

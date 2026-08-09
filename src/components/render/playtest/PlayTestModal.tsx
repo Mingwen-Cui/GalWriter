@@ -11,6 +11,7 @@ import {
   PlayCircle,
   RotateCcw,
   RotateCw,
+  Send,
   Settings,
   X,
 } from 'lucide-react';
@@ -131,6 +132,90 @@ export function PlayTestModal(props: PlayTestProps) {
   const mobileWindowed = Boolean(isMobile && isWindowed);
   const { followSelectedCard, autoScaleOnHover } = props.windowSettings;
   const [showMobileWindowMenu, setShowMobileWindowMenu] = React.useState(false);
+  const [customCreativeDecision, setCustomCreativeDecision] = React.useState('');
+  const creativeInteraction = props.creativeInteraction;
+  const activeChoicesReady = creativeInteraction ? true : choicesReady;
+
+  React.useEffect(() => {
+    setCustomCreativeDecision('');
+  }, [creativeInteraction?.turnId]);
+
+  const submitCreativeDecision = (decision: string) => {
+    if (!creativeInteraction || creativeInteraction.loading || !decision.trim()) return;
+    void creativeInteraction.onDecision(decision.trim());
+  };
+
+  const renderActiveChoices = (isImmersive: boolean) => {
+    if (!creativeInteraction) return renderChoices(isImmersive);
+    const placeholder =
+      language === 'zh'
+        ? '或者，用自己的话告诉 AI 接下来怎样发展…'
+        : language === 'ja'
+          ? 'または、自分の言葉で次の展開を AI に伝えてください…'
+          : 'Or tell AI, in your own words, what should happen next…';
+    const sendLabel = language === 'zh' ? '继续故事' : language === 'ja' ? '物語を続ける' : 'Continue story';
+    return (
+      <section
+        className={`w-full rounded-2xl border p-3 shadow-lg backdrop-blur-md ${
+          isImmersive
+            ? 'border-amber-100/30 bg-amber-50/95 text-slate-900'
+            : isDarkMode
+              ? 'border-white/15 bg-slate-900/95 text-slate-100'
+              : 'border-slate-200 bg-white/95 text-slate-900'
+        }`}
+      >
+        <p className="mb-3 text-sm font-black leading-6">{creativeInteraction.question}</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {creativeInteraction.options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              disabled={creativeInteraction.loading}
+              onClick={() => submitCreativeDecision(option)}
+              className={`min-h-11 rounded-xl border px-3 py-2 text-left text-sm font-bold transition disabled:cursor-wait disabled:opacity-60 ${
+                isImmersive
+                  ? 'border-amber-300 bg-white text-slate-700 hover:border-amber-500 hover:bg-amber-50'
+                  : isDarkMode
+                    ? 'border-white/15 bg-white/5 hover:border-sky-400/70 hover:bg-sky-500/15'
+                    : 'border-slate-200 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <textarea
+            value={customCreativeDecision}
+            disabled={creativeInteraction.loading}
+            onChange={(event) => setCustomCreativeDecision(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                submitCreativeDecision(customCreativeDecision);
+              }
+            }}
+            rows={isImmersive ? 2 : 3}
+            placeholder={placeholder}
+            className={`min-w-0 flex-1 resize-none rounded-xl border px-3 py-2 text-sm leading-6 outline-none transition ${
+              isDarkMode && !isImmersive
+                ? 'border-white/15 bg-black/20 placeholder:text-slate-500 focus:border-sky-400'
+                : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-amber-400'
+            }`}
+          />
+          <button
+            type="button"
+            aria-label={sendLabel}
+            disabled={creativeInteraction.loading || !customCreativeDecision.trim()}
+            onClick={() => submitCreativeDecision(customCreativeDecision)}
+            className="self-end rounded-xl bg-indigo-600 p-2.5 text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </section>
+    );
+  };
 
   React.useEffect(() => {
     if (!isWindowed || !followSelectedCard || !props.selectedNodeId) return;
@@ -705,7 +790,7 @@ export function PlayTestModal(props: PlayTestProps) {
           <div
             className={`w-full h-full flex flex-col ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}
           >
-            {currentNodeId === 'THE_END' ? (
+            {currentNodeId === 'THE_END' && !creativeInteraction ? (
               layoutMode === 'immersive' ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500 relative w-full h-full">
                   {/* 全景背景渐变 */}
@@ -814,7 +899,7 @@ export function PlayTestModal(props: PlayTestProps) {
                     style={dialogueFrameStyle}
                   >
                     {/* 选项区域 - 文字上方 */}
-                    {choicesPosition === 'aboveText' && renderChoices(true)}
+                    {choicesPosition === 'aboveText' && renderActiveChoices(true)}
 
                     {useInlineFocusButton &&
                       renderPlaytestFocusButton(
@@ -846,13 +931,13 @@ export function PlayTestModal(props: PlayTestProps) {
                         />
                       )}
 
-                      {renderStyle.titleVisible && currentTitle && (
+                      {renderStyle.titleVisible && (creativeInteraction?.sceneName || currentTitle) && (
                         <div
                           className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
                           style={titleStyle}
                           onClick={(event) => selectRenderObject(event, 'title')}
                         >
-                          {currentTitle}
+                          {creativeInteraction?.sceneName || currentTitle}
                         </div>
                       )}
 
@@ -861,7 +946,11 @@ export function PlayTestModal(props: PlayTestProps) {
                         style={bodyStyle}
                         onClick={(event) => selectRenderObject(event, 'body')}
                       >
-                        <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
+                        {creativeInteraction ? (
+                          creativeInteraction.story
+                        ) : (
+                          <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
+                        )}
                       </div>
 
                       {false && !animationCompleted && (
@@ -881,19 +970,19 @@ export function PlayTestModal(props: PlayTestProps) {
                     </div>
 
                     {/* 选项区域 - 文字下方 */}
-                    {choicesPosition === 'belowText' && renderChoices(true)}
+                    {choicesPosition === 'belowText' && renderActiveChoices(true)}
                   </div>
                 </div>
 
                 {/* 选项区域 - 画面中间 */}
                 {choicesPosition === 'center' &&
-                  choicesReady &&
-                  !(skipSingleChoicePopup && outEdges.length <= 1) && (
+                  activeChoicesReady &&
+                  (creativeInteraction || !(skipSingleChoicePopup && outEdges.length <= 1)) && (
                     <div
                       className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
                     >
                       <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto">
-                        {renderChoices(true)}
+                        {renderActiveChoices(true)}
                       </div>
                     </div>
                   )}
@@ -1023,15 +1112,15 @@ export function PlayTestModal(props: PlayTestProps) {
                     {/* 选项区域 - 画面的中间（非全屏且有媒体时挂载在画面内） */}
                     {choicesPosition === 'center' &&
                       !isFullscreen &&
-                      choicesReady &&
-                      !(skipSingleChoicePopup && outEdges.length <= 1) && (
+                      activeChoicesReady &&
+                      (creativeInteraction || !(skipSingleChoicePopup && outEdges.length <= 1)) && (
                         <div
                           className={`absolute inset-0 z-30 flex items-center justify-center ${mobileWindowed ? 'p-1' : 'p-4'} bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
                         >
                           <div
                             className={`w-full max-w-sm max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto ${mobileWindowed ? 'rounded-lg p-1' : 'rounded-2xl p-4'} bg-slate-900/95 border border-white/10 shadow-2xl`}
                           >
-                            {renderChoices(false)}
+                            {renderActiveChoices(false)}
                           </div>
                         </div>
                       )}
@@ -1039,12 +1128,12 @@ export function PlayTestModal(props: PlayTestProps) {
                 )}
 
                 {/* 选项区域 - 文字上方 */}
-                {choicesPosition === 'aboveText' && choicesReady && (
+                {choicesPosition === 'aboveText' && activeChoicesReady && (
                   <div
                     ref={choicesRef}
                     className={`${mobileWindowed ? 'p-1' : isWindowed ? 'p-3' : 'p-4 md:p-6 lg:px-48 xl:px-64'} ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-b shrink-0 z-40 shadow-sm`}
                   >
-                    {renderChoices(false)}
+                    {renderActiveChoices(false)}
                   </div>
                 )}
 
@@ -1114,13 +1203,13 @@ export function PlayTestModal(props: PlayTestProps) {
                       className="hidden"
                     />
                   )}
-                  {renderStyle.titleVisible && currentTitle && (
+                  {renderStyle.titleVisible && (creativeInteraction?.sceneName || currentTitle) && (
                     <div
                       className={`mb-2 drop-shadow-sm ${renderObjectSelectionClass('title')}`}
                       style={titleStyle}
                       onClick={(event) => selectRenderObject(event, 'title')}
                     >
-                      {currentTitle}
+                      {creativeInteraction?.sceneName || currentTitle}
                     </div>
                   )}
                   <div
@@ -1128,7 +1217,11 @@ export function PlayTestModal(props: PlayTestProps) {
                     style={bodyStyle}
                     onClick={(event) => selectRenderObject(event, 'body')}
                   >
-                    <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
+                    {creativeInteraction ? (
+                      creativeInteraction.story
+                    ) : (
+                      <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
+                    )}
                   </div>
 
                   {false && !animationCompleted && (
@@ -1148,25 +1241,25 @@ export function PlayTestModal(props: PlayTestProps) {
                 </div>
 
                 {/* 3. Choices Area - 文字下方 */}
-                {choicesPosition === 'belowText' && choicesReady && (
+                {choicesPosition === 'belowText' && activeChoicesReady && (
                   <div
                     ref={choicesRef}
                     className={`${mobileWindowed ? 'p-1' : isWindowed ? 'p-3' : 'p-4 md:p-6 lg:px-48 xl:px-64'} ${isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-slate-100 border-slate-200'} border-t shrink-0 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]`}
                   >
-                    {renderChoices(false)}
+                    {renderActiveChoices(false)}
                   </div>
                 )}
 
                 {/* 选项区域 - 屏幕的中间（当全屏，或无媒体文件时挂载在整个视口中央） */}
                 {choicesPosition === 'center' &&
                   (isFullscreen || !reserveClassicMediaSlot) &&
-                  choicesReady &&
-                  !(skipSingleChoicePopup && outEdges.length <= 1) && (
+                  activeChoicesReady &&
+                  (creativeInteraction || !(skipSingleChoicePopup && outEdges.length <= 1)) && (
                     <div
                       className={`absolute inset-0 z-30 flex items-center justify-center p-6 bg-black/45 pointer-events-none animate-in fade-in duration-300 ${blurBackground ? 'backdrop-blur-[6px]' : 'backdrop-blur-none'}`}
                     >
                       <div className="w-full max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden pointer-events-auto p-4 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl">
-                        {renderChoices(false)}
+                        {renderActiveChoices(false)}
                       </div>
                     </div>
                   )}

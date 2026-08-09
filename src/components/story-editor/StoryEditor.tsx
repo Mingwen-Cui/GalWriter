@@ -2071,6 +2071,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleAssistantOptionSelect,
     handleAssistantCandidateNodeSelect,
     handleStartAssistantFlow,
+    creativeStorySession,
+    handleStartCreativeStory,
+    handleCreativeStoryDecision,
+    handleWithdrawCreativeStoryDecision,
+    handleExitCreativeStory,
     handleAssistantDocumentUpload,
     handleRemoveAssistantDocument,
     handleAssistantVoiceInput,
@@ -2117,7 +2122,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     selectedAssistantTargetNodes,
     showToast,
     requestSettingsAttention,
+    onOpenCreativePlaytest: () => {
+      setSettingsPlaytestWindowSession('none');
+      setPlayTestWindowLayer('workspace');
+      setPlayTestDisplayMode('fullscreen');
+    },
   });
+  const creativeStoryTurn = creativeStorySession?.turns.at(-1);
 
   const handleAIButtonClick = useCallback(
     (nodeId: string) => {
@@ -3035,6 +3046,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           handleStopAssistantGeneration={handleStopAssistantGeneration}
           handleAssistantOptionSelect={handleAssistantOptionSelect}
           handleStartAssistantFlow={handleStartAssistantFlow}
+          handleStartCreativeStory={handleStartCreativeStory}
           handleAssistantDocumentUpload={handleAssistantDocumentUpload}
           handleRemoveAssistantDocument={handleRemoveAssistantDocument}
           handleAssistantVoiceInput={handleAssistantVoiceInput}
@@ -3081,6 +3093,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             setWindowSettings={setPlayTestWindowSettings}
             selectedNodeId={selectedPlaytestNodeId}
             onClose={() => {
+              if (creativeStorySession?.status === 'playing') handleExitCreativeStory();
               setSettingsPlaytestWindowSession('none');
               setPlayTestWindowLayer('workspace');
               setPlayTestDisplayMode(null);
@@ -3123,10 +3136,23 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
             isMobile={isMobile}
+            creativeInteraction={
+              creativeStorySession?.status === 'playing' && creativeStoryTurn
+                ? {
+                    turnId: creativeStoryTurn.id,
+                    story: creativeStoryTurn.story,
+                    question: creativeStoryTurn.question,
+                    options: creativeStoryTurn.options,
+                    sceneName: creativeStoryTurn.sceneName,
+                    loading: Boolean(creativeStorySession.pendingDecision),
+                    onDecision: handleCreativeStoryDecision,
+                    onWithdrawDecision: handleWithdrawCreativeStoryDecision,
+                  }
+                : undefined
+            }
           />
         )}
       </Suspense>
-
       {/* 设置界面弹窗 */}
       <Suspense
         fallback={<RenderWorkspaceBootSkeleton onClose={() => setShowVideoRender(false)} />}

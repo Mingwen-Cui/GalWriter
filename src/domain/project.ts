@@ -132,17 +132,59 @@ export type AssistantStoryProfile = {
   updatedAt: number;
 };
 
+export type CreativeStoryParticipant = {
+  nodeId: string;
+  name: string;
+  imageUrl?: string;
+};
+
+export type CreativeStoryDirection = {
+  genreId: string;
+  genre: string;
+  rolePreference?: string;
+};
+
+export type CreativeStoryTurn = {
+  id: string;
+  chapter: number;
+  story: string;
+  question: string;
+  options: string[];
+  decision?: string;
+  /** The first canvas card for this turn, used to preserve and branch its route. */
+  nodeId?: string;
+  sceneName?: string;
+  createdAt: number;
+};
+
+export type CreativeStorySession = {
+  id: string;
+  status: 'setup' | 'playing' | 'paused';
+  chapter: number;
+  direction?: CreativeStoryDirection;
+  background?: { nodeId: string; name: string; imageUrl?: string };
+  player?: CreativeStoryParticipant;
+  lead?: CreativeStoryParticipant;
+  /** A decision that is still being written by AI and can be withdrawn. */
+  pendingDecision?: string;
+  turns: CreativeStoryTurn[];
+  chapterSummaries: string[];
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type AssistantTask = {
   id: string;
   title: string;
   createdAt: number;
   updatedAt: number;
-  kind?: 'conversation' | 'card-review';
+  kind?: 'conversation' | 'card-review' | 'creative-playtest';
   parentTaskId?: string;
   loading?: boolean;
   unread?: boolean;
   targetNodeIds?: string[];
   reviewContext?: string;
+  creativeSession?: CreativeStorySession;
   messages: AssistantMessage[];
 };
 
@@ -671,6 +713,8 @@ export interface CharacterNodeData extends BaseEditorNodeData {
   other?: string;
   /** Card portrait. Kept as the legacy primary image so old projects remain compatible. */
   avatarUrl?: string;
+  /** Built-in silhouette used only while the character has no user-supplied visual. */
+  placeholderIdentityId?: string;
   /** Front / side / back design sheet, used as the visual reference for scene redraws. */
   threeViewUrl?: string;
   /** Full-body character cutout with a transparent background, used by story tags. */

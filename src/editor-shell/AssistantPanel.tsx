@@ -71,6 +71,7 @@ interface AssistantPanelProps {
   handleStartAssistantFlow: (
     flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
   ) => Promise<void>;
+  handleStartCreativeStory: () => Promise<void>;
   handleAssistantDocumentUpload: (
     files: FileList | null,
     intent?: 'article-to-galgame',
@@ -347,6 +348,7 @@ export function AssistantPanel({
   handleStopAssistantGeneration,
   handleAssistantOptionSelect,
   handleStartAssistantFlow,
+  handleStartCreativeStory,
   handleAssistantDocumentUpload,
   handleRemoveAssistantDocument,
   handleAssistantVoiceInput,
@@ -611,7 +613,7 @@ export function AssistantPanel({
     },
     {
       icon: <PencilLine className="h-4 w-4" />,
-      action: 'continue' as const,
+      action: 'creative' as const,
       ...ui.welcomePrompts.continue,
     },
     {
@@ -1229,7 +1231,11 @@ export function AssistantPanel({
                         openArticleUploadFlow();
                         return;
                       }
-                      void sendAssistantMessage(item.prompt);
+                      if (item.action === 'creative') {
+                        fadeOutWelcomeGradient();
+                        void handleStartCreativeStory();
+                        return;
+                      }
                     }}
                     disabled={assistantLoading}
                     className="assistant-welcome-option"

@@ -5,6 +5,10 @@ import type {
   SceneNodeData,
   ScenePresentation,
 } from '../domain/project';
+import {
+  getCharacterPlaceholderId,
+  getCharacterPlaceholderSpriteUrl,
+} from './characterPlaceholders';
 
 export type SwitchableAssetOption = {
   id: string;
@@ -79,7 +83,14 @@ export const resolveCharacterImageUrl = (
     : undefined;
   if (selectedOutfit?.imageUrl) return selectedOutfit.imageUrl;
 
-  return data.tagSpriteUrl || data.outfits?.find((item) => item.imageUrl)?.imageUrl || data.avatarUrl;
+  return (
+    data.tagSpriteUrl ||
+    data.outfits?.find((item) => item.imageUrl)?.imageUrl ||
+    data.avatarUrl ||
+    getCharacterPlaceholderSpriteUrl(
+      getCharacterPlaceholderId(config.sourceNodeId, data.placeholderIdentityId),
+    )
+  );
 };
 
 export const resolveSceneMedia = ({
