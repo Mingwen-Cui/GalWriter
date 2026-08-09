@@ -1724,7 +1724,7 @@ html.canvas-selection-dragging * {
 .assistant-welcome-hero {
   display: block;
   min-height: 116px;
-  padding: 18px 20px 4px;
+  padding: 20px 8px 4px;
 }
 
 .assistant-welcome-copy {
@@ -1736,7 +1736,7 @@ html.canvas-selection-dragging * {
 .assistant-welcome-kicker {
   margin: 0 0 6px;
   color: #0f172a;
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 900;
   line-height: 1.2;
   letter-spacing: -0.025em;
@@ -1754,7 +1754,7 @@ html.canvas-selection-dragging * {
 
 .assistant-welcome-logo {
   position: absolute;
-  top: 0;
+  top: 20px;
   right: -8px;
   z-index: 2;
   width: clamp(112px, 34%, 154px);
@@ -1784,6 +1784,7 @@ html.canvas-selection-dragging * {
   color: #334155;
   font-size: 12px;
   font-weight: 900;
+  padding: 8px;
 }
 
 .assistant-welcome-options {
@@ -1798,7 +1799,7 @@ html.canvas-selection-dragging * {
   min-height: 76px;
   width: calc(100% - 34px);
   margin-left: 34px;
-  padding: 7px 14px 7px 144px;
+  padding: 7px 14px 7px 100px;
   border: 1px solid rgba(226, 232, 240, 0.78);
   border-radius: 14px;
   background: #fff;
@@ -1852,7 +1853,7 @@ html.canvas-selection-dragging * {
 
 .assistant-welcome-option-copy {
   min-width: 0;
-  min-height: 62px;
+  min-height: 70px;
   display: grid;
   align-content: center;
 }
