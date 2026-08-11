@@ -694,6 +694,20 @@ export interface StoryNodeData extends BaseEditorNodeData {
 
 export interface CharacterNodeData extends BaseEditorNodeData {
   characterName: string;
+  appearanceTemplate?: {
+    gender: 'female' | 'male';
+    faceId: string;
+    hairId: string;
+    outfitId: string;
+    adjustment?: {
+      hairX?: number;
+      hairY?: number;
+      hairScale?: number;
+      spriteHeadX?: number;
+      spriteHeadY?: number;
+      spriteHeadScale?: number;
+    };
+  };
   identity?: string;
   appearance?: string;
   traits: string;
@@ -719,6 +733,9 @@ export interface CharacterNodeData extends BaseEditorNodeData {
   threeViewUrl?: string;
   /** Full-body character cutout with a transparent background, used by story tags. */
   tagSpriteUrl?: string;
+  /** Rasterized from the selected appearance pack; user-uploaded tagSpriteUrl always takes priority. */
+  appearanceSpriteUrl?: string;
+  appearanceSpriteSignature?: string;
   outfits?: CharacterOutfit[];
   isGlobal?: boolean;
   showPersonality?: boolean;

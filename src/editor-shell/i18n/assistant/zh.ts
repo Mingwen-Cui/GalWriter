@@ -186,8 +186,8 @@ export const assistantPanelZh = {
         '我想边玩边聊地创作故事。请先不要续写或生成卡片，先用简短问题引导我选择或描述故事背景；之后每次只推进一小段，并在关键处向我询问下一步。',
     },
     article: {
-      title: '我想把文章转成 Galgame',
-      description: '把 PDF、Word 等文档拖拽到 AI 助手页面上传，我来帮你转成可编辑的 galgame。',
+      title: '文章转成 Galgame',
+      description: '把 PDF、Word 等文档转成可编辑的 galgame。',
       prompt:
         '我想把文章转化成 galgame。我会上传 PDF 或 Word 文档，请帮我提取内容并转成可编辑的视觉小说卡片。',
     },

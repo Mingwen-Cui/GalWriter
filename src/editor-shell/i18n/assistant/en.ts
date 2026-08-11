@@ -197,8 +197,8 @@ Return JSON only:
         'I want to create a story by playing and talking with AI. Do not continue or generate cards yet. First, briefly guide me to choose or describe a story setting; then advance only one small beat at a time and ask me what should happen next at key moments.',
     },
     article: {
-      title: 'I want to turn an article into a Galgame',
-      description: 'Upload a PDF or Word document to turn it into an editable galgame.',
+      title: 'Article to Galgame',
+      description: 'Turn PDFs, Word documents, and more into editable galgames.',
       prompt:
         'I want to turn an article into a galgame. I will upload a PDF or Word document; please extract its content into editable visual-novel cards.',
     },

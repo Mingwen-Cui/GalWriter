@@ -6,9 +6,9 @@ import type {
   ScenePresentation,
 } from '../domain/project';
 import {
-  getCharacterPlaceholderId,
-  getCharacterPlaceholderSpriteUrl,
-} from './characterPlaceholders';
+  createCharacterAppearance,
+  getCharacterAppearanceAssetUrl,
+} from './characterAppearance';
 
 export type SwitchableAssetOption = {
   id: string;
@@ -83,13 +83,15 @@ export const resolveCharacterImageUrl = (
     : undefined;
   if (selectedOutfit?.imageUrl) return selectedOutfit.imageUrl;
 
+  const templateGender = data.appearanceTemplate?.gender === 'male' ? 'male' : 'female';
+  const templateAppearance = createCharacterAppearance(templateGender, data.appearanceTemplate);
+
   return (
     data.tagSpriteUrl ||
+    data.appearanceSpriteUrl ||
     data.outfits?.find((item) => item.imageUrl)?.imageUrl ||
     data.avatarUrl ||
-    getCharacterPlaceholderSpriteUrl(
-      getCharacterPlaceholderId(config.sourceNodeId, data.placeholderIdentityId),
-    )
+    getCharacterAppearanceAssetUrl(templateAppearance.outfitAssetPath)
   );
 };
 

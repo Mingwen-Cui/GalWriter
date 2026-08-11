@@ -22,7 +22,6 @@ import {
   Image as ImageIcon,
   Loader2,
   Plus,
-  Settings2,
   Trash2,
   Upload,
   UserCircle2,
@@ -30,20 +29,24 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react';
-import React, { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { CharacterFlowNode, CharacterNodeData } from '../domain/project';
+import { CharacterAppearanceDemo } from './CharacterAppearanceDemo';
+import { CharacterAppearancePreview, renderCharacterAppearanceSpriteDataUrl } from './CharacterAppearancePreview';
 import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import {
-  CHARACTER_PLACEHOLDER_OPTIONS,
-  getCharacterPlaceholderAvatarUrl,
-  getCharacterPlaceholderId,
-  getCharacterPlaceholderSpriteUrl,
-} from '../lib/characterPlaceholders';
+  createCharacterAppearance,
+  DEFAULT_APPEARANCE_ADJUSTMENT,
+  getCharacterAppearanceAssetUrl,
+  getCharacterAppearanceCatalog,
+  type AppearanceAdjustment,
+  type CharacterAppearanceGender,
+} from '../lib/characterAppearance';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
 import { SettingLibraryMenu } from './SettingLibraryMenu';
@@ -71,10 +74,123 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
-  70 + 73 + 330 + 132 + 81 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
+  70 + 112 + 330 + 132 + 81 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
 const CHARACTER_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const CHARACTER_NODE_HEIGHT_SAFETY = 8;
+
+type AppearanceMenuOption = { id: string; label: string; assetPath: string };
+
+const hashAppearanceSeed = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const createRandomAppearanceTemplate = (nodeId: string): NonNullable<CharacterNodeData['appearanceTemplate']> => {
+  const seed = hashAppearanceSeed(nodeId);
+  const gender: CharacterAppearanceGender = seed % 2 === 0 ? 'female' : 'male';
+  const catalog = getCharacterAppearanceCatalog(gender);
+  const choose = (options: AppearanceMenuOption[], offset: number) =>
+    options[(seed >>> offset) % options.length]?.id || options[0]?.id || '';
+
+  return {
+    gender,
+    faceId: choose(catalog.faces, 2),
+    hairId: choose(catalog.hairs, 7),
+    outfitId: choose(catalog.outfits, 13),
+  };
+};
+
+const NumberField = ({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (value: number) => void;
+}) => (
+  <label className="grid grid-cols-[50px_1fr] items-center gap-1 text-[10px] text-[var(--text-secondary)]">
+    <span>{label}</span>
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(event) => onChange(Number(event.target.value))}
+      className="h-5 min-w-0 rounded border border-purple-200 bg-white px-1 text-right text-[10px] outline-none focus:border-purple-400 dark:border-purple-800 dark:bg-slate-900"
+    />
+  </label>
+);
+
+function AppearanceImageMenu({
+  label,
+  options,
+  value,
+  isOpen,
+  disabled,
+  onToggle,
+  onChange,
+}: {
+  label: string;
+  options: AppearanceMenuOption[];
+  value: string;
+  isOpen: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+}) {
+  const selected = options.find((option) => option.id === value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+        className="flex h-5 items-center gap-0.5 rounded border border-purple-200 bg-white/80 px-1 text-[9px] text-[var(--text-secondary)] transition-colors hover:border-purple-400 disabled:cursor-not-allowed disabled:opacity-45 dark:border-purple-800 dark:bg-slate-900"
+      >
+        <span>{label}</span><span className="max-w-[32px] truncate">{selected?.label}</span><ChevronDown className="h-2.5 w-2.5" />
+      </button>
+      {isOpen && !disabled && (
+        <div className="absolute left-0 top-[calc(100%+5px)] z-[120] grid w-40 grid-cols-2 gap-1 rounded-lg border border-purple-200 bg-[var(--card-bg)] p-1.5 shadow-xl dark:border-purple-800">
+          {options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onChange(option.id);
+              }}
+              className={`overflow-hidden rounded-md border p-1 text-center transition-colors ${value === option.id ? 'border-purple-400 bg-purple-500/10 text-purple-600' : 'border-transparent hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-slate-800'}`}
+            >
+              <img
+                src={getCharacterAppearanceAssetUrl(option.assetPath)}
+                alt={option.label}
+                className="mx-auto h-14 w-full object-contain"
+              />
+              <span className="mt-0.5 block truncate text-[9px] leading-3">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNode>) {
   const { alert: showDialogAlert } = useDialog();
@@ -93,9 +209,36 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const avatarUrl = data.avatarUrl;
   const threeViewUrl = data.threeViewUrl;
   const tagSpriteUrl = data.tagSpriteUrl;
-  const placeholderIdentityId = getCharacterPlaceholderId(id, data.placeholderIdentityId);
-  const placeholderAvatarUrl = getCharacterPlaceholderAvatarUrl(placeholderIdentityId);
-  const placeholderSpriteUrl = getCharacterPlaceholderSpriteUrl(placeholderIdentityId);
+  const defaultAppearanceTemplate = !data.appearanceTemplate && !avatarUrl
+    ? createRandomAppearanceTemplate(id)
+    : undefined;
+  const selectedAppearanceTemplate = data.appearanceTemplate || defaultAppearanceTemplate;
+  const templateGender =
+    selectedAppearanceTemplate?.gender === 'female' || selectedAppearanceTemplate?.gender === 'male'
+      ? selectedAppearanceTemplate.gender
+      : null;
+  const templateCatalog = templateGender ? getCharacterAppearanceCatalog(templateGender) : null;
+  const templateAppearance = templateGender
+    ? createCharacterAppearance(templateGender, selectedAppearanceTemplate)
+    : null;
+  const appearanceAdjustment: AppearanceAdjustment = {
+    ...DEFAULT_APPEARANCE_ADJUSTMENT,
+    ...selectedAppearanceTemplate?.adjustment,
+  };
+  const appearanceSpriteSignature = templateAppearance
+    ? [
+      templateAppearance.gender,
+      templateAppearance.faceId,
+      templateAppearance.hairId,
+      templateAppearance.outfitId,
+      appearanceAdjustment.hairX,
+      appearanceAdjustment.hairY,
+      appearanceAdjustment.hairScale,
+      appearanceAdjustment.spriteHeadX,
+      appearanceAdjustment.spriteHeadY,
+      appearanceAdjustment.spriteHeadScale,
+    ].join('|')
+    : '';
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
   const cardToolbarScale =
@@ -108,7 +251,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const characterAssetSlots = [
     {
       key: 'avatarUrl' as const,
-      url: avatarUrl || placeholderAvatarUrl,
+      url: avatarUrl,
+      appearancePreviewMode: !avatarUrl && templateAppearance && templateCatalog?.installed ? 'portrait' as const : null,
       surfaceClass:
         'bg-gradient-to-b from-purple-50 via-white to-slate-50 dark:from-purple-950/40 dark:via-slate-950 dark:to-slate-900',
       label: lang === 'zh' ? '正面头像' : lang === 'ja' ? '正面ポートレート' : 'Front Portrait',
@@ -117,13 +261,15 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     {
       key: 'threeViewUrl' as const,
       url: threeViewUrl,
+      appearancePreviewMode: null,
       surfaceClass: 'bg-slate-50 dark:bg-slate-900/70',
       label: lang === 'zh' ? '人物三视图' : lang === 'ja' ? '三面図' : 'Three-view Sheet',
       hint: lang === 'zh' ? '场景重绘参考' : lang === 'ja' ? '再描画の参照' : 'Redraw reference',
     },
     {
       key: 'tagSpriteUrl' as const,
-      url: tagSpriteUrl || placeholderSpriteUrl,
+      url: tagSpriteUrl,
+      appearancePreviewMode: !tagSpriteUrl && templateAppearance && templateCatalog?.installed ? 'sprite' as const : null,
       surfaceClass:
         'bg-[repeating-conic-gradient(#f8fafc_0%_25%,#e2e8f0_0%_50%)] bg-[length:12px_12px] dark:bg-[repeating-conic-gradient(#1e293b_0%_25%,#0f172a_0%_50%)]',
       label:
@@ -147,7 +293,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [previewAssetKey, setPreviewAssetKey] = useState<
     'avatarUrl' | 'threeViewUrl' | 'tagSpriteUrl' | null
   >(null);
-  const [isPlaceholderPickerOpen, setIsPlaceholderPickerOpen] = useState(false);
+  const [openAppearanceMenu, setOpenAppearanceMenu] = useState<'faceId' | 'hairId' | 'outfitId' | 'calibration' | null>(null);
+  const [isAppearanceDemoOpen, setIsAppearanceDemoOpen] = useState(false);
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
   const contentFrameRef = useRef<HTMLDivElement>(null);
@@ -327,6 +474,61 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     },
     [data, id],
   );
+
+  useEffect(() => {
+    if (!data.appearanceTemplate && !avatarUrl && defaultAppearanceTemplate) {
+      updateNodeData({ appearanceTemplate: defaultAppearanceTemplate });
+    }
+  }, [avatarUrl, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
+
+  useEffect(() => {
+    if (!templateAppearance || tagSpriteUrl) return;
+    if (data.appearanceSpriteUrl && data.appearanceSpriteSignature === appearanceSpriteSignature) return;
+    let cancelled = false;
+    renderCharacterAppearanceSpriteDataUrl(templateAppearance, appearanceAdjustment).then((url) => {
+      if (!cancelled && url) {
+        updateNodeData({ appearanceSpriteUrl: url, appearanceSpriteSignature });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [appearanceAdjustment, appearanceSpriteSignature, data.appearanceSpriteSignature, data.appearanceSpriteUrl, tagSpriteUrl, templateAppearance, updateNodeData]);
+
+  const selectAppearanceGender = (gender: CharacterAppearanceGender) => {
+    const appearanceTemplate = createCharacterAppearance(gender);
+    updateNodeData({
+      appearanceTemplate: {
+        gender,
+        faceId: appearanceTemplate.faceId,
+        hairId: appearanceTemplate.hairId,
+        outfitId: appearanceTemplate.outfitId,
+      },
+    });
+  };
+
+  const updateAppearanceTemplate = (key: 'faceId' | 'hairId' | 'outfitId', value: string) => {
+    if (!templateAppearance) return;
+    updateNodeData({
+      appearanceTemplate: {
+        gender: templateAppearance.gender,
+        faceId: key === 'faceId' ? value : templateAppearance.faceId,
+        hairId: key === 'hairId' ? value : templateAppearance.hairId,
+        outfitId: key === 'outfitId' ? value : templateAppearance.outfitId,
+      },
+    });
+  };
+
+  const updateAppearanceAdjustment = (key: keyof AppearanceAdjustment, value: number) => {
+    if (!templateAppearance) return;
+    updateNodeData({
+      appearanceTemplate: {
+        gender: templateAppearance.gender,
+        faceId: templateAppearance.faceId,
+        hairId: templateAppearance.hairId,
+        outfitId: templateAppearance.outfitId,
+        adjustment: { ...appearanceAdjustment, [key]: Number.isFinite(value) ? value : 0 },
+      },
+    });
+  };
 
   const handleTraitVisibilityChange = (
     key: 'showPersonality' | 'showFeatures' | 'showBackground' | 'showOther',
@@ -740,7 +942,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             <div className="flex items-center gap-3 p-3 border-b border-[var(--card-border)] bg-purple-50/10 dark:bg-purple-900/10 shrink-0">
               <div className="relative group/avatar shrink-0">
                 <div
-                  className={`w-12 h-12 rounded-full overflow-hidden border-2 border-purple-200 dark:border-purple-800 flex items-center justify-center ${
+                  className={`w-12 h-12 rounded-lg overflow-hidden border-2 border-purple-200 dark:border-purple-800 flex items-center justify-center ${
                     avatarUrl ? 'bg-white' : 'bg-purple-100 dark:bg-purple-900/30'
                   }`}
                 >
@@ -750,6 +952,13 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       alt="Avatar"
                       className="w-full h-full object-cover bg-white"
                     />
+                  ) : templateAppearance && templateCatalog?.installed ? (
+                    <CharacterAppearancePreview
+                      appearance={templateAppearance}
+                      mode="portrait"
+                      adjustment={appearanceAdjustment}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <img
                       src={placeholderAvatarUrl}
@@ -758,7 +967,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                     />
                   )}
                 </div>
-                <div className="absolute inset-0 overflow-hidden rounded-full bg-black/55 opacity-0 transition-opacity group-hover/avatar:opacity-100">
+                <div className="absolute inset-0 overflow-hidden rounded-lg bg-black/55 opacity-0 transition-opacity group-hover/avatar:opacity-100">
                   {!avatarUrl ? (
                     <label
                       className="flex h-full w-full cursor-pointer items-center justify-center text-white transition-colors hover:bg-white/20"
@@ -848,19 +1057,81 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                     className="min-w-0 flex-1 bg-transparent text-[11px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] outline-none focus:border-b focus:border-purple-400"
                   />
                 </div>
-                <div className="text-[10px] text-purple-500 font-medium flex items-center gap-1 mt-1">
-                  <Settings2 className="w-3 h-3" />
-                  {isGlobal
-                    ? lang === 'zh'
-                      ? '全局设定生效中'
-                      : lang === 'ja'
-                        ? 'グローバル設定が有効'
-                        : 'Global setting active'
-                    : lang === 'zh'
-                      ? '需连线生效'
-                      : lang === 'ja'
-                        ? '接続すると有効'
-                        : 'Connect to activate'}
+                <div className="nodrag mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-purple-600">
+                  {(['female', 'male'] as const).map((gender) => (
+                    <button
+                      key={gender}
+                      type="button"
+                      onClick={() => selectAppearanceGender(gender)}
+                      className={`rounded-md border px-1.5 py-0.5 transition-colors ${templateGender === gender ? 'border-purple-400 bg-purple-500 text-white' : 'border-purple-200 bg-white/70 text-purple-500 hover:bg-purple-50 dark:border-purple-800 dark:bg-slate-900/60'}`}
+                    >
+                      {gender === 'female' ? '女' : '男'}
+                    </button>
+                  ))}
+                  {templateCatalog && templateAppearance && (
+                    <>
+                      <AppearanceImageMenu
+                        label="表情"
+                        options={templateCatalog.faces}
+                        value={templateAppearance.faceId}
+                        isOpen={openAppearanceMenu === 'faceId'}
+                        disabled={!templateCatalog.installed}
+                        onToggle={() => setOpenAppearanceMenu((current) => current === 'faceId' ? null : 'faceId')}
+                        onChange={(value) => { updateAppearanceTemplate('faceId', value); setOpenAppearanceMenu(null); }}
+                      />
+                      <AppearanceImageMenu
+                        label="发型"
+                        options={templateCatalog.hairs}
+                        value={templateAppearance.hairId}
+                        isOpen={openAppearanceMenu === 'hairId'}
+                        disabled={!templateCatalog.installed}
+                        onToggle={() => setOpenAppearanceMenu((current) => current === 'hairId' ? null : 'hairId')}
+                        onChange={(value) => { updateAppearanceTemplate('hairId', value); setOpenAppearanceMenu(null); }}
+                      />
+                      <AppearanceImageMenu
+                        label="衣服"
+                        options={templateCatalog.outfits}
+                        value={templateAppearance.outfitId}
+                        isOpen={openAppearanceMenu === 'outfitId'}
+                        disabled={!templateCatalog.installed}
+                        onToggle={() => setOpenAppearanceMenu((current) => current === 'outfitId' ? null : 'outfitId')}
+                        onChange={(value) => { updateAppearanceTemplate('outfitId', value); setOpenAppearanceMenu(null); }}
+                      />
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenAppearanceMenu((current) => current === 'calibration' ? null : 'calibration')}
+                          className={`h-5 rounded border px-1 text-[9px] transition-colors ${openAppearanceMenu === 'calibration' ? 'border-purple-400 bg-purple-500/10 text-purple-700' : 'border-purple-200 bg-white/80 text-[var(--text-secondary)] hover:border-purple-400 dark:border-purple-800 dark:bg-slate-900'}`}
+                        >
+                          微调
+                        </button>
+                        {openAppearanceMenu === 'calibration' && (
+                          <div className="absolute left-0 top-[calc(100%+5px)] z-[120] w-48 rounded-lg border border-purple-200 bg-[var(--card-bg)] p-2 shadow-xl dark:border-purple-800">
+                            <div className="mb-1 text-[10px] font-bold text-purple-600">发型相对脸部</div>
+                            <div className="grid grid-cols-2 gap-1">
+                              <NumberField label="X（px）" value={appearanceAdjustment.hairX} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('hairX', value)} />
+                              <NumberField label="Y（px）" value={appearanceAdjustment.hairY} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('hairY', value)} />
+                              <NumberField label="缩放（%）" value={appearanceAdjustment.hairScale} min={50} max={160} onChange={(value) => updateAppearanceAdjustment('hairScale', value)} />
+                            </div>
+                            <div className="mb-1 mt-2 text-[10px] font-bold text-purple-600">透明立绘头部</div>
+                            <div className="grid grid-cols-2 gap-1">
+                              <NumberField label="X（px）" value={appearanceAdjustment.spriteHeadX} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('spriteHeadX', value)} />
+                              <NumberField label="Y（px）" value={appearanceAdjustment.spriteHeadY} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('spriteHeadY', value)} />
+                              <NumberField label="缩放（%）" value={appearanceAdjustment.spriteHeadScale} min={50} max={160} onChange={(value) => updateAppearanceAdjustment('spriteHeadScale', value)} />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => updateNodeData({ appearanceTemplate: { gender: templateAppearance.gender, faceId: templateAppearance.faceId, hairId: templateAppearance.hairId, outfitId: templateAppearance.outfitId } })}
+                              className="mt-2 w-full rounded border border-purple-200 py-1 text-[9px] text-purple-600 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-slate-800"
+                            >
+                              重置数字
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {!templateCatalog.installed && <span className="text-[9px] text-[var(--text-muted)]">素材待导入</span>}
+                    </>
+                  )}
                 </div>
               </div>
               <button
@@ -1172,7 +1443,16 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                     <div
                       className={`relative flex h-[82px] items-center justify-center overflow-hidden ${asset.surfaceClass}`}
                     >
-                      {asset.url ? (
+                      {asset.appearancePreviewMode ? (
+                        <div className="nodrag flex h-full w-full items-center justify-center p-1.5">
+                          <CharacterAppearancePreview
+                            appearance={templateAppearance!}
+                            mode={asset.appearancePreviewMode}
+                            adjustment={appearanceAdjustment}
+                            className="h-full w-full object-contain drop-shadow-sm"
+                          />
+                        </div>
+                      ) : asset.url ? (
                         <button
                           type="button"
                           onClick={(event) => {
@@ -1207,15 +1487,15 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setIsPlaceholderPickerOpen(true);
+                            setIsAppearanceDemoOpen(true);
                           }}
                           className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border border-white/70 bg-white/85 text-purple-500 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/90"
-                          title="Choose silhouette"
+                          title="角色装配 Demo"
                         >
                           <Dices className="h-3 w-3" />
                         </button>
                       )}
-                      {asset.url && (
+                      {(asset.url || asset.appearancePreviewMode) && (
                         <label
                           className="absolute right-1.5 top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-white/70 bg-white/85 text-purple-500 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/90"
                           title={lang === 'zh' ? `替换${asset.label}` : `Replace ${asset.label}`}
@@ -1411,50 +1691,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
           </React.Fragment>
         ))}
 
-      {isPlaceholderPickerOpen &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-5 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Choose silhouette"
-            onMouseDown={() => setIsPlaceholderPickerOpen(false)}
-          >
-            <div
-              className="relative grid w-full max-w-[330px] grid-cols-3 gap-3 rounded-2xl border border-white/70 bg-[var(--card-bg)] p-4 shadow-2xl"
-              onMouseDown={(event) => event.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => setIsPlaceholderPickerOpen(false)}
-                className="absolute right-2 top-2 rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              {CHARACTER_PLACEHOLDER_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => {
-                    updateNodeData({ placeholderIdentityId: option.id });
-                    setIsPlaceholderPickerOpen(false);
-                  }}
-                  className={`overflow-hidden rounded-xl border-2 bg-slate-950 transition-transform hover:scale-[1.035] focus:outline-none focus:ring-2 focus:ring-purple-400 ${
-                    option.id === placeholderIdentityId
-                      ? 'border-purple-400 shadow-[0_0_0_3px_rgba(168,85,247,0.16)]'
-                      : 'border-transparent'
-                  }`}
-                  aria-label="Choose silhouette"
-                >
-                  <img src={option.avatarUrl} alt="" className="aspect-square w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>,
-          document.body,
-        )}
+      {isAppearanceDemoOpen && <CharacterAppearanceDemo onClose={() => setIsAppearanceDemoOpen(false)} />}
 
       {/* Main Handles (only when not global) */}
       {!isGlobal && (

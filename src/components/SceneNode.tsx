@@ -22,7 +22,6 @@ import {
   MapPin,
   Plus,
   RotateCw,
-  Settings2,
   Trash2,
   Upload,
   WandSparkles,
@@ -653,20 +652,6 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                     placeholder={lang === 'zh' ? '输入场景名称...' : 'Enter scene name...'}
                     className="w-full bg-transparent text-sm font-bold text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-b-2 focus:border-blue-700"
                   />
-                  <div className="text-[10px] text-blue-800 font-medium flex items-center gap-1 mt-1">
-                    <Settings2 className="w-3 h-3" />
-                    {isGlobal
-                      ? lang === 'zh'
-                        ? '全局设定生效中'
-                        : lang === 'ja'
-                          ? 'グローバル設定が有効'
-                          : 'Global setting active'
-                      : lang === 'zh'
-                        ? '需连线生效'
-                        : lang === 'ja'
-                          ? '接続すると有効'
-                          : 'Connect to activate'}
-                  </div>
                 </div>
                 <button
                   onClick={handleRollSetting}
