@@ -29,13 +29,24 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react';
-import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { CharacterFlowNode, CharacterNodeData } from '../domain/project';
 import { CharacterAppearanceDemo } from './CharacterAppearanceDemo';
-import { CharacterAppearancePreview, renderCharacterAppearanceSpriteDataUrl } from './CharacterAppearancePreview';
+import {
+  CharacterAppearancePreview,
+  renderCharacterAppearanceSpriteDataUrl,
+} from './CharacterAppearancePreview';
 import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
@@ -53,7 +64,9 @@ import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib
 import {
   cachePresetAssets,
   getCachedPresetAssetUrls,
+  hasCachedPresetAssets,
   requiresPresetDownload,
+  removeCachedPresetAssets,
 } from '../lib/presetAssetCache';
 import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
 import { SettingLibraryMenu } from './SettingLibraryMenu';
@@ -81,7 +94,12 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
-  70 + 112 + 330 + 132 + 81 + (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
+  70 +
+  112 +
+  330 +
+  132 +
+  81 +
+  (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
 const CHARACTER_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const CHARACTER_NODE_HEIGHT_SAFETY = 8;
@@ -97,7 +115,9 @@ const hashAppearanceSeed = (value: string) => {
   return hash >>> 0;
 };
 
-const createRandomAppearanceTemplate = (nodeId: string): NonNullable<CharacterNodeData['appearanceTemplate']> => {
+const createRandomAppearanceTemplate = (
+  nodeId: string,
+): NonNullable<CharacterNodeData['appearanceTemplate']> => {
   const seed = hashAppearanceSeed(nodeId);
   const gender: CharacterAppearanceGender = seed % 2 === 0 ? 'female' : 'male';
   const catalog = getCharacterAppearanceCatalog(gender);
@@ -148,8 +168,7 @@ function AppearanceImageMenu({
   isOpen,
   disabled,
   assetUrlBySource = {},
-  downloading,
-  onDownloadAndChange,
+  thumbnailCrop = 'full',
   onToggle,
   onChange,
 }: {
@@ -159,12 +178,20 @@ function AppearanceImageMenu({
   isOpen: boolean;
   disabled?: boolean;
   assetUrlBySource?: Record<string, string>;
-  downloading?: boolean;
+  thumbnailCrop?: 'full' | 'face';
   onToggle: () => void;
   onChange: (value: string) => void;
-  onDownloadAndChange?: (value: string) => void;
 }) {
   const selected = options.find((option) => option.id === value);
+  const itemsPerPage = 16;
+  const totalPages = Math.max(1, Math.ceil(options.length / itemsPerPage));
+  const [page, setPage] = useState(0);
+  const visibleOptions = options.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+
+  const toggleMenu = () => {
+    setPage(0);
+    onToggle();
+  };
 
   return (
     <div className="relative">
@@ -173,41 +200,71 @@ function AppearanceImageMenu({
         disabled={disabled}
         onClick={(event) => {
           event.stopPropagation();
-          onToggle();
+          toggleMenu();
         }}
         className="flex h-5 items-center gap-0.5 rounded border border-purple-200 bg-white/80 px-1 text-[9px] text-[var(--text-secondary)] transition-colors hover:border-purple-400 disabled:cursor-not-allowed disabled:opacity-45 dark:border-purple-800 dark:bg-slate-900"
       >
-        <span>{label}</span><span className="max-w-[32px] truncate">{selected?.label}</span><ChevronDown className="h-2.5 w-2.5" />
+        <span>{label}</span>
+        <span className="max-w-[32px] truncate">{selected?.label}</span>
+        <ChevronDown className="h-2.5 w-2.5" />
       </button>
       {isOpen && !disabled && (
-        <div className="absolute left-0 top-[calc(100%+5px)] z-[120] grid w-40 grid-cols-2 gap-1 rounded-lg border border-purple-200 bg-[var(--card-bg)] p-1.5 shadow-xl dark:border-purple-800">
-          {options.map((option) => (
+        <div className="absolute left-0 top-[calc(100%+5px)] z-[120] w-[276px] rounded-lg border border-purple-200 bg-[var(--card-bg)] p-1.5 shadow-xl dark:border-purple-800">
+          <div className="grid grid-cols-4 gap-1">
+          {visibleOptions.map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                if (assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)] || !onDownloadAndChange) {
-                  onChange(option.id);
-                } else {
-                  onDownloadAndChange(option.id);
-                }
+                onChange(option.id);
               }}
-              disabled={downloading}
-              className={`relative overflow-hidden rounded-md border p-1 text-center transition-colors disabled:cursor-wait ${value === option.id ? 'border-purple-400 bg-purple-500/10 text-purple-600' : 'border-transparent hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-slate-800'}`}
+              className={`relative overflow-hidden rounded-md border p-1 text-center transition-colors ${value === option.id ? 'border-purple-400 bg-purple-500/10 text-purple-600' : 'border-transparent hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-slate-800'}`}
             >
-              {assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)] ? (
-                <img
-                  src={assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)]}
-                  alt={option.label}
-                  className="mx-auto h-14 w-full object-contain"
-                />
-              ) : (
-                <span className="mx-auto flex h-14 w-full items-center justify-center text-purple-400"><Download className="h-4 w-4" /></span>
-              )}
+              <img
+                src={
+                  assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)] ||
+                  getCharacterAppearanceAssetUrl(option.assetPath)
+                }
+                alt={option.label}
+                loading="lazy"
+                className={`mx-auto h-12 w-full ${
+                  thumbnailCrop === 'face'
+                    ? 'object-cover object-[center_7%]'
+                    : 'object-cover object-[center_8%]'
+                }`}
+              />
               <span className="mt-0.5 block truncate text-[9px] leading-3">{option.label}</span>
             </button>
           ))}
+          </div>
+          {totalPages > 1 && (
+            <div className="mt-1.5 flex items-center justify-between border-t border-purple-100 pt-1.5 text-[9px] text-[var(--text-secondary)] dark:border-purple-900">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPage((current) => Math.max(0, current - 1));
+                }}
+                className="rounded px-1.5 py-0.5 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-purple-900/30"
+              >
+                上一页
+              </button>
+              <span>{page + 1} / {totalPages}</span>
+              <button
+                type="button"
+                disabled={page >= totalPages - 1}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPage((current) => Math.min(totalPages - 1, current + 1));
+                }}
+                className="rounded px-1.5 py-0.5 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-purple-900/30"
+              >
+                下一页
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -232,38 +289,79 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const threeViewUrl = data.threeViewUrl;
   const tagSpriteUrl = data.tagSpriteUrl;
   const placeholderAvatarUrl = data.placeholderIdentityId || '';
-  const defaultAppearanceTemplate = !data.appearanceTemplate && !avatarUrl
-    ? createRandomAppearanceTemplate(id)
-    : undefined;
+  const defaultAppearanceTemplate =
+    !data.appearanceTemplate && !avatarUrl ? createRandomAppearanceTemplate(id) : undefined;
   const selectedAppearanceTemplate = data.appearanceTemplate || defaultAppearanceTemplate;
   const templateGender =
     selectedAppearanceTemplate?.gender === 'female' || selectedAppearanceTemplate?.gender === 'male'
       ? selectedAppearanceTemplate.gender
       : null;
   const templateCatalog = templateGender ? getCharacterAppearanceCatalog(templateGender) : null;
-  const templateAppearance = templateGender
-    ? createCharacterAppearance(templateGender, selectedAppearanceTemplate)
-    : null;
-  const appearanceAdjustment: AppearanceAdjustment = {
-    ...DEFAULT_APPEARANCE_ADJUSTMENT,
-    ...selectedAppearanceTemplate?.adjustment,
-  };
+  const templateAppearance = useMemo(
+    () =>
+      templateGender ? createCharacterAppearance(templateGender, selectedAppearanceTemplate) : null,
+    [
+      selectedAppearanceTemplate?.faceId,
+      selectedAppearanceTemplate?.hairId,
+      selectedAppearanceTemplate?.outfitId,
+      templateGender,
+    ],
+  );
+  const appearanceAdjustment: AppearanceAdjustment = useMemo(
+    () => ({
+      ...DEFAULT_APPEARANCE_ADJUSTMENT,
+      ...selectedAppearanceTemplate?.adjustment,
+    }),
+    [
+      selectedAppearanceTemplate?.adjustment?.hairScale,
+      selectedAppearanceTemplate?.adjustment?.hairX,
+      selectedAppearanceTemplate?.adjustment?.hairY,
+      selectedAppearanceTemplate?.adjustment?.spriteHeadScale,
+      selectedAppearanceTemplate?.adjustment?.spriteHeadX,
+      selectedAppearanceTemplate?.adjustment?.spriteHeadY,
+    ],
+  );
   const appearanceSpriteSignature = templateAppearance
     ? [
-      CHARACTER_APPEARANCE_SPRITE_VERSION,
-      templateAppearance.gender,
-      templateAppearance.faceId,
-      templateAppearance.hairId,
-      templateAppearance.outfitId,
-      appearanceAdjustment.hairX,
-      appearanceAdjustment.hairY,
-      appearanceAdjustment.hairScale,
-      appearanceAdjustment.spriteHeadX,
-      appearanceAdjustment.spriteHeadY,
-      appearanceAdjustment.spriteHeadScale,
-    ].join('|')
+        CHARACTER_APPEARANCE_SPRITE_VERSION,
+        templateAppearance.gender,
+        templateAppearance.faceId,
+        templateAppearance.hairId,
+        templateAppearance.outfitId,
+        appearanceAdjustment.hairX,
+        appearanceAdjustment.hairY,
+        appearanceAdjustment.hairScale,
+        appearanceAdjustment.spriteHeadX,
+        appearanceAdjustment.spriteHeadY,
+        appearanceAdjustment.spriteHeadScale,
+      ].join('|')
     : '';
-  const appearanceSourceUrls = templateAppearance ? getCharacterAppearanceAssetUrls(templateAppearance) : [];
+  const appearanceSourceUrls = useMemo(
+    () => (templateAppearance ? getCharacterAppearanceAssetUrls(templateAppearance) : []),
+    [appearanceSpriteSignature],
+  );
+  const presetCatalogSourceUrls = useMemo(
+    () =>
+      templateCatalog
+        ? [
+            ...templateCatalog.faces.map((item) => getCharacterAppearanceAssetUrl(item.assetPath)),
+            ...templateCatalog.hairs.flatMap((item) => [
+              getCharacterAppearanceAssetUrl(item.assetPath),
+              ...(item.backAssetPath ? [getCharacterAppearanceAssetUrl(item.backAssetPath)] : []),
+            ]),
+            ...templateCatalog.outfits.map((item) =>
+              getCharacterAppearanceAssetUrl(item.assetPath),
+            ),
+          ]
+        : appearanceSourceUrls,
+    [appearanceSourceUrls, templateGender],
+  );
+  const [presetEnabled, setPresetEnabled] = useState(() => !requiresPresetDownload());
+  const [presetDownloadState, setPresetDownloadState] = useState<'idle' | 'downloading' | 'paused'>(
+    'idle',
+  );
+  const [presetDownloadProgress, setPresetDownloadProgress] = useState({ completed: 0, total: 0 });
+  const presetDownloadAbortRef = useRef<AbortController | null>(null);
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
   const cardToolbarScale =
@@ -277,7 +375,10 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     {
       key: 'avatarUrl' as const,
       url: avatarUrl,
-      appearancePreviewMode: !avatarUrl && templateAppearance && templateCatalog?.installed ? 'portrait' as const : null,
+      appearancePreviewMode:
+        !avatarUrl && presetEnabled && templateAppearance && templateCatalog?.installed
+          ? ('portrait' as const)
+          : null,
       surfaceClass:
         'bg-gradient-to-b from-purple-50 via-white to-slate-50 dark:from-purple-950/40 dark:via-slate-950 dark:to-slate-900',
       label: lang === 'zh' ? '正面头像' : lang === 'ja' ? '正面ポートレート' : 'Front Portrait',
@@ -294,7 +395,10 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     {
       key: 'tagSpriteUrl' as const,
       url: tagSpriteUrl,
-      appearancePreviewMode: !tagSpriteUrl && templateAppearance && templateCatalog?.installed ? 'sprite' as const : null,
+      appearancePreviewMode:
+        !tagSpriteUrl && presetEnabled && templateAppearance && templateCatalog?.installed
+          ? ('sprite' as const)
+          : null,
       surfaceClass:
         'bg-[repeating-conic-gradient(#f8fafc_0%_25%,#e2e8f0_0%_50%)] bg-[length:12px_12px] dark:bg-[repeating-conic-gradient(#1e293b_0%_25%,#0f172a_0%_50%)]',
       label:
@@ -318,10 +422,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [previewAssetKey, setPreviewAssetKey] = useState<
     'avatarUrl' | 'threeViewUrl' | 'tagSpriteUrl' | null
   >(null);
-  const [openAppearanceMenu, setOpenAppearanceMenu] = useState<'faceId' | 'hairId' | 'outfitId' | 'calibration' | null>(null);
+  const [openAppearanceMenu, setOpenAppearanceMenu] = useState<
+    'faceId' | 'hairId' | 'outfitId' | 'calibration' | null
+  >(null);
   const [isAppearanceDemoOpen, setIsAppearanceDemoOpen] = useState(false);
   const [appearanceAssetUrls, setAppearanceAssetUrls] = useState<Record<string, string>>({});
-  const [isDownloadingAppearance, setIsDownloadingAppearance] = useState(false);
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
   const contentFrameRef = useRef<HTMLDivElement>(null);
@@ -329,7 +434,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     getCalculatedCharacterNodeMinHeight(0),
   );
   const previewAsset = characterAssetSlots.find((asset) => asset.key === previewAssetKey);
-  const hasDownloadedAppearance = !requiresPresetDownload() || appearanceSourceUrls.every((url) => Boolean(appearanceAssetUrls[url]));
 
   const storeApi = useStoreApi();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -511,25 +615,116 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
   useEffect(() => {
     let cancelled = false;
-    void getCachedPresetAssetUrls(appearanceSourceUrls).then((urls) => {
+    if (!presetEnabled) {
+      setAppearanceAssetUrls({});
+      return () => {
+        cancelled = true;
+      };
+    }
+    void getCachedPresetAssetUrls(presetCatalogSourceUrls).then((urls) => {
       if (!cancelled) setAppearanceAssetUrls(urls);
     });
-    return () => { cancelled = true; };
-  }, [appearanceSpriteSignature]);
+    return () => {
+      cancelled = true;
+    };
+  }, [appearanceSpriteSignature, presetCatalogSourceUrls, presetEnabled]);
 
   useEffect(() => {
-    if (!templateAppearance || tagSpriteUrl || !hasDownloadedAppearance) return;
-    if (data.appearanceSpriteUrl && data.appearanceSpriteSignature === appearanceSpriteSignature) return;
+    if (!presetEnabled || !templateAppearance || tagSpriteUrl) return;
+    if (data.appearanceSpriteUrl && data.appearanceSpriteSignature === appearanceSpriteSignature)
+      return;
     let cancelled = false;
-    renderCharacterAppearanceSpriteDataUrl(templateAppearance, appearanceAdjustment, appearanceAssetUrls).then((url) => {
+    renderCharacterAppearanceSpriteDataUrl(
+      templateAppearance,
+      appearanceAdjustment,
+      appearanceAssetUrls,
+    ).then((url) => {
       if (!cancelled && url) {
         updateNodeData({ appearanceSpriteUrl: url, appearanceSpriteSignature });
       }
     });
-    return () => { cancelled = true; };
-  }, [appearanceAdjustment, appearanceAssetUrls, appearanceSpriteSignature, data.appearanceSpriteSignature, data.appearanceSpriteUrl, hasDownloadedAppearance, tagSpriteUrl, templateAppearance, updateNodeData]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appearanceAdjustment,
+    appearanceAssetUrls,
+    appearanceSpriteSignature,
+    data.appearanceSpriteSignature,
+    data.appearanceSpriteUrl,
+    presetEnabled,
+    tagSpriteUrl,
+    templateAppearance,
+    updateNodeData,
+  ]);
 
-  const downloadAppearance = async (
+  const enablePresetAppearance = async () => {
+    if (presetEnabled || !templateAppearance) return;
+    if (!requiresPresetDownload()) {
+      setPresetEnabled(true);
+      return;
+    }
+
+    const controller = new AbortController();
+    presetDownloadAbortRef.current = controller;
+    setPresetDownloadState('downloading');
+    try {
+      const alreadyCached = await hasCachedPresetAssets(presetCatalogSourceUrls);
+      if (!alreadyCached) {
+        await cachePresetAssets(presetCatalogSourceUrls, {
+          signal: controller.signal,
+          onProgress: setPresetDownloadProgress,
+        });
+      } else {
+        setPresetDownloadProgress({
+          completed: presetCatalogSourceUrls.length,
+          total: presetCatalogSourceUrls.length,
+        });
+      }
+      setAppearanceAssetUrls(await getCachedPresetAssetUrls(presetCatalogSourceUrls));
+      setPresetEnabled(true);
+      setPresetDownloadState('idle');
+    } catch (error) {
+      if ((error as DOMException)?.name === 'AbortError') {
+        setPresetDownloadState('paused');
+        return;
+      }
+      console.error('Failed to enable character preset:', error);
+      setPresetDownloadState('idle');
+      showDialogAlert({
+        title: lang === 'zh' ? '启用失败' : 'Enable failed',
+        description:
+          lang === 'zh'
+            ? '人物预设素材下载失败，请检查网络后重试。'
+            : 'The character preset could not be downloaded. Please try again.',
+        tone: 'danger',
+      });
+    } finally {
+      presetDownloadAbortRef.current = null;
+    }
+  };
+
+  const pausePresetAppearanceDownload = () => presetDownloadAbortRef.current?.abort();
+
+  /** Disabling keeps the first-download cache, so re-enabling is immediate. */
+  const disablePresetAppearance = () => {
+    presetDownloadAbortRef.current?.abort();
+    setPresetEnabled(false);
+    setPresetDownloadState('idle');
+    setOpenAppearanceMenu(null);
+  };
+
+  const removePresetAppearance = async () => {
+    presetDownloadAbortRef.current?.abort();
+    await removeCachedPresetAssets(presetCatalogSourceUrls);
+    setAppearanceAssetUrls({});
+    setPresetEnabled(false);
+    setPresetDownloadState('idle');
+    setPresetDownloadProgress({ completed: 0, total: 0 });
+    updateNodeData({ appearanceSpriteUrl: undefined, appearanceSpriteSignature: undefined });
+  };
+
+  /* const downloadAppearance = async (
     nextSelection: Partial<Pick<NonNullable<CharacterNodeData['appearanceTemplate']>, 'faceId' | 'hairId' | 'outfitId'>> = {},
   ) => {
     if (!templateAppearance || isDownloadingAppearance) return;
@@ -562,7 +757,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     } finally {
       setIsDownloadingAppearance(false);
     }
-  };
+  }; */
 
   const selectAppearanceGender = (gender: CharacterAppearanceGender) => {
     const appearanceTemplate = createCharacterAppearance(gender);
@@ -1024,7 +1219,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       alt="Avatar"
                       className="w-full h-full object-cover bg-white"
                     />
-                  ) : templateAppearance && templateCatalog?.installed ? (
+                  ) : presetEnabled && templateAppearance && templateCatalog?.installed ? (
                     <CharacterAppearancePreview
                       appearance={templateAppearance}
                       assetUrlOverrides={appearanceAssetUrls}
@@ -1033,11 +1228,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <img
-                      src={placeholderAvatarUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                    placeholderAvatarUrl ? (
+                      <img src={placeholderAvatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserCircle2 className="h-7 w-7 text-purple-400" aria-label="人物头像占位" />
+                    )
                   )}
                 </div>
                 <div className="absolute inset-0 overflow-hidden rounded-lg bg-black/55 opacity-0 transition-opacity group-hover/avatar:opacity-100">
@@ -1131,56 +1326,164 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   />
                 </div>
                 <div className="nodrag mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-purple-600">
-                  {(['female', 'male'] as const).map((gender) => (
-                    <button
-                      key={gender}
-                      type="button"
-                      onClick={() => selectAppearanceGender(gender)}
-                      className={`rounded-md border px-1.5 py-0.5 transition-colors ${templateGender === gender ? 'border-purple-400 bg-purple-500 text-white' : 'border-purple-200 bg-white/70 text-purple-500 hover:bg-purple-50 dark:border-purple-800 dark:bg-slate-900/60'}`}
-                    >
-                      {gender === 'female' ? '女' : '男'}
-                    </button>
-                  ))}
-                  {templateCatalog && templateAppearance && (
+                  {presetEnabled &&
+                    (['female', 'male'] as const).map((gender) => (
+                      <button
+                        key={gender}
+                        type="button"
+                        onClick={() => selectAppearanceGender(gender)}
+                        className={`rounded-md border px-1.5 py-0.5 transition-colors ${templateGender === gender ? 'border-purple-400 bg-purple-500 text-white' : 'border-purple-200 bg-white/70 text-purple-500 hover:bg-purple-50 dark:border-purple-800 dark:bg-slate-900/60'}`}
+                      >
+                        {gender === 'female' ? '女' : '男'}
+                      </button>
+                    ))}
+                  {presetEnabled && templateCatalog && templateAppearance && (
                     <>
                       <AppearanceImageMenu
                         label="脑袋"
                         options={templateCatalog.faces}
                         value={templateAppearance.faceId}
                         isOpen={openAppearanceMenu === 'faceId'}
-                        disabled={!templateCatalog.installed}
+                        disabled={!templateCatalog.installed || !presetEnabled}
                         assetUrlBySource={appearanceAssetUrls}
-                        downloading={isDownloadingAppearance}
-                        onToggle={() => setOpenAppearanceMenu((current) => current === 'faceId' ? null : 'faceId')}
-                        onChange={(value) => { updateAppearanceTemplate('faceId', value); setOpenAppearanceMenu(null); }}
-                        onDownloadAndChange={(value) => { void downloadAppearance({ faceId: value }); setOpenAppearanceMenu(null); }}
+                        thumbnailCrop="face"
+                        onToggle={() =>
+                          setOpenAppearanceMenu((current) =>
+                            current === 'faceId' ? null : 'faceId',
+                          )
+                        }
+                        onChange={(value) => {
+                          updateAppearanceTemplate('faceId', value);
+                          setOpenAppearanceMenu(null);
+                        }}
                       />
                       <AppearanceImageMenu
                         label="发型"
                         options={templateCatalog.hairs}
                         value={templateAppearance.hairId}
                         isOpen={openAppearanceMenu === 'hairId'}
-                        disabled={!templateCatalog.installed}
+                        disabled={!templateCatalog.installed || !presetEnabled}
                         assetUrlBySource={appearanceAssetUrls}
-                        downloading={isDownloadingAppearance}
-                        onToggle={() => setOpenAppearanceMenu((current) => current === 'hairId' ? null : 'hairId')}
-                        onChange={(value) => { updateAppearanceTemplate('hairId', value); setOpenAppearanceMenu(null); }}
-                        onDownloadAndChange={(value) => { void downloadAppearance({ hairId: value }); setOpenAppearanceMenu(null); }}
+                        onToggle={() =>
+                          setOpenAppearanceMenu((current) =>
+                            current === 'hairId' ? null : 'hairId',
+                          )
+                        }
+                        onChange={(value) => {
+                          updateAppearanceTemplate('hairId', value);
+                          setOpenAppearanceMenu(null);
+                        }}
                       />
                       <AppearanceImageMenu
                         label="衣服"
                         options={templateCatalog.outfits}
                         value={templateAppearance.outfitId}
                         isOpen={openAppearanceMenu === 'outfitId'}
-                        disabled={!templateCatalog.installed}
+                        disabled={!templateCatalog.installed || !presetEnabled}
                         assetUrlBySource={appearanceAssetUrls}
-                        downloading={isDownloadingAppearance}
-                        onToggle={() => setOpenAppearanceMenu((current) => current === 'outfitId' ? null : 'outfitId')}
-                        onChange={(value) => { updateAppearanceTemplate('outfitId', value); setOpenAppearanceMenu(null); }}
-                        onDownloadAndChange={(value) => { void downloadAppearance({ outfitId: value }); setOpenAppearanceMenu(null); }}
+                        onToggle={() =>
+                          setOpenAppearanceMenu((current) =>
+                            current === 'outfitId' ? null : 'outfitId',
+                          )
+                        }
+                        onChange={(value) => {
+                          updateAppearanceTemplate('outfitId', value);
+                          setOpenAppearanceMenu(null);
+                        }}
                       />
-                      {!templateCatalog.installed && <span className="text-[9px] text-[var(--text-muted)]">素材待导入</span>}
+                      {presetEnabled ? (
+                        <button
+                          type="button"
+                          onClick={disablePresetAppearance}
+                          className="rounded px-1 text-[9px] text-[var(--text-muted)] hover:bg-[var(--app-bg)] hover:text-red-500"
+                        >
+                          关闭预设
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50/70 px-1.5 py-0.5 text-[9px] text-purple-600 dark:border-purple-800 dark:bg-purple-950/30">
+                          {presetDownloadState === 'downloading' ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <span>
+                                {presetDownloadProgress.completed}/
+                                {presetDownloadProgress.total || presetCatalogSourceUrls.length}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={pausePresetAppearanceDownload}
+                                className="rounded px-1 hover:bg-purple-100 dark:hover:bg-purple-900"
+                              >
+                                暂停
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void removePresetAppearance()}
+                                className="rounded px-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              >
+                                删除
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => void enablePresetAppearance()}
+                                className="rounded px-1 font-semibold hover:bg-purple-100 dark:hover:bg-purple-900"
+                              >
+                                {presetDownloadState === 'paused' ? '继续启用' : '启用预设'}
+                              </button>
+                              {presetDownloadState === 'paused' && (
+                                <button
+                                  type="button"
+                                  onClick={() => void removePresetAppearance()}
+                                  className="rounded px-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                >
+                                  删除
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {!templateCatalog.installed && (
+                        <span className="text-[9px] text-[var(--text-muted)]">素材待导入</span>
+                      )}
                     </>
+                  )}
+                  {!presetEnabled && templateCatalog && (
+                    <div className="nodrag mt-1 flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50/70 px-1.5 py-1 text-[9px] text-purple-600 dark:border-purple-800 dark:bg-purple-950/30">
+                      {presetDownloadState === 'downloading' ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>
+                            {presetDownloadProgress.completed}/
+                            {presetDownloadProgress.total || presetCatalogSourceUrls.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={pausePresetAppearanceDownload}
+                            className="rounded px-1 hover:bg-purple-100 dark:hover:bg-purple-900"
+                          >
+                            暂停
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void removePresetAppearance()}
+                            className="rounded px-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          >
+                            删除
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void enablePresetAppearance()}
+                          className="rounded px-1 font-semibold hover:bg-purple-100 dark:hover:bg-purple-900"
+                        >
+                          {presetDownloadState === 'paused' ? '继续启用' : '启用人物预设'}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1519,17 +1822,16 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                             className="h-full w-full object-contain drop-shadow-sm"
                           />
                         </button>
-                      ) : !hasDownloadedAppearance && templateAppearance ? (
-                        <button
-                          type="button"
-                          onClick={(event) => { event.stopPropagation(); void downloadAppearance(); }}
-                          disabled={isDownloadingAppearance}
-                          className="flex h-full w-full flex-col items-center justify-center gap-1 text-purple-500 transition-colors hover:bg-purple-500/10 disabled:cursor-wait disabled:opacity-60"
-                          title={lang === 'zh' ? '下载当前人物装配素材' : 'Download this character appearance'}
+                      ) : !presetEnabled && templateAppearance ? (
+                        <div
+                          className="flex h-full w-full flex-col items-center justify-center gap-1 text-purple-400/75"
+                          title={lang === 'zh' ? '请先在上方启用人物预设' : 'Enable the character preset above first'}
                         >
-                          {isDownloadingAppearance ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
-                          <span className="text-[9px]">{lang === 'zh' ? '下载素材' : 'Download'}</span>
-                        </button>
+                          <UserCircle2 className="h-5 w-5" />
+                          <span className="text-[9px]">
+                            {lang === 'zh' ? '启用后可用' : 'Available after enabling'}
+                          </span>
+                        </div>
                       ) : (
                         <label
                           className="flex h-full w-full cursor-pointer items-center justify-center text-purple-400 transition-colors hover:bg-purple-500/10"
@@ -1753,7 +2055,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
           </React.Fragment>
         ))}
 
-      {isAppearanceDemoOpen && <CharacterAppearanceDemo onClose={() => setIsAppearanceDemoOpen(false)} />}
+      {isAppearanceDemoOpen && (
+        <CharacterAppearanceDemo onClose={() => setIsAppearanceDemoOpen(false)} />
+      )}
 
       {/* Main Handles (only when not global) */}
       {!isGlobal && (

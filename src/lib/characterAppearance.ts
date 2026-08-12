@@ -9,14 +9,15 @@ export const CHARACTER_APPEARANCE_CANVAS = {
 
 /** Close, upper-body crop used by the square front-portrait card. */
 export const CHARACTER_APPEARANCE_PORTRAIT_CROP = {
-  x: 192,
-  y: 42,
-  width: 640,
-  height: 640,
+  x: 208,
+  y: 28,
+  width: 608,
+  height: 608,
 } as const;
 
 /** Bump this when the preset canvas/compositing contract changes. */
-export const CHARACTER_APPEARANCE_SPRITE_VERSION = 'preset-v2-1024x1820';
+export const CHARACTER_APPEARANCE_SPRITE_VERSION = 'preset-v4-1024x1820';
+const CHARACTER_APPEARANCE_ASSET_VERSION = '2026-08-12-v4';
 
 export type AppearanceOption = {
   id: string;
@@ -57,7 +58,12 @@ export type CharacterAppearanceCatalog = {
   outfits: AppearanceOption[];
 };
 
-const numberedOptions = (folder: string, prefix: string, count: number, label: string): AppearanceOption[] =>
+const numberedOptions = (
+  folder: string,
+  prefix: string,
+  count: number,
+  label: string,
+): AppearanceOption[] =>
   Array.from({ length: count }, (_, index) => {
     const number = index + 1;
     return {
@@ -78,23 +84,92 @@ const pairedHairOptions = (folder: string, count: number, label: string): Appear
     };
   });
 
+// The female source pack has two legacy, incomplete layers: hair3 only has a
+// front piece and hair4 only has a rear piece. Keep the usable single-layer
+// hair3 style, but do not expose hair4 as a selectable style because it cannot
+// produce a complete head.
+const femaleHairOptions: AppearanceOption[] = [
+  1,
+  2,
+  3,
+  5,
+  6,
+  7,
+  8,
+  9,
+].map((number) => ({
+  id: `hair${number}`,
+  label: `发型 ${number}`,
+  assetPath: `presets/characters/female/hair/hair${number}f.png`,
+  ...(number === 3
+    ? {}
+    : { backAssetPath: `presets/characters/female/hair/hair${number}b.png` }),
+}));
+
 export const DEMO_APPEARANCE_CATALOG: CharacterAppearanceCatalog = {
   characterId: 'avatar',
   gender: 'female',
   installed: true,
   assetRoot: 'presets/characters/female',
+  // Current full-canvas face layers. Retired smile/angry/sad files were
+  // removed, but their stale paths could still appear in browser caches.
   faces: [
-    { id: 'neutral', label: '\u5e73\u9759', assetPath: 'presets/characters/female/face/neutral.png' },
-    { id: 'smile', label: '\u5fae\u7b11', assetPath: 'presets/characters/female/face/smile.png' },
-    { id: 'angry', label: '\u751f\u6c14', assetPath: 'presets/characters/female/face/angry.png' },
-    { id: 'sad', label: '\u96be\u8fc7', assetPath: 'presets/characters/female/face/sad.png' },
+    {
+      id: 'neutral',
+      label: '\u5e73\u9759',
+      assetPath: 'presets/characters/female/face/neutral.png',
+    },
+    { id: 'face3', label: '\u9762\u90e8 2', assetPath: 'presets/characters/female/face/face3.png' },
+    { id: 'face4', label: '\u9762\u90e8 3', assetPath: 'presets/characters/female/face/face4.png' },
+    { id: 'face5', label: '\u9762\u90e8 4', assetPath: 'presets/characters/female/face/face5.png' },
+    {
+      id: 'face6',
+      label: '\u9762\u90e8 5',
+      assetPath: 'presets/characters/female/face/face6 2.png',
+    },
+    {
+      id: 'face7',
+      label: '\u9762\u90e8 6',
+      assetPath: 'presets/characters/female/face/face7 2.png',
+    },
+    {
+      id: 'face8',
+      label: '\u9762\u90e8 7',
+      assetPath: 'presets/characters/female/face/face8 2.png',
+    },
+    {
+      id: 'neutral3',
+      label: '\u9762\u90e8 8',
+      assetPath: 'presets/characters/female/face/neutral 3.png',
+    },
+    {
+      id: 'neutral4',
+      label: '\u9762\u90e8 9',
+      assetPath: 'presets/characters/female/face/neutral 4.png',
+    },
   ],
-  hairs: pairedHairOptions('presets/characters/female/hair', 9, '\u53d1\u578b'),
+  hairs: femaleHairOptions,
   outfits: [
-    { id: 'school', label: '\u6821\u670d', assetPath: 'presets/characters/female/cloth/school.png' },
-    { id: 'hoodie', label: '\u8fde\u5e3d\u886b', assetPath: 'presets/characters/female/cloth/hoodie.png' },
-    { id: 'jacket', label: '\u5939\u514b', assetPath: 'presets/characters/female/cloth/jacket.png' },
-    { id: 'knit', label: '\u9488\u7ec7\u886b', assetPath: 'presets/characters/female/cloth/knit.png' },
+    {
+      id: 'school',
+      label: '\u6821\u670d',
+      assetPath: 'presets/characters/female/cloth/school.png',
+    },
+    {
+      id: 'hoodie',
+      label: '\u8fde\u5e3d\u886b',
+      assetPath: 'presets/characters/female/cloth/hoodie.png',
+    },
+    {
+      id: 'jacket',
+      label: '\u5939\u514b',
+      assetPath: 'presets/characters/female/cloth/jacket.png',
+    },
+    {
+      id: 'knit',
+      label: '\u9488\u7ec7\u886b',
+      assetPath: 'presets/characters/female/cloth/knit.png',
+    },
     ...[1, 2, 3, 4, 5, 8, 9, 10, 11, 12].map((number) => ({
       id: `cloth${number}`,
       label: `\u670d\u88c5 ${number}`,
@@ -114,7 +189,10 @@ export const MALE_APPEARANCE_CATALOG: CharacterAppearanceCatalog = {
   outfits: numberedOptions('presets/characters/male/cloth', 'cloth', 9, '\u670d\u88c5'),
 };
 
-export const CHARACTER_APPEARANCE_CATALOGS: Record<CharacterAppearanceGender, CharacterAppearanceCatalog> = {
+export const CHARACTER_APPEARANCE_CATALOGS: Record<
+  CharacterAppearanceGender,
+  CharacterAppearanceCatalog
+> = {
   female: DEMO_APPEARANCE_CATALOG,
   male: MALE_APPEARANCE_CATALOG,
 };
@@ -154,7 +232,8 @@ export const createCharacterAppearance = (
   const catalog = getCharacterAppearanceCatalog(gender);
   const face = catalog.faces.find((option) => option.id === selection?.faceId) || catalog.faces[0];
   const hair = catalog.hairs.find((option) => option.id === selection?.hairId) || catalog.hairs[0];
-  const outfit = catalog.outfits.find((option) => option.id === selection?.outfitId) || catalog.outfits[0];
+  const outfit =
+    catalog.outfits.find((option) => option.id === selection?.outfitId) || catalog.outfits[0];
 
   return {
     characterId: catalog.characterId,
@@ -181,7 +260,7 @@ export type AppearanceLayer = {
 };
 
 export const getCharacterAppearanceAssetUrl = (assetPath: string) =>
-  `${import.meta.env.BASE_URL}${assetPath.replace(/^\/+/, '')}`;
+  `${import.meta.env.BASE_URL}${assetPath.replace(/^\/+/, '')}?v=${CHARACTER_APPEARANCE_ASSET_VERSION}`;
 
 /**
  * Modular PNGs share one coordinate space: back hair → clothing → head with
@@ -190,7 +269,12 @@ export const getCharacterAppearanceAssetUrl = (assetPath: string) =>
  */
 export const resolveAppearanceLayers = (appearance: CharacterAppearance): AppearanceLayer[] => [
   ...(appearance.backHairAssetPath
-    ? [{ id: 'backHair' as const, url: getCharacterAppearanceAssetUrl(appearance.backHairAssetPath) }]
+    ? [
+        {
+          id: 'backHair' as const,
+          url: getCharacterAppearanceAssetUrl(appearance.backHairAssetPath),
+        },
+      ]
     : []),
   { id: 'outfit', url: getCharacterAppearanceAssetUrl(appearance.outfitAssetPath) },
   { id: 'head', url: getCharacterAppearanceAssetUrl(appearance.faceAssetPath) },
