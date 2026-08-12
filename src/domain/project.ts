@@ -711,6 +711,8 @@ export interface CharacterNodeData extends BaseEditorNodeData {
       spriteHeadScale?: number;
     };
   };
+  /** Whether this character's modular preset is currently visible in presentations. */
+  appearancePresetEnabled?: boolean;
   identity?: string;
   appearance?: string;
   traits: string;

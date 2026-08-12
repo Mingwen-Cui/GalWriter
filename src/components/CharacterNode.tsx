@@ -42,7 +42,6 @@ import { createPortal } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { CharacterFlowNode, CharacterNodeData } from '../domain/project';
-import { CharacterAppearanceDemo } from './CharacterAppearanceDemo';
 import {
   CharacterAppearancePreview,
   renderCharacterAppearanceSpriteDataUrl,
@@ -182,7 +181,6 @@ function AppearanceImageMenu({
   onToggle: () => void;
   onChange: (value: string) => void;
 }) {
-  const selected = options.find((option) => option.id === value);
   const itemsPerPage = 16;
   const totalPages = Math.max(1, Math.ceil(options.length / itemsPerPage));
   const [page, setPage] = useState(0);
@@ -205,7 +203,6 @@ function AppearanceImageMenu({
         className="flex h-5 items-center gap-0.5 rounded border border-purple-200 bg-white/80 px-1 text-[9px] text-[var(--text-secondary)] transition-colors hover:border-purple-400 disabled:cursor-not-allowed disabled:opacity-45 dark:border-purple-800 dark:bg-slate-900"
       >
         <span>{label}</span>
-        <span className="max-w-[32px] truncate">{selected?.label}</span>
         <ChevronDown className="h-2.5 w-2.5" />
       </button>
       {isOpen && !disabled && (
@@ -228,10 +225,10 @@ function AppearanceImageMenu({
                 }
                 alt={option.label}
                 loading="lazy"
-                className={`mx-auto h-12 w-full ${
+                className={`mx-auto h-12 w-full origin-top object-cover object-top ${
                   thumbnailCrop === 'face'
-                    ? 'object-cover object-[center_7%]'
-                    : 'object-cover object-[center_8%]'
+                    ? 'scale-[2.25]'
+                    : 'scale-[1.7]'
                 }`}
               />
               <span className="mt-0.5 block truncate text-[9px] leading-3">{option.label}</span>
@@ -356,7 +353,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         : appearanceSourceUrls,
     [appearanceSourceUrls, templateGender],
   );
-  const [presetEnabled, setPresetEnabled] = useState(() => !requiresPresetDownload());
+  const [presetEnabled, setPresetEnabled] = useState(
+    () => data.appearancePresetEnabled ?? !requiresPresetDownload(),
+  );
   const [presetDownloadState, setPresetDownloadState] = useState<'idle' | 'downloading' | 'paused'>(
     'idle',
   );
@@ -425,7 +424,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [openAppearanceMenu, setOpenAppearanceMenu] = useState<
     'faceId' | 'hairId' | 'outfitId' | 'calibration' | null
   >(null);
-  const [isAppearanceDemoOpen, setIsAppearanceDemoOpen] = useState(false);
   const [appearanceAssetUrls, setAppearanceAssetUrls] = useState<Record<string, string>>({});
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
@@ -609,9 +607,18 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
   useEffect(() => {
     if (!data.appearanceTemplate && !avatarUrl && defaultAppearanceTemplate) {
-      updateNodeData({ appearanceTemplate: defaultAppearanceTemplate });
+      updateNodeData({
+        appearanceTemplate: defaultAppearanceTemplate,
+        appearancePresetEnabled: false,
+      });
     }
   }, [avatarUrl, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
+
+  useEffect(() => {
+    if (typeof data.appearancePresetEnabled === 'boolean') {
+      setPresetEnabled(data.appearancePresetEnabled);
+    }
+  }, [data.appearancePresetEnabled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -662,6 +669,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     if (presetEnabled || !templateAppearance) return;
     if (!requiresPresetDownload()) {
       setPresetEnabled(true);
+      updateNodeData({ appearancePresetEnabled: true });
       return;
     }
 
@@ -683,6 +691,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       }
       setAppearanceAssetUrls(await getCachedPresetAssetUrls(presetCatalogSourceUrls));
       setPresetEnabled(true);
+      updateNodeData({ appearancePresetEnabled: true });
       setPresetDownloadState('idle');
     } catch (error) {
       if ((error as DOMException)?.name === 'AbortError') {
@@ -710,6 +719,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const disablePresetAppearance = () => {
     presetDownloadAbortRef.current?.abort();
     setPresetEnabled(false);
+    updateNodeData({ appearancePresetEnabled: false });
     setPresetDownloadState('idle');
     setOpenAppearanceMenu(null);
   };
@@ -721,7 +731,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     setPresetEnabled(false);
     setPresetDownloadState('idle');
     setPresetDownloadProgress({ completed: 0, total: 0 });
-    updateNodeData({ appearanceSpriteUrl: undefined, appearanceSpriteSignature: undefined });
+    updateNodeData({
+      appearancePresetEnabled: false,
+      appearanceSpriteUrl: undefined,
+      appearanceSpriteSignature: undefined,
+    });
   };
 
   /* const downloadAppearance = async (
@@ -952,6 +966,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     if (!file) return;
     updateNodeData({ [assetKey]: URL.createObjectURL(file) } as Partial<CharacterNodeData>);
     event.target.value = '';
+  };
+
+  const removeCharacterAsset = (assetKey: 'avatarUrl' | 'threeViewUrl' | 'tagSpriteUrl') => {
+    updateNodeData({ [assetKey]: undefined } as Partial<CharacterNodeData>);
+    if (previewAssetKey === assetKey) setPreviewAssetKey(null);
   };
 
   const addOutfit = () => {
@@ -1326,21 +1345,35 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   />
                 </div>
                 <div className="nodrag mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-purple-600">
-                  {presetEnabled &&
-                    (['female', 'male'] as const).map((gender) => (
-                      <button
-                        key={gender}
-                        type="button"
-                        onClick={() => selectAppearanceGender(gender)}
-                        className={`rounded-md border px-1.5 py-0.5 transition-colors ${templateGender === gender ? 'border-purple-400 bg-purple-500 text-white' : 'border-purple-200 bg-white/70 text-purple-500 hover:bg-purple-50 dark:border-purple-800 dark:bg-slate-900/60'}`}
-                      >
-                        {gender === 'female' ? '女' : '男'}
-                      </button>
-                    ))}
+                  {presetEnabled && templateGender && (
+                    <div
+                      className="inline-flex h-5 overflow-hidden rounded border border-purple-200 bg-white/80 dark:border-purple-800 dark:bg-slate-900"
+                      role="group"
+                      aria-label={
+                        lang === 'zh' ? '角色性别' : lang === 'ja' ? 'キャラクターの性別' : 'Character gender'
+                      }
+                    >
+                      {(['male', 'female'] as const).map((gender) => (
+                        <button
+                          key={gender}
+                          type="button"
+                          onClick={() => selectAppearanceGender(gender)}
+                          aria-pressed={templateGender === gender}
+                          className={`px-1.5 text-[9px] transition-colors ${
+                            templateGender === gender
+                              ? 'bg-purple-500 text-white'
+                              : 'text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/50'
+                          }`}
+                        >
+                          {gender === 'male' ? '男' : '女'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {presetEnabled && templateCatalog && templateAppearance && (
                     <>
                       <AppearanceImageMenu
-                        label="脑袋"
+                        label={lang === 'zh' ? '脑袋' : lang === 'ja' ? '顔' : 'Face'}
                         options={templateCatalog.faces}
                         value={templateAppearance.faceId}
                         isOpen={openAppearanceMenu === 'faceId'}
@@ -1358,7 +1391,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         }}
                       />
                       <AppearanceImageMenu
-                        label="发型"
+                        label={lang === 'zh' ? '发型' : lang === 'ja' ? '髪型' : 'Hair'}
                         options={templateCatalog.hairs}
                         value={templateAppearance.hairId}
                         isOpen={openAppearanceMenu === 'hairId'}
@@ -1375,7 +1408,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         }}
                       />
                       <AppearanceImageMenu
-                        label="衣服"
+                        label={lang === 'zh' ? '衣服' : lang === 'ja' ? '服装' : 'Outfit'}
                         options={templateCatalog.outfits}
                         value={templateAppearance.outfitId}
                         isOpen={openAppearanceMenu === 'outfitId'}
@@ -1822,16 +1855,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                             className="h-full w-full object-contain drop-shadow-sm"
                           />
                         </button>
-                      ) : !presetEnabled && templateAppearance ? (
-                        <div
-                          className="flex h-full w-full flex-col items-center justify-center gap-1 text-purple-400/75"
-                          title={lang === 'zh' ? '请先在上方启用人物预设' : 'Enable the character preset above first'}
-                        >
-                          <UserCircle2 className="h-5 w-5" />
-                          <span className="text-[9px]">
-                            {lang === 'zh' ? '启用后可用' : 'Available after enabling'}
-                          </span>
-                        </div>
                       ) : (
                         <label
                           className="flex h-full w-full cursor-pointer items-center justify-center text-purple-400 transition-colors hover:bg-purple-500/10"
@@ -1846,17 +1869,17 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           />
                         </label>
                       )}
-                      {asset.key === 'avatarUrl' && !avatarUrl && (
+                      {asset.url && (
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setIsAppearanceDemoOpen(true);
+                            removeCharacterAsset(asset.key);
                           }}
-                          className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border border-white/70 bg-white/85 text-purple-500 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/90"
-                          title="角色装配 Demo"
+                          className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md border border-white/70 bg-white/85 text-red-500 shadow-sm transition-colors hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900/90 dark:hover:bg-red-950/40"
+                          title={lang === 'zh' ? `删除${asset.label}` : `Remove ${asset.label}`}
                         >
-                          <Dices className="h-3 w-3" />
+                          <Trash2 className="h-3 w-3" />
                         </button>
                       )}
                       {(asset.url || asset.appearancePreviewMode) && (
@@ -2054,10 +2077,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
             )}
           </React.Fragment>
         ))}
-
-      {isAppearanceDemoOpen && (
-        <CharacterAppearanceDemo onClose={() => setIsAppearanceDemoOpen(false)} />
-      )}
 
       {/* Main Handles (only when not global) */}
       {!isGlobal && (

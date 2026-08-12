@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import {
   type AppearanceAdjustment,
@@ -140,29 +140,57 @@ export function CharacterAppearancePreview({
   assetUrlOverrides,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const layers = useMemo(
-    () => resolveLayers(appearance, assetUrlOverrides),
-    [appearance, assetUrlOverrides],
-  );
+  const renderInputRef = useRef<{
+    appearance: CharacterAppearance;
+    adjustment: Partial<AppearanceAdjustment> | undefined;
+    layers: ReturnType<typeof resolveLayers>;
+    mode: NonNullable<Props['mode']>;
+  } | null>(null);
+  const layers = resolveLayers(appearance, assetUrlOverrides);
+  const renderSignature = [
+    mode,
+    ...layers.map((layer) => `${layer.id}:${layer.url}`),
+    appearance.faceTransform.offsetX,
+    appearance.faceTransform.offsetY,
+    appearance.faceTransform.scale,
+    adjustment?.hairX ?? '',
+    adjustment?.hairY ?? '',
+    adjustment?.hairScale ?? '',
+    adjustment?.spriteHeadX ?? '',
+    adjustment?.spriteHeadY ?? '',
+    adjustment?.spriteHeadScale ?? '',
+  ].join('|');
+  renderInputRef.current = { appearance, adjustment, layers, mode };
 
   useEffect(() => {
     let cancelled = false;
+    const renderInput = renderInputRef.current;
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d');
-    if (!canvas || !context) return;
+    if (!canvas || !context || !renderInput) return;
 
-    canvas.width = mode === 'portrait' ? 1024 : CHARACTER_APPEARANCE_CANVAS.width;
-    canvas.height = mode === 'portrait' ? 1024 : CHARACTER_APPEARANCE_CANVAS.height;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    Promise.allSettled(layers.map((layer) => loadImage(layer.url))).then((results) => {
-      if (!cancelled) drawAppearanceLayers(context, results, layers, appearance, adjustment, mode);
+    Promise.allSettled(renderInput.layers.map((layer) => loadImage(layer.url))).then((results) => {
+      if (cancelled) return;
+      // Do not clear the old drawing while assets are loading. This keeps a
+      // stable character image through editor and playtest re-renders.
+      canvas.width =
+        renderInput.mode === 'portrait' ? 1024 : CHARACTER_APPEARANCE_CANVAS.width;
+      canvas.height =
+        renderInput.mode === 'portrait' ? 1024 : CHARACTER_APPEARANCE_CANVAS.height;
+      drawAppearanceLayers(
+        context,
+        results,
+        renderInput.layers,
+        renderInput.appearance,
+        renderInput.adjustment,
+        renderInput.mode,
+      );
     });
 
     return () => {
       cancelled = true;
     };
-  }, [adjustment, appearance, layers, mode]);
+  }, [renderSignature]);
 
   return (
     <canvas

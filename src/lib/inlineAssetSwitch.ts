@@ -75,6 +75,7 @@ export const resolveCharacterTemplateAppearance = (
     : undefined;
   if (
     !data.appearanceTemplate ||
+    data.appearancePresetEnabled === false ||
     data.tagSpriteUrl ||
     data.avatarUrl ||
     selectedOutfit?.imageUrl ||
@@ -112,14 +113,18 @@ export const resolveCharacterImageUrl = (
     : undefined;
   if (selectedOutfit?.imageUrl) return selectedOutfit.imageUrl;
 
+  const userImageUrl =
+    data.tagSpriteUrl ||
+    data.outfits?.find((item) => item.imageUrl)?.imageUrl ||
+    data.avatarUrl;
+  if (userImageUrl) return userImageUrl;
+  if (data.appearancePresetEnabled === false) return undefined;
+
   const templateGender = data.appearanceTemplate?.gender === 'male' ? 'male' : 'female';
   const templateAppearance = createCharacterAppearance(templateGender, data.appearanceTemplate);
 
   return (
-    data.tagSpriteUrl ||
     data.appearanceSpriteUrl ||
-    data.outfits?.find((item) => item.imageUrl)?.imageUrl ||
-    data.avatarUrl ||
     getCharacterAppearanceAssetUrl(templateAppearance.outfitAssetPath)
   );
 };
