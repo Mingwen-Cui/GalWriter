@@ -5,10 +5,7 @@ import type {
   SceneNodeData,
   ScenePresentation,
 } from '../domain/project';
-import {
-  createCharacterAppearance,
-  getCharacterAppearanceAssetUrl,
-} from './characterAppearance';
+import { createCharacterAppearance, getCharacterAppearanceAssetUrl } from './characterAppearance';
 
 export type SwitchableAssetOption = {
   id: string;
@@ -59,6 +56,38 @@ export const characterSwitchOptions = (data: CharacterNodeData): SwitchableAsset
       label: outfit.name?.trim() || `Outfit ${index + 1}`,
       imageUrl: outfit.imageUrl,
     }));
+
+/**
+ * A modular preset has four layers, so it must be drawn as a composite rather
+ * than falling through to the clothing PNG. Custom cutouts always take
+ * precedence and continue to use their supplied single image.
+ */
+export const resolveCharacterTemplateAppearance = (
+  data: CharacterNodeData,
+  config: CharacterPresentation,
+  switchAction?: InlinePresentationAction | null,
+) => {
+  const targetAssetId = isSwitchInlineAction(switchAction)
+    ? switchAction.targetAssetId
+    : config.outfitId;
+  const selectedOutfit = targetAssetId
+    ? data.outfits?.find((item) => item.id === targetAssetId)
+    : undefined;
+  if (
+    !data.appearanceTemplate ||
+    data.tagSpriteUrl ||
+    data.avatarUrl ||
+    selectedOutfit?.imageUrl ||
+    data.outfits?.some((item) => item.imageUrl)
+  ) {
+    return null;
+  }
+
+  return createCharacterAppearance(
+    data.appearanceTemplate.gender === 'male' ? 'male' : 'female',
+    data.appearanceTemplate,
+  );
+};
 
 export const sceneSwitchOptions = (data: SceneNodeData): SwitchableAssetOption[] =>
   (data.images || [])

@@ -1,4 +1,4 @@
-import { BookOpen, BookmarkPlus, FilePenLine, Trash2, X } from 'lucide-react';
+import { BookOpen, BookmarkPlus, Download, FilePenLine, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type {
@@ -14,6 +14,7 @@ type SettingLibraryMenuProps = {
   presetItems?: SettingLibraryListItem[];
   onSave?: (mode: 'new' | 'update') => Promise<void> | void;
   onUse?: (itemId: string, source: SettingLibrarySource) => Promise<void> | void;
+  onDownloadPreset?: (itemId: string) => Promise<void> | void;
   onDelete?: (itemId: string) => Promise<void> | void;
 };
 
@@ -24,6 +25,7 @@ export function SettingLibraryMenu({
   presetItems = [],
   onSave,
   onUse,
+  onDownloadPreset,
   onDelete,
 }: SettingLibraryMenuProps) {
   const [open, setOpen] = useState(false);
@@ -145,12 +147,23 @@ export function SettingLibraryMenu({
                   <button
                     type="button"
                     onClick={() => void run(item.id, () => onUse?.(item.id, item.source))}
-                    disabled={!onUse || busyItemId !== null}
+                    disabled={!onUse || busyItemId !== null || (item.source === 'preset' && !item.downloaded)}
                     className={`shrink-0 rounded p-1 ${colorClass} ${hoverClass} disabled:cursor-wait disabled:opacity-50`}
                     title="使用此设定"
                   >
                     <FilePenLine className="h-3.5 w-3.5" />
                   </button>
+                  {item.source === 'preset' && !item.downloaded && (
+                    <button
+                      type="button"
+                      onClick={() => void run(item.id, () => onDownloadPreset?.(item.id))}
+                      disabled={!onDownloadPreset || busyItemId !== null}
+                      className={`shrink-0 rounded p-1 ${colorClass} ${hoverClass} disabled:cursor-wait disabled:opacity-50`}
+                      title="下载预设素材"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   {item.source === 'saved' && (
                     <button
                       type="button"

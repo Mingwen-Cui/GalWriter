@@ -649,6 +649,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     savedItems,
     savedListItems,
     saveSettingLibrary,
+    downloadSettingLibraryPreset,
     useSettingLibraryItem,
   } = useSettingLibrary({
     nodes,
@@ -2683,6 +2684,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       onGenerateSettingText: handleGenerateSettingText,
       onSaveSettingLibrary: saveSettingLibrary,
       onUseSettingLibrary: useSettingLibraryItem,
+      onDownloadSettingLibraryPreset: downloadSettingLibraryPreset,
       onDeleteSettingLibrary: deleteSettingLibrary,
       settingLibraryItems: savedListItems,
       settingLibraryPresets: presetListItems,

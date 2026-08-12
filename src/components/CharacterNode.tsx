@@ -40,14 +40,21 @@ import { useDialog } from '../editor-shell/DialogProvider';
 import { formatCharacterNodeText } from '../lib/export';
 import { Language, translations } from '../lib/i18n';
 import {
+  CHARACTER_APPEARANCE_SPRITE_VERSION,
   createCharacterAppearance,
   DEFAULT_APPEARANCE_ADJUSTMENT,
   getCharacterAppearanceAssetUrl,
+  getCharacterAppearanceAssetUrls,
   getCharacterAppearanceCatalog,
   type AppearanceAdjustment,
   type CharacterAppearanceGender,
 } from '../lib/characterAppearance';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
+import {
+  cachePresetAssets,
+  getCachedPresetAssetUrls,
+  requiresPresetDownload,
+} from '../lib/presetAssetCache';
 import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
 import { SettingLibraryMenu } from './SettingLibraryMenu';
 
@@ -140,6 +147,9 @@ function AppearanceImageMenu({
   value,
   isOpen,
   disabled,
+  assetUrlBySource = {},
+  downloading,
+  onDownloadAndChange,
   onToggle,
   onChange,
 }: {
@@ -148,8 +158,11 @@ function AppearanceImageMenu({
   value: string;
   isOpen: boolean;
   disabled?: boolean;
+  assetUrlBySource?: Record<string, string>;
+  downloading?: boolean;
   onToggle: () => void;
   onChange: (value: string) => void;
+  onDownloadAndChange?: (value: string) => void;
 }) {
   const selected = options.find((option) => option.id === value);
 
@@ -174,15 +187,24 @@ function AppearanceImageMenu({
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                onChange(option.id);
+                if (assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)] || !onDownloadAndChange) {
+                  onChange(option.id);
+                } else {
+                  onDownloadAndChange(option.id);
+                }
               }}
-              className={`overflow-hidden rounded-md border p-1 text-center transition-colors ${value === option.id ? 'border-purple-400 bg-purple-500/10 text-purple-600' : 'border-transparent hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-slate-800'}`}
+              disabled={downloading}
+              className={`relative overflow-hidden rounded-md border p-1 text-center transition-colors disabled:cursor-wait ${value === option.id ? 'border-purple-400 bg-purple-500/10 text-purple-600' : 'border-transparent hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-slate-800'}`}
             >
-              <img
-                src={getCharacterAppearanceAssetUrl(option.assetPath)}
-                alt={option.label}
-                className="mx-auto h-14 w-full object-contain"
-              />
+              {assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)] ? (
+                <img
+                  src={assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)]}
+                  alt={option.label}
+                  className="mx-auto h-14 w-full object-contain"
+                />
+              ) : (
+                <span className="mx-auto flex h-14 w-full items-center justify-center text-purple-400"><Download className="h-4 w-4" /></span>
+              )}
               <span className="mt-0.5 block truncate text-[9px] leading-3">{option.label}</span>
             </button>
           ))}
@@ -209,6 +231,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const avatarUrl = data.avatarUrl;
   const threeViewUrl = data.threeViewUrl;
   const tagSpriteUrl = data.tagSpriteUrl;
+  const placeholderAvatarUrl = data.placeholderIdentityId || '';
   const defaultAppearanceTemplate = !data.appearanceTemplate && !avatarUrl
     ? createRandomAppearanceTemplate(id)
     : undefined;
@@ -227,6 +250,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   };
   const appearanceSpriteSignature = templateAppearance
     ? [
+      CHARACTER_APPEARANCE_SPRITE_VERSION,
       templateAppearance.gender,
       templateAppearance.faceId,
       templateAppearance.hairId,
@@ -239,6 +263,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       appearanceAdjustment.spriteHeadScale,
     ].join('|')
     : '';
+  const appearanceSourceUrls = templateAppearance ? getCharacterAppearanceAssetUrls(templateAppearance) : [];
   const isAssistantCandidate = Boolean(data.assistantCandidateKind);
   const isGlobal = data.isGlobal !== false; // Default to true
   const cardToolbarScale =
@@ -295,6 +320,8 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   >(null);
   const [openAppearanceMenu, setOpenAppearanceMenu] = useState<'faceId' | 'hairId' | 'outfitId' | 'calibration' | null>(null);
   const [isAppearanceDemoOpen, setIsAppearanceDemoOpen] = useState(false);
+  const [appearanceAssetUrls, setAppearanceAssetUrls] = useState<Record<string, string>>({});
+  const [isDownloadingAppearance, setIsDownloadingAppearance] = useState(false);
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
   const contentFrameRef = useRef<HTMLDivElement>(null);
@@ -302,6 +329,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     getCalculatedCharacterNodeMinHeight(0),
   );
   const previewAsset = characterAssetSlots.find((asset) => asset.key === previewAssetKey);
+  const hasDownloadedAppearance = !requiresPresetDownload() || appearanceSourceUrls.every((url) => Boolean(appearanceAssetUrls[url]));
 
   const storeApi = useStoreApi();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -482,16 +510,59 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   }, [avatarUrl, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
 
   useEffect(() => {
-    if (!templateAppearance || tagSpriteUrl) return;
+    let cancelled = false;
+    void getCachedPresetAssetUrls(appearanceSourceUrls).then((urls) => {
+      if (!cancelled) setAppearanceAssetUrls(urls);
+    });
+    return () => { cancelled = true; };
+  }, [appearanceSpriteSignature]);
+
+  useEffect(() => {
+    if (!templateAppearance || tagSpriteUrl || !hasDownloadedAppearance) return;
     if (data.appearanceSpriteUrl && data.appearanceSpriteSignature === appearanceSpriteSignature) return;
     let cancelled = false;
-    renderCharacterAppearanceSpriteDataUrl(templateAppearance, appearanceAdjustment).then((url) => {
+    renderCharacterAppearanceSpriteDataUrl(templateAppearance, appearanceAdjustment, appearanceAssetUrls).then((url) => {
       if (!cancelled && url) {
         updateNodeData({ appearanceSpriteUrl: url, appearanceSpriteSignature });
       }
     });
     return () => { cancelled = true; };
-  }, [appearanceAdjustment, appearanceSpriteSignature, data.appearanceSpriteSignature, data.appearanceSpriteUrl, tagSpriteUrl, templateAppearance, updateNodeData]);
+  }, [appearanceAdjustment, appearanceAssetUrls, appearanceSpriteSignature, data.appearanceSpriteSignature, data.appearanceSpriteUrl, hasDownloadedAppearance, tagSpriteUrl, templateAppearance, updateNodeData]);
+
+  const downloadAppearance = async (
+    nextSelection: Partial<Pick<NonNullable<CharacterNodeData['appearanceTemplate']>, 'faceId' | 'hairId' | 'outfitId'>> = {},
+  ) => {
+    if (!templateAppearance || isDownloadingAppearance) return;
+    const nextAppearance = createCharacterAppearance(templateAppearance.gender, {
+      faceId: nextSelection.faceId || templateAppearance.faceId,
+      hairId: nextSelection.hairId || templateAppearance.hairId,
+      outfitId: nextSelection.outfitId || templateAppearance.outfitId,
+    });
+    setIsDownloadingAppearance(true);
+    try {
+      const sourceUrls = getCharacterAppearanceAssetUrls(nextAppearance);
+      await cachePresetAssets(sourceUrls);
+      setAppearanceAssetUrls(await getCachedPresetAssetUrls(sourceUrls));
+      updateNodeData({
+        appearanceTemplate: {
+          gender: nextAppearance.gender,
+          faceId: nextAppearance.faceId,
+          hairId: nextAppearance.hairId,
+          outfitId: nextAppearance.outfitId,
+          adjustment: appearanceAdjustment,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to download character appearance:', error);
+      showDialogAlert({
+        title: lang === 'zh' ? '下载失败' : 'Download failed',
+        description: lang === 'zh' ? '人物素材下载失败，请检查网络后重试。' : 'Character asset download failed. Please check your connection.',
+        tone: 'danger',
+      });
+    } finally {
+      setIsDownloadingAppearance(false);
+    }
+  };
 
   const selectAppearanceGender = (gender: CharacterAppearanceGender) => {
     const appearanceTemplate = createCharacterAppearance(gender);
@@ -885,6 +956,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
               onUse={(itemId, source) =>
                 data.onUseSettingLibrary?.(id, 'character', itemId, source)
               }
+              onDownloadPreset={(itemId) => data.onDownloadSettingLibraryPreset?.(itemId)}
               onDelete={(itemId) => data.onDeleteSettingLibrary?.(itemId)}
             />
             <button
@@ -955,6 +1027,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   ) : templateAppearance && templateCatalog?.installed ? (
                     <CharacterAppearancePreview
                       appearance={templateAppearance}
+                      assetUrlOverrides={appearanceAssetUrls}
                       mode="portrait"
                       adjustment={appearanceAdjustment}
                       className="h-full w-full object-cover"
@@ -1071,13 +1144,16 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   {templateCatalog && templateAppearance && (
                     <>
                       <AppearanceImageMenu
-                        label="表情"
+                        label="脑袋"
                         options={templateCatalog.faces}
                         value={templateAppearance.faceId}
                         isOpen={openAppearanceMenu === 'faceId'}
                         disabled={!templateCatalog.installed}
+                        assetUrlBySource={appearanceAssetUrls}
+                        downloading={isDownloadingAppearance}
                         onToggle={() => setOpenAppearanceMenu((current) => current === 'faceId' ? null : 'faceId')}
                         onChange={(value) => { updateAppearanceTemplate('faceId', value); setOpenAppearanceMenu(null); }}
+                        onDownloadAndChange={(value) => { void downloadAppearance({ faceId: value }); setOpenAppearanceMenu(null); }}
                       />
                       <AppearanceImageMenu
                         label="发型"
@@ -1085,8 +1161,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         value={templateAppearance.hairId}
                         isOpen={openAppearanceMenu === 'hairId'}
                         disabled={!templateCatalog.installed}
+                        assetUrlBySource={appearanceAssetUrls}
+                        downloading={isDownloadingAppearance}
                         onToggle={() => setOpenAppearanceMenu((current) => current === 'hairId' ? null : 'hairId')}
                         onChange={(value) => { updateAppearanceTemplate('hairId', value); setOpenAppearanceMenu(null); }}
+                        onDownloadAndChange={(value) => { void downloadAppearance({ hairId: value }); setOpenAppearanceMenu(null); }}
                       />
                       <AppearanceImageMenu
                         label="衣服"
@@ -1094,41 +1173,12 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         value={templateAppearance.outfitId}
                         isOpen={openAppearanceMenu === 'outfitId'}
                         disabled={!templateCatalog.installed}
+                        assetUrlBySource={appearanceAssetUrls}
+                        downloading={isDownloadingAppearance}
                         onToggle={() => setOpenAppearanceMenu((current) => current === 'outfitId' ? null : 'outfitId')}
                         onChange={(value) => { updateAppearanceTemplate('outfitId', value); setOpenAppearanceMenu(null); }}
+                        onDownloadAndChange={(value) => { void downloadAppearance({ outfitId: value }); setOpenAppearanceMenu(null); }}
                       />
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setOpenAppearanceMenu((current) => current === 'calibration' ? null : 'calibration')}
-                          className={`h-5 rounded border px-1 text-[9px] transition-colors ${openAppearanceMenu === 'calibration' ? 'border-purple-400 bg-purple-500/10 text-purple-700' : 'border-purple-200 bg-white/80 text-[var(--text-secondary)] hover:border-purple-400 dark:border-purple-800 dark:bg-slate-900'}`}
-                        >
-                          微调
-                        </button>
-                        {openAppearanceMenu === 'calibration' && (
-                          <div className="absolute left-0 top-[calc(100%+5px)] z-[120] w-48 rounded-lg border border-purple-200 bg-[var(--card-bg)] p-2 shadow-xl dark:border-purple-800">
-                            <div className="mb-1 text-[10px] font-bold text-purple-600">发型相对脸部</div>
-                            <div className="grid grid-cols-2 gap-1">
-                              <NumberField label="X（px）" value={appearanceAdjustment.hairX} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('hairX', value)} />
-                              <NumberField label="Y（px）" value={appearanceAdjustment.hairY} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('hairY', value)} />
-                              <NumberField label="缩放（%）" value={appearanceAdjustment.hairScale} min={50} max={160} onChange={(value) => updateAppearanceAdjustment('hairScale', value)} />
-                            </div>
-                            <div className="mb-1 mt-2 text-[10px] font-bold text-purple-600">透明立绘头部</div>
-                            <div className="grid grid-cols-2 gap-1">
-                              <NumberField label="X（px）" value={appearanceAdjustment.spriteHeadX} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('spriteHeadX', value)} />
-                              <NumberField label="Y（px）" value={appearanceAdjustment.spriteHeadY} min={-240} max={240} onChange={(value) => updateAppearanceAdjustment('spriteHeadY', value)} />
-                              <NumberField label="缩放（%）" value={appearanceAdjustment.spriteHeadScale} min={50} max={160} onChange={(value) => updateAppearanceAdjustment('spriteHeadScale', value)} />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => updateNodeData({ appearanceTemplate: { gender: templateAppearance.gender, faceId: templateAppearance.faceId, hairId: templateAppearance.hairId, outfitId: templateAppearance.outfitId } })}
-                              className="mt-2 w-full rounded border border-purple-200 py-1 text-[9px] text-purple-600 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-slate-800"
-                            >
-                              重置数字
-                            </button>
-                          </div>
-                        )}
-                      </div>
                       {!templateCatalog.installed && <span className="text-[9px] text-[var(--text-muted)]">素材待导入</span>}
                     </>
                   )}
@@ -1447,6 +1497,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         <div className="nodrag flex h-full w-full items-center justify-center p-1.5">
                           <CharacterAppearancePreview
                             appearance={templateAppearance!}
+                            assetUrlOverrides={appearanceAssetUrls}
                             mode={asset.appearancePreviewMode}
                             adjustment={appearanceAdjustment}
                             className="h-full w-full object-contain drop-shadow-sm"
@@ -1467,6 +1518,17 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                             alt={asset.label}
                             className="h-full w-full object-contain drop-shadow-sm"
                           />
+                        </button>
+                      ) : !hasDownloadedAppearance && templateAppearance ? (
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); void downloadAppearance(); }}
+                          disabled={isDownloadingAppearance}
+                          className="flex h-full w-full flex-col items-center justify-center gap-1 text-purple-500 transition-colors hover:bg-purple-500/10 disabled:cursor-wait disabled:opacity-60"
+                          title={lang === 'zh' ? '下载当前人物装配素材' : 'Download this character appearance'}
+                        >
+                          {isDownloadingAppearance ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+                          <span className="text-[9px]">{lang === 'zh' ? '下载素材' : 'Download'}</span>
                         </button>
                       ) : (
                         <label

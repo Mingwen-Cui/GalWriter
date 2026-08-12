@@ -57,11 +57,13 @@ import type {
   StoryFlowNode,
   StoryNodeData,
 } from '../domain/project';
+import { CharacterAppearancePreview } from './CharacterAppearancePreview';
 import { useDialog } from '../editor-shell/DialogProvider';
 import { Language, translations } from '../lib/i18n';
 import {
   characterSwitchOptions,
   getInlineSwitchAction,
+  resolveCharacterTemplateAppearance,
   resolveCharacterImageUrl,
   resolveSceneMedia,
   sceneSwitchOptions,
@@ -330,6 +332,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             return {
               config,
               imageUrl: characterImageUrl,
+              appearance: resolveCharacterTemplateAppearance(characterData, config),
               data: characterData,
               name: characterData.characterName,
             };
@@ -337,6 +340,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           .filter(Boolean) as {
           config: CharacterPresentation;
           imageUrl: string;
+          appearance: ReturnType<typeof resolveCharacterTemplateAppearance>;
           data: CharacterNodeData;
           name: string;
         }[],
@@ -2966,7 +2970,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   />
                 )}
                 {presentedCharacters.map(
-                  ({ config, imageUrl: characterImageUrl, data: characterData, name }) => {
+                  ({ config, imageUrl: characterImageUrl, appearance, data: characterData, name }) => {
                     const previewMatches =
                       presentationPreview?.kind === 'character' &&
                       presentationPreview.sourceNodeId === config.sourceNodeId;
@@ -2979,32 +2983,43 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         config,
                         inlinePreviewSwitchFor('character', config.sourceNodeId),
                       ) || characterImageUrl;
-                    return (
+                    const style = {
+                      ...getCharacterStageBounds(config),
+                      zIndex: clampCharacterLayer(config.layer),
+                      opacity: animated && motion.type === 'fade' ? 0 : 1,
+                      transform: `translate(-50%, 0) ${
+                        animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
+                      } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlinePreviewTransformFor(
+                        'character',
+                        config.sourceNodeId,
+                      )}`,
+                      transformOrigin: 'bottom center',
+                      transition:
+                        previewMatches && motion.type !== 'none' && motion.duration > 0
+                          ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
+                          : inlinePreviewDurationFor('character', config.sourceNodeId)
+                            ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
+                            : undefined,
+                      animation: inlinePreviewAnimationFor('character', config.sourceNodeId),
+                      ...inlinePreviewCssVarsFor('character', config.sourceNodeId),
+                    };
+                    const key = `${config.sourceNodeId}-${presentationPreview?.nonce || 0}-${inlinePreviewNonceFor('character', config.sourceNodeId)}`;
+                    return appearance ? (
+                      <CharacterAppearancePreview
+                        key={key}
+                        appearance={appearance}
+                        adjustment={characterData.appearanceTemplate?.adjustment}
+                        mode="sprite"
+                        className="absolute w-auto object-contain object-bottom"
+                        style={style}
+                      />
+                    ) : (
                       <img
-                        key={`${config.sourceNodeId}-${presentationPreview?.nonce || 0}-${inlinePreviewNonceFor('character', config.sourceNodeId)}`}
+                        key={key}
                         src={previewImageUrl}
                         alt={name}
                         className="absolute w-auto object-contain object-bottom"
-                        style={{
-                          ...getCharacterStageBounds(config),
-                          zIndex: clampCharacterLayer(config.layer),
-                          opacity: animated && motion.type === 'fade' ? 0 : 1,
-                          transform: `translate(-50%, 0) ${
-                            animated ? getPresentationTransform(motion.type, phase === 'exit') : ''
-                          } scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlinePreviewTransformFor(
-                            'character',
-                            config.sourceNodeId,
-                          )}`,
-                          transformOrigin: 'bottom center',
-                          transition:
-                            previewMatches && motion.type !== 'none' && motion.duration > 0
-                              ? `transform ${motion.duration}ms ease, opacity ${motion.duration}ms ease`
-                              : inlinePreviewDurationFor('character', config.sourceNodeId)
-                                ? `transform ${inlinePreviewDurationFor('character', config.sourceNodeId)}ms ease`
-                                : undefined,
-                          animation: inlinePreviewAnimationFor('character', config.sourceNodeId),
-                          ...inlinePreviewCssVarsFor('character', config.sourceNodeId),
-                        }}
+                        style={style}
                       />
                     );
                   },

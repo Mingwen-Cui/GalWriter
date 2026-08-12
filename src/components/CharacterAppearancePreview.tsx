@@ -1,84 +1,149 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 
 import {
-  CHARACTER_APPEARANCE_CANVAS,
-  DEFAULT_APPEARANCE_ADJUSTMENT,
   type AppearanceAdjustment,
+  CHARACTER_APPEARANCE_CANVAS,
+  CHARACTER_APPEARANCE_PORTRAIT_CROP,
   type CharacterAppearance,
+  DEFAULT_APPEARANCE_ADJUSTMENT,
   resolveAppearanceLayers,
 } from '../lib/characterAppearance';
 
 type Props = {
   appearance: CharacterAppearance;
   className?: string;
-  /** A square face crop for compact card avatars. */
+  style?: React.CSSProperties;
+  /** Browser preset assets are object URLs only after the user downloads them. */
+  assetUrlOverrides?: Record<string, string>;
+  /** A square, upper-body crop for compact card avatars. */
   mode?: 'full' | 'portrait' | 'sprite';
   adjustment?: Partial<AppearanceAdjustment>;
 };
 
-const loadImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
-  const image = new Image();
-  image.onload = () => resolve(image);
-  image.onerror = () => reject(new Error(url));
-  image.src = url;
-});
+const loadImage = (url: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(url));
+    image.src = url;
+  });
+
+const drawAppearanceLayers = (
+  context: CanvasRenderingContext2D,
+  results: PromiseSettledResult<HTMLImageElement>[],
+  layers: ReturnType<typeof resolveAppearanceLayers>,
+  appearance: CharacterAppearance,
+  adjustment: Partial<AppearanceAdjustment> | undefined,
+  mode: NonNullable<Props['mode']>,
+) => {
+  const calibrated = { ...DEFAULT_APPEARANCE_ADJUSTMENT, ...adjustment };
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled') return;
+    const layer = layers[index];
+    const isHair = layer.id === 'backHair' || layer.id === 'frontHair';
+    const isHead = layer.id === 'head';
+    if (mode === 'portrait') {
+      const crop = CHARACTER_APPEARANCE_PORTRAIT_CROP;
+      const cropScale = context.canvas.width / crop.width;
+      const scale = isHair
+        ? calibrated.hairScale / 100
+        : isHead
+          ? appearance.faceTransform.scale * (calibrated.spriteHeadScale / 100)
+          : 1;
+      const offsetX = isHair
+        ? calibrated.hairX
+        : isHead
+          ? appearance.faceTransform.offsetX + calibrated.spriteHeadX
+          : 0;
+      const offsetY = isHair
+        ? calibrated.hairY
+        : isHead
+          ? appearance.faceTransform.offsetY + calibrated.spriteHeadY
+          : 0;
+      if (isHair || isHead) {
+        context.save();
+        context.translate(offsetX * cropScale, offsetY * cropScale);
+        context.translate(context.canvas.width / 2, context.canvas.height / 2);
+        context.scale(scale, scale);
+        context.translate(-context.canvas.width / 2, -context.canvas.height / 2);
+      }
+      context.drawImage(
+        result.value,
+        crop.x,
+        crop.y,
+        crop.width,
+        crop.height,
+        0,
+        0,
+        context.canvas.width,
+        context.canvas.height,
+      );
+      if (isHair || isHead) context.restore();
+      return;
+    }
+    if (isHair || isHead) {
+      const scale = isHair
+        ? calibrated.hairScale / 100
+        : appearance.faceTransform.scale * (calibrated.spriteHeadScale / 100);
+      const offsetX = isHair
+        ? calibrated.hairX
+        : appearance.faceTransform.offsetX + calibrated.spriteHeadX;
+      const offsetY = isHair
+        ? calibrated.hairY
+        : appearance.faceTransform.offsetY + calibrated.spriteHeadY;
+      context.save();
+      context.translate(offsetX, offsetY);
+      context.translate(context.canvas.width / 2, context.canvas.height / 2);
+      context.scale(scale, scale);
+      context.translate(-context.canvas.width / 2, -context.canvas.height / 2);
+      context.drawImage(result.value, 0, 0, context.canvas.width, context.canvas.height);
+      context.restore();
+      return;
+    }
+    context.drawImage(result.value, 0, 0, context.canvas.width, context.canvas.height);
+  });
+};
+
+const resolveLayers = (
+  appearance: CharacterAppearance,
+  assetUrlOverrides?: Record<string, string>,
+) =>
+  resolveAppearanceLayers(appearance).map((layer) => ({
+    ...layer,
+    url: assetUrlOverrides?.[layer.url] || layer.url,
+  }));
 
 export const renderCharacterAppearanceSpriteDataUrl = async (
   appearance: CharacterAppearance,
   adjustment?: Partial<AppearanceAdjustment>,
+  assetUrlOverrides?: Record<string, string>,
 ) => {
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1536;
+  canvas.width = CHARACTER_APPEARANCE_CANVAS.width;
+  canvas.height = CHARACTER_APPEARANCE_CANVAS.height;
   const context = canvas.getContext('2d');
   if (!context) return undefined;
 
-  const calibrated = { ...DEFAULT_APPEARANCE_ADJUSTMENT, ...adjustment };
-  const layers = resolveAppearanceLayers(appearance).sort((left, right) => {
-    const order = { outfit: 0, face: 1, hair: 2 } as const;
-    return order[left.id] - order[right.id];
-  });
+  const layers = resolveLayers(appearance, assetUrlOverrides);
   const results = await Promise.allSettled(layers.map((layer) => loadImage(layer.url)));
-
-  results.forEach((result, index) => {
-    if (result.status !== 'fulfilled') return;
-    const layer = layers[index];
-    if (layer.id === 'outfit') {
-      context.drawImage(result.value, 0, 0, canvas.width, canvas.height);
-      return;
-    }
-    const cropSize = Math.min(result.value.naturalWidth, result.value.naturalHeight);
-    const headSize = 340 * (calibrated.spriteHeadScale / 100);
-    const isHair = layer.id === 'hair';
-    const hairOffsetRatio = headSize / (canvas.width * 0.78);
-    context.drawImage(
-      result.value,
-      (result.value.naturalWidth - cropSize) / 2,
-      0,
-      cropSize,
-      cropSize,
-      (canvas.width - headSize) / 2 + calibrated.spriteHeadX + (isHair ? calibrated.hairX * hairOffsetRatio : 0),
-      -30 + calibrated.spriteHeadY + (isHair ? calibrated.hairY * hairOffsetRatio : 0),
-      headSize * (isHair ? calibrated.hairScale / 100 : 1),
-      headSize * (isHair ? calibrated.hairScale / 100 : 1),
-    );
-  });
-
+  drawAppearanceLayers(context, results, layers, appearance, adjustment, 'sprite');
   return canvas.toDataURL('image/png');
 };
 
 /** Renders the selected face, body and hair as one transparent appearance. */
-export function CharacterAppearancePreview({ appearance, className, mode = 'full', adjustment }: Props) {
+export function CharacterAppearancePreview({
+  appearance,
+  className,
+  style,
+  mode = 'full',
+  adjustment,
+  assetUrlOverrides,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const layers = useMemo(() => {
-    const allLayers = resolveAppearanceLayers(appearance);
-    if (mode === 'portrait') return allLayers.filter((layer) => layer.id !== 'outfit');
-    if (mode === 'sprite') return [...allLayers].sort((left, right) => {
-      const order = { outfit: 0, face: 1, hair: 2 } as const;
-      return order[left.id] - order[right.id];
-    });
-    return allLayers;
-  }, [appearance, mode]);
+  const layers = useMemo(
+    () => resolveLayers(appearance, assetUrlOverrides),
+    [appearance, assetUrlOverrides],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -86,74 +151,25 @@ export function CharacterAppearancePreview({ appearance, className, mode = 'full
     const context = canvas?.getContext('2d');
     if (!canvas || !context) return;
 
-    const isPortrait = mode === 'portrait';
-    const isSprite = mode === 'sprite';
-    const calibrated = { ...DEFAULT_APPEARANCE_ADJUSTMENT, ...adjustment };
-    canvas.width = isPortrait || isSprite ? 1024 : CHARACTER_APPEARANCE_CANVAS.width;
-    canvas.height = isPortrait ? 1024 : isSprite ? 1536 : CHARACTER_APPEARANCE_CANVAS.height;
+    canvas.width = mode === 'portrait' ? 1024 : CHARACTER_APPEARANCE_CANVAS.width;
+    canvas.height = mode === 'portrait' ? 1024 : CHARACTER_APPEARANCE_CANVAS.height;
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     Promise.allSettled(layers.map((layer) => loadImage(layer.url))).then((results) => {
-      if (cancelled) return;
-      results.forEach((result, index) => {
-        if (result.status !== 'fulfilled') return;
-        const layer = layers[index];
-        if (isPortrait) {
-          const cropSize = Math.min(result.value.naturalWidth, result.value.naturalHeight);
-          const portraitSize = Math.round(canvas.width * 0.78);
-          const isHair = layer.id === 'hair';
-          const layerSize = isHair ? portraitSize * (calibrated.hairScale / 100) : portraitSize;
-          context.drawImage(
-            result.value,
-            (result.value.naturalWidth - cropSize) / 2,
-            0,
-            cropSize,
-            cropSize,
-            (canvas.width - layerSize) / 2 + (isHair ? calibrated.hairX : 0),
-            canvas.height * 0.08 + (isHair ? calibrated.hairY : 0),
-            layerSize,
-            layerSize,
-          );
-          return;
-        }
-        if (isSprite) {
-          if (layer.id === 'outfit') {
-            context.drawImage(result.value, 0, 0, canvas.width, canvas.height);
-            return;
-          }
-          const cropSize = Math.min(result.value.naturalWidth, result.value.naturalHeight);
-          const faceSize = 340 * (calibrated.spriteHeadScale / 100);
-          const isHair = layer.id === 'hair';
-          const hairOffsetRatio = faceSize / (canvas.width * 0.78);
-          context.drawImage(
-            result.value,
-            (result.value.naturalWidth - cropSize) / 2,
-            0,
-            cropSize,
-            cropSize,
-            (canvas.width - faceSize) / 2 + calibrated.spriteHeadX + (isHair ? calibrated.hairX * hairOffsetRatio : 0),
-            -30 + calibrated.spriteHeadY + (isHair ? calibrated.hairY * hairOffsetRatio : 0),
-            faceSize,
-            faceSize,
-          );
-          return;
-        }
-        if (layer.id === 'face') {
-          context.save();
-          context.translate(appearance.faceTransform.offsetX, appearance.faceTransform.offsetY);
-          context.translate(CHARACTER_APPEARANCE_CANVAS.faceAnchor.x, CHARACTER_APPEARANCE_CANVAS.faceAnchor.y);
-          context.scale(appearance.faceTransform.scale, appearance.faceTransform.scale);
-          context.translate(-CHARACTER_APPEARANCE_CANVAS.faceAnchor.x, -CHARACTER_APPEARANCE_CANVAS.faceAnchor.y);
-          context.drawImage(result.value, 0, 0, canvas.width, canvas.height);
-          context.restore();
-          return;
-        }
-        context.drawImage(result.value, 0, 0, canvas.width, canvas.height);
-      });
+      if (!cancelled) drawAppearanceLayers(context, results, layers, appearance, adjustment, mode);
     });
 
-    return () => { cancelled = true; };
-  }, [appearance, layers, mode]);
+    return () => {
+      cancelled = true;
+    };
+  }, [adjustment, appearance, layers, mode]);
 
-  return <canvas ref={canvasRef} aria-label="Character appearance preview" className={className} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-label="Character appearance preview"
+      className={className}
+      style={style}
+    />
+  );
 }

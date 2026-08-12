@@ -9,9 +9,11 @@ import type {
   SceneNodeData,
   StoryPresentation,
 } from '../../../domain/project';
+import { CharacterAppearancePreview } from '../../CharacterAppearancePreview';
 import { translations } from '../../../lib/i18n';
 import {
   getInlineSwitchAction,
+  resolveCharacterTemplateAppearance,
   resolveCharacterImageUrl,
   resolveSceneMedia,
 } from '../../../lib/inlineAssetSwitch';
@@ -283,13 +285,20 @@ export function usePlaytestRuntime(
       const source = nodes.find((node) => node.id === config.sourceNodeId);
       if (!source || source.type !== 'characterNode') return null;
       const characterData = source.data as CharacterNodeData;
-      const imageUrl = resolveCharacterImageUrl(
-        characterData,
-        config,
-        getInlineSwitchAction('character', config.sourceNodeId, null, completedSwitchActions),
+      const characterSwitchAction = getInlineSwitchAction(
+        'character',
+        config.sourceNodeId,
+        null,
+        completedSwitchActions,
       );
+      const imageUrl = resolveCharacterImageUrl(characterData, config, characterSwitchAction);
       if (!imageUrl) return null;
-      return { config, data: characterData, imageUrl };
+      return {
+        config,
+        data: characterData,
+        imageUrl,
+        appearance: resolveCharacterTemplateAppearance(characterData, config, characterSwitchAction),
+      };
     })
     .filter(
       (
@@ -298,6 +307,7 @@ export function usePlaytestRuntime(
         config: CharacterPresentation;
         data: CharacterNodeData;
         imageUrl: string;
+        appearance: ReturnType<typeof resolveCharacterTemplateAppearance>;
       } => Boolean(item),
     );
   const rawTextHtml =
@@ -1549,7 +1559,7 @@ export function usePlaytestRuntime(
           : 'left-0 right-0'
       }`}
     >
-      {presentedCharacters.map(({ config, data, imageUrl }) => {
+      {presentedCharacters.map(({ config, data, imageUrl, appearance }) => {
         const motion = presentationExiting ? config.exit : config.enter;
         const animationActive = presentationExiting || !presentationVisible;
         const animationTransform =
@@ -1566,7 +1576,29 @@ export function usePlaytestRuntime(
                 config.sourceNodeId,
               );
         const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
-        return (
+        const style = {
+          ...getCharacterStageBounds(config),
+          zIndex: clampCharacterLayer(config.layer),
+          opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+          transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
+          animation: inlineActionAnimation(inlineAction),
+          ...inlineActionCssVars(inlineAction),
+          transformOrigin: 'bottom center',
+          transitionProperty: 'opacity, transform',
+          transitionDuration: `${inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
+          transitionDelay: `${presentationExiting ? 0 : getCharacterEnterDelay(presentation)}ms`,
+          transitionTimingFunction: 'ease-out',
+        };
+        return appearance ? (
+          <CharacterAppearancePreview
+            key={config.sourceNodeId}
+            appearance={appearance}
+            adjustment={data.appearanceTemplate?.adjustment}
+            mode="sprite"
+            className="preview-media-safe absolute w-auto object-contain object-bottom"
+            style={style}
+          />
+        ) : (
           <img
             key={config.sourceNodeId}
             src={imageUrl}
@@ -1574,19 +1606,7 @@ export function usePlaytestRuntime(
             draggable={false}
             onDragStart={(event) => event.preventDefault()}
             className="preview-media-safe absolute w-auto object-contain object-bottom"
-            style={{
-              ...getCharacterStageBounds(config),
-              zIndex: clampCharacterLayer(config.layer),
-              opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-              transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-              animation: inlineActionAnimation(inlineAction),
-              ...inlineActionCssVars(inlineAction),
-              transformOrigin: 'bottom center',
-              transitionProperty: 'opacity, transform',
-              transitionDuration: `${inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
-              transitionDelay: `${presentationExiting ? 0 : getCharacterEnterDelay(presentation)}ms`,
-              transitionTimingFunction: 'ease-out',
-            }}
+            style={style}
           />
         );
       })}

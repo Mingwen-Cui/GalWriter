@@ -11,6 +11,7 @@ import type {
 } from '../../domain/project';
 import {
   getSettingLibraryPresets,
+  downloadSettingLibraryPresetAssets,
   loadSettingLibraryPreset,
   type SettingLibraryItem,
   toCharacterSettingLibraryData,
@@ -19,6 +20,7 @@ import {
 } from '../../domain/settingLibrary';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
+import { requiresPresetDownload } from '../../lib/presetAssetCache';
 
 type UseSettingLibraryParams = {
   nodes: Node[];
@@ -123,6 +125,7 @@ export const useSettingLibrary = ({
   }, [refreshSettingLibrary]);
 
   useEffect(() => {
+    if (requiresPresetDownload()) return;
     let cancelled = false;
     void Promise.all(
       (['character', 'scene'] as const)
@@ -131,9 +134,7 @@ export const useSettingLibrary = ({
     ).then((items) => {
       if (!cancelled) setPresetItems(items.filter((item): item is SettingLibraryItem => Boolean(item)));
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -151,8 +152,37 @@ export const useSettingLibrary = ({
   );
 
   const presetListItems = useMemo(
-    () => presetItems.map((item) => toSettingLibraryListItem(item, 'preset')),
+    () => {
+      const downloadedItems = new Map(presetItems.map((item) => [item.id, item]));
+      return (['character', 'scene'] as const)
+        .flatMap((kind) => getSettingLibraryPresets(kind))
+        .map((preset) => {
+          const downloadedItem = downloadedItems.get(preset.id);
+          return downloadedItem
+            ? toSettingLibraryListItem(downloadedItem, 'preset', true)
+            : {
+                id: preset.id,
+                kind: preset.kind,
+                name: preset.name,
+                source: 'preset' as const,
+                downloaded: false,
+              };
+        });
+    },
     [presetItems],
+  );
+
+  const downloadSettingLibraryPreset = useCallback(
+    async (itemId: string) => {
+      const item = await downloadSettingLibraryPresetAssets(itemId);
+      if (!item) {
+        showToast(language === 'zh' ? '预设下载失败，请检查网络后重试' : 'Preset download failed. Please check your connection.', 'error');
+        return;
+      }
+      setPresetItems((items) => [...items.filter((current) => current.id !== item.id), item]);
+      showToast(language === 'zh' ? `已下载预设：${item.name}` : `Preset downloaded: ${item.name}`);
+    },
+    [language, showToast],
   );
 
   const assistantContext = useMemo(() => {
@@ -269,7 +299,12 @@ export const useSettingLibrary = ({
         source === 'preset'
           ? await loadSettingLibraryPreset(itemId)
           : await localPersistenceService.getSettingLibraryItem(itemId);
-      if (!item || item.kind !== kind) return;
+      if (!item || item.kind !== kind) {
+        if (source === 'preset') {
+          showToast(language === 'zh' ? '请先下载这个预设，再将它加入画布' : 'Download this preset before adding it to the canvas.', 'error');
+        }
+        return;
+      }
 
       const targetNode = nodes.find((node) => node.id === targetNodeId);
       const targetIsEmpty =
@@ -366,6 +401,7 @@ export const useSettingLibrary = ({
 
   return {
     deleteSettingLibrary,
+    downloadSettingLibraryPreset,
     assistantContext,
     getListItems,
     presetItems,

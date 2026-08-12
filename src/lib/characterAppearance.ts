@@ -1,14 +1,30 @@
 export const CHARACTER_APPEARANCE_CANVAS = {
-  width: 2048,
-  height: 3072,
-  faceAnchor: { x: 1024, y: 1024 },
+  // The modular preset PNGs are authored on this exact transparent canvas.
+  // Rendering at the native size prevents a 2:3 resize from cutting off the
+  // lower body or shifting the head relative to hair and clothing.
+  width: 1024,
+  height: 1820,
+  faceAnchor: { x: 512, y: 512 },
 } as const;
+
+/** Close, upper-body crop used by the square front-portrait card. */
+export const CHARACTER_APPEARANCE_PORTRAIT_CROP = {
+  x: 192,
+  y: 42,
+  width: 640,
+  height: 640,
+} as const;
+
+/** Bump this when the preset canvas/compositing contract changes. */
+export const CHARACTER_APPEARANCE_SPRITE_VERSION = 'preset-v2-1024x1820';
 
 export type AppearanceOption = {
   id: string;
   label: string;
-  /** Exact public/ path. Face, hair and clothing may live in separate folders. */
+  /** Exact public/ path used for the menu thumbnail and the front-most layer. */
   assetPath: string;
+  /** Matching rear hair piece. Empty for legacy, single-piece hairstyles. */
+  backAssetPath?: string;
 };
 
 export type CharacterAppearanceGender = 'female' | 'male';
@@ -51,6 +67,17 @@ const numberedOptions = (folder: string, prefix: string, count: number, label: s
     };
   });
 
+const pairedHairOptions = (folder: string, count: number, label: string): AppearanceOption[] =>
+  Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    return {
+      id: `hair${number}`,
+      label: `${label} ${number}`,
+      assetPath: `${folder}/hair${number}f.png`,
+      backAssetPath: `${folder}/hair${number}b.png`,
+    };
+  });
+
 export const DEMO_APPEARANCE_CATALOG: CharacterAppearanceCatalog = {
   characterId: 'avatar',
   gender: 'female',
@@ -62,7 +89,7 @@ export const DEMO_APPEARANCE_CATALOG: CharacterAppearanceCatalog = {
     { id: 'angry', label: '\u751f\u6c14', assetPath: 'presets/characters/female/face/angry.png' },
     { id: 'sad', label: '\u96be\u8fc7', assetPath: 'presets/characters/female/face/sad.png' },
   ],
-  hairs: numberedOptions('presets/characters/female/hair', 'hair', 12, '\u53d1\u578b'),
+  hairs: pairedHairOptions('presets/characters/female/hair', 9, '\u53d1\u578b'),
   outfits: [
     { id: 'school', label: '\u6821\u670d', assetPath: 'presets/characters/female/cloth/school.png' },
     { id: 'hoodie', label: '\u8fde\u5e3d\u886b', assetPath: 'presets/characters/female/cloth/hoodie.png' },
@@ -81,9 +108,10 @@ export const MALE_APPEARANCE_CATALOG: CharacterAppearanceCatalog = {
   gender: 'male',
   installed: true,
   assetRoot: 'presets/characters/male',
-  faces: numberedOptions('presets/characters/male', 'face', 4, '\u8868\u60c5'),
-  hairs: numberedOptions('presets/characters/male', 'hair', 7, '\u53d1\u578b'),
-  outfits: numberedOptions('presets/characters/male', 'cloth', 9, '\u670d\u88c5'),
+  faces: numberedOptions('presets/characters/male/face', 'face', 4, '\u8111\u888b'),
+  // Male and female templates use the same paired rear/front hair contract.
+  hairs: pairedHairOptions('presets/characters/male/hair', 7, '\u53d1\u578b'),
+  outfits: numberedOptions('presets/characters/male/cloth', 'cloth', 9, '\u670d\u88c5'),
 };
 
 export const CHARACTER_APPEARANCE_CATALOGS: Record<CharacterAppearanceGender, CharacterAppearanceCatalog> = {
@@ -102,7 +130,10 @@ export type CharacterAppearance = {
   hairId: string;
   outfitId: string;
   faceAssetPath: string;
+  /** The foreground lock/bangs. `hairAssetPath` stays as a compatibility alias. */
   hairAssetPath: string;
+  frontHairAssetPath: string;
+  backHairAssetPath: string;
   outfitAssetPath: string;
   colors: { primary: string; secondary: string; accent: string; skin: string; hair: string };
   faceTransform: { offsetX: number; offsetY: number; scale: number };
@@ -134,6 +165,8 @@ export const createCharacterAppearance = (
     outfitId: outfit?.id || '',
     faceAssetPath: face?.assetPath || '',
     hairAssetPath: hair?.assetPath || '',
+    frontHairAssetPath: hair?.assetPath || '',
+    backHairAssetPath: hair?.backAssetPath || '',
     outfitAssetPath: outfit?.assetPath || '',
     colors: defaultColors,
     faceTransform: { offsetX: 0, offsetY: 0, scale: 1 },
@@ -143,18 +176,28 @@ export const createCharacterAppearance = (
 export const createDemoCharacterAppearance = () => createCharacterAppearance('female');
 
 export type AppearanceLayer = {
-  id: 'face' | 'outfit' | 'hair';
+  id: 'backHair' | 'head' | 'outfit' | 'frontHair';
   url: string;
 };
 
 export const getCharacterAppearanceAssetUrl = (assetPath: string) =>
   `${import.meta.env.BASE_URL}${assetPath.replace(/^\/+/, '')}`;
 
-/** Full-color layers share the same canvas: face first, outfit second, hair last. */
+/**
+ * Modular PNGs share one coordinate space: back hair → clothing → head with
+ * expression → front hair. This avoids the independent head-crop alignment
+ * that made the previous assets drift apart.
+ */
 export const resolveAppearanceLayers = (appearance: CharacterAppearance): AppearanceLayer[] => [
-  { id: 'face', url: getCharacterAppearanceAssetUrl(appearance.faceAssetPath) },
+  ...(appearance.backHairAssetPath
+    ? [{ id: 'backHair' as const, url: getCharacterAppearanceAssetUrl(appearance.backHairAssetPath) }]
+    : []),
   { id: 'outfit', url: getCharacterAppearanceAssetUrl(appearance.outfitAssetPath) },
-  { id: 'hair', url: getCharacterAppearanceAssetUrl(appearance.hairAssetPath) },
+  { id: 'head', url: getCharacterAppearanceAssetUrl(appearance.faceAssetPath) },
+  { id: 'frontHair', url: getCharacterAppearanceAssetUrl(appearance.frontHairAssetPath) },
 ];
+
+export const getCharacterAppearanceAssetUrls = (appearance: CharacterAppearance) =>
+  resolveAppearanceLayers(appearance).map((layer) => layer.url);
 
 export const CHARACTER_APPEARANCE_ASSET_GUIDE = `${import.meta.env.BASE_URL}assets/character-appearance/ASSET_GUIDE.md`;

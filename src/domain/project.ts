@@ -58,6 +58,8 @@ export interface SettingLibraryListItem {
   source: SettingLibrarySource;
   name: string;
   thumbnailUrl?: string;
+  /** Browser presets are listed before their media is downloaded. */
+  downloaded?: boolean;
   updatedAt?: number;
 }
 
@@ -631,6 +633,7 @@ export interface EditorNodeCallbacks {
     itemId: string,
     source: SettingLibrarySource,
   ) => Promise<void> | void;
+  onDownloadSettingLibraryPreset?: (itemId: string) => Promise<void> | void;
   onDeleteSettingLibrary?: (itemId: string) => Promise<void> | void;
   onPlotStructureGenerate?: (params: unknown) => Promise<void> | void;
   onSendToAssistant?: (target: string | string[]) => void;

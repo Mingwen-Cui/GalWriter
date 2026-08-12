@@ -4,6 +4,13 @@ import type {
   SettingLibraryKind,
   SettingLibraryListItem,
 } from './project';
+import {
+  cachePresetAssets,
+  getCachedPresetAssetUrl,
+  hasCachedPresetAssets,
+  requiresPresetDownload,
+} from '../lib/presetAssetCache';
+import { isTauriRuntime } from '../lib/tauriRuntime';
 
 export type CharacterSettingLibraryData = Pick<
   CharacterNodeData,
@@ -67,22 +74,35 @@ export interface SettingLibraryPresetManifestItem {
  * script rather than the site root: the web app may be hosted under a
  * subdirectory, while the desktop bundle keeps the same assets beside it.
  */
-const presetAssetBaseUrl = import.meta.env.DEV
+const presetAssetBaseUrl = import.meta.env.DEV || isTauriRuntime()
   ? '/presets/'
-  : new URL(/* @vite-ignore */ '../presets/', import.meta.url).toString();
+  : (import.meta.env.VITE_PRESET_ASSET_BASE_URL || 'https://mingwencui.com/online/presets/').replace(/\/?$/, '/');
 
 const getPresetAssetUrl = (relativePath: string) => `${presetAssetBaseUrl}${relativePath}`;
 
-const resolvePresetMediaUrls = (value: unknown): unknown => {
+const collectPresetMediaUrls = (value: unknown): string[] => {
   if (typeof value === 'string') {
-    return value.startsWith('/presets/')
-      ? getPresetAssetUrl(value.slice('/presets/'.length))
-      : value;
+    return value.startsWith('/presets/') ? [getPresetAssetUrl(value.slice('/presets/'.length))] : [];
   }
-  if (Array.isArray(value)) return value.map(resolvePresetMediaUrls);
+  if (Array.isArray(value)) return value.flatMap(collectPresetMediaUrls);
+  if (value && typeof value === 'object') {
+    return Object.values(value).flatMap(collectPresetMediaUrls);
+  }
+  return [];
+};
+
+const resolvePresetMediaUrls = async (value: unknown): Promise<unknown> => {
+  if (typeof value === 'string') {
+    if (!value.startsWith('/presets/')) return value;
+    const presetUrl = getPresetAssetUrl(value.slice('/presets/'.length));
+    return (await getCachedPresetAssetUrl(presetUrl)) || presetUrl;
+  }
+  if (Array.isArray(value)) return Promise.all(value.map(resolvePresetMediaUrls));
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value).map(([key, child]) => [key, resolvePresetMediaUrls(child)]),
+      await Promise.all(
+        Object.entries(value).map(async ([key, child]) => [key, await resolvePresetMediaUrls(child)]),
+      ),
     );
   }
   return value;
@@ -152,12 +172,41 @@ export const SETTING_LIBRARY_PRESETS: SettingLibraryPresetManifestItem[] = [
 export const getSettingLibraryPresets = (kind: SettingLibraryKind) =>
   SETTING_LIBRARY_PRESETS.filter((item) => item.kind === kind);
 
+export const isSettingLibraryPresetDownloaded = async (id: string) => {
+  const item = SETTING_LIBRARY_PRESETS.find((candidate) => candidate.id === id);
+  return Boolean(item && await hasCachedPresetAssets([item.dataUrl]));
+};
+
+export const downloadSettingLibraryPresetAssets = async (id: string) => {
+  const manifestItem = SETTING_LIBRARY_PRESETS.find((item) => item.id === id);
+  if (!manifestItem) return null;
+
+  try {
+    const response = await fetch(manifestItem.dataUrl, { cache: 'force-cache' });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { data?: unknown };
+    if (!payload.data || typeof payload.data !== 'object') return null;
+    await cachePresetAssets([
+      manifestItem.dataUrl,
+      ...collectPresetMediaUrls(payload.data),
+    ]);
+    return loadSettingLibraryPreset(id);
+  } catch (error) {
+    console.error(`Failed to download setting-library preset: ${id}`, error);
+    return null;
+  }
+};
+
 export const loadSettingLibraryPreset = async (id: string): Promise<SettingLibraryItem | null> => {
   const manifestItem = SETTING_LIBRARY_PRESETS.find((item) => item.id === id);
   if (!manifestItem) return null;
 
   try {
-    const response = await fetch(manifestItem.dataUrl);
+    const dataUrl = requiresPresetDownload()
+      ? await getCachedPresetAssetUrl(manifestItem.dataUrl)
+      : manifestItem.dataUrl;
+    if (!dataUrl) return null;
+    const response = await fetch(dataUrl);
     if (!response.ok) return null;
     const payload = (await response.json()) as { data?: unknown };
     if (!payload.data || typeof payload.data !== 'object') return null;
@@ -165,9 +214,7 @@ export const loadSettingLibraryPreset = async (id: string): Promise<SettingLibra
       id: manifestItem.id,
       kind: manifestItem.kind,
       name: manifestItem.name,
-      data: resolvePresetMediaUrls(
-        payload.data,
-      ) as CharacterSettingLibraryData | SceneSettingLibraryData,
+      data: (await resolvePresetMediaUrls(payload.data)) as CharacterSettingLibraryData | SceneSettingLibraryData,
       createdAt: 0,
       updatedAt: 0,
     };
@@ -180,6 +227,7 @@ export const loadSettingLibraryPreset = async (id: string): Promise<SettingLibra
 export const toSettingLibraryListItem = (
   item: Pick<SettingLibraryItem, 'id' | 'kind' | 'name' | 'data' | 'updatedAt'>,
   source: SettingLibraryListItem['source'],
+  downloaded = true,
 ): SettingLibraryListItem => ({
   id: item.id,
   kind: item.kind,
@@ -190,6 +238,7 @@ export const toSettingLibraryListItem = (
       ? (item.data as CharacterSettingLibraryData).avatarUrl
       : (item.data as SceneSettingLibraryData).coverImageUrl,
   updatedAt: item.updatedAt,
+  downloaded,
 });
 
 export const toCharacterSettingLibraryData = (
