@@ -3112,6 +3112,41 @@ input[type='range']::-moz-range-track {
   opacity: 0.45;
 }
 
+.assistant-character-trait-input {
+  appearance: none;
+  background: transparent;
+}
+
+.assistant-character-trait-input::-webkit-slider-runnable-track {
+  height: 12px;
+  background: transparent;
+}
+
+.assistant-character-trait-input::-webkit-slider-thumb {
+  width: 32px;
+  height: 32px;
+  appearance: none;
+  background: transparent;
+  border: 0;
+}
+
+.assistant-character-trait-input::-moz-range-track {
+  height: 12px;
+  background: transparent;
+}
+
+.assistant-character-trait-input::-moz-range-progress {
+  height: 12px;
+  background: transparent;
+}
+
+.assistant-character-trait-input::-moz-range-thumb {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 0;
+}
+
 .video-render-color-input::-webkit-color-swatch-wrapper {
   padding: 0;
 }

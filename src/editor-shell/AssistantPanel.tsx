@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import type {
+  CSSProperties,
   Dispatch,
   MutableRefObject,
   PointerEvent as ReactPointerEvent,
@@ -318,6 +319,177 @@ const ArticleRolePicker = ({
       >
         {selectedCandidate ? `确认 ${selectedCandidate.name}，开始讲解` : '请选择要讲解的人物'}
       </button>
+    </div>
+  );
+};
+
+type CreativeCharacterTraitControlsState = NonNullable<AssistantMessage['characterTraitControls']>;
+type CreativeCharacterTraitKey = CreativeCharacterTraitControlsState['controls'][number]['trait'];
+
+type CreativeCharacterTraitAxisProps = {
+  control: CreativeCharacterTraitControlsState['controls'][number];
+  value: number;
+  disabled: boolean;
+  locked: boolean;
+  onChange: (value: number) => void;
+};
+
+const CreativeCharacterTraitAxis = ({
+  control,
+  value,
+  disabled,
+  locked,
+  onChange,
+}: CreativeCharacterTraitAxisProps) => {
+  const [hoveredValue, setHoveredValue] = useState<number | null>(null);
+  const previewValue = hoveredValue ?? value;
+  const previewLevel =
+    control.levels.find((level) => level.value === previewValue) || control.levels[2] || control.levels[0];
+  const progress = ((value - 1) / 4) * 100;
+  const previewProgress = ((previewValue - 1) / 4) * 100;
+
+  if (!previewLevel) return null;
+
+  const updateHoveredValue = (clientX: number, left: number, width: number) => {
+    if (locked) {
+      setHoveredValue(value);
+      return;
+    }
+    const trackLeft = left + 16;
+    const trackWidth = Math.max(1, width - 32);
+    const relativePosition = Math.min(1, Math.max(0, (clientX - trackLeft) / trackWidth));
+    setHoveredValue(Math.round(relativePosition * 4) + 1);
+  };
+
+  return (
+    <section className="rounded-xl border border-indigo-100 bg-white px-3 py-3 dark:border-indigo-900 dark:bg-slate-950">
+      <h4 className="text-xs font-black leading-5 text-slate-800 dark:text-slate-100">{control.title}</h4>
+      <div className="mt-2 flex items-center justify-between px-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+        <span>{control.lowerLabel}</span>
+        <span>{control.upperLabel}</span>
+      </div>
+      <div
+        className="relative mt-1 h-8 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-400"
+        onMouseMove={(event) => {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          updateHoveredValue(event.clientX, bounds.left, bounds.width);
+        }}
+        onMouseLeave={() => setHoveredValue(null)}
+      >
+        <div className="pointer-events-none absolute inset-x-4 top-1/2 h-3 -translate-y-1/2 rounded-full bg-indigo-100 dark:bg-indigo-950">
+          <span
+            className="absolute inset-y-0 left-0 rounded-full bg-indigo-600"
+            style={{ width: `${progress}%` } as CSSProperties}
+          />
+          <div
+            className={`absolute bottom-[calc(100%+9px)] z-10 w-52 -translate-x-1/2 rounded-lg bg-slate-800 px-2.5 py-2 text-[10px] leading-relaxed text-white shadow-lg transition-all dark:bg-slate-700 ${
+              hoveredValue === null ? 'translate-y-1 opacity-0' : 'translate-y-0 opacity-100'
+            }`}
+            style={{ left: `${previewProgress}%` } as CSSProperties}
+            role="status"
+          >
+            <span className="font-black text-indigo-200">
+              {control.currentLabel} {previewValue} / 5
+            </span>
+            <span className="mt-0.5 block text-slate-100">{previewLevel.description}</span>
+          </div>
+          {control.levels.slice(1, -1).map((level, index) => (
+            <span
+              key={level.value}
+              className={`absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${
+                level.value <= value ? 'bg-indigo-200' : 'bg-slate-300 dark:bg-slate-600'
+              }`}
+              style={{ left: `${(index + 1) * 25}%` } as CSSProperties}
+            />
+          ))}
+          <span
+            className="absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-indigo-950 bg-white shadow-[0_3px_10px_rgb(15_23_42_/_0.28)] dark:border-indigo-200 dark:bg-slate-950"
+            style={{ left: `${progress}%` } as CSSProperties}
+          />
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={5}
+          step={1}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => {
+            const nextValue = Number(event.target.value);
+            onChange(nextValue);
+            setHoveredValue(nextValue);
+          }}
+          onFocus={() => setHoveredValue(value)}
+          onBlur={() => setHoveredValue(null)}
+          className="assistant-character-trait-input absolute inset-0 z-10 h-8 w-full cursor-pointer opacity-0 disabled:cursor-default"
+          aria-label={`${control.title}: ${control.lowerLabel} – ${control.upperLabel}`}
+        />
+      </div>
+    </section>
+  );
+};
+
+type CreativeCharacterTraitControlsProps = {
+  controls: CreativeCharacterTraitControlsState;
+  disabled: boolean;
+  onConfirm: (levels: number[]) => void;
+  onSkip: () => void;
+};
+
+const CreativeCharacterTraitControls = ({
+  controls,
+  disabled,
+  onConfirm,
+  onSkip,
+}: CreativeCharacterTraitControlsProps) => {
+  const [values, setValues] = useState<Partial<Record<CreativeCharacterTraitKey, number>>>(
+    () =>
+      Object.fromEntries(
+        controls.controls.map((control) => [control.trait, controls.selectedValues?.[control.trait] || 3]),
+      ),
+  );
+  const completed = controls.skipped || controls.selectedValues !== undefined;
+
+  useEffect(() => {
+    if (controls.selectedValues) setValues(controls.selectedValues);
+  }, [controls.selectedValues]);
+
+  return (
+    <div className="mt-3 space-y-2.5 rounded-2xl border border-indigo-100 bg-slate-50/70 p-2.5 dark:border-indigo-900 dark:bg-slate-900/45">
+      {controls.controls.map((control) => (
+        <CreativeCharacterTraitAxis
+          key={control.trait}
+          control={control}
+          value={values[control.trait] || 3}
+          disabled={disabled || completed}
+          locked={completed}
+          onChange={(value) => setValues((current) => ({ ...current, [control.trait]: value }))}
+        />
+      ))}
+      {completed ? (
+        <div className="rounded-xl bg-indigo-50 px-3 py-2 text-center text-xs font-black text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-200">
+          {controls.skipped ? controls.skippedLabel : controls.completedLabel}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 pt-0.5">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onSkip}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+          >
+            {controls.skipLabel}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onConfirm(controls.controls.map((control) => values[control.trait] || 3))}
+            className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {controls.confirmLabel}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -1346,6 +1518,18 @@ export function AssistantPanel({
                         void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
                       }
                       onConfirm={() => void handleAssistantOptionSelect('__article_role_confirm__')}
+                    />
+                  )}
+                  {message.role === 'assistant' && message.characterTraitControls && (
+                    <CreativeCharacterTraitControls
+                      controls={message.characterTraitControls}
+                      disabled={assistantLoading}
+                      onConfirm={(levels) =>
+                        void handleAssistantOptionSelect(
+                          `__creative_traits__:${levels.join(',')}`,
+                        )
+                      }
+                      onSkip={() => void handleAssistantOptionSelect('__creative_traits__:skip')}
                     />
                   )}
                   {message.role === 'assistant' &&

@@ -1679,6 +1679,7 @@ The previous streaming response did not complete every placeholder card. Return 
     prepareOpening: prepareCreativeOpening,
     chooseGenre: handleCreativeStoryGenre,
     chooseRolePreference: handleCreativeStoryRolePreference,
+    chooseCharacterTraits: handleCreativeStoryCharacterTraits,
     startCustomDirection: handleCreativeStoryCustomDirection,
     submitCustomDirection: submitCreativeStoryCustomDirection,
     startRolePreferenceCustom: handleCreativeStoryRolePreferenceCustom,
@@ -2856,6 +2857,20 @@ cards 必须正好有 3 张。`);
         return;
       }
 
+      if (value === '__creative_traits__:skip') {
+        await handleCreativeStoryCharacterTraits();
+        return;
+      }
+
+      if (value.startsWith('__creative_traits__:')) {
+        const levels = value
+          .slice('__creative_traits__:'.length)
+          .split(',')
+          .map(Number);
+        await handleCreativeStoryCharacterTraits(levels);
+        return;
+      }
+
       if (value === '__creative_surprise__') {
         await handleCreativeStorySurprise();
         return;
@@ -3849,6 +3864,7 @@ cards 必须正好有 3 张。`);
       getCreativeTask,
       handleCreativeStoryCustomDirection,
       handleCreativeStoryGenre,
+      handleCreativeStoryCharacterTraits,
       handleCreativeStoryRolePreference,
       handleCreativeStoryRolePreferenceCustom,
       handleCreativeStorySurprise,

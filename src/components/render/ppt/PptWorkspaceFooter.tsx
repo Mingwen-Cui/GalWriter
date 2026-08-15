@@ -14,7 +14,7 @@ import {
 import type { ReactNode } from 'react';
 
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
-import type { PptManualSlide, PptObjectAnimation, PptSlideTransition, RenderStyle, WebExportSettings } from '../video/shared/types';
+import type { PptManualSlide, PptObjectAnimation, PptSlideTransition, PptTextBoxLayout, PptTextOverrideTarget, RenderStyle, WebExportSettings } from '../video/shared/types';
 import { pptSceneColors } from './pptSceneResolver';
 import type { Scene } from './PptWorkspace';
 import { SlideCanvas } from './PptWorkspace';
@@ -126,6 +126,8 @@ export function PlayerOverlay({
   webSettings,
   renderStyle,
   colors,
+  textOverrides,
+  textBoxLayouts,
   animations,
   transition,
   layout,
@@ -146,6 +148,8 @@ export function PlayerOverlay({
   webSettings: WebExportSettings;
   renderStyle: RenderStyle;
   colors: ReturnType<typeof pptSceneColors>;
+  textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
+  textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
@@ -179,6 +183,8 @@ export function PlayerOverlay({
               webSettings={webSettings}
               renderStyle={renderStyle}
               colors={colors}
+              textOverrides={textOverrides}
+              textBoxLayouts={textBoxLayouts}
               animations={animations}
               transition={transition}
               selected={null}

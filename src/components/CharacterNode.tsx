@@ -609,10 +609,12 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     if (!data.appearanceTemplate && !avatarUrl && defaultAppearanceTemplate) {
       updateNodeData({
         appearanceTemplate: defaultAppearanceTemplate,
-        appearancePresetEnabled: false,
+        // AI-created cards can request a preset portrait up front. Keep that
+        // instruction when materializing their deterministic appearance.
+        appearancePresetEnabled: data.appearancePresetEnabled ?? false,
       });
     }
-  }, [avatarUrl, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
+  }, [avatarUrl, data.appearancePresetEnabled, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
 
   useEffect(() => {
     if (typeof data.appearancePresetEnabled === 'boolean') {
@@ -635,6 +637,51 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       cancelled = true;
     };
   }, [appearanceSpriteSignature, presetCatalogSourceUrls, presetEnabled]);
+
+  // Assistant-created text-only characters arrive with this flag already on.
+  // In a browser the preset files live in IndexedDB, so fetch them here as
+  // well; otherwise the card would be marked as enabled but keep its generic
+  // placeholder until the user presses the old "enable preset" button.
+  useEffect(() => {
+    if (
+      !presetEnabled ||
+      data.appearancePresetEnabled !== true ||
+      !templateAppearance ||
+      !requiresPresetDownload()
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    presetDownloadAbortRef.current = controller;
+    setPresetDownloadState('downloading');
+
+    void (async () => {
+      const alreadyCached = await hasCachedPresetAssets(presetCatalogSourceUrls);
+      if (!alreadyCached) {
+        await cachePresetAssets(presetCatalogSourceUrls, { signal: controller.signal });
+      }
+      const urls = await getCachedPresetAssetUrls(presetCatalogSourceUrls);
+      if (!cancelled) {
+        setAppearanceAssetUrls(urls);
+        setPresetDownloadState('idle');
+      }
+    })().catch((error) => {
+      if (!cancelled && (error as DOMException)?.name !== 'AbortError') {
+        console.error('Failed to auto-enable character preset:', error);
+        setPresetDownloadState('idle');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (presetDownloadAbortRef.current === controller) {
+        presetDownloadAbortRef.current = null;
+      }
+    };
+  }, [data.appearancePresetEnabled, presetCatalogSourceUrls, presetEnabled, templateAppearance]);
 
   useEffect(() => {
     if (!presetEnabled || !templateAppearance || tagSpriteUrl) return;

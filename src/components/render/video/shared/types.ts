@@ -566,6 +566,31 @@ export type PptAnimationTarget =
   | 'nameplate'
   | 'choice';
 
+/** Text boxes that can be locally overridden from the PPT workspace. */
+export type PptTextOverrideTarget =
+  | 'cover-title'
+  | 'cover-subtitle'
+  | 'dialog-title'
+  | 'dialog-body'
+  | 'nameplate';
+export type PptTextOverrides = Record<
+  string,
+  Partial<Record<PptTextOverrideTarget, string>>
+>;
+/** Logical 1920×1080 frames for text boxes that are independently arranged in PPT. */
+export type PptTextBoxLayout = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  visible?: boolean;
+};
+export type PptTextBoxLayouts = Record<
+  string,
+  Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>
+>;
+
 export type PptObjectAnimation = {
   id: string;
   target: PptAnimationTarget;
@@ -664,6 +689,8 @@ export type PptManualSlide = {
   backgroundColor: string;
   elements: PptManualElement[];
 };
+/** Inserted elements attached to a story-generated slide, keyed by the stable slide id. */
+export type PptSlideElements = Record<string, PptManualElement[]>;
 
 export type PptExportSettings = {
   layout: 'LAYOUT_WIDE' | 'LAYOUT_STANDARD';
@@ -678,6 +705,12 @@ export type PptExportSettings = {
   transitions?: Record<string, PptSlideTransition>;
   /** PPT-native video playback is configured per story slide and defaults to one pass. */
   videoLoopByScene?: Record<string, boolean>;
+  /** Text edited in the PPT workspace without changing the source story cards. */
+  textOverrides?: PptTextOverrides;
+  /** Per-slide PPT text-box geometry, independent from the shared render style. */
+  textBoxLayouts?: PptTextBoxLayouts;
+  /** Elements inserted onto generated slides, instead of creating a separate manual slide. */
+  slideElements?: PptSlideElements;
   /** User-created pages stay separate from story-generated slides and retain their own content. */
   manualSlides?: PptManualSlide[];
   /** A stable mixed sequence of generated and user-created slide ids. */

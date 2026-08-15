@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { PptManualElement, PptManualSlide } from '../video/shared/types';
 import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH } from './pptWorkspaceModel';
@@ -25,6 +26,46 @@ export function PptManualSlideCanvas({
   onUpdateElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
   onNavigateSlide?: (slideId: string) => void;
 }) {
+  const [editingElementId, setEditingElementId] = useState<string>();
+  const [draftText, setDraftText] = useState('');
+  const textEditorRef = useRef<HTMLDivElement>(null);
+  const initialTextRef = useRef('');
+  const discardTextEditRef = useRef(false);
+
+  useEffect(() => {
+    if (!editingElementId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const editor = textEditorRef.current;
+      if (!editor) return;
+      editor.textContent = initialTextRef.current;
+      editor.focus();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [editingElementId]);
+
+  const beginTextEdit = (event: React.MouseEvent<HTMLDivElement>, element: PptManualElement) => {
+    if (!editable || !onUpdateElement || (element.kind !== 'text' && element.kind !== 'button')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectElement?.(element.id);
+    initialTextRef.current = element.text;
+    setDraftText(element.text);
+    setEditingElementId(element.id);
+  };
+  const finishTextEdit = (element: Extract<PptManualElement, { kind: 'text' | 'button' }>, commit = true) => {
+    if (editingElementId !== element.id) return;
+    const nextText = textEditorRef.current?.innerText.replace(/\r\n/g, '\n') ?? draftText;
+    const shouldCommit = commit && !discardTextEditRef.current;
+    discardTextEditRef.current = false;
+    setEditingElementId(undefined);
+    if (shouldCommit && nextText !== element.text) onUpdateElement?.(element.id, { text: nextText });
+  };
   const beginMove = (event: React.PointerEvent<HTMLDivElement>, element: PptManualElement) => {
     if (!editable || !onUpdateElement) return;
     event.stopPropagation();
@@ -55,6 +96,7 @@ export function PptManualSlideCanvas({
     <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: slide.backgroundColor }}>
       {slide.elements.map((element) => {
         const selected = editable && selectedElementId === element.id;
+        const editingText = editingElementId === element.id && (element.kind === 'text' || element.kind === 'button');
         const style: React.CSSProperties = {
           left: `${(element.x / PPT_CONTENT_WIDTH) * 100}%`,
           top: `${(element.y / PPT_CONTENT_HEIGHT) * 100}%`,
@@ -70,6 +112,7 @@ export function PptManualSlideCanvas({
             className={`absolute ${editable ? 'cursor-move touch-none' : ''} ${selected ? 'outline outline-4 outline-indigo-400 outline-offset-4' : ''}`}
             style={style}
             onPointerDown={(event) => beginMove(event, element)}
+            onDoubleClick={(event) => beginTextEdit(event, element)}
             onClick={(event) => {
               event.stopPropagation();
               if (editable) onSelectElement?.(element.id);
@@ -78,26 +121,83 @@ export function PptManualSlideCanvas({
             {element.kind === 'image' ? (
               <img src={element.src} alt={element.alt || ''} draggable={false} className="h-full w-full object-contain" />
             ) : element.kind === 'text' ? (
-              <div
-                className="h-full w-full whitespace-pre-wrap"
-                style={{
-                  color: element.color,
-                  fontFamily: element.fontFamily,
-                  fontSize: `${(element.fontSize / PPT_CONTENT_HEIGHT) * 100}vh`,
-                  fontWeight: element.bold ? 700 : 400,
-                  textAlign: element.align,
-                }}
-              >
-                {element.text}
-              </div>
+              editingText ? (
+                <div
+                  ref={textEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="h-full w-full whitespace-pre-wrap outline-none"
+                  style={{
+                    color: element.color,
+                    fontFamily: element.fontFamily,
+                    fontSize: `${(element.fontSize / PPT_CONTENT_HEIGHT) * 100}vh`,
+                    fontWeight: element.bold ? 700 : 400,
+                    textAlign: element.align,
+                  }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  onInput={(event) => setDraftText(event.currentTarget.innerText)}
+                  onBlur={() => finishTextEdit(element)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      discardTextEditRef.current = true;
+                      setEditingElementId(undefined);
+                      event.currentTarget.blur();
+                    }
+                    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                      event.preventDefault();
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+              ) : (
+                <div
+                  className="h-full w-full whitespace-pre-wrap"
+                  style={{
+                    color: element.color,
+                    fontFamily: element.fontFamily,
+                    fontSize: `${(element.fontSize / PPT_CONTENT_HEIGHT) * 100}vh`,
+                    fontWeight: element.bold ? 700 : 400,
+                    textAlign: element.align,
+                  }}
+                >
+                  {element.text}
+                </div>
+              )
             ) : (
-              <button
-                type="button"
-                onClick={() => runButtonAction(element)}
-                className={`h-full w-full rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black transition ${buttonClass(element.variant)}`}
-              >
-                {element.text}
-              </button>
+              editingText ? (
+                <div
+                  ref={textEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  className={`h-full w-full rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black outline-none transition ${buttonClass(element.variant)}`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                  onInput={(event) => setDraftText(event.currentTarget.innerText)}
+                  onBlur={() => finishTextEdit(element)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      discardTextEditRef.current = true;
+                      setEditingElementId(undefined);
+                      event.currentTarget.blur();
+                    }
+                    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                      event.preventDefault();
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => runButtonAction(element)}
+                  className={`h-full w-full rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black transition ${buttonClass(element.variant)}`}
+                >
+                  {element.text}
+                </button>
+              )
             )}
           </div>
         );

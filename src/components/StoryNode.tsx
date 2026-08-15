@@ -423,6 +423,91 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const showTitleInside = showTitles && storyTitlePlacement === 'inside';
   const showTitleOutside = showTitles && storyTitlePlacement !== 'inside';
   const isRoot = data.isRoot === true;
+  const nodeValue =
+    typeof data.nodeValue === 'number' && Number.isFinite(data.nodeValue) ? data.nodeValue : 0;
+  const calculatedNodeValueExpression = useStore((state) => {
+    const nodeById = new Map(state.nodes.map((node) => [node.id, node]));
+    const incomingEdgesByTarget = new Map<string, typeof state.edges>();
+    for (const edge of state.edges) {
+      const incomingEdges = incomingEdgesByTarget.get(edge.target) || [];
+      incomingEdges.push(edge);
+      incomingEdgesByTarget.set(edge.target, incomingEdges);
+    }
+
+    const totalsByNodeId = new Map<string, { total: number; operationValues: number[] }>();
+    const visiting = new Set<string>();
+    const getTotalToNode = (nodeId: string): { total: number; operationValues: number[] } => {
+      const cached = totalsByNodeId.get(nodeId);
+      if (cached) return cached;
+      if (visiting.has(nodeId)) return { total: 0, operationValues: [] };
+
+      visiting.add(nodeId);
+      const node = nodeById.get(nodeId);
+      const ownValue =
+        node && typeof node.data.nodeValue === 'number' && Number.isFinite(node.data.nodeValue)
+          ? node.data.nodeValue
+          : 0;
+      const incomingEdges = incomingEdgesByTarget.get(nodeId) || [];
+      const upstreamTotals = incomingEdges.map((edge) => getTotalToNode(edge.source));
+      const maxUpstreamValue = upstreamTotals.length
+        ? Math.max(...upstreamTotals.map((upstream) => upstream.total))
+        : 0;
+      const maxUpstreamPath = upstreamTotals
+        .filter((upstream) => upstream.total === maxUpstreamValue)
+        .reduce(
+          (selected, upstream) =>
+            upstream.operationValues.length > selected.operationValues.length ? upstream : selected,
+          { total: 0, operationValues: [] } as { total: number; operationValues: number[] },
+        );
+      const operationValues =
+        ownValue !== 0
+          ? [...maxUpstreamPath.operationValues, ownValue]
+          : maxUpstreamPath.operationValues;
+      const total = ownValue + maxUpstreamValue;
+      const result = {
+        total,
+        operationValues,
+      };
+      visiting.delete(nodeId);
+      totalsByNodeId.set(nodeId, result);
+      return result;
+    };
+
+    const formatCalculation = (operationValues: number[], total: number) => {
+      const [firstValue, ...remainingValues] = operationValues;
+      const expression = remainingValues.reduce(
+        (current, value) =>
+          `${current} ${value >= 0 ? '+' : '-'} ${Math.abs(value)}`,
+        String(firstValue),
+      );
+      return `${expression} = ${total}`;
+    };
+
+    const result = getTotalToNode(id);
+    const directIncomingEdges = incomingEdgesByTarget.get(id) || [];
+    const maxIncomingValue = directIncomingEdges.length
+      ? Math.max(
+          ...directIncomingEdges.map((edge) => getTotalToNode(edge.source).total),
+        )
+      : 0;
+    const followsArithmetic = directIncomingEdges.some((edge) => {
+      const sourceTotal = getTotalToNode(edge.source);
+      const sourceValue = nodeById.get(edge.source)?.data.nodeValue;
+      return (
+        sourceTotal.total === maxIncomingValue &&
+        sourceTotal.operationValues.length >= 2 &&
+        typeof sourceValue === 'number' &&
+        Number.isFinite(sourceValue) &&
+        sourceValue !== 0
+      );
+    });
+    return nodeValue === 0 && followsArithmetic
+      ? formatCalculation(result.operationValues, result.total)
+      : null;
+  });
+  const isCalculatedNodeValue = nodeValue === 0 && calculatedNodeValueExpression !== null;
+  const displayedNodeValue =
+    nodeValue !== 0 ? String(nodeValue) : calculatedNodeValueExpression;
   const storylineNumbers = Array.isArray(data.storylineNumbers)
     ? data.storylineNumbers.filter((number): number is number => Number.isFinite(number))
     : [];
@@ -2329,6 +2414,19 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           )}
         </div>
       )}
+      {displayedNodeValue !== null && (
+        <div
+          className={`pointer-events-none absolute -top-3 -right-3 z-50 flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold shadow-sm ${
+            isCalculatedNodeValue
+              ? 'border border-slate-200 bg-slate-100 text-slate-500'
+              : nodeValue > 0
+                ? 'bg-violet-500 text-white'
+                : 'bg-blue-600 text-white'
+          }`}
+        >
+          {displayedNodeValue}
+        </div>
+      )}
       {selected && selectionCount === 1 && (
         <>
           <NodeResizeControl
@@ -2535,11 +2633,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             <ToolbarRow className="order-4 flex-nowrap gap-1.5">
               <ToolGroup className="gap-1.5">
                 <span className="shrink-0 text-[10px] font-black uppercase text-[var(--text-muted)]">
-                  数值
+                  好感度
                 </span>
                 <div className="w-12 border-b border-[var(--card-border)]">
                   <DraggableNumberInput
-                    value={(data.nodeValue as number) || 0}
+                    value={nodeValue}
                     onChange={(value) => updateNodeData({ nodeValue: value })}
                     min={-9999}
                     max={9999}

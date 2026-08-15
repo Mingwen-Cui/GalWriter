@@ -2,7 +2,6 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import PptxGenJS from 'pptxgenjs';
 
 import type { Language } from '../../../lib/i18n';
-
 import {
   CHARACTER_STAGE_MAX_HEIGHT_PERCENT,
   CHARACTER_STAGE_MAX_WIDTH_PERCENT,
@@ -23,6 +22,7 @@ import {
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
+import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { splitPptTextLines } from './pptTextLines';
 import {
   finalizePptxForPowerPoint,
@@ -105,12 +105,21 @@ export async function buildPptxBuffer({
   pptx.title = projectName;
   const page = createPptPageMapper(pptSettings.layout);
   const fullContentFrame = page.frame(0, 0, WIDE_PAGE_WIDTH, WIDE_PAGE_HEIGHT);
+  const textBoxFrame = (layout: import('../video/shared/types').PptTextBoxLayout) =>
+    page.frame(
+      (layout.x / 1920) * WIDE_PAGE_WIDTH,
+      (layout.y / 1080) * WIDE_PAGE_HEIGHT,
+      (layout.width / 1920) * WIDE_PAGE_WIDTH,
+      (layout.height / 1080) * WIDE_PAGE_HEIGHT,
+    );
   const authorNote =
     'Independent design and development: Mingwen Cui (崔铭文)\nhttps://mingwencui.com/AIwriter/?lang=zh';
   let authorNoteWritten = false;
 
   const scenes = resolvePptScenes(nodes, edges, settings);
   const colors = pptSceneColors(style, settings);
+  const textOverrides = pptSettings.textOverrides || {};
+  const textBoxLayouts = pptSettings.textBoxLayouts || {};
   const imageCache = new Map<string, Promise<string | undefined>>();
   const videoCache = new Map<string, Promise<string | undefined>>();
   const resolveImage = (url?: string) => {
@@ -233,6 +242,17 @@ export async function buildPptxBuffer({
   await appendManualSlides('__start__');
 
   if (pptSettings.includeCover) {
+    const coverText = textOverrides.cover || {};
+    const coverTitle = coverText['cover-title'] ?? projectName;
+    const coverSubtitle = coverText['cover-subtitle'] ?? generatedBy;
+    const coverTitleLayout = resolvePptTextBoxLayout(
+      textBoxLayouts.cover?.['cover-title'],
+      'cover-title',
+    );
+    const coverSubtitleLayout = resolvePptTextBoxLayout(
+      textBoxLayouts.cover?.['cover-subtitle'],
+      'cover-subtitle',
+    );
     const slide = pptx.addSlide();
     slide.background = { color: hex(settings.startMenuBackgroundColor || colors.background) };
     const coverImage = await resolveImage(settings.startMenuBackgroundImageUrl);
@@ -244,28 +264,41 @@ export async function buildPptxBuffer({
       fill: { color: '000000', transparency: 38 },
       line: { transparency: 100 },
     });
-    slide.addText(projectName, {
-      ...page.frame(0.9, 2.75, 11.5, 0.7),
-      fontFace: toPptFontFace(style.titleFontFamily),
-      fontSize: 34 * page.scale,
-      bold: true,
-      color: hex(colors.title),
-      align: 'center',
-      margin: 0,
-    });
-    slide.addText(generatedBy, {
-      ...page.frame(0.9, 3.62, 11.5, 0.3),
-      fontSize: 15 * page.scale,
-      color: hex(colors.body),
-      align: 'center',
-      margin: 0,
-    });
+    if (coverTitleLayout.visible !== false) {
+      slide.addText(coverTitle || ' ', {
+        ...textBoxFrame(coverTitleLayout),
+        fontFace: toPptFontFace(style.titleFontFamily),
+        fontSize: 34 * page.scale,
+        bold: true,
+        color: hex(colors.title),
+        align: 'center',
+        valign: 'middle',
+        margin: 0,
+        rotate: coverTitleLayout.rotation,
+      });
+    }
+    if (coverSubtitleLayout.visible !== false) {
+      slide.addText(coverSubtitle || ' ', {
+        ...textBoxFrame(coverSubtitleLayout),
+        fontSize: 15 * page.scale,
+        color: hex(colors.body),
+        align: 'center',
+        valign: 'middle',
+        margin: 0,
+        rotate: coverSubtitleLayout.rotation,
+      });
+    }
     slide.addNotes(authorNote);
     authorNoteWritten = true;
     await appendManualSlides('cover');
   }
 
   for (const scene of scenes) {
+    const sceneTextOverrides = textOverrides[scene.id] || {};
+    const sceneTitle = sceneTextOverrides['dialog-title'] ?? scene.title;
+    const sceneBody = sceneTextOverrides['dialog-body'] ?? scene.text;
+    const sceneNameplate =
+      sceneTextOverrides.nameplate ?? scene.characters.find((character) => character.name)?.name?.trim();
     const slide = pptx.addSlide();
     const sceneSlideNumber = slideByNodeId.get(scene.id);
     const sceneAnimations = [
@@ -489,10 +522,10 @@ export async function buildPptxBuffer({
       });
       addAnimationTargets(objectName, 'dialog-panel');
     }
-    const hasTitle = title.visible && Boolean(scene.title.trim());
+    const hasTitle = title.visible && Boolean(sceneTitle.trim());
     if (hasTitle) {
       const objectName = `ppt-dialog-title-${scene.id}`;
-      slide.addText(scene.title, {
+      slide.addText(sceneTitle, {
         objectName,
         ...page.frame(
           panelX + panelPaddingX + title.x / 144,
@@ -528,7 +561,7 @@ export async function buildPptxBuffer({
           animation.textBuild?.mode === 'line-wipe',
       );
       if (lineWipe) {
-        const lines = splitPptTextLines(scene.text || ' ', bodyW * 72, bodyFontSize);
+        const lines = splitPptTextLines(sceneBody || ' ', bodyW * 72, bodyFontSize);
         const lineHeight = Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45));
         lines.forEach((line, index) => {
           const objectName = `ppt-dialog-body-${scene.id}-line-${index + 1}`;
@@ -561,7 +594,7 @@ export async function buildPptxBuffer({
         });
       } else {
         const objectName = `ppt-dialog-body-${scene.id}`;
-        slide.addText(scene.text || ' ', {
+        slide.addText(sceneBody || ' ', {
           objectName,
           ...page.frame(bodyX, bodyY, bodyW, bodyH),
           fontFace: toPptFontFace(body.fontFamily),
@@ -578,7 +611,7 @@ export async function buildPptxBuffer({
         addAnimationTargets(objectName, 'dialog-body');
       }
     }
-    const speakerName = scene.characters.find((character) => character.name)?.name?.trim();
+    const speakerName = sceneNameplate;
     if (speakerName && style.nameplateVisible && nameplate.visible) {
       const x = Math.max(0, Math.min(11.8, 0.93 + nameplate.x / 100));
       const y = Math.max(0, Math.min(7.0, 5.63 - nameplate.y / 100));
@@ -614,7 +647,7 @@ export async function buildPptxBuffer({
     }
     const sceneNotes =
       pptSettings.speakerNotes?.[scene.id] ||
-      `节点：${scene.id}\n\n${scene.text}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`;
+      `节点：${scene.id}\n\n${sceneBody}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`;
     if (pptSettings.includeNotes || !authorNoteWritten) {
       slide.addNotes(authorNoteWritten ? sceneNotes : `${authorNote}\n\n${sceneNotes}`);
       authorNoteWritten = true;

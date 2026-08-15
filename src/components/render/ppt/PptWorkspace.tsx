@@ -20,6 +20,8 @@ import type {
   PptManualSlide,
   PptObjectAnimation,
   PptSlideTransition,
+  PptTextBoxLayout,
+  PptTextOverrideTarget,
   PptTransitionEffect,
   RenderEditableObject,
   RenderEditableObjectKind,
@@ -47,6 +49,7 @@ import {
 import { PptManualSlideCanvas } from './PptManualSlideCanvas';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
+import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { splitPptTextLines } from './pptTextLines';
 import { AnimationRibbon, SlideList, SlideSorter } from './PptWorkspaceControls';
 import { PlayerOverlay, PptFooterBar } from './PptWorkspaceFooter';
@@ -257,6 +260,8 @@ export function PptWorkspace({
   const colors = pptSceneColors(renderStyle, webSettings);
   const animations = pptSettings.animations || {};
   const transitions = pptSettings.transitions || {};
+  const textOverrides = pptSettings.textOverrides || {};
+  const textBoxLayouts = pptSettings.textBoxLayouts || {};
   const savedAnimations = animations[selectedId] || [];
   // Story tags are the source of truth for character / scene animation.
   // Keep them visible in the native PPT timeline without serialising a second
@@ -441,6 +446,31 @@ export function PptWorkspace({
       }
     },
     [renderStyle, updateRenderStyle],
+  );
+  const updatePptText = useCallback(
+    (target: PptTextOverrideTarget, text: string) => {
+      updatePptSettings({
+        textOverrides: {
+          ...textOverrides,
+          [selectedId]: { ...textOverrides[selectedId], [target]: text },
+        },
+      });
+    },
+    [selectedId, textOverrides, updatePptSettings],
+  );
+  const updatePptTextBoxLayout = useCallback(
+    (target: PptTextOverrideTarget, patch: Partial<PptTextBoxLayout>) => {
+      updatePptSettings({
+        textBoxLayouts: {
+          ...textBoxLayouts,
+          [selectedId]: {
+            ...textBoxLayouts[selectedId],
+            [target]: { ...textBoxLayouts[selectedId]?.[target], ...patch },
+          },
+        },
+      });
+    },
+    [selectedId, textBoxLayouts, updatePptSettings],
   );
   const replaceTimeline = (nextTimeline: PptObjectAnimation[]) => {
     updatePptSettings({
@@ -680,6 +710,8 @@ export function PptWorkspace({
               webSettings={webSettings}
               renderStyle={renderStyle}
               colors={colors}
+              textOverrides={textOverrides}
+              textBoxLayouts={textBoxLayouts}
               layout={pptSettings.layout}
               manualSlides={manualSlides}
               onSelect={selectSlide}
@@ -700,6 +732,8 @@ export function PptWorkspace({
                 webSettings={webSettings}
                 renderStyle={renderStyle}
                 colors={colors}
+                textOverrides={textOverrides}
+                textBoxLayouts={textBoxLayouts}
                 layout={pptSettings.layout}
                 manualSlides={manualSlides}
                 onSelect={(id) => {
@@ -734,6 +768,8 @@ export function PptWorkspace({
                           webSettings={webSettings}
                           renderStyle={renderStyle}
                           colors={colors}
+                          textOverrides={textOverrides[selectedId]}
+                          textBoxLayouts={textBoxLayouts[selectedId]}
                           animations={currentAnimations}
                           transition={currentTransition}
                           selected={selectedObject}
@@ -743,6 +779,8 @@ export function PptWorkspace({
                           editable
                           onSelect={selectObject}
                           onUpdateObject={updatePptObject}
+                          onUpdateText={updatePptText}
+                          onUpdateTextBoxLayout={updatePptTextBoxLayout}
                           onChoose={goToScene}
                           selectedManualElementId={selectedManualElementId}
                           onSelectManualElement={selectManualElement}
@@ -821,6 +859,8 @@ export function PptWorkspace({
             webSettings={webSettings}
             renderStyle={renderStyle}
             colors={colors}
+            textOverrides={textOverrides[selectedId]}
+            textBoxLayouts={textBoxLayouts[selectedId]}
             animations={currentAnimations}
             transition={currentTransition}
             layout={pptSettings.layout}
@@ -856,6 +896,8 @@ export function SlideCanvas({
   webSettings,
   renderStyle,
   colors,
+  textOverrides,
+  textBoxLayouts,
   animations,
   transition,
   selected,
@@ -865,6 +907,8 @@ export function SlideCanvas({
   editable = false,
   onSelect,
   onUpdateObject,
+  onUpdateText,
+  onUpdateTextBoxLayout,
   onChoose,
   manualSlide,
   selectedManualElementId,
@@ -879,6 +923,8 @@ export function SlideCanvas({
   webSettings: WebExportSettings;
   renderStyle: RenderStyle;
   colors: ReturnType<typeof pptSceneColors>;
+  textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
+  textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   selected: Selection | null;
@@ -888,6 +934,11 @@ export function SlideCanvas({
   editable?: boolean;
   onSelect: (selection: Selection) => void;
   onUpdateObject?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
+  onUpdateText?: (target: PptTextOverrideTarget, text: string) => void;
+  onUpdateTextBoxLayout?: (
+    target: PptTextOverrideTarget,
+    patch: Partial<PptTextBoxLayout>,
+  ) => void;
   onChoose?: (targetId: string) => void;
   manualSlide?: PptManualSlide;
   selectedManualElementId?: string;
@@ -917,11 +968,16 @@ export function SlideCanvas({
       ) : selectedId === 'cover' ? (
         <CoverPreview
           projectName={projectName}
+          editable={editable}
+          textOverrides={textOverrides}
+          textBoxLayouts={textBoxLayouts}
           selected={selected}
           animations={animations}
           previewing={previewing}
           previewAtMs={previewAtMs}
           onSelect={onSelect}
+          onUpdateText={onUpdateText}
+          onUpdateTextBoxLayout={onUpdateTextBoxLayout}
         />
       ) : scene ? (
         isChoiceSlide ? (
@@ -940,6 +996,8 @@ export function SlideCanvas({
             editable={editable}
             onSelect={onSelect}
             onUpdateObject={onUpdateObject}
+            textOverrides={textOverrides}
+            onUpdateText={onUpdateText}
           />
         )
       ) : null}
@@ -949,45 +1007,295 @@ export function SlideCanvas({
 
 function CoverPreview({
   projectName,
+  editable,
+  textOverrides,
+  textBoxLayouts,
   selected,
   animations,
   previewing,
   previewAtMs,
   onSelect,
+  onUpdateText,
+  onUpdateTextBoxLayout,
 }: {
   projectName: string;
+  editable: boolean;
+  textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
+  textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
   selected: Selection | null;
   animations: PptObjectAnimation[];
   previewing: boolean;
   previewAtMs?: number;
   onSelect: (selection: Selection) => void;
+  onUpdateText?: (target: PptTextOverrideTarget, text: string) => void;
+  onUpdateTextBoxLayout?: (
+    target: PptTextOverrideTarget,
+    patch: Partial<PptTextBoxLayout>,
+  ) => void;
 }) {
+  const title = textOverrides?.['cover-title'] ?? (projectName || '旮旯作家 · GalWriter');
+  const subtitle = textOverrides?.['cover-subtitle'] ?? '由旮旯作家 · GalWriter 生成';
   return (
-    <div className="grid h-full place-items-center bg-black/35 px-10 text-center">
-      <div>
-        <Selectable
-          selection={{ target: 'cover-title', label: '封面标题' }}
-          selected={selected}
-          animation={findAnimation(animations, 'cover-title')}
-          previewing={previewing}
-          previewAtMs={previewAtMs}
-          onSelect={onSelect}
-        >
-          <h1 className="text-4xl font-black text-white">
-            {projectName || '旮旯作家 · GalWriter'}
-          </h1>
-        </Selectable>
-        <Selectable
-          selection={{ target: 'cover-subtitle', label: '封面副标题' }}
-          selected={selected}
-          animation={findAnimation(animations, 'cover-subtitle')}
-          previewing={previewing}
-          previewAtMs={previewAtMs}
-          onSelect={onSelect}
-        >
-          <p className="mt-4 text-sm text-white/75">由旮旯作家 · GalWriter 生成</p>
-        </Selectable>
-      </div>
+    <div className="absolute inset-0 bg-black/35">
+      <PptCoverTextBox
+        target="cover-title"
+        label="封面标题"
+        text={title}
+        layout={resolvePptTextBoxLayout(textBoxLayouts?.['cover-title'], 'cover-title')}
+        selected={selected}
+        animation={findAnimation(animations, 'cover-title')}
+        previewing={previewing}
+        previewAtMs={previewAtMs}
+        editable={editable}
+        onSelect={onSelect}
+        onUpdateText={(text) => onUpdateText?.('cover-title', text)}
+        onUpdateLayout={(patch) => onUpdateTextBoxLayout?.('cover-title', patch)}
+      />
+      <PptCoverTextBox
+        target="cover-subtitle"
+        label="封面副标题"
+        text={subtitle}
+        layout={resolvePptTextBoxLayout(textBoxLayouts?.['cover-subtitle'], 'cover-subtitle')}
+        selected={selected}
+        animation={findAnimation(animations, 'cover-subtitle')}
+        previewing={previewing}
+        previewAtMs={previewAtMs}
+        editable={editable}
+        onSelect={onSelect}
+        onUpdateText={(text) => onUpdateText?.('cover-subtitle', text)}
+        onUpdateLayout={(patch) => onUpdateTextBoxLayout?.('cover-subtitle', patch)}
+      />
+    </div>
+  );
+}
+
+function PptCoverTextBox({
+  target,
+  label,
+  text,
+  layout,
+  selected,
+  animation,
+  previewing,
+  previewAtMs,
+  editable,
+  onSelect,
+  onUpdateText,
+  onUpdateLayout,
+}: {
+  target: 'cover-title' | 'cover-subtitle';
+  label: string;
+  text: string;
+  layout: PptTextBoxLayout;
+  selected: Selection | null;
+  animation: PptObjectAnimation[];
+  previewing: boolean;
+  previewAtMs?: number;
+  editable: boolean;
+  onSelect: (selection: Selection) => void;
+  onUpdateText?: (text: string) => void;
+  onUpdateLayout?: (patch: Partial<PptTextBoxLayout>) => void;
+}) {
+  const selection = { target, label };
+  const isSelected = selected?.target === target;
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [draftText, setDraftText] = useState('');
+  const textEditorRef = useRef<HTMLDivElement>(null);
+  const initialTextRef = useRef('');
+  const discardTextEditRef = useRef(false);
+  const textClass =
+    target === 'cover-title'
+      ? 'text-4xl font-black text-white'
+      : 'text-sm text-white/75';
+  useEffect(() => {
+    if (!isEditingText) return;
+    const frame = window.requestAnimationFrame(() => {
+      const editor = textEditorRef.current;
+      if (!editor) return;
+      editor.textContent = initialTextRef.current;
+      editor.focus();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      const textSelection = window.getSelection();
+      textSelection?.removeAllRanges();
+      textSelection?.addRange(range);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isEditingText]);
+  const finishTextEdit = () => {
+    if (!isEditingText) return;
+    const nextText = textEditorRef.current?.innerText.replace(/\r\n/g, '\n') ?? draftText;
+    const shouldCommit = !discardTextEditRef.current;
+    discardTextEditRef.current = false;
+    setIsEditingText(false);
+    if (shouldCommit && nextText !== text) onUpdateText?.(nextText);
+  };
+  const beginTextEdit = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!editable || !onUpdateText) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect(selection);
+    initialTextRef.current = text;
+    setDraftText(text);
+    setIsEditingText(true);
+  };
+  const beginMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!editable || !onUpdateLayout || event.button !== 0 || isEditingText) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect(selection);
+    const stage = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!stage) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initial = layout;
+    const move = (moveEvent: PointerEvent) => {
+      const dx = ((moveEvent.clientX - startX) / stage.width) * PPT_CONTENT_WIDTH;
+      const dy = ((moveEvent.clientY - startY) / stage.height) * PPT_CONTENT_HEIGHT;
+      onUpdateLayout({
+        x: Math.round(Math.max(0, Math.min(PPT_CONTENT_WIDTH - initial.width, initial.x + dx))),
+        y: Math.round(Math.max(0, Math.min(PPT_CONTENT_HEIGHT - initial.height, initial.y + dy))),
+      });
+    };
+    const end = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end, { once: true });
+  };
+  const beginResize = (event: React.PointerEvent<HTMLElement>, handle: WebEditableResizeHandle) => {
+    if (!onUpdateLayout) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const stage = event.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+    if (!stage) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initial = layout;
+    const move = (moveEvent: PointerEvent) => {
+      const dx = ((moveEvent.clientX - startX) / stage.width) * PPT_CONTENT_WIDTH;
+      const dy = ((moveEvent.clientY - startY) / stage.height) * PPT_CONTENT_HEIGHT;
+      let x = initial.x;
+      let y = initial.y;
+      let width = initial.width;
+      let height = initial.height;
+      if (handle.includes('e')) width += dx;
+      if (handle.includes('w')) {
+        x += dx;
+        width -= dx;
+      }
+      if (handle.includes('s')) height += dy;
+      if (handle.includes('n')) {
+        y += dy;
+        height -= dy;
+      }
+      width = Math.max(80, Math.min(PPT_CONTENT_WIDTH, width));
+      height = Math.max(32, Math.min(PPT_CONTENT_HEIGHT, height));
+      x = Math.max(0, Math.min(PPT_CONTENT_WIDTH - width, x));
+      y = Math.max(0, Math.min(PPT_CONTENT_HEIGHT - height, y));
+      onUpdateLayout({
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(width),
+        height: Math.round(height),
+      });
+    };
+    const end = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end, { once: true });
+  };
+  const beginRotate = (event: React.PointerEvent<HTMLElement>) => {
+    if (!onUpdateLayout) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const box = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!box) return;
+    const centerX = box.left + box.width / 2;
+    const centerY = box.top + box.height / 2;
+    const start = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+    const move = (moveEvent: PointerEvent) => {
+      const rotation =
+        layout.rotation +
+        ((Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) - start) * 180) /
+          Math.PI;
+      onUpdateLayout({ rotation: Math.round((((rotation + 180) % 360) + 360) % 360 - 180) });
+    };
+    const end = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end, { once: true });
+  };
+  if (layout.visible === false && !editable) return null;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`选择${label}`}
+      className={`ppt-selectable absolute z-20 ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab' : ''}`}
+      style={{
+        left: `${(layout.x / PPT_CONTENT_WIDTH) * 100}%`,
+        top: `${(layout.y / PPT_CONTENT_HEIGHT) * 100}%`,
+        width: `${(layout.width / PPT_CONTENT_WIDTH) * 100}%`,
+        height: `${(layout.height / PPT_CONTENT_HEIGHT) * 100}%`,
+        transform: `rotate(${layout.rotation}deg)`,
+        transformOrigin: 'center',
+        opacity: layout.visible === false ? 0.3 : undefined,
+        ...previewStyle(animation, previewing, previewAtMs),
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect(selection);
+      }}
+      onPointerDown={beginMove}
+      onDoubleClick={beginTextEdit}
+    >
+      {isEditingText ? (
+        <div
+          ref={textEditorRef}
+          contentEditable
+          suppressContentEditableWarning
+          className={`grid h-full w-full place-items-center whitespace-pre-wrap text-center outline-none ${textClass}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+          onInput={(event) => setDraftText(event.currentTarget.innerText)}
+          onBlur={finishTextEdit}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              discardTextEditRef.current = true;
+              setIsEditingText(false);
+              event.currentTarget.blur();
+            }
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      ) : (
+        <div className={`grid h-full w-full place-items-center whitespace-pre-wrap text-center ${textClass}`}>
+          {text}
+        </div>
+      )}
+      {animation.length ? <span className="ppt-animation-index">✦</span> : null}
+      {editable && isSelected && onUpdateLayout ? (
+        <WebEditableElementFrame
+          visible={layout.visible !== false}
+          onToggleVisible={(event) => {
+            event.stopPropagation();
+            onUpdateLayout({ visible: layout.visible === false });
+          }}
+          onRotatePointerDown={beginRotate}
+          onResizePointerDown={beginResize}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1005,6 +1313,8 @@ function ScenePreview({
   editable,
   onSelect,
   onUpdateObject,
+  textOverrides,
+  onUpdateText,
 }: {
   scene: Scene;
   videoLoop: boolean;
@@ -1018,6 +1328,8 @@ function ScenePreview({
   editable: boolean;
   onSelect: (selection: Selection) => void;
   onUpdateObject?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
+  textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
+  onUpdateText?: (target: PptTextOverrideTarget, text: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const objects = getRenderObjects(renderStyle);
@@ -1025,12 +1337,14 @@ function ScenePreview({
   const body = objects.body;
   const panel = objects.dialogBox;
   const nameplate = objects.nameplate;
-  const speakerName = scene.characters.find((character) => character.name)?.name?.trim();
+  const speakerName = textOverrides?.nameplate ?? scene.characters.find((character) => character.name)?.name?.trim();
+  const titleText = textOverrides?.['dialog-title'] ?? scene.title;
+  const bodyText = textOverrides?.['dialog-body'] ?? scene.text;
   const bodyAnimations = findAnimation(animations, 'dialog-body');
   const bodyAnimation = bodyAnimations.find(
     (animation) => animation.textBuild?.mode === 'line-wipe',
   );
-  const hasTitle = title.visible && Boolean(scene.title.trim());
+  const hasTitle = title.visible && Boolean(titleText.trim());
   // Match the web preview's logical 720px-canvas text sizing on the 1080px stage.
   const titlePaint = textPaint(title, true);
   const bodyPaint = textPaint(body, true);
@@ -1142,6 +1456,8 @@ function ScenePreview({
             editable={editable}
             onSelect={onSelect}
             onUpdate={onUpdateObject}
+            textValue={titleText}
+            onTextChange={(text) => onUpdateText?.('dialog-title', text)}
             className="absolute z-20"
             style={{
               left: `${title.x}px`,
@@ -1152,7 +1468,7 @@ function ScenePreview({
               ...titlePaint,
             }}
           >
-            {scene.title}
+            {titleText}
           </PptEditableObject>
         ) : null}
         <PptEditableObject
@@ -1167,6 +1483,8 @@ function ScenePreview({
           editable={editable}
           onSelect={onSelect}
           onUpdate={onUpdateObject}
+          textValue={bodyText}
+          onTextChange={(text) => onUpdateText?.('dialog-body', text)}
           className="absolute z-20 whitespace-pre-wrap"
           style={{
             left: `${body.x}px`,
@@ -1179,7 +1497,7 @@ function ScenePreview({
         >
           {bodyAnimation?.textBuild?.mode === 'line-wipe' ? (
             <PptLineWipePreview
-              text={scene.text}
+              text={bodyText}
               widthPercent={body.width}
               fontSize={body.fontSize * 0.75}
               animation={bodyAnimation}
@@ -1187,7 +1505,7 @@ function ScenePreview({
               previewAtMs={previewAtMs}
             />
           ) : (
-            scene.text
+            bodyText
           )}
         </PptEditableObject>
       </PptEditableObject>
@@ -1204,6 +1522,8 @@ function ScenePreview({
           editable={editable}
           onSelect={onSelect}
           onUpdate={onUpdateObject}
+          textValue={speakerName}
+          onTextChange={(text) => onUpdateText?.('nameplate', text)}
           className="absolute z-50 grid place-items-center px-3 text-center"
           style={{
             left: `${(panelLayout.x + nameplate.x) / 19.2}%`,
@@ -1358,6 +1678,8 @@ function PptEditableObject({
   editable,
   onSelect,
   onUpdate,
+  textValue,
+  onTextChange,
   className,
   style,
   children,
@@ -1373,12 +1695,52 @@ function PptEditableObject({
   editable: boolean;
   onSelect: (selection: Selection) => void;
   onUpdate?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
+  textValue?: string;
+  onTextChange?: (text: string) => void;
   className: string;
   style: React.CSSProperties;
   children: ReactNode;
 }) {
   const selection = { target, label };
   const isSelected = selected?.target === target;
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [draftText, setDraftText] = useState('');
+  const textEditorRef = useRef<HTMLDivElement>(null);
+  const initialTextRef = useRef('');
+  const discardTextEditRef = useRef(false);
+  useEffect(() => {
+    if (!isEditingText) return;
+    const frame = window.requestAnimationFrame(() => {
+      const editor = textEditorRef.current;
+      if (!editor) return;
+      editor.textContent = initialTextRef.current;
+      editor.focus();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      const textSelection = window.getSelection();
+      textSelection?.removeAllRanges();
+      textSelection?.addRange(range);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isEditingText]);
+  const beginTextEdit = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!editable || textValue === undefined || !onTextChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect(selection);
+    initialTextRef.current = textValue;
+    setDraftText(textValue);
+    setIsEditingText(true);
+  };
+  const finishTextEdit = (commit = true) => {
+    if (!isEditingText) return;
+    const nextText = textEditorRef.current?.innerText.replace(/\r\n/g, '\n') ?? draftText;
+    const shouldCommit = commit && !discardTextEditRef.current;
+    discardTextEditRef.current = false;
+    setIsEditingText(false);
+    if (shouldCommit && nextText !== textValue) onTextChange?.(nextText);
+  };
   const beginDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!editable || !onUpdate || event.button !== 0) return;
     event.preventDefault();
@@ -1476,6 +1838,7 @@ function PptEditableObject({
         onSelect(selection);
       }}
       onPointerDown={beginDrag}
+      onDoubleClick={beginTextEdit}
       className={`ppt-selectable ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab' : ''} ${className}`}
       style={{
         ...style,
@@ -1483,7 +1846,30 @@ function PptEditableObject({
         opacity: object.visible ? undefined : 0.3,
       }}
     >
-      {children}
+      {isEditingText ? (
+        <div
+          ref={textEditorRef}
+          contentEditable
+          suppressContentEditableWarning
+          className="h-full w-full whitespace-pre-wrap outline-none"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+          onInput={(event) => setDraftText(event.currentTarget.innerText)}
+          onBlur={() => finishTextEdit()}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              discardTextEditRef.current = true;
+              setIsEditingText(false);
+              event.currentTarget.blur();
+            }
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      ) : children}
       {animation.length ? <span className="ppt-animation-index">✦</span> : null}
       {editable && isSelected && onUpdate ? (
         <WebEditableElementFrame
@@ -1573,6 +1959,10 @@ function Selectable({
   previewing,
   previewAtMs,
   onSelect,
+  editable = false,
+  textValue,
+  textEditorClassName,
+  onTextChange,
   className = '',
   style,
   children,
@@ -1583,14 +1973,56 @@ function Selectable({
   previewing: boolean;
   previewAtMs?: number;
   onSelect: (selection: Selection) => void;
+  editable?: boolean;
+  textValue?: string;
+  textEditorClassName?: string;
+  onTextChange?: (text: string) => void;
   className?: string;
   style?: React.CSSProperties;
   children: ReactNode;
 }) {
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [draftText, setDraftText] = useState('');
+  const textEditorRef = useRef<HTMLDivElement>(null);
+  const initialTextRef = useRef('');
+  const discardTextEditRef = useRef(false);
   const active =
     selected &&
     animationKey(selected.target, selected.targetId) ===
       animationKey(selection.target, selection.targetId);
+  useEffect(() => {
+    if (!isEditingText) return;
+    const frame = window.requestAnimationFrame(() => {
+      const editor = textEditorRef.current;
+      if (!editor) return;
+      editor.textContent = initialTextRef.current;
+      editor.focus();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      const textSelection = window.getSelection();
+      textSelection?.removeAllRanges();
+      textSelection?.addRange(range);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isEditingText]);
+  const beginTextEdit = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!editable || textValue === undefined || !onTextChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect(selection);
+    initialTextRef.current = textValue;
+    setDraftText(textValue);
+    setIsEditingText(true);
+  };
+  const finishTextEdit = (commit = true) => {
+    if (!isEditingText) return;
+    const nextText = textEditorRef.current?.innerText.replace(/\r\n/g, '\n') ?? draftText;
+    const shouldCommit = commit && !discardTextEditRef.current;
+    discardTextEditRef.current = false;
+    setIsEditingText(false);
+    if (shouldCommit && nextText !== textValue) onTextChange?.(nextText);
+  };
   return (
     <div
       role="button"
@@ -1600,6 +2032,7 @@ function Selectable({
         event.stopPropagation();
         onSelect(selection);
       }}
+      onDoubleClick={beginTextEdit}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
@@ -1609,7 +2042,29 @@ function Selectable({
       className={`ppt-selectable ${active ? 'is-selected' : ''} ${className}`}
       style={{ ...style, ...previewStyle(animation, previewing, previewAtMs) }}
     >
-      {children}
+      {isEditingText ? (
+        <div
+          ref={textEditorRef}
+          contentEditable
+          suppressContentEditableWarning
+          className={`whitespace-pre-wrap outline-none ${textEditorClassName || ''}`}
+          onClick={(event) => event.stopPropagation()}
+          onInput={(event) => setDraftText(event.currentTarget.innerText)}
+          onBlur={() => finishTextEdit()}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              discardTextEditRef.current = true;
+              setIsEditingText(false);
+              event.currentTarget.blur();
+            }
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      ) : children}
       {animation.length ? <span className="ppt-animation-index">✦</span> : null}
     </div>
   );

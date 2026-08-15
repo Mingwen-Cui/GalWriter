@@ -49,6 +49,10 @@ export type AssistantWorkflowState =
       type: 'creative-role-preference-custom-awaiting';
       sessionId: string;
     }
+  | {
+      type: 'creative-character-traits-awaiting';
+      sessionId: string;
+    }
   | { type: 'creative-background-awaiting' }
   | {
       type: 'creative-background-candidate-awaiting';

@@ -112,6 +112,25 @@ export type AssistantMessage = {
       source?: 'saved' | 'preset' | 'canvas';
     }>;
   };
+  characterTraitControls?: {
+    controls: Array<{
+      trait: keyof CreativeStoryTraitLevels;
+      title: string;
+      levels: Array<{
+        value: CreativeStoryTraitLevel;
+        description: string;
+      }>;
+      lowerLabel: string;
+      upperLabel: string;
+      currentLabel: string;
+    }>;
+    confirmLabel: string;
+    skipLabel: string;
+    completedLabel: string;
+    skippedLabel: string;
+    selectedValues?: Partial<CreativeStoryTraitLevels>;
+    skipped?: boolean;
+  };
   options?: AssistantMessageOption[];
 };
 
@@ -144,7 +163,20 @@ export type CreativeStoryDirection = {
   genreId: string;
   genre: string;
   rolePreference?: string;
+  /** Five-level controls that make the player character consistent across AI turns. */
+  roleTraits?: Partial<CreativeStoryTraitLevels>;
 };
+
+export type CreativeStoryTraitLevel = 1 | 2 | 3 | 4 | 5;
+
+export type CreativeStoryTraitLevels = {
+  initiative: CreativeStoryTraitLevel;
+  emotionalOpenness: CreativeStoryTraitLevel;
+  secretDepth: CreativeStoryTraitLevel;
+  moralFlexibility: CreativeStoryTraitLevel;
+};
+
+export type CreativeStoryTraitKey = keyof CreativeStoryTraitLevels;
 
 export type CreativeStoryTurn = {
   id: string;

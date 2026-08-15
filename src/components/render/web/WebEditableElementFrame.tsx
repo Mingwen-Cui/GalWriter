@@ -68,6 +68,7 @@ export function WebEditableElementFrame({
   onToggleSlotPreview,
   slotPreviewActive = false,
   showAuxiliaryControls = true,
+  showVisibilityControl = true,
   showResizeHandles = true,
 }: {
   visible: boolean;
@@ -82,12 +83,13 @@ export function WebEditableElementFrame({
   onToggleSlotPreview?: (event: React.MouseEvent<HTMLElement>) => void;
   slotPreviewActive?: boolean;
   showAuxiliaryControls?: boolean;
+  showVisibilityControl?: boolean;
   showResizeHandles?: boolean;
 }) {
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
-      {showAuxiliaryControls && <span
+      {showAuxiliaryControls && showVisibilityControl && <span
         tabIndex={-1}
         className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
         style={{ cursor: 'grab', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}

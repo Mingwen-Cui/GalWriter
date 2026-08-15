@@ -7,6 +7,11 @@ import type {
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
 import type {
+  CreativeStoryTraitKey,
+  CreativeStoryTraitLevel,
+  CreativeStoryTraitLevels,
+} from '../../domain/project';
+import type {
   AssistantMessage,
   AssistantTask,
   CreativeStorySession,
@@ -54,6 +59,158 @@ type CreativeStoryOpening = {
   id: string;
   label: string;
   description: string;
+};
+
+const creativeStoryTraitKeys: CreativeStoryTraitKey[] = [
+  'initiative',
+  'emotionalOpenness',
+  'secretDepth',
+  'moralFlexibility',
+];
+
+const getCreativeStoryTraitQuestion = (trait: CreativeStoryTraitKey, language: Language) => {
+  const localized = <T,>(zh: T, en: T, ja: T) => (language === 'en' ? en : language === 'ja' ? ja : zh);
+  const question = (
+    zh: string,
+    en: string,
+    ja: string,
+    zhLevels: Array<[string, string]>,
+    enLevels: Array<[string, string]>,
+    jaLevels: Array<[string, string]>,
+  ) => ({
+    title: localized(zh, en, ja),
+    levels: localized(zhLevels, enLevels, jaLevels),
+    lowerLabel: localized('弱', 'Low', '弱'),
+    upperLabel: localized('强', 'High', '強'),
+    currentLabel: localized('当前强度', 'Current strength', '現在の強さ'),
+    groupTitle: localized('同时微调四项角色细节', 'Fine-tune all four character traits', '4つの人物特性をまとめて調整'),
+    confirmLabel: localized('确认并生成角色', 'Confirm and generate characters', '決定して人物を生成'),
+    skipLabel: localized('跳过微调', 'Skip fine-tuning', '調整をスキップ'),
+    completedLabel: localized('角色细节已确认', 'Character traits confirmed', '人物の細部を確認しました'),
+    skippedLabel: localized('已跳过角色细节微调', 'Character trait fine-tuning skipped', '人物の細部調整をスキップしました'),
+  });
+
+  if (trait === 'initiative') {
+    return question(
+      '1. 主角会多主动地推动故事？',
+      '1. How actively should the protagonist drive the story?',
+      '1. 主人公はどれくらい自分から物語を動かしますか？',
+      [
+        ['1 观察为主', '先看清局势，通常由事件推动。'],
+        ['2 谨慎回应', '会行动，但需要明确的理由或邀请。'],
+        ['3 有分寸地行动', '在关键点能作出自己的决定。'],
+        ['4 主动推进', '会寻找线索、提出要求并带动关系。'],
+        ['5 无法袖手旁观', '总会先迈出那一步，改变局面。'],
+      ],
+      [
+        ['1 Mostly observant', 'Watches the situation and is usually moved by events.'],
+        ['2 Cautiously responsive', 'Acts with a clear reason or invitation.'],
+        ['3 Decisive when needed', 'Makes their own choice at key moments.'],
+        ['4 Proactive', 'Seeks clues, makes requests, and drives relationships forward.'],
+        ['5 Cannot stand aside', 'Steps in first and changes the situation.'],
+      ],
+      [
+        ['1 観察が中心', 'まず状況を見極め、事件に動かされることが多い。'],
+        ['2 慎重に応じる', '理由や誘いがあれば行動する。'],
+        ['3 要所で決断する', '大事な場面では自分で選ぶ。'],
+        ['4 自ら進める', '手がかりを探し、関係を動かしていく。'],
+        ['5 見過ごせない', '最初の一歩を踏み出して局面を変える。'],
+      ],
+    );
+  }
+  if (trait === 'emotionalOpenness') {
+    return question(
+      '2. 主角会把真实情绪表露到什么程度？',
+      '2. How openly should the protagonist show real emotions?',
+      '2. 主人公は本音をどの程度表に出しますか？',
+      [
+        ['1 极度克制', '即使受伤或心动，也很少让人看出来。'],
+        ['2 不轻易表露', '只有在安全的人面前露出一点破绽。'],
+        ['3 慢热真诚', '会犹豫，但会逐渐说出真实想法。'],
+        ['4 感受清晰', '能够直说喜欢、愤怒和不安。'],
+        ['5 情绪外显', '情绪会直接影响语气、选择和关系。'],
+      ],
+      [
+        ['1 Highly restrained', 'Rarely shows hurt or attraction.'],
+        ['2 Guarded', 'Shows a crack only around people who feel safe.'],
+        ['3 Slow to warm, sincere', 'Hesitates, then gradually speaks honestly.'],
+        ['4 Emotionally clear', 'Can plainly voice affection, anger, and fear.'],
+        ['5 Emotionally expressive', 'Feelings directly shape tone, choices, and relationships.'],
+      ],
+      [
+        ['1 強く抑える', '傷つきや好意をほとんど見せない。'],
+        ['2 簡単には見せない', '安心できる相手にだけ少し隙を見せる。'],
+        ['3 慣れるまで時間がかかる', '迷いながらも少しずつ本音を話す。'],
+        ['4 感情が明確', '好意、不安、怒りを言葉にできる。'],
+        ['5 感情が表に出る', '口調、選択、関係に感情が強く現れる。'],
+      ],
+    );
+  }
+  if (trait === 'secretDepth') {
+    return question(
+      '3. 主角身上要藏多深的秘密？',
+      '3. How deep should the protagonist’s secret run?',
+      '3. 主人公はどれほど深い秘密を抱えていますか？',
+      [
+        ['1 几乎透明', '过去坦荡，没有需要刻意隐瞒的事。'],
+        ['2 小小保留', '有些经历暂时不想提起。'],
+        ['3 不愿触碰的过去', '一个经历会影响目前的判断和亲近。'],
+        ['4 会改变关系的秘密', '真相说出口后，重要关系将被重新定义。'],
+        ['5 足以颠覆故事', '身份、动机或记忆可能改变所有人的理解。'],
+      ],
+      [
+        ['1 Nearly transparent', 'Has an open past and little to deliberately hide.'],
+        ['2 Small reservations', 'Some experiences are not ready to be discussed.'],
+        ['3 A past they avoid', 'One experience changes judgement and closeness.'],
+        ['4 A relationship-changing secret', 'The truth will redefine an important bond.'],
+        ['5 Story-upending secret', 'Identity, motive, or memory can change everyone’s understanding.'],
+      ],
+      [
+        ['1 ほぼ隠し事がない', '過去は開かれており、隠す必要がほとんどない。'],
+        ['2 小さな留保', 'まだ話したくない経験がある。'],
+        ['3 触れたくない過去', 'ある出来事が判断や距離感に影響する。'],
+        ['4 関係を変える秘密', '真実を知れば大切な関係が変わる。'],
+        ['5 物語を覆す秘密', '身分、動機、記憶が全員の理解を変えうる。'],
+      ],
+    );
+  }
+  return question(
+    '4. 面对两难时，主角会为重要的人变通到什么程度？',
+    '4. How far will the protagonist bend for someone important?',
+    '4. 大切な人のために、主人公はどこまで柔軟に振る舞いますか？',
+    [
+      ['1 坚守原则', '即使失去机会，也不越过自己的底线。'],
+      ['2 有条件的变通', '会帮忙，但会先划清界限。'],
+      ['3 权衡代价', '愿意做灰色选择，并承担后果。'],
+      ['4 必要时越界', '为了重要的人会冒险违背常规。'],
+      ['5 不惜代价', '一旦认定要守护，就会把自己也押进去。'],
+    ],
+    [
+      ['1 Principled', 'Will not cross a personal line, even at a real cost.'],
+      ['2 Flexible with limits', 'Will help, but draws a boundary first.'],
+      ['3 Weighs the cost', 'Can make a grey choice and bear its consequence.'],
+      ['4 Breaks rules when needed', 'Will risk convention for someone important.'],
+      ['5 All in', 'Once committed to protecting someone, stakes themselves too.'],
+    ],
+    [
+      ['1 原則を守る', '大きな代償があっても自分の一線を越えない。'],
+      ['2 条件付きで柔軟', '助けるが、先に境界線を決める。'],
+      ['3 代償を量る', '灰色の選択をし、その結果を引き受ける。'],
+      ['4 必要なら越える', '大切な人のために常識を破る危険を取る。'],
+      ['5 すべてを賭ける', '守ると決めたら、自分自身も賭けに出す。'],
+    ],
+  );
+};
+
+const getCreativeStoryTraitPromptContext = (
+  traits: Partial<CreativeStoryTraitLevels> | undefined,
+) => {
+  const value = (trait: CreativeStoryTraitKey) => traits?.[trait] ?? 3;
+  const initiative = ['多观察、被事件推动', '谨慎回应', '关键处自主行动', '主动推动线索与关系', '无法袖手旁观，带头改变局面'][value('initiative') - 1];
+  const emotionalOpenness = ['极度克制', '不轻易表露', '慢热但真诚', '感受清晰、愿意表达', '情绪强烈外显'][value('emotionalOpenness') - 1];
+  const secretDepth = ['几乎没有秘密', '有小小保留', '有不愿触碰的过去', '秘密会改变关系', '秘密足以颠覆故事'][value('secretDepth') - 1];
+  const moralFlexibility = ['坚守原则', '有条件地变通', '会权衡灰色代价', '必要时愿意越界', '为重要的人不惜代价'][value('moralFlexibility') - 1];
+  return `行动倾向 ${value('initiative')}/5（${initiative}）；情感表达 ${value('emotionalOpenness')}/5（${emotionalOpenness}）；秘密深度 ${value('secretDepth')}/5（${secretDepth}）；底线弹性 ${value('moralFlexibility')}/5（${moralFlexibility}）`;
 };
 
 const normalizeCharacterCards = (content: string): AssistantCardDraft[] => {
@@ -288,6 +445,14 @@ const getCreativeStoryRolePreferences = (language: Language): CreativeStoryOpeni
       { id: 'secret', label: 'Someone with a secret', description: 'The character is hiding a past, motive, or identity.' },
       { id: 'special', label: 'A special identity', description: 'Give the character a rare role, status, or ability.' },
       { id: 'grey', label: 'A conflicted person', description: 'Let them make difficult choices in a grey area.' },
+      { id: 'observer', label: 'A sharp observer', description: 'They notice what everyone else overlooks.' },
+      { id: 'protector', label: 'A protector', description: 'They have someone or something they cannot leave behind.' },
+      { id: 'outsider', label: 'An outsider', description: 'They do not quite belong in this place, group, or era.' },
+      { id: 'idealist', label: 'An idealist', description: 'They still believe something can be made better.' },
+      { id: 'ambitious', label: 'Someone with an agenda', description: 'They know what they want, even if they cannot say why.' },
+      { id: 'survivor', label: 'A wounded survivor', description: 'They have endured something that still shapes every choice.' },
+      { id: 'trickster', label: 'An unpredictable disruptor', description: 'They change the room’s balance and keep people guessing.' },
+      { id: 'leader', label: 'A reluctant leader', description: 'Others look to them when no one wants to decide.' },
     ];
   }
   if (language === 'ja') {
@@ -296,6 +461,14 @@ const getCreativeStoryRolePreferences = (language: Language): CreativeStoryOpeni
       { id: 'secret', label: '秘密を持つ人', description: '過去、動機、正体を隠している。' },
       { id: 'special', label: '特別な身分', description: '珍しい役割、地位、能力を与える。' },
       { id: 'grey', label: '葛藤を抱えた人', description: '簡単に正解を選べない人物にする。' },
+      { id: 'observer', label: '鋭い観察者', description: '誰も見落とす細部に気づく。' },
+      { id: 'protector', label: '守るものがある人', description: '置いていけない人や場所がある。' },
+      { id: 'outsider', label: 'どこにも属せない人', description: 'この場所、集団、時代にうまく馴染めない。' },
+      { id: 'idealist', label: '理想を諦めない人', description: '何かを良くできると今も信じている。' },
+      { id: 'ambitious', label: '目的を持つ人', description: '言えない理由があっても、欲しいものを知っている。' },
+      { id: 'survivor', label: '傷を抱えた生存者', description: '乗り越えた出来事が、今も選択を形づくっている。' },
+      { id: 'trickster', label: '読めない攪乱者', description: '場の均衡を変え、周囲を予測させない。' },
+      { id: 'leader', label: '押し出されたリーダー', description: '誰も決められない時、周囲がその人を見る。' },
     ];
   }
   return [
@@ -303,6 +476,14 @@ const getCreativeStoryRolePreferences = (language: Language): CreativeStoryOpeni
     { id: 'secret', label: '藏着秘密的人', description: '角色有不能轻易说出的过去、动机或身份。' },
     { id: 'special', label: '拥有特殊身份的人', description: '给角色一个稀有的职业、地位或能力。' },
     { id: 'grey', label: '有矛盾感的人', description: '让角色面临不容易选对的立场与抉择。' },
+    { id: 'observer', label: '敏锐的观察者', description: '总能先发现别人忽略的细节和情绪。' },
+    { id: 'protector', label: '有想守护的人', description: '有一个人、地方或承诺绝不能轻易放下。' },
+    { id: 'outsider', label: '格格不入的外来者', description: '在这个群体、城市或时代里都有一点不合拍。' },
+    { id: 'idealist', label: '不肯放弃理想的人', description: '仍相信事情可以变得更好，也愿意去尝试。' },
+    { id: 'ambitious', label: '目标明确的野心家', description: '知道自己想要什么，只是暂时不能说出原因。' },
+    { id: 'survivor', label: '带着伤痕的幸存者', description: '曾经历的事仍在影响现在每一次选择。' },
+    { id: 'trickster', label: '难以捉摸的搅局者', description: '总能改变气氛，让所有人猜不透下一步。' },
+    { id: 'leader', label: '被推到前面的领导者', description: '没人敢决定时，其他人会下意识看向他。' },
   ];
 };
 
@@ -527,6 +708,100 @@ export const createCreativeStorySessionHandlers = ({
       updatedAt: Date.now(),
     };
     updateSession(task.id, session);
+    beginCharacterTraitCalibration(session);
+  };
+
+  const beginCharacterTraitCalibration = (session: CreativeStorySession) => {
+    const questions = creativeStoryTraitKeys.map((trait) => ({
+      trait,
+      ...getCreativeStoryTraitQuestion(trait, language),
+    }));
+    const firstQuestion = questions[0];
+    if (!firstQuestion) return;
+    workflowRef.current = {
+      type: 'creative-character-traits-awaiting',
+      sessionId: session.id,
+    };
+    setMessages((messages) => [
+      ...messages,
+      {
+        id: uuidv4(),
+        role: 'assistant',
+        content: firstQuestion.groupTitle,
+        characterTraitControls: {
+          controls: questions.map((question) => ({
+            trait: question.trait,
+            title: question.title,
+            levels: question.levels.map(([, description], index) => ({
+              value: (index + 1) as CreativeStoryTraitLevel,
+              description,
+            })),
+            lowerLabel: question.lowerLabel,
+            upperLabel: question.upperLabel,
+            currentLabel: question.currentLabel,
+          })),
+          confirmLabel: firstQuestion.confirmLabel,
+          skipLabel: firstQuestion.skipLabel,
+          completedLabel: firstQuestion.completedLabel,
+          skippedLabel: firstQuestion.skippedLabel,
+        },
+      },
+    ]);
+  };
+
+  const chooseCharacterTraits = async (levels?: number[]) => {
+    const workflow = workflowRef.current;
+    if (workflow.type !== 'creative-character-traits-awaiting') return;
+    const isSkipped = levels === undefined;
+    if (
+      levels &&
+      (levels.length !== creativeStoryTraitKeys.length ||
+        levels.some((level) => !Number.isInteger(level) || level < 1 || level > 5))
+    ) return;
+    const task = getTask(workflow.sessionId);
+    if (!task?.creativeSession) return;
+    setMessages((messages) => {
+      const nextMessages = [...messages];
+      for (let index = nextMessages.length - 1; index >= 0; index -= 1) {
+        const controls = nextMessages[index].characterTraitControls;
+        if (controls && !controls.selectedValues && !controls.skipped) {
+          nextMessages[index] = {
+            ...nextMessages[index],
+            characterTraitControls: {
+              ...controls,
+              skipped: isSkipped,
+              selectedValues: isSkipped
+                ? undefined
+                : Object.fromEntries(
+                    creativeStoryTraitKeys.map((trait, index) => [
+                      trait,
+                      levels?.[index] as CreativeStoryTraitLevel,
+                    ]),
+                  ),
+            },
+          };
+          break;
+        }
+      }
+      return nextMessages;
+    });
+    const session: CreativeStorySession = {
+      ...task.creativeSession,
+      direction: {
+        ...(task.creativeSession.direction || { genreId: 'custom', genre: '' }),
+        roleTraits: isSkipped
+          ? undefined
+          : Object.fromEntries(
+              creativeStoryTraitKeys.map((trait, index) => [
+                trait,
+                levels?.[index] as CreativeStoryTraitLevels[CreativeStoryTraitKey],
+              ]),
+            ),
+      },
+      updatedAt: Date.now(),
+    };
+    updateSession(task.id, session);
+    workflowRef.current = { type: 'idle' };
     await beginCharacterSelection(task.id, session);
   };
 
@@ -627,7 +902,7 @@ export const createCreativeStorySessionHandlers = ({
       updatedAt: Date.now(),
     };
     updateSession(task.id, session);
-    await beginCharacterSelection(task.id, session);
+    beginCharacterTraitCalibration(session);
   };
 
   const beginCharacterSelection = async (taskId: string, session: CreativeStorySession) => {
@@ -636,7 +911,7 @@ export const createCreativeStorySessionHandlers = ({
     try {
       const prompt = `你是视觉小说的实时创作导演。题材是「${
         session.direction?.genre || session.background?.name || '未命名题材'
-      }」，作者想扮演的角色类型是「${session.direction?.rolePreference || '由你提供有反差感的候选人'}」。生成恰好 4 位彼此差异明显、适合互动故事的角色；其中至少一位要贴近作者想扮演的类型。只返回 JSON：
+      }」，作者想扮演的角色类型是「${session.direction?.rolePreference || '由你提供有反差感的候选人'}」。角色细节强度为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。生成恰好 4 位彼此差异明显、适合互动故事的角色；四位都必须在核心行为上符合这四项五级调节，因此无论作者选中哪一位作为玩家，都能继续保持一致。至少一位要贴近作者想扮演的类型。用可观察的习惯、语言、关系边界和过去经历体现强度，避免只贴标签。只返回 JSON：
 {"cards":[{"type":"character","characterName":"","identity":"","appearance":"","personality":"","habits":"","speechStyle":"","experience":"","relationships":"","notes":""}]}
 不要返回剧情或场景卡。`;
       let cards: AssistantCardDraft[] = [];
@@ -659,7 +934,13 @@ export const createCreativeStorySessionHandlers = ({
         cards = buildFallbackCharacterCards(session);
         usedFallback = true;
       }
-      const placement = await createAssistantCards(cards, 'append');
+      // Interactive-story characters use the built-in modular portrait first,
+      // so the first player choice is immediately visual without waiting for
+      // an image-model request. An avatar returned by the model is preserved.
+      const placement = await createAssistantCards(
+        cards.map((card) => ({ ...card, generateImage: false })),
+        'append',
+      );
       const candidates = cards.map((card, index) => ({
         nodeId: placement.nodeIds?.[index] || uuidv4(),
         name: card.characterName || card.title || `角色 ${index + 1}`,
@@ -736,7 +1017,7 @@ export const createCreativeStorySessionHandlers = ({
     try {
       const prompt = `你是视觉小说的实时创作导演。题材是「${
         session.background?.name || session.direction?.genre || ''
-      }」，玩家扮演「${session.player?.name || ''}」，主要角色是「${session.lead?.name || ''}」。先演出 2 到 3 个很短的剧情节拍，然后停在一个必须由玩家决定的关键时刻。只返回 JSON：
+      }」，玩家扮演「${session.player?.name || ''}」，主要角色是「${session.lead?.name || ''}」。玩家角色细节为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。让人物的动作、语气、犹豫和关系距离持续符合这些五级设定，不要只在介绍里提一次。先演出 2 到 3 个很短的剧情节拍，然后停在一个必须由玩家决定的关键时刻。只返回 JSON：
 {"reply":"给玩家看的简短开场","question":"带有情绪和具体分歧的提问","options":["选项一","选项二","选项三"],"sceneName":"当前适合的场景名","cards":[{"type":"story","title":"","text":""}]}
 cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两位角色的名字。`;
       let opening: CreativeStoryOpeningPayload | null = null;
@@ -859,7 +1140,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       const previous = session.turns.at(-1);
       const history = session.turns.slice(-7).map((turn) => `演出：${turn.story}\n提问：${turn.question}\n决定：${turn.decision || '未选择'}`).join('\n---\n');
       const summarize = session.turns.length >= 8;
-      const prompt = `你是视觉小说的实时创作导演。严格承接故事，不要替玩家决定方向，也不要让故事结束。题材「${session.background?.name || session.direction?.genre || ''}」，玩家「${session.player?.name || ''}」，主要角色「${session.lead?.name || ''}」。\n${history}\n\n玩家刚刚决定：${input}\n\n只演出下一小段（2 到 3 个短节拍），再提出具体问题。${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，供开启新章节使用。' : ''}\n只返回 JSON：{"reply":"","question":"","options":["","",""],"sceneName":"","chapterSummary":"","cards":[{"type":"story","title":"","text":""}]}。cards 只能有 2 到 3 张 story 卡。`;
+      const prompt = `你是视觉小说的实时创作导演。严格承接故事，不要替玩家决定方向，也不要让故事结束。题材「${session.background?.name || session.direction?.genre || ''}」，玩家「${session.player?.name || ''}」，主要角色「${session.lead?.name || ''}」。玩家角色细节为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。后续的动作、情绪表达、秘密揭露速度与道德取舍必须持续符合这些五级设定。\n${history}\n\n玩家刚刚决定：${input}\n\n只演出下一小段（2 到 3 个短节拍），再提出具体问题。${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，供开启新章节使用。' : ''}\n只返回 JSON：{"reply":"","question":"","options":["","",""],"sceneName":"","chapterSummary":"","cards":[{"type":"story","title":"","text":""}]}。cards 只能有 2 到 3 张 story 卡。`;
       let continuation: CreativeStoryOpeningPayload | null = null;
       try {
         continuation = normalizeOpeningPayload((await callAIForTextResult(prompt)).content);
@@ -958,6 +1239,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
     prepareOpening,
     chooseGenre,
     chooseRolePreference,
+    chooseCharacterTraits,
     startCustomDirection,
     submitCustomDirection,
     startRolePreferenceCustom,

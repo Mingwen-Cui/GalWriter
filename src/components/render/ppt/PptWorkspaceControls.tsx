@@ -10,6 +10,8 @@ import type {
   PptManualSlide,
   PptObjectAnimation,
   PptSlideTransition,
+  PptTextBoxLayouts,
+  PptTextOverrides,
   RenderStyle,
   WebExportSettings,
 } from '../video/shared/types';
@@ -388,6 +390,8 @@ type ThumbnailProps = {
   webSettings: WebExportSettings;
   renderStyle: RenderStyle;
   colors: ReturnType<typeof pptSceneColors>;
+  textOverrides: PptTextOverrides;
+  textBoxLayouts: PptTextBoxLayouts;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
@@ -400,6 +404,8 @@ function SlideThumbnail({
   webSettings,
   renderStyle,
   colors,
+  textOverrides,
+  textBoxLayouts,
   animations,
   transition,
   layout,
@@ -428,6 +434,8 @@ function SlideThumbnail({
           webSettings={webSettings}
           renderStyle={renderStyle}
           colors={colors}
+          textOverrides={textOverrides[slide.id]}
+          textBoxLayouts={textBoxLayouts[slide.id]}
           animations={animations}
           transition={transition}
           selected={null}
@@ -448,6 +456,8 @@ export function SlideList({
   webSettings,
   renderStyle,
   colors,
+  textOverrides,
+  textBoxLayouts,
   onSelect,
   layout,
   manualSlides,
@@ -461,6 +471,8 @@ export function SlideList({
   webSettings: WebExportSettings;
   renderStyle: RenderStyle;
   colors: ReturnType<typeof pptSceneColors>;
+  textOverrides: PptTextOverrides;
+  textBoxLayouts: PptTextBoxLayouts;
   onSelect: (id: string) => void;
   layout: PptCanvasLayout;
   manualSlides: PptManualSlide[];
@@ -492,6 +504,8 @@ export function SlideList({
                 webSettings={webSettings}
                 renderStyle={renderStyle}
                 colors={colors}
+                textOverrides={textOverrides}
+                textBoxLayouts={textBoxLayouts}
                 animations={timelines[slide.id] || []}
                 transition={transitions[slide.id] || DEFAULT_TRANSITION}
                 layout={layout}
@@ -519,6 +533,8 @@ export function SlideSorter({
   webSettings,
   renderStyle,
   colors,
+  textOverrides,
+  textBoxLayouts,
   onSelect,
   layout,
   manualSlides,
@@ -532,6 +548,8 @@ export function SlideSorter({
   webSettings: WebExportSettings;
   renderStyle: RenderStyle;
   colors: ReturnType<typeof pptSceneColors>;
+  textOverrides: PptTextOverrides;
+  textBoxLayouts: PptTextBoxLayouts;
   onSelect: (id: string) => void;
   layout: PptCanvasLayout;
   manualSlides: PptManualSlide[];
@@ -562,6 +580,8 @@ export function SlideSorter({
               webSettings={webSettings}
               renderStyle={renderStyle}
               colors={colors}
+              textOverrides={textOverrides}
+              textBoxLayouts={textBoxLayouts}
               animations={timelines[slide.id] || []}
               transition={transitions[slide.id] || DEFAULT_TRANSITION}
               layout={layout}

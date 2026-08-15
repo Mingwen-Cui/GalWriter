@@ -740,6 +740,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               avatarUrl: card.avatarUrl,
               threeViewUrl: card.threeViewUrl,
               tagSpriteUrl: card.tagSpriteUrl,
+              // Let text-only AI characters immediately use a modular preset
+              // portrait. A supplied AI avatar or tag sprite still wins.
+              appearancePresetEnabled: !card.avatarUrl && !card.tagSpriteUrl,
               features: card.features || '',
               background: card.background || '',
               other: card.other || '',
