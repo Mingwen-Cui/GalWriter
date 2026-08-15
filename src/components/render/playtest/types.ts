@@ -11,6 +11,8 @@ export type PlaytestWindowLayer = 'workspace' | 'above-settings';
 
 export type PlaytestCreativeInteraction = {
   turnId: string;
+  /** The generated story card that represents this active creative turn. */
+  nodeId?: string;
   story: string;
   question: string;
   options: string[];

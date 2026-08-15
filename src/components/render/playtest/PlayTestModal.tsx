@@ -136,40 +136,39 @@ export function PlayTestModal(props: PlayTestProps) {
   const [showMobileWindowMenu, setShowMobileWindowMenu] = React.useState(false);
   const [customCreativeDecision, setCustomCreativeDecision] = React.useState('');
   const creativeInteraction = props.creativeInteraction;
-  const [creativeDisplayedStory, setCreativeDisplayedStory] = React.useState('');
-  const [creativeTextAnimationCompleted, setCreativeTextAnimationCompleted] = React.useState(true);
-  const activeChoicesReady = creativeInteraction ? creativeTextAnimationCompleted : choicesReady;
+  const appliedCreativeTurnRef = React.useRef<string | null>(null);
+  const activeChoicesReady = choicesReady;
 
   React.useEffect(() => {
     setCustomCreativeDecision('');
   }, [creativeInteraction?.turnId]);
 
-  React.useEffect(() => {
-    if (!creativeInteraction) {
-      setCreativeDisplayedStory('');
-      setCreativeTextAnimationCompleted(true);
+  // Every completed AI turn has a generated story card. Move the playtest cursor
+  // to that card before showing the next question, so the dialogue, scene, and
+  // typewriter all come from the same canvas state rather than the old root card.
+  React.useLayoutEffect(() => {
+    const turnId = creativeInteraction?.turnId;
+    const nodeId = creativeInteraction?.nodeId;
+    if (!turnId || !nodeId || creativeInteraction.loading || appliedCreativeTurnRef.current === turnId) {
       return;
     }
-    const story = creativeInteraction.story || '';
-    const shouldAnimate = interactionMode === 'typewriter' && story.length > 0;
-    if (!shouldAnimate) {
-      setCreativeDisplayedStory(story);
-      setCreativeTextAnimationCompleted(true);
-      return;
-    }
-    setCreativeDisplayedStory('');
-    setCreativeTextAnimationCompleted(false);
-    let index = 0;
-    const interval = window.setInterval(() => {
-      index += 1;
-      setCreativeDisplayedStory(story.slice(0, index));
-      if (index >= story.length) {
-        window.clearInterval(interval);
-        setCreativeTextAnimationCompleted(true);
-      }
-    }, Math.max(12, typewriterSpeed));
-    return () => window.clearInterval(interval);
-  }, [creativeInteraction?.turnId, creativeInteraction?.story, interactionMode, typewriterSpeed]);
+    const targetExists = props.nodes.some(
+      (node) => node.id === nodeId && node.type === 'storyNode',
+    );
+    // Card creation and session updates are asynchronous. Wait until the card
+    // has reached the runtime before marking this turn as applied.
+    if (!targetExists) return;
+
+    if (currentNodeId !== nodeId) showNodeAsCurrentPage(nodeId);
+    appliedCreativeTurnRef.current = turnId;
+  }, [
+    creativeInteraction?.loading,
+    creativeInteraction?.nodeId,
+    creativeInteraction?.turnId,
+    currentNodeId,
+    props.nodes,
+    showNodeAsCurrentPage,
+  ]);
 
   const submitCreativeDecision = (decision: string) => {
     if (!creativeInteraction || creativeInteraction.loading || !decision.trim()) return;
@@ -227,7 +226,7 @@ export function PlayTestModal(props: PlayTestProps) {
         }`}
       >
         <p className="mb-3 text-sm font-black leading-6">{creativeInteraction.question}</p>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2">
           {creativeInteraction.options.map((option) => (
             <button
               key={option}
@@ -1019,11 +1018,7 @@ export function PlayTestModal(props: PlayTestProps) {
                         style={bodyStyle}
                         onClick={(event) => selectRenderObject(event, 'body')}
                       >
-                        {creativeInteraction ? (
-                          creativeDisplayedStory
-                        ) : (
-                          <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
-                        )}
+                        <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                       </div>
 
                       {false && !animationCompleted && (
@@ -1290,11 +1285,7 @@ export function PlayTestModal(props: PlayTestProps) {
                     style={bodyStyle}
                     onClick={(event) => selectRenderObject(event, 'body')}
                   >
-                    {creativeInteraction ? (
-                      creativeDisplayedStory
-                    ) : (
-                      <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
-                    )}
+                    <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
                   </div>
 
                   {false && !animationCompleted && (

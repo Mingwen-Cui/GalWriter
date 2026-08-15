@@ -891,13 +891,17 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       }
       if (generation !== continuationGenerationRef.current) return;
       const now = Date.now();
+      const continuationStartIndex = (previous ? 2 : 0) + (summary ? 1 : 0);
       const nextTurn = {
         id: uuidv4(), chapter: summarize ? session.chapter + 1 : session.chapter,
         story: next.reply,
         question: next.question,
         options: next.options.length > 0 ? next.options : buildFallbackContinuation(session, input).options,
         sceneName: next.sceneName || previous?.sceneName || session.background?.name || session.direction?.genre,
-        nodeId: placement?.nodeIds?.[(previous ? 2 : 0) + (summary ? 1 : 0)],
+        // The earlier cards record the question, decision, and optional chapter
+        // summary. The active playtest turn must point to the first new story
+        // card, not to one of those bookkeeping cards.
+        nodeId: placement?.nodeIds?.[continuationStartIndex],
         createdAt: now,
       };
       updateSession(task.id, {

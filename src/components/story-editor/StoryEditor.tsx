@@ -3143,6 +3143,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               creativeStorySession?.status === 'playing' && creativeStoryTurn
                 ? {
                     turnId: creativeStoryTurn.id,
+                    nodeId: creativeStoryTurn.nodeId,
                     story: creativeStoryTurn.story,
                     question: creativeStoryTurn.question,
                     options: creativeStoryTurn.options,
