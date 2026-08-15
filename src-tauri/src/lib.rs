@@ -37,6 +37,14 @@ struct RenderSaveResult {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoverTemplateInfo {
+  id: String,
+  assets: Vec<String>,
+  settings: Option<serde_json::Value>,
+}
+
+#[derive(serde::Serialize)]
 struct ProjectSaveResult {
   path: Option<String>,
 }
@@ -1341,6 +1349,136 @@ fn save_rendered_image(
   Ok(RenderSaveResult { path: output_path.to_string_lossy().to_string() })
 }
 
+fn cover_template_id(template_id: &str) -> Result<&str, String> {
+  let valid = !template_id.is_empty()
+    && template_id.starts_with("cover")
+    && template_id
+      .chars()
+      .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_');
+  if valid {
+    Ok(template_id)
+  } else {
+    Err("Invalid cover template id.".to_string())
+  }
+}
+
+fn cover_templates_root() -> PathBuf {
+  PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap_or_else(|| Path::new("."))
+    .join("public")
+    .join("cover-templates")
+}
+
+fn is_cover_template_image(path: &Path) -> bool {
+  matches!(
+    path.extension().and_then(|extension| extension.to_str()).map(|extension| extension.to_ascii_lowercase()),
+    Some(extension) if matches!(extension.as_str(), "png" | "jpg" | "jpeg" | "webp")
+  ) && path.file_name().and_then(|name| name.to_str()) != Some("preview.png")
+}
+
+#[tauri::command]
+fn list_cover_templates() -> Result<Vec<CoverTemplateInfo>, String> {
+  let root = cover_templates_root();
+  if !root.exists() {
+    return Ok(Vec::new());
+  }
+
+  let mut templates = Vec::new();
+  for entry in fs::read_dir(&root).map_err(|err| format!("Failed to read cover templates: {err}"))? {
+    let entry = entry.map_err(|err| format!("Failed to read a cover template: {err}"))?;
+    if !entry.file_type().map_err(|err| format!("Failed to inspect a cover template: {err}"))?.is_dir() {
+      continue;
+    }
+    let id = entry.file_name().to_string_lossy().to_string();
+    if cover_template_id(&id).is_err() {
+      continue;
+    }
+    let mut assets = fs::read_dir(entry.path())
+      .map_err(|err| format!("Failed to read template {id}: {err}"))?
+      .filter_map(Result::ok)
+      .map(|file| file.path())
+      .filter(|path| path.is_file() && is_cover_template_image(path))
+      .filter_map(|path| path.file_name().map(|name| name.to_string_lossy().to_string()))
+      .collect::<Vec<_>>();
+    assets.sort_by_key(|name| name.to_lowercase());
+    let settings = fs::read_to_string(entry.path().join("template.json"))
+      .ok()
+      .and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok());
+    templates.push(CoverTemplateInfo { id, assets, settings });
+  }
+  templates.sort_by_key(|template| template.id.to_lowercase());
+  Ok(templates)
+}
+
+fn cover_saves_root() -> PathBuf {
+  PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap_or_else(|| Path::new("."))
+    .join("public")
+    .join("cover-saves")
+}
+
+fn replace_cover_template_asset_urls(value: &mut serde_json::Value, from: &str, to: &str) {
+  match value {
+    serde_json::Value::String(text) => {
+      if text.starts_with(from) {
+        *text = text.replacen(from, to, 1);
+      }
+    }
+    serde_json::Value::Array(values) => values
+      .iter_mut()
+      .for_each(|entry| replace_cover_template_asset_urls(entry, from, to)),
+    serde_json::Value::Object(values) => values
+      .values_mut()
+      .for_each(|entry| replace_cover_template_asset_urls(entry, from, to)),
+    _ => {}
+  }
+}
+
+#[tauri::command]
+fn save_cover_copy(
+  template_id: String,
+  mut settings: serde_json::Value,
+  preview_png: Vec<u8>,
+) -> Result<RenderSaveResult, String> {
+  let template_id = cover_template_id(&template_id)?;
+  if preview_png.is_empty() {
+    return Err("Cover preview is empty.".to_string());
+  }
+  let nonce = SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map_err(|err| format!("Failed to create cover save id: {err}"))?
+    .as_millis();
+  let save_id = format!("{template_id}-{nonce}");
+  let directory = cover_saves_root().join(&save_id);
+  let assets_directory = directory.join("assets");
+  fs::create_dir_all(&assets_directory).map_err(|err| format!("Failed to create cover save directory: {err}"))?;
+  let template_directory = cover_templates_root().join(template_id);
+  for entry in fs::read_dir(&template_directory)
+    .map_err(|err| format!("Failed to read source template: {err}"))?
+  {
+    let entry = entry.map_err(|err| format!("Failed to read a source asset: {err}"))?;
+    let asset_path = entry.path();
+    if asset_path.is_file() && is_cover_template_image(&asset_path) {
+      let file_name = asset_path.file_name().ok_or_else(|| "Template image is missing a file name.".to_string())?;
+      fs::copy(&asset_path, assets_directory.join(file_name))
+        .map_err(|err| format!("Failed to copy template asset: {err}"))?;
+    }
+  }
+  let source_prefix = format!("/cover-templates/{template_id}/");
+  let saved_prefix = format!("/cover-saves/{save_id}/assets/");
+  replace_cover_template_asset_urls(&mut settings, &source_prefix, &saved_prefix);
+  let settings_json = serde_json::to_string_pretty(&settings)
+    .map_err(|err| format!("Failed to encode cover template settings: {err}"))?;
+  fs::write(directory.join("cover.json"), settings_json)
+    .map_err(|err| format!("Failed to save cover settings: {err}"))?;
+  let preview_path = directory.join("cover.png");
+  fs::write(&preview_path, preview_png)
+    .map_err(|err| format!("Failed to save cover preview: {err}"))?;
+  Ok(RenderSaveResult { path: preview_path.to_string_lossy().to_string() })
+}
+
 #[tauri::command]
 fn save_rendered_pptx(
   file_name: String,
@@ -1862,6 +2000,8 @@ pub fn run() {
       set_close_button_minimizes,
       save_rendered_video,
       save_rendered_image,
+      list_cover_templates,
+      save_cover_copy,
       save_rendered_web_zip,
       save_rendered_pptx,
       transcode_ppt_video,

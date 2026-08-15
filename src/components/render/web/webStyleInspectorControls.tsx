@@ -276,7 +276,7 @@ export function NumberField({
   description?: string;
   value: number;
   min: number;
-  max: number;
+  max?: number;
   step?: number;
   onChange: (value: number) => void;
 }) {
@@ -296,7 +296,7 @@ export function NumberField({
           label={label}
           value={value}
           min={min}
-          max={max}
+          max={max ?? Number.MAX_SAFE_INTEGER}
           step={step}
           unit=""
           onChange={onChange}

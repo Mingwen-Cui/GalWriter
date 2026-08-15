@@ -44,6 +44,11 @@ export type VideoCoverElement = {
   textAlign?: TextAlign;
   textColor?: string;
   objectFit?: 'cover' | 'contain';
+  /** Object-position percentage used when an image layer is cropped. */
+  imageCropX?: number;
+  imageCropY?: number;
+  /** Extra zoom applied inside the image layer crop frame. */
+  imageCropScale?: number;
 } & Partial<WebMenuElement>;
 export type VideoCoverSettings = {
   sourceType: VideoCoverSourceType;

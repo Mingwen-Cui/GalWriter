@@ -55,6 +55,8 @@ type InspectorProps = {
   /** Restricts button actions when the inspector is embedded by another workspace. */
   buttonFunctions?: ButtonFunction[];
   selectedElementIds?: string[];
+  /** Omitting this removes the practical upper limit for text-size entry. */
+  fontSizeMax?: number;
   showDescriptions: boolean;
   onUpdate: (patch: Partial<WebMenuElement>) => void;
   onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
@@ -329,6 +331,7 @@ export function StartMenuElementInspector({
   surface = 'start',
   buttonFunctions,
   selectedElementIds = [],
+  fontSizeMax = 120,
   showDescriptions,
   onUpdate,
   onAlignSelected,
@@ -742,7 +745,7 @@ export function StartMenuElementInspector({
               description={showDescriptions ? text.field.fontSize : undefined}
               value={element.fontSize ?? (element.kind === 'button' ? 14 : 28)}
               min={8}
-              max={120}
+              max={fontSizeMax}
               onChange={(fontSize) => onUpdate({ fontSize })}
             />
             <NumberField

@@ -28,11 +28,16 @@ const drawCoverImage = (
   sourceHeight: number,
   width: number,
   height: number,
+  cropX = 50,
+  cropY = 50,
+  cropScale = 1,
 ) => {
-  const scale = Math.max(width / Math.max(1, sourceWidth), height / Math.max(1, sourceHeight));
+  const scale = Math.max(width / Math.max(1, sourceWidth), height / Math.max(1, sourceHeight)) * Math.max(1, cropScale);
   const drawWidth = sourceWidth * scale;
   const drawHeight = sourceHeight * scale;
-  ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+  const safeX = Math.max(0, Math.min(100, cropX)) / 100;
+  const safeY = Math.max(0, Math.min(100, cropY)) / 100;
+  ctx.drawImage(image, (width - drawWidth) * safeX, (height - drawHeight) * safeY, drawWidth, drawHeight);
 };
 
 const wrapLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
@@ -60,6 +65,21 @@ const colorWithAlpha = (color: string | undefined, alpha: number | undefined) =>
   const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
   const hex = match[1];
   return `rgba(${Number.parseInt(hex.slice(0, 2), 16)}, ${Number.parseInt(hex.slice(2, 4), 16)}, ${Number.parseInt(hex.slice(4, 6), 16)}, ${safeAlpha})`;
+};
+
+const getTextShadows = (element: VideoCoverElement) => {
+  if (element.shadowEnabled === false) return [];
+  const shadows = element.shadows?.length
+    ? element.shadows
+    : [{
+        type: element.shadowType || 'outer',
+        color: element.shadowColor || '#000000',
+        opacity: element.shadowOpacity ?? 0,
+        blur: element.shadowBlur ?? 18,
+        offsetX: element.shadowOffsetX ?? 0,
+        offsetY: element.shadowOffsetY ?? 2,
+      }];
+  return shadows.filter((shadow) => shadow.enabled !== false && shadow.type === 'outer' && shadow.opacity > 0);
 };
 
 const drawText = (
@@ -127,7 +147,22 @@ const drawCoverElement = async (
           drawHeight,
         );
       } else {
-        drawCoverImage(ctx, image, image.naturalWidth, image.naturalHeight, elementWidth, elementHeight);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, elementWidth, elementHeight);
+        ctx.clip();
+        drawCoverImage(
+          ctx,
+          image,
+          image.naturalWidth,
+          image.naturalHeight,
+          elementWidth,
+          elementHeight,
+          element.imageCropX,
+          element.imageCropY,
+          element.imageCropScale,
+        );
+        ctx.restore();
       }
     } catch {
       // A missing asset should not stop the rest of the cover from exporting.
@@ -141,17 +176,30 @@ const drawCoverElement = async (
     ctx.textAlign = textAlign;
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
-    ctx.lineWidth = Math.max(1, fontSize * 0.07);
-    ctx.strokeStyle = 'rgba(2, 6, 23, 0.62)';
+    const strokeWidth = element.strokeEnabled === false
+      ? 0
+      : Math.max(0, ((element.textStrokeWidth || 0) / 1080) * height);
+    ctx.lineWidth = strokeWidth;
+    ctx.strokeStyle = element.textStrokeColor || '#000000';
     ctx.fillStyle = colorWithAlpha(element.textColor, element.textColorAlpha);
     const lineHeight = fontSize * (element.lineHeight || 1.28);
     const lines = wrapLines(ctx, element.text, elementWidth).slice(0, 5);
     const firstY = elementHeight / 2 - ((lines.length - 1) * lineHeight) / 2;
-    lines.forEach((line, index) => {
+    const drawLines = () => lines.forEach((line, index) => {
       const lineY = firstY + index * lineHeight;
-      ctx.strokeText(line, textX, lineY);
+      if (strokeWidth > 0) ctx.strokeText(line, textX, lineY);
       ctx.fillText(line, textX, lineY);
     });
+    getTextShadows(element).forEach((shadow) => {
+      ctx.save();
+      ctx.shadowColor = colorWithAlpha(shadow.color, shadow.opacity);
+      ctx.shadowBlur = Math.max(0, ((shadow.blur || 0) / 1080) * height);
+      ctx.shadowOffsetX = ((shadow.offsetX || 0) / 1080) * height;
+      ctx.shadowOffsetY = ((shadow.offsetY || 0) / 1080) * height;
+      drawLines();
+      ctx.restore();
+    });
+    drawLines();
   }
   ctx.restore();
 };
@@ -231,7 +279,10 @@ export const renderVideoCoverCanvas = async ({
     600,
   );
   if (includeElements) {
-    for (const element of settings.elements || []) {
+    const orderedElements = (settings.elements || [])
+      .map((element, index) => ({ element, index }))
+      .sort((left, right) => (left.element.zIndex ?? left.index) - (right.element.zIndex ?? right.index));
+    for (const { element } of orderedElements) {
       await drawCoverElement(ctx, element, width, height);
     }
   }

@@ -1,7 +1,44 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
 import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
+
+const coverTemplatesRoot = path.resolve(__dirname, 'public/cover-templates');
+const imageFilePattern = /\.(png|jpe?g|webp)$/i;
+
+const readCoverTemplateManifest = () => {
+  if (!fs.existsSync(coverTemplatesRoot)) return { templates: [] };
+  const templates = fs.readdirSync(coverTemplatesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^cover[\w-]*$/i.test(entry.name))
+    .map((entry) => ({
+      id: entry.name,
+      assets: fs.readdirSync(path.join(coverTemplatesRoot, entry.name), { withFileTypes: true })
+        .filter((file) => file.isFile() && file.name !== 'preview.png' && imageFilePattern.test(file.name))
+        .map((file) => file.name)
+        .sort((left, right) => left.localeCompare(right)),
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  return { templates };
+};
+
+const coverTemplateManifest = (): Plugin => ({
+  name: 'cover-template-manifest',
+  configureServer(server) {
+    server.middlewares.use('/cover-templates/manifest.json', (req, res, next) => {
+      if (req.method !== 'GET') return next();
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify(readCoverTemplateManifest()));
+    });
+  },
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'cover-templates/manifest.json',
+      source: JSON.stringify(readCoverTemplateManifest()),
+    });
+  },
+});
 
 const arkImageProxy = (): Plugin => ({
   name: 'ark-image-proxy',
@@ -129,7 +166,7 @@ export default defineConfig(() => {
     // NOTE: 使用相对路径，确保应用加载本地文件时资源引用正确
     base: './',
     assetsInclude: ['**/*.lottie'],
-    plugins: [arkImageProxy(), volcengineTtsProxy(), react(), tailwindcss()],
+    plugins: [coverTemplateManifest(), arkImageProxy(), volcengineTtsProxy(), react(), tailwindcss()],
     clearScreen: false,
     esbuild: {
       target: 'esnext',
