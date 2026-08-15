@@ -1,6 +1,7 @@
 import type {
   RenderOutputDirectoryResult,
   RenderSaveResult,
+  SaveRenderedImageInput,
   SaveRenderedPptxInput,
   SaveRenderedVideoInput,
   SaveRenderedWebZipInput,
@@ -26,6 +27,11 @@ export const getDefaultRenderDir = async () => {
 export const saveRenderedVideo = async (input: SaveRenderedVideoInput) => {
   const invoke = await loadInvoke();
   return invoke<RenderSaveResult>('save_rendered_video', input);
+};
+
+export const saveRenderedImage = async (input: SaveRenderedImageInput) => {
+  const invoke = await loadInvoke();
+  return invoke<RenderSaveResult>('save_rendered_image', input);
 };
 
 export const saveRenderedWebZip = async (input: SaveRenderedWebZipInput) => {

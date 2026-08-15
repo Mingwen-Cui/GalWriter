@@ -1,11 +1,11 @@
 import type { Language } from '../../../lib/i18n';
 import { type SharedCanvasSettings } from '../canvas/canvasSettings';
-import { StartMenuBackgroundInspector } from '../web/StartMenuBackgroundInspector';
 import type {
   PptExportSettings,
   PptSlideBackgroundStyle,
   WebExportSettings,
 } from '../video/shared/types';
+import { StartMenuBackgroundInspector } from '../web/StartMenuBackgroundInspector';
 
 const backgroundKeyMap = {
   startMenuBackgroundType: 'type',
@@ -46,6 +46,7 @@ export function PptSlideBackgroundInspector({
   webSettings,
   pptSettings,
   background,
+  showDescriptions,
   onUpdateBackground,
   onUpdatePptSettings,
 }: {
@@ -53,6 +54,7 @@ export function PptSlideBackgroundInspector({
   webSettings: WebExportSettings;
   pptSettings: PptExportSettings;
   background: PptSlideBackgroundStyle;
+  showDescriptions: boolean;
   onUpdateBackground: (patch: Partial<PptSlideBackgroundStyle>) => void;
   onUpdatePptSettings: (patch: Partial<PptExportSettings>) => void;
 }) {
@@ -97,7 +99,7 @@ export function PptSlideBackgroundInspector({
     <StartMenuBackgroundInspector
       settings={settings}
       language={language}
-      showDescriptions={false}
+      showDescriptions={showDescriptions}
       hideMusic
       onCanvasSettingsChange={updateCanvas}
       updateWebSettings={

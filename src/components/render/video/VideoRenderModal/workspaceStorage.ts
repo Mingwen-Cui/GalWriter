@@ -12,8 +12,8 @@ import type {
   RenderWorkspaceMode,
   TimelineScaleMode,
   TimelineWheelMode,
-  VideoTextScaleMode,
   VideoCoverSettings,
+  VideoTextScaleMode,
   WebExportSettings,
   WebHistoryState,
 } from '../shared/types';

@@ -13,6 +13,7 @@ export function PptManualInspector({
   slide,
   selectedElementId,
   slides,
+  showDescriptions,
   onUpdateBackgroundColor,
   onUpdateElement,
   onDeleteElement,
@@ -22,6 +23,7 @@ export function PptManualInspector({
   slide: PptManualSlide;
   selectedElementId?: string;
   slides: Array<{ id: string; title: string }>;
+  showDescriptions: boolean;
   onUpdateBackgroundColor: (color: string) => void;
   onUpdateElement: (elementId: string, patch: Partial<PptManualElement>) => void;
   onDeleteElement: (elementId: string) => void;
@@ -54,7 +56,7 @@ export function PptManualInspector({
       <StartMenuElementInspector
         element={toPptWebInspectorElement(element)}
         language={language}
-        showDescriptions={false}
+        showDescriptions={showDescriptions}
         buttonFunctions={element.kind === 'button' ? ['custom', 'link'] : undefined}
         onUpdate={(patch) => onUpdateElement(element.id, toPptManualElementPatch(element, patch))}
       />

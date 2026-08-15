@@ -1,7 +1,7 @@
-import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   Clock,
+  Image,
   Magnet,
   MoveHorizontal,
   MoveVertical,
@@ -15,7 +15,9 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import type { Language } from '../../../../lib/i18n';
 import { ResizeHandle } from '../controls/RenderControls';
+import { formatVideoText } from '../i18n';
 import { TIMELINE_LABEL_WIDTH } from '../shared/constants';
 import type {
   RenderStatus,
@@ -24,7 +26,6 @@ import type {
   TimelineWheelMode,
 } from '../shared/types';
 import { formatSeconds, getTimelineSegmentLayout } from '../timeline/timelineUtils';
-import type { Language } from '../../../../lib/i18n';
 
 type VideoTimelinePanelProps = {
   language: Language;
@@ -115,6 +116,8 @@ type VideoTimelinePanelProps = {
   snapTimelineTime: (time: number) => number;
   setTimelineStartById: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   setTimelineDurationById: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  hasVideoCover: boolean;
+  onOpenVideoCover: () => void;
 };
 
 export function VideoTimelinePanel({
@@ -182,6 +185,8 @@ export function VideoTimelinePanel({
   snapTimelineTime,
   setTimelineStartById,
   setTimelineDurationById,
+  hasVideoCover,
+  onOpenVideoCover,
 }: VideoTimelinePanelProps) {
   const TIMELINE_COLLAPSED_HEIGHT = 44;
   const isCollapsed = timelineHeight <= TIMELINE_COLLAPSED_HEIGHT;
@@ -436,6 +441,21 @@ export function VideoTimelinePanel({
         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
           <Clock className="w-4 h-4 text-[var(--vr-accent)]" />
           {formatVideoText(language, 'componentsrendervideopanelsVideoTimelinePanelText436')}
+          <button
+            type="button"
+            onClick={onOpenVideoCover}
+            disabled={status === 'rendering'}
+            className={`ml-1 flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black normal-case tracking-normal transition-colors disabled:opacity-40 ${
+              hasVideoCover
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
+            }`}
+            title={hasVideoCover ? '编辑视频封面' : '添加视频封面'}
+            aria-label={hasVideoCover ? '编辑视频封面' : '添加视频封面'}
+          >
+            <Image className="h-3.5 w-3.5" />
+            封面
+          </button>
         </div>
         <div className="flex justify-center gap-1.5">
           <button

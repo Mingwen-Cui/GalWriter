@@ -14,6 +14,7 @@ import {
   saveRenderedPptx,
 } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
+import { DEFAULT_VIDEO_COVER } from '../export/videoCover';
 import { getVideoTextForChinesePreference } from '../i18n';
 import { formatVideoText } from '../i18n';
 import {
@@ -33,6 +34,7 @@ import { RenderContextMenu } from '../panels/RenderContextMenu';
 import { RenderHeader } from '../panels/RenderHeader';
 import { RenderProgressModal } from '../panels/RenderProgressModal';
 import { VideoAssetSidebar } from '../panels/VideoAssetSidebar';
+import { VideoCoverEditor } from '../panels/VideoCoverEditor';
 import { VideoExportSettingsPanel } from '../panels/VideoExportSettingsPanel';
 import { VideoPreviewPanel } from '../panels/VideoPreviewPanel';
 import { VideoTimelinePanel } from '../panels/VideoTimelinePanel';
@@ -67,6 +69,7 @@ import type {
   TimelineHistoryState,
   TimelineScaleMode,
   TimelineWheelMode,
+  VideoCoverSettings,
   VideoRenderModalProps,
   VideoTextScaleMode,
   VideoWorkspaceMode,
@@ -336,6 +339,12 @@ export function VideoRenderModal({
       ? persistedWorkspace.videoTextScaleMode
       : 'webRatio',
   );
+  const [videoCover, setVideoCover] = useState<VideoCoverSettings | null>(() =>
+    persistedWorkspace?.videoCover
+      ? { ...DEFAULT_VIDEO_COVER, ...persistedWorkspace.videoCover }
+      : null,
+  );
+  const [isVideoCoverEditorOpen, setIsVideoCoverEditorOpen] = useState(false);
   const [videoCanvasSelected, setVideoCanvasSelected] = useState(true);
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
@@ -849,6 +858,7 @@ export function VideoRenderModal({
     animationLeadSeconds,
     frameRate,
     videoTextScaleMode,
+    videoCover: videoCover || undefined,
     outputDir,
     webOutputDir,
     renderStyle,
@@ -1372,6 +1382,7 @@ export function VideoRenderModal({
     selectedIds,
     selectedAssetIds,
     speed,
+    videoCover,
     timelineDisplayDuration,
     timelineDurationById,
     timelineDataOverrides,
@@ -1888,6 +1899,7 @@ export function VideoRenderModal({
     exportFormat,
     outputDir,
     speed,
+    videoCover,
     drawFrame,
     getNodeRenderDuration,
     getSegmentAudioSources,
@@ -2594,6 +2606,17 @@ export function VideoRenderModal({
                   snapTimelineTime={snapTimelineTime}
                   setTimelineStartById={setTimelineStartById}
                   setTimelineDurationById={setTimelineDurationById}
+                  hasVideoCover={Boolean(videoCover)}
+                  onOpenVideoCover={() => {
+                    setVideoCover(
+                      (current) =>
+                        current || {
+                          ...DEFAULT_VIDEO_COVER,
+                          title: defaultWebProjectName,
+                        },
+                    );
+                    setIsVideoCoverEditorOpen(true);
+                  }}
                 />
               </>
             )
@@ -2679,6 +2702,17 @@ export function VideoRenderModal({
           progressValue={progressValue}
           cancelling={isCancellingRender}
           onCancel={cancelVideoRender}
+        />
+      )}
+      {isVideoCoverEditorOpen && videoCover && (
+        <VideoCoverEditor
+          cover={videoCover}
+          nodes={[...nodes, ...uploadedAssetNodes]}
+          resolution={resolution}
+          language={language}
+          onChange={setVideoCover}
+          onDelete={() => setVideoCover(null)}
+          onClose={() => setIsVideoCoverEditorOpen(false)}
         />
       )}
       {isExportDialogOpen && (

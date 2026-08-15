@@ -1325,6 +1325,23 @@ fn save_rendered_web_zip(
 }
 
 #[tauri::command]
+fn save_rendered_image(
+  file_name: String,
+  bytes: Vec<u8>,
+  output_dir: Option<String>,
+) -> Result<RenderSaveResult, String> {
+  let output_dir = output_dir
+    .filter(|dir| !dir.trim().is_empty())
+    .map(PathBuf::from)
+    .unwrap_or_else(downloads_dir);
+  fs::create_dir_all(&output_dir).map_err(|err| format!("Failed to create output directory: {err}"))?;
+  let stem = sanitize_file_name(&file_name);
+  let output_path = unique_path(&output_dir, &stem, "png");
+  fs::write(&output_path, bytes).map_err(|err| format!("Failed to save cover PNG: {err}"))?;
+  Ok(RenderSaveResult { path: output_path.to_string_lossy().to_string() })
+}
+
+#[tauri::command]
 fn save_rendered_pptx(
   file_name: String,
   bytes: Vec<u8>,
@@ -1844,6 +1861,7 @@ pub fn run() {
       force_quit_app,
       set_close_button_minimizes,
       save_rendered_video,
+      save_rendered_image,
       save_rendered_web_zip,
       save_rendered_pptx,
       transcode_ppt_video,

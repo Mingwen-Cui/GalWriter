@@ -13,6 +13,7 @@ export function PptCoverTextInspector({
   text,
   layout,
   language,
+  showDescriptions,
   onUpdateText,
   onUpdateLayout,
 }: {
@@ -20,6 +21,7 @@ export function PptCoverTextInspector({
   text: string;
   layout: PptTextBoxLayout;
   language: Language;
+  showDescriptions: boolean;
   onUpdateText: (target: CoverTextTarget, text: string) => void;
   onUpdateLayout: (target: CoverTextTarget, patch: Partial<PptTextBoxLayout>) => void;
 }) {
@@ -27,7 +29,7 @@ export function PptCoverTextInspector({
     <StartMenuElementInspector
       element={toPptCoverWebInspectorElement(target, text, layout)}
       language={language}
-      showDescriptions={false}
+      showDescriptions={showDescriptions}
       onUpdate={(update) => {
         const next = toPptCoverPatch(layout, update);
         if (next.text !== undefined) onUpdateText(target, next.text);

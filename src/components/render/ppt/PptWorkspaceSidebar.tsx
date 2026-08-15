@@ -34,10 +34,6 @@ import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
 import type { PptWorkspaceSidebarTab } from './pptWorkspaceModel';
 
 type SidebarTab = PptWorkspaceSidebarTab;
-type PptDesignTarget = 'background' | Extract<
-  PptTextOverrideTarget,
-  'cover-title' | 'cover-subtitle' | 'cover-description'
->;
 
 export function PptSidebar({
   language,
@@ -45,7 +41,7 @@ export function PptSidebar({
   updateRenderStyle,
   activeTab,
   setActiveTab,
-  selected,
+  selected: _selected,
   animation: _animation,
   animations,
   videoTrack,
@@ -74,8 +70,6 @@ export function PptSidebar({
   onDeleteManualElement,
   onUpdateCoverText,
   onUpdateCoverTextBoxLayout,
-  showCoverTextBoxes,
-  onSelectDesignTarget,
 }: {
   language: Language;
   renderStyle: RenderStyle;
@@ -122,8 +116,6 @@ export function PptSidebar({
     target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle' | 'cover-description'>,
     patch: Partial<PptTextBoxLayout>,
   ) => void;
-  showCoverTextBoxes: boolean;
-  onSelectDesignTarget: (target: PptDesignTarget) => void;
 }) {
   const copy = usePptCopy();
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
@@ -136,15 +128,7 @@ export function PptSidebar({
     { id: 'style', label: copy.design, icon: Settings2 },
   ] as const;
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) || tabs[0];
-  const showDescriptionToggle =
-    activeTab === 'style' && !backgroundSelected && !manualSlide && !coverTextBox;
-  const selectedDesignTarget = backgroundSelected ? 'background' : coverTextBox?.target || '';
-  const selectTab = (tab: SidebarTab) => {
-    setActiveTab(tab);
-    if (tab === 'style' && !selected && !manualSlide && !coverTextBox) {
-      onSelectDesignTarget('background');
-    }
-  };
+  const showDescriptionToggle = activeTab === 'style';
   return (
     <aside className="flex w-[380px] shrink-0 flex-col border-l border-[var(--vr-border)] bg-[var(--vr-surface-strong)]">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--vr-border)] px-4 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
@@ -181,7 +165,7 @@ export function PptSidebar({
             <button
               key={tab.id}
               type="button"
-              onClick={() => selectTab(tab.id)}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
                 activeTab === tab.id
                   ? 'bg-[var(--vr-accent)] text-white shadow-sm'
@@ -198,27 +182,6 @@ export function PptSidebar({
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {activeTab === 'style' && showCoverTextBoxes ? (
-          <label className="mb-3 block text-[11px] font-bold text-[var(--vr-text-muted)]">
-            <span className="mb-1.5 block">{copy.editObject}</span>
-            <select
-              value={selectedDesignTarget}
-              onChange={(event) => {
-                const target = event.target.value as PptDesignTarget;
-                if (target) onSelectDesignTarget(target);
-              }}
-              className="render-field w-full"
-            >
-              <option value="" disabled>
-                {copy.selectObject}
-              </option>
-              <option value="background">{copy.background}</option>
-              <option value="cover-title">{copy.coverTitle}</option>
-              <option value="cover-subtitle">{copy.coverSubtitle}</option>
-              <option value="cover-description">{copy.coverDescription}</option>
-            </select>
-          </label>
-        ) : null}
         {activeTab === 'timeline' ? (
           <>
             <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
@@ -281,6 +244,7 @@ export function PptSidebar({
               webSettings={webSettings}
               pptSettings={pptSettings}
               background={currentSlideBackground}
+              showDescriptions={showParameterDescriptions}
               onUpdateBackground={onUpdateSlideBackground}
               onUpdatePptSettings={updatePptSettings}
             />
@@ -291,6 +255,7 @@ export function PptSidebar({
               slide={manualSlide}
               selectedElementId={selectedManualElementId}
               slides={slides}
+              showDescriptions={showParameterDescriptions}
               onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
               onUpdateElement={onUpdateManualElement}
               onDeleteElement={onDeleteManualElement}
@@ -301,6 +266,7 @@ export function PptSidebar({
               text={coverTextBox.text}
               layout={coverTextBox.layout}
               language={language}
+              showDescriptions={showParameterDescriptions}
               onUpdateText={onUpdateCoverText}
               onUpdateLayout={onUpdateCoverTextBoxLayout}
             />

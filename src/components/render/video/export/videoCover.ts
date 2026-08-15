@@ -1,7 +1,7 @@
 import type { Node as FlowNode } from '@xyflow/react';
 
-import type { VideoCoverSettings } from '../shared/types';
 import { loadCachedImage, loadVideo, seekVideo } from '../shared/mediaUtils';
+import type { VideoCoverSettings } from '../shared/types';
 
 export const DEFAULT_VIDEO_COVER: VideoCoverSettings = {
   sourceType: 'gradient',
@@ -76,8 +76,8 @@ const drawText = (
   const x = (Math.max(0, Math.min(100, xPercent)) / 100) * width;
   const lineHeight = size * 1.28;
   const lines = wrapLines(ctx, text, width * 0.78).slice(0, 4);
-  const firstY = (Math.max(0, Math.min(100, yPercent)) / 100) * height -
-    ((lines.length - 1) * lineHeight) / 2;
+  const firstY =
+    (Math.max(0, Math.min(100, yPercent)) / 100) * height - ((lines.length - 1) * lineHeight) / 2;
   lines.forEach((line, index) => {
     const y = firstY + index * lineHeight;
     ctx.strokeText(line, x, y);
@@ -191,7 +191,10 @@ export const renderVideoCoverPngBytes = async (input: {
 }) => {
   const canvas = await renderVideoCoverCanvas(input);
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((result) => (result ? resolve(result) : reject(new Error('Cover PNG could not be created.'))), 'image/png');
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error('Cover PNG could not be created.'))),
+      'image/png',
+    );
   });
   return new Uint8Array(await blob.arrayBuffer());
 };

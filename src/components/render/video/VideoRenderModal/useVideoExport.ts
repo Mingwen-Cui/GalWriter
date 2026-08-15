@@ -1,5 +1,3 @@
-import { getVideoTextForChinesePreference } from '../i18n';
-import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useRef, useState } from 'react';
@@ -7,7 +5,10 @@ import { useRef, useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { buildAudioBuffer } from '../audio/audioTrack';
-import { saveRenderedVideo } from '../export/tauriRenderAdapter';
+import { saveRenderedImage, saveRenderedVideo } from '../export/tauriRenderAdapter';
+import { renderVideoCoverPngBytes } from '../export/videoCover';
+import { getVideoTextForChinesePreference } from '../i18n';
+import { formatVideoText } from '../i18n';
 import { DEFAULT_VIDEO_BITRATE } from '../shared/constants';
 import { loadVideo, seekVideo, validDuration } from '../shared/mediaUtils';
 import type {
@@ -15,6 +16,7 @@ import type {
   RenderStatus,
   SegmentRenderInfo,
   TimelineSegmentMetric,
+  VideoCoverSettings,
 } from '../shared/types';
 
 type DrawFrame = (
@@ -42,6 +44,7 @@ export const useVideoExport = ({
   exportFormat,
   outputDir,
   speed,
+  videoCover,
   drawFrame,
   getNodeRenderDuration,
   getSegmentAudioSources,
@@ -64,6 +67,7 @@ export const useVideoExport = ({
   exportFormat: ExportFormat;
   outputDir: string;
   speed: number;
+  videoCover?: VideoCoverSettings | null;
   drawFrame: DrawFrame;
   getNodeRenderDuration: (node: FlowNode) => Promise<number>;
   getSegmentAudioSources: (node: FlowNode) => { kind: string; url: string }[];
@@ -270,15 +274,34 @@ export const useVideoExport = ({
         return bytes;
       }
 
+      const baseFileName = fileName?.trim() || `galwriter-render-${Date.now()}`;
+      const coverBytes = videoCover
+        ? await renderVideoCoverPngBytes({
+            settings: videoCover,
+            nodes,
+            width: resolution.width,
+            height: resolution.height,
+          })
+        : null;
+
       if (isDesktopApp) {
         const result = await saveRenderedVideo({
-          fileName: fileName?.trim() || `galwriter-render-${Date.now()}`,
+          fileName: baseFileName,
           format: resolvedFormat,
           bytes: Array.from(bytes),
           outputDir: resolvedOutputDir,
           videoBitrate: String(resolvedVideoBitrate),
         });
-        setSavedPath(result.path);
+        if (coverBytes) {
+          const coverResult = await saveRenderedImage({
+            fileName: `${baseFileName}-cover`,
+            bytes: Array.from(coverBytes),
+            outputDir: resolvedOutputDir,
+          });
+          setSavedPath(`${result.path}\n${coverResult.path}`);
+        } else {
+          setSavedPath(result.path);
+        }
       } else {
         const mimeType =
           resolvedFormat === 'mov'
@@ -289,11 +312,24 @@ export const useVideoExport = ({
         const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${fileName?.trim() || `galwriter-render-${Date.now()}`}.${resolvedFormat}`;
+        link.download = `${baseFileName}.${resolvedFormat}`;
         document.body.appendChild(link);
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
+        if (coverBytes) {
+          const coverUrl = URL.createObjectURL(new Blob([coverBytes], { type: 'image/png' }));
+          const coverLink = document.createElement('a');
+          coverLink.href = coverUrl;
+          coverLink.download = `${baseFileName}-cover.png`;
+          document.body.appendChild(coverLink);
+          coverLink.click();
+          coverLink.remove();
+          URL.revokeObjectURL(coverUrl);
+          setSavedPath(`${baseFileName}.${resolvedFormat}\n${baseFileName}-cover.png`);
+        } else {
+          setSavedPath(`${baseFileName}.${resolvedFormat}`);
+        }
       }
       setStatus('done');
       setProgressValue(100);

@@ -1233,22 +1233,6 @@ export function PptWorkspace({
               onDeleteManualElement={deleteActiveManualElement}
               onUpdateCoverText={(target, text) => updatePptText(target, text)}
               onUpdateCoverTextBoxLayout={(target, patch) => updatePptTextBoxLayout(target, patch)}
-              showCoverTextBoxes={selectedId === 'cover'}
-              onSelectDesignTarget={(target) => {
-                if (target === 'background') {
-                  selectBackground();
-                  return;
-                }
-                selectObject({
-                  target,
-                  label:
-                    target === 'cover-title'
-                      ? copy.coverTitle
-                      : target === 'cover-subtitle'
-                        ? copy.coverSubtitle
-                        : copy.coverDescription,
-                });
-              }}
             />
           ) : null}
         </div>

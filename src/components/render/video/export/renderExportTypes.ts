@@ -16,6 +16,12 @@ export type SaveRenderedVideoInput = {
   videoBitrate: string;
 };
 
+export type SaveRenderedImageInput = {
+  fileName: string;
+  bytes: number[];
+  outputDir: string;
+};
+
 export type SaveRenderedWebZipInput = {
   fileName: string;
   bytes: number[];
