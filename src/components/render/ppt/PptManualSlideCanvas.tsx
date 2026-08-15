@@ -5,12 +5,14 @@ import type {
   PptManualElement,
   PptManualElementWebStyle,
   PptManualSlide,
+  PptSlideBackgroundStyle,
 } from '../video/shared/types';
 import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
 } from '../web/WebEditableElementFrame';
 import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH } from './pptWorkspaceModel';
+import { gradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
 
 const buttonClass = (variant: 'primary' | 'secondary' | 'link') =>
   variant === 'primary'
@@ -77,6 +79,46 @@ const borderPaint = (style: PptManualElementWebStyle) => {
   return `${style.borderWidth}px solid ${style.borderColor || '#ffffff'}`;
 };
 
+const textAlignStyle = (align: 'left' | 'center' | 'right' | undefined) => {
+  if (align === 'center') return { justifyContent: 'center', textAlign: 'center' as const };
+  if (align === 'right') return { justifyContent: 'flex-end', textAlign: 'right' as const };
+  return { justifyContent: 'flex-start', textAlign: 'left' as const };
+};
+
+const slideBackgroundPaint = (background?: PptSlideBackgroundStyle): React.CSSProperties => {
+  if (!background) return {};
+  if (background.type === 'gradient') {
+    return {
+      background: gradientFromStops(
+        background.gradientShape,
+        background.gradientAngle,
+        normalizeGradientStops(
+          background.gradientStops,
+          background.gradientStart,
+          background.gradientEnd,
+          background.color,
+          background.color,
+        ),
+        {
+          startX: background.gradientStartX,
+          startY: background.gradientStartY,
+          endX: background.gradientEndX,
+          endY: background.gradientEndY,
+        },
+      ),
+    };
+  }
+  if (background.type === 'image' && background.imageUrl) {
+    return {
+      backgroundImage: `url("${background.imageUrl.replace(/"/g, '\\"')}")`,
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: 'cover',
+    };
+  }
+  return { backgroundColor: background.color };
+};
+
 const manualElementPaint = (element: PptManualElement): React.CSSProperties => {
   const style = element.webStyle || {};
   return {
@@ -109,7 +151,9 @@ const manualTextPaint = (
     fontFamily: style.fontFamily || (element.kind === 'text' ? element.fontFamily : undefined),
     fontSize: `${((style.fontSize || (element.kind === 'text' ? element.fontSize : 28)) / PPT_CONTENT_HEIGHT) * 100}vh`,
     fontWeight: style.fontWeight || (element.kind === 'text' && element.bold ? 700 : 400),
-    textAlign: style.textAlign || (element.kind === 'text' ? element.align : 'center'),
+    display: 'flex',
+    alignItems: 'center',
+    ...textAlignStyle(style.textAlign || (element.kind === 'text' ? element.align : 'center')),
     letterSpacing: style.letterSpacing,
     lineHeight: style.lineHeight,
     opacity: style.textVisible === false ? 0 : undefined,
@@ -461,11 +505,25 @@ export function PptManualSlideCanvas({
   return (
     <div
       className="absolute inset-0 overflow-hidden"
-      style={{ backgroundColor: slide.backgroundColor }}
+      style={{
+        backgroundColor: slide.backgroundColor,
+        ...slideBackgroundPaint(slide.backgroundStyle),
+      }}
       onClick={(event) => {
         if (event.target === event.currentTarget) onSelectBackground?.();
       }}
     >
+      {slide.backgroundStyle?.type === 'video' && slide.backgroundStyle.videoUrl ? (
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          src={slide.backgroundStyle.videoUrl}
+          autoPlay
+          loop={slide.backgroundStyle.videoLoop !== false}
+          muted={slide.backgroundStyle.videoMuted !== false}
+          playsInline
+          style={{ objectFit: slide.backgroundStyle.videoFit === 'fit' ? 'contain' : 'cover' }}
+        />
+      ) : null}
       <PptManualElementLayer
         elements={slide.elements}
         editable={editable}

@@ -19,6 +19,7 @@ export function targetLabel(copy: PptCopy, animation: PptObjectAnimation, scene?
         'dialog-body': copy.dialogBody,
         'cover-title': copy.coverTitle,
         'cover-subtitle': copy.coverSubtitle,
+        'cover-description': 'Galgame 说明',
       } as Record<string, string>
     )[animation.target] || copy.objectProperties
   );

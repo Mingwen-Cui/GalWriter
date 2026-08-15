@@ -1,5 +1,5 @@
 import { CopyPlus, ImagePlus, PlusSquare, Type, Webhook } from 'lucide-react';
-import { useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import type { PptCopy } from './i18n';
 
@@ -38,6 +38,7 @@ export function PptInsertRibbon({
   onInsertText,
   onInsertButton,
   onInsertImage,
+  exportRules,
 }: {
   copy: PptCopy;
   onNewSlide: () => void;
@@ -45,6 +46,7 @@ export function PptInsertRibbon({
   onInsertText: () => void;
   onInsertButton: () => void;
   onInsertImage: (dataUrl: string, name: string) => void;
+  exportRules?: ReactNode;
 }) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const readImage = (file?: File) => {
@@ -82,6 +84,7 @@ export function PptInsertRibbon({
           <InsertAction label={copy.insertButton} icon={Webhook} onClick={onInsertButton} />
         </InsertGroup>
       </div>
+      {exportRules}
     </header>
   );
 }

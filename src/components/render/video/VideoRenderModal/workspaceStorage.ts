@@ -13,6 +13,7 @@ import type {
   TimelineScaleMode,
   TimelineWheelMode,
   VideoTextScaleMode,
+  VideoCoverSettings,
   WebExportSettings,
   WebHistoryState,
 } from '../shared/types';
@@ -121,6 +122,7 @@ export type PersistedRenderWorkspaceState = {
   animationLeadSeconds?: number;
   frameRate?: number;
   videoTextScaleMode?: VideoTextScaleMode;
+  videoCover?: VideoCoverSettings;
   outputDir?: string;
   webOutputDir?: string;
   renderStyle?: Partial<RenderStyle>;

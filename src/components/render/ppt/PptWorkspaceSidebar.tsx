@@ -4,7 +4,6 @@ import {
   ListOrdered,
   Pause,
   Play,
-  Presentation,
   Settings2,
   Sparkles,
 } from 'lucide-react';
@@ -19,20 +18,26 @@ import type {
   PptManualElement,
   PptManualSlide,
   PptObjectAnimation,
+  PptSlideBackgroundStyle,
   PptTextBoxLayout,
   PptTextOverrideTarget,
   RenderStyle,
+  WebExportSettings,
 } from '../video/shared/types';
 import { targetLabel } from './pptAnimationLabels';
 import { usePptCopy } from './pptCopyContext';
 import { PptCoverTextInspector } from './PptCoverTextInspector';
 import { PptManualInspector } from './PptManualInspector';
-import type { Scene, Selection, VideoTimelineTrack } from './PptWorkspace';
+import { PptSlideBackgroundInspector } from './PptSlideBackgroundInspector';
+import type { Selection, VideoTimelineTrack } from './PptWorkspace';
 import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
-import { Field, Toggle } from './PptWorkspaceFooter';
 import type { PptWorkspaceSidebarTab } from './pptWorkspaceModel';
 
 type SidebarTab = PptWorkspaceSidebarTab;
+type PptDesignTarget = 'background' | Extract<
+  PptTextOverrideTarget,
+  'cover-title' | 'cover-subtitle' | 'cover-description'
+>;
 
 export function PptSidebar({
   language,
@@ -40,13 +45,12 @@ export function PptSidebar({
   updateRenderStyle,
   activeTab,
   setActiveTab,
-  selected: _selected,
+  selected,
   animation: _animation,
   animations,
   videoTrack,
   playheadMs,
   onPlayheadChange,
-  scene,
   pptSettings,
   updatePptSettings,
   onSelectAnimation,
@@ -61,11 +65,17 @@ export function PptSidebar({
   selectedManualElementId,
   coverTextBox,
   slides,
+  backgroundSelected,
+  currentSlideBackground,
+  webSettings,
+  onUpdateSlideBackground,
   onUpdateSlideBackgroundColor,
   onUpdateManualElement,
   onDeleteManualElement,
   onUpdateCoverText,
   onUpdateCoverTextBoxLayout,
+  showCoverTextBoxes,
+  onSelectDesignTarget,
 }: {
   language: Language;
   renderStyle: RenderStyle;
@@ -78,7 +88,6 @@ export function PptSidebar({
   videoTrack?: VideoTimelineTrack;
   playheadMs: number;
   onPlayheadChange: (milliseconds: number) => void;
-  scene?: Scene;
   pptSettings: PptExportSettings;
   updatePptSettings: (patch: Partial<PptExportSettings>) => void;
   onSelectAnimation: (animation: PptObjectAnimation) => void;
@@ -92,23 +101,29 @@ export function PptSidebar({
   manualSlide?: PptManualSlide;
   selectedManualElementId?: string;
   coverTextBox?: {
-    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle'>;
+    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle' | 'cover-description'>;
     label: string;
     text: string;
     layout: PptTextBoxLayout;
   };
   slides: Array<{ id: string; title: string }>;
+  backgroundSelected: boolean;
+  currentSlideBackground: PptSlideBackgroundStyle;
+  webSettings: WebExportSettings;
+  onUpdateSlideBackground: (patch: Partial<PptSlideBackgroundStyle>) => void;
   onUpdateSlideBackgroundColor: (color: string) => void;
   onUpdateManualElement: (elementId: string, patch: Partial<PptManualElement>) => void;
   onDeleteManualElement: (elementId: string) => void;
   onUpdateCoverText: (
-    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle'>,
+    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle' | 'cover-description'>,
     text: string,
   ) => void;
   onUpdateCoverTextBoxLayout: (
-    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle'>,
+    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle' | 'cover-description'>,
     patch: Partial<PptTextBoxLayout>,
   ) => void;
+  showCoverTextBoxes: boolean;
+  onSelectDesignTarget: (target: PptDesignTarget) => void;
 }) {
   const copy = usePptCopy();
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
@@ -116,28 +131,94 @@ export function PptSidebar({
   const selectAnimation = (item: PptObjectAnimation) => {
     onSelectAnimation(item);
   };
+  const tabs = [
+    { id: 'timeline', label: copy.animation, icon: ListOrdered },
+    { id: 'style', label: copy.design, icon: Settings2 },
+  ] as const;
+  const activeTabConfig = tabs.find((tab) => tab.id === activeTab) || tabs[0];
+  const showDescriptionToggle =
+    activeTab === 'style' && !backgroundSelected && !manualSlide && !coverTextBox;
+  const selectedDesignTarget = backgroundSelected ? 'background' : coverTextBox?.target || '';
+  const selectTab = (tab: SidebarTab) => {
+    setActiveTab(tab);
+    if (tab === 'style' && !selected && !manualSlide && !coverTextBox) {
+      onSelectDesignTarget('background');
+    }
+  };
   return (
     <aside className="flex w-[380px] shrink-0 flex-col border-l border-[var(--vr-border)] bg-[var(--vr-surface-strong)]">
-      <div className="flex border-b border-[var(--vr-border)]">
-        {(
-          [
-            { id: 'timeline', label: copy.animationPane, icon: ListOrdered },
-            { id: 'style', label: copy.design, icon: Settings2 },
-            { id: 'export', label: copy.exportRules, icon: Presentation },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-3 text-xs font-bold ${activeTab === tab.id ? 'border-[var(--vr-accent)] text-[var(--vr-accent-strong)]' : 'border-transparent text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'}`}
-          >
-            <tab.icon className="h-3.5 w-3.5" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--vr-border)] px-4 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
+        <div className="flex min-w-0 items-center gap-2">
+          <activeTabConfig.icon className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
+          <span className="truncate">{activeTabConfig.label}</span>
+          {showDescriptionToggle ? (
+            <button
+              type="button"
+              onClick={() => setShowParameterDescriptions((current) => !current)}
+              className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                showParameterDescriptions
+                  ? 'bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]'
+                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+              }`}
+              title={
+                showParameterDescriptions
+                  ? copy.hideParameterDescriptions
+                  : copy.showParameterDescriptions
+              }
+              aria-label={
+                showParameterDescriptions
+                  ? copy.hideParameterDescriptions
+                  : copy.showParameterDescriptions
+              }
+              aria-pressed={showParameterDescriptions}
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+        <div className="flex h-8 shrink-0 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => selectTab(tab.id)}
+              className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-[var(--vr-accent)] text-white shadow-sm'
+                  : 'text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
+              }`}
+              title={tab.label}
+              aria-label={tab.label}
+              aria-pressed={activeTab === tab.id}
+            >
+              <tab.icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </header>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {activeTab === 'style' && showCoverTextBoxes ? (
+          <label className="mb-3 block text-[11px] font-bold text-[var(--vr-text-muted)]">
+            <span className="mb-1.5 block">{copy.editObject}</span>
+            <select
+              value={selectedDesignTarget}
+              onChange={(event) => {
+                const target = event.target.value as PptDesignTarget;
+                if (target) onSelectDesignTarget(target);
+              }}
+              className="render-field w-full"
+            >
+              <option value="" disabled>
+                {copy.selectObject}
+              </option>
+              <option value="background">{copy.background}</option>
+              <option value="cover-title">{copy.coverTitle}</option>
+              <option value="cover-subtitle">{copy.coverSubtitle}</option>
+              <option value="cover-description">{copy.coverDescription}</option>
+            </select>
+          </label>
+        ) : null}
         {activeTab === 'timeline' ? (
           <>
             <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
@@ -194,7 +275,16 @@ export function PptSidebar({
           </>
         ) : null}
         {activeTab === 'style' ? (
-          manualSlide ? (
+          backgroundSelected ? (
+            <PptSlideBackgroundInspector
+              language={language}
+              webSettings={webSettings}
+              pptSettings={pptSettings}
+              background={currentSlideBackground}
+              onUpdateBackground={onUpdateSlideBackground}
+              onUpdatePptSettings={updatePptSettings}
+            />
+          ) : manualSlide ? (
             <PptManualInspector
               copy={copy}
               language={language}
@@ -216,33 +306,6 @@ export function PptSidebar({
             />
           ) : (
             <>
-              <div className="mb-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowParameterDescriptions((current) => !current)}
-                  className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-colors ${
-                    showParameterDescriptions
-                      ? 'bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)] ring-1 ring-[var(--vr-accent)]/25'
-                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                  }`}
-                  title={
-                    showParameterDescriptions
-                      ? copy.hideParameterDescriptions
-                      : copy.showParameterDescriptions
-                  }
-                  aria-label={
-                    showParameterDescriptions
-                      ? copy.hideParameterDescriptions
-                      : copy.showParameterDescriptions
-                  }
-                  aria-pressed={showParameterDescriptions}
-                >
-                  <Info className="h-3.5 w-3.5" />
-                  {showParameterDescriptions
-                    ? copy.hideParameterDescriptions
-                    : copy.showParameterDescriptions}
-                </button>
-              </div>
               <RenderObjectInspector
                 language={language}
                 renderStyle={renderStyle}
@@ -253,13 +316,6 @@ export function PptSidebar({
               />
             </>
           )
-        ) : null}
-        {activeTab === 'export' ? (
-          <ExportRules
-            scene={scene}
-            pptSettings={pptSettings}
-            updatePptSettings={updatePptSettings}
-          />
         ) : null}
       </div>
     </aside>
@@ -444,7 +500,7 @@ function AnimationTimeline({
       {isOverview ? (
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-black text-[var(--vr-text)]">{copy.animationPane}</h2>
+            <h2 className="text-sm font-black text-[var(--vr-text)]">{copy.animation}</h2>
           </div>
           <button
             type="button"
@@ -855,73 +911,6 @@ function _ObjectProperties({
           </div>
         </>
       )}
-    </>
-  );
-}
-function ExportRules({
-  scene,
-  pptSettings,
-  updatePptSettings,
-}: {
-  scene?: Scene;
-  pptSettings: PptExportSettings;
-  updatePptSettings: (patch: Partial<PptExportSettings>) => void;
-}) {
-  return (
-    <>
-      <h2 className="mb-5 flex items-center gap-2 text-sm font-black text-[var(--vr-text)]">
-        <Settings2 className="h-4 w-4 text-[var(--vr-accent-strong)]" />
-        PPT 导出规则
-      </h2>
-      <Field label="页面比例">
-        <select
-          value={pptSettings.layout}
-          onChange={(event) =>
-            updatePptSettings({ layout: event.target.value as PptExportSettings['layout'] })
-          }
-          className="render-field"
-        >
-          <option value="LAYOUT_WIDE">16:9</option>
-          <option value="LAYOUT_STANDARD">4:3</option>
-        </select>
-      </Field>
-      <Field label="分支表现">
-        <select
-          value={pptSettings.branchMode}
-          onChange={(event) =>
-            updatePptSettings({ branchMode: event.target.value as PptExportSettings['branchMode'] })
-          }
-          className="render-field"
-        >
-          <option value="interactive">互动跳转</option>
-          <option value="linear">主线演示</option>
-          <option value="all">全部分支</option>
-        </select>
-      </Field>
-      <Toggle
-        label="生成封面页"
-        checked={pptSettings.includeCover}
-        onChange={(includeCover) => updatePptSettings({ includeCover })}
-      />
-      {scene?.backgroundVideoUrl ? (
-        <Toggle
-          label="循环播放此页视频"
-          checked={pptSettings.videoLoopByScene?.[scene.id] ?? false}
-          onChange={(loop) =>
-            updatePptSettings({
-              videoLoopByScene: { ...pptSettings.videoLoopByScene, [scene.id]: loop },
-            })
-          }
-        />
-      ) : null}
-      <Toggle
-        label="写入演讲备注"
-        checked={pptSettings.includeNotes}
-        onChange={(includeNotes) => updatePptSettings({ includeNotes })}
-      />
-      <div className="mt-6 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 text-xs leading-5 text-[var(--vr-text-muted)]">
-        背景、角色、对话框、字体与选项均与网页设置同步；动画以独立时间线保存。
-      </div>
     </>
   );
 }

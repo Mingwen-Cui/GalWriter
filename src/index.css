@@ -4716,8 +4716,11 @@ button.web-segment-button:last-child {
 /* PPT animation workspace: compact ribbon and object-level editing affordances. */
 .ppt-ribbon-shell {
   --ppt-ribbon-height: 136px;
+  display: flex;
   flex: 0 0 var(--ppt-ribbon-height);
   height: var(--ppt-ribbon-height);
+  min-width: 0;
+  align-items: stretch;
   overflow: hidden;
   border-bottom: 1px solid var(--vr-border);
   background: var(--vr-surface-strong);
@@ -4726,12 +4729,62 @@ button.web-segment-button:last-child {
 
 .ppt-ribbon {
   display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
   height: 100%;
   min-height: 0;
   align-items: stretch;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0 12px;
+}
+
+.ppt-export-rules {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  border-left: 1px solid var(--vr-border);
+  padding: 10px 12px;
+  background: var(--vr-surface-strong);
+  color: var(--vr-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ppt-export-rules-field {
+  display: grid;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ppt-export-rules-field > span {
+  font-size: 10px;
+}
+
+.ppt-export-rules-field .render-field {
+  height: 30px;
+  min-width: 80px;
+  padding-block: 3px;
+  font-size: 11px;
+}
+
+.ppt-export-rules-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  color: var(--vr-text);
+}
+
+.ppt-export-rules-toggles {
+  display: grid;
+  gap: 5px;
+}
+
+.ppt-export-rules-toggle input {
+  accent-color: var(--vr-accent);
 }
 
 .ppt-ribbon-action {

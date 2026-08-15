@@ -20,6 +20,8 @@ import type {
   PptManualSlide,
   PptObjectAnimation,
   PptSlideBackgroundColors,
+  PptSlideBackgroundStyle,
+  PptSlideBackgroundStyles,
   PptSlideTransition,
   PptTextBoxLayout,
   PptTextOverrideTarget,
@@ -29,15 +31,23 @@ import type {
   RenderStyle,
   WebExportSettings,
 } from '../video/shared/types';
+import { getSurfaceBackground } from '../web/StartMenuBackgroundInspector';
 import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
 } from '../web/WebEditableElementFrame';
+import { gradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
 import { getPptCopy, type PptCopy } from './i18n';
 import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
 import { targetLabel } from './pptAnimationLabels';
 import { findAnimation, previewStyle } from './pptAnimationPreview';
 import { PptCopyContext, type PptCopyContextValue } from './pptCopyContext';
+import {
+  getPptCoverText,
+  getPptCoverTitle,
+  PPT_DEFAULT_COVER_DESCRIPTION,
+} from './pptCoverTemplate';
+import { PptExportRulesRibbon } from './PptExportRulesRibbon';
 import { PptInsertRibbon } from './PptInsertRibbon';
 import {
   createManualButton,
@@ -131,6 +141,75 @@ export const directionLabel = (copy: PptCopy, direction: PptAnimationDirection) 
           ? 'fromTop'
           : 'fromBottom'
   ];
+
+const toPptBackgroundStyle = (settings: WebExportSettings): PptSlideBackgroundStyle => {
+  const background = getSurfaceBackground(settings, 'start');
+  return {
+    type: background.type,
+    color: background.color,
+    gradientStart: background.gradientStart,
+    gradientEnd: background.gradientEnd,
+    gradientAngle: background.gradientAngle,
+    gradientStartX: background.gradientStartX,
+    gradientStartY: background.gradientStartY,
+    gradientEndX: background.gradientEndX,
+    gradientEndY: background.gradientEndY,
+    gradientShape: background.gradientShape,
+    gradientStops: background.gradientStops,
+    imageUrl: background.imageUrl,
+    videoUrl: background.videoUrl,
+    videoLoop: background.videoLoop,
+    videoMuted: background.videoMuted,
+    videoFit: background.videoFit,
+  };
+};
+
+const solidPptBackground = (color: string): PptSlideBackgroundStyle => ({
+  type: 'solid',
+  color,
+  gradientStart: color,
+  gradientEnd: color,
+  gradientAngle: 135,
+});
+
+const pptBackgroundColor = (background: PptSlideBackgroundStyle) =>
+  background.type === 'gradient'
+    ? background.gradientStops?.[0]?.color || background.gradientStart
+    : background.color;
+
+const pptBackgroundCss = (background?: PptSlideBackgroundStyle): React.CSSProperties => {
+  if (!background) return {};
+  if (background.type === 'gradient') {
+    return {
+      background: gradientFromStops(
+        background.gradientShape,
+        background.gradientAngle,
+        normalizeGradientStops(
+          background.gradientStops,
+          background.gradientStart,
+          background.gradientEnd,
+          background.color,
+          background.color,
+        ),
+        {
+          startX: background.gradientStartX,
+          startY: background.gradientStartY,
+          endX: background.gradientEndX,
+          endY: background.gradientEndY,
+        },
+      ),
+    };
+  }
+  if (background.type === 'image' && background.imageUrl) {
+    return {
+      backgroundImage: `url("${background.imageUrl.replace(/"/g, '\\"')}")`,
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: 'cover',
+    };
+  }
+  return { backgroundColor: background.color };
+};
 const animationKey = (target: PptAnimationTarget, targetId?: string) =>
   `${target}:${targetId || ''}`;
 type TimedPptObjectAnimation = PptObjectAnimation & { timelineStartMs: number };
@@ -277,13 +356,18 @@ export function PptWorkspace({
   const textBoxLayouts = pptSettings.textBoxLayouts || {};
   const slideElements = pptSettings.slideElements || {};
   const slideBackgroundColors: PptSlideBackgroundColors = pptSettings.slideBackgroundColors || {};
+  const slideBackgroundStyles: PptSlideBackgroundStyles = pptSettings.slideBackgroundStyles || {};
   const activeSlideElements = slideElements[selectedId] || [];
-  const activeSlideBackgroundColor =
-    manualSlide?.backgroundColor ||
-    slideBackgroundColors[selectedId] ||
-    (selectedId === 'cover'
-      ? webSettings.startMenuBackgroundColor || colors.background
-      : colors.background);
+  const defaultSlideBackground =
+    selectedId === 'cover'
+      ? toPptBackgroundStyle(webSettings)
+      : solidPptBackground(slideBackgroundColors[selectedId] || colors.background);
+  const activeSlideBackground =
+    manualSlide?.backgroundStyle ||
+    (manualSlide ? solidPptBackground(manualSlide.backgroundColor) : undefined) ||
+    slideBackgroundStyles[selectedId] ||
+    defaultSlideBackground;
+  const activeSlideBackgroundColor = pptBackgroundColor(activeSlideBackground);
   const inspectorSlide =
     manualSlide ||
     (selectedManualElementId || selectedObject?.target === 'background'
@@ -296,15 +380,20 @@ export function PptWorkspace({
       : undefined);
   const selectedCoverTextBox =
     selectedId === 'cover' &&
-    (selectedObject?.target === 'cover-title' || selectedObject?.target === 'cover-subtitle')
+    (selectedObject?.target === 'cover-title' ||
+      selectedObject?.target === 'cover-subtitle' ||
+      selectedObject?.target === 'cover-description')
       ? {
           target: selectedObject.target,
           label: selectedObject.label,
           text:
             textOverrides.cover?.[selectedObject.target] ??
-            (selectedObject.target === 'cover-title'
-              ? projectName || '旮旯作家 · GalWriter'
-              : '由旮旯作家 · GalWriter 生成'),
+            getPptCoverText(
+              selectedObject.target,
+              projectName,
+              '由旮旯作家 · GalWriter 生成',
+              copy.untitled,
+            ),
           layout: resolvePptTextBoxLayout(
             textBoxLayouts.cover?.[selectedObject.target],
             selectedObject.target,
@@ -401,7 +490,7 @@ export function PptWorkspace({
           : []),
         {
           ...createManualText(
-            textOverrides.cover?.['cover-title'] ?? (projectName || copy.untitled),
+            textOverrides.cover?.['cover-title'] ?? getPptCoverTitle(projectName, copy.untitled),
           ),
           x: 480,
           y: 390,
@@ -416,6 +505,17 @@ export function PptWorkspace({
           width: 720,
           height: 56,
           fontSize: 28,
+          bold: false,
+        },
+        {
+          ...createManualText(
+            textOverrides.cover?.['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION,
+          ),
+          x: 480,
+          y: 640,
+          width: 960,
+          height: 72,
+          fontSize: 24,
           bold: false,
         },
         ...copiedElements,
@@ -565,15 +665,30 @@ export function PptWorkspace({
       manualSlides.map((slide) => (slide.id === manualSlide.id ? { ...slide, ...patch } : slide)),
     );
   };
-  const updateActiveSlideBackgroundColor = (color: string) => {
+  const updateActiveSlideBackground = (patch: Partial<PptSlideBackgroundStyle>) => {
+    const nextBackground = { ...activeSlideBackground, ...patch };
     if (manualSlide) {
-      updateActiveManualSlide({ backgroundColor: color });
+      updateActiveManualSlide({
+        backgroundColor: pptBackgroundColor(nextBackground),
+        backgroundStyle: nextBackground,
+      });
       return;
     }
     updatePptSettings({
-      slideBackgroundColors: { ...slideBackgroundColors, [selectedId]: color },
+      slideBackgroundColors: {
+        ...slideBackgroundColors,
+        [selectedId]: pptBackgroundColor(nextBackground),
+      },
+      slideBackgroundStyles: { ...slideBackgroundStyles, [selectedId]: nextBackground },
     });
   };
+  const updateActiveSlideBackgroundColor = (color: string) =>
+    updateActiveSlideBackground({
+      type: 'solid',
+      color,
+      gradientStart: color,
+      gradientEnd: color,
+    });
   const selectBackground = () => {
     setSelectedManualElementId(undefined);
     setSelectedObject({ target: 'background', label: copy.background });
@@ -906,6 +1021,13 @@ export function PptWorkspace({
               onInsertText={() => appendManualElement(createManualText(copy.text))}
               onInsertButton={() => appendManualElement(createManualButton(copy.button))}
               onInsertImage={(src, name) => appendManualElement(createManualImage(src, name))}
+              exportRules={
+                <PptExportRulesRibbon
+                  scene={scene}
+                  pptSettings={pptSettings}
+                  updatePptSettings={updatePptSettings}
+                />
+              }
             />
           ) : (
             <AnimationRibbon
@@ -934,6 +1056,13 @@ export function PptWorkspace({
               transition={currentTransition}
               onUpdateTransition={updateTransition}
               onApplyTransitionToAll={applyTransitionToAll}
+              exportRules={
+                <PptExportRulesRibbon
+                  scene={scene}
+                  pptSettings={pptSettings}
+                  updatePptSettings={updatePptSettings}
+                />
+              }
             />
           ))}
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1022,6 +1151,7 @@ export function PptWorkspace({
                           textBoxLayouts={textBoxLayouts[selectedId]}
                           slideElements={activeSlideElements}
                           backgroundColor={activeSlideBackgroundColor}
+                          backgroundStyle={activeSlideBackground}
                           animations={currentAnimations}
                           transition={currentTransition}
                           selected={selectedObject}
@@ -1071,7 +1201,6 @@ export function PptWorkspace({
               videoTrack={currentVideoTrack}
               playheadMs={timelinePlayheadMs ?? 0}
               onPlayheadChange={seekTimeline}
-              scene={scene}
               pptSettings={pptSettings}
               updatePptSettings={updatePptSettings}
               onSelectAnimation={(animation) => {
@@ -1095,11 +1224,31 @@ export function PptWorkspace({
               selectedManualElementId={selectedManualElementId}
               coverTextBox={selectedCoverTextBox}
               slides={slides}
+              backgroundSelected={selectedObject?.target === 'background'}
+              currentSlideBackground={activeSlideBackground}
+              webSettings={webSettings}
+              onUpdateSlideBackground={updateActiveSlideBackground}
               onUpdateSlideBackgroundColor={updateActiveSlideBackgroundColor}
               onUpdateManualElement={updateActiveManualElement}
               onDeleteManualElement={deleteActiveManualElement}
               onUpdateCoverText={(target, text) => updatePptText(target, text)}
               onUpdateCoverTextBoxLayout={(target, patch) => updatePptTextBoxLayout(target, patch)}
+              showCoverTextBoxes={selectedId === 'cover'}
+              onSelectDesignTarget={(target) => {
+                if (target === 'background') {
+                  selectBackground();
+                  return;
+                }
+                selectObject({
+                  target,
+                  label:
+                    target === 'cover-title'
+                      ? copy.coverTitle
+                      : target === 'cover-subtitle'
+                        ? copy.coverSubtitle
+                        : copy.coverDescription,
+                });
+              }}
             />
           ) : null}
         </div>
@@ -1119,6 +1268,7 @@ export function PptWorkspace({
             textBoxLayouts={textBoxLayouts[selectedId]}
             slideElements={activeSlideElements}
             backgroundColor={activeSlideBackgroundColor}
+            backgroundStyle={activeSlideBackground}
             animations={currentAnimations}
             transition={currentTransition}
             layout={pptSettings.layout}
@@ -1158,6 +1308,7 @@ export function SlideCanvas({
   textBoxLayouts,
   slideElements,
   backgroundColor,
+  backgroundStyle,
   animations,
   transition,
   selected,
@@ -1188,6 +1339,7 @@ export function SlideCanvas({
   textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
   slideElements?: PptManualElement[];
   backgroundColor?: string;
+  backgroundStyle?: PptSlideBackgroundStyle;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   selected: Selection | null;
@@ -1211,11 +1363,13 @@ export function SlideCanvas({
   const canvasBackgroundColor =
     backgroundColor ||
     (selectedId === 'cover' ? webSettings.startMenuBackgroundColor : colors.background);
+  const backgroundPaint = pptBackgroundCss(backgroundStyle);
   return (
     <div
       className={`ppt-slide-canvas ppt-transition-${transition.effect} relative aspect-video w-full overflow-hidden rounded-xl border border-white/15 bg-slate-950 shadow-2xl`}
       style={{
         backgroundColor: canvasBackgroundColor,
+        ...backgroundPaint,
         ...transitionStyle,
       }}
       onClick={(event) => {
@@ -1226,8 +1380,19 @@ export function SlideCanvas({
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ backgroundColor: canvasBackgroundColor }}
+        style={{ backgroundColor: canvasBackgroundColor, ...backgroundPaint }}
       />
+      {backgroundStyle?.type === 'video' && backgroundStyle.videoUrl ? (
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          src={backgroundStyle.videoUrl}
+          autoPlay
+          loop={backgroundStyle.videoLoop !== false}
+          muted={backgroundStyle.videoMuted !== false}
+          playsInline
+          style={{ objectFit: backgroundStyle.videoFit === 'fit' ? 'contain' : 'cover' }}
+        />
+      ) : null}
       {manualSlide ? (
         <PptManualSlideCanvas
           slide={manualSlide}
@@ -1316,8 +1481,10 @@ function CoverPreview({
   onUpdateText?: (target: PptTextOverrideTarget, text: string) => void;
   onUpdateTextBoxLayout?: (target: PptTextOverrideTarget, patch: Partial<PptTextBoxLayout>) => void;
 }) {
-  const title = textOverrides?.['cover-title'] ?? (projectName || '旮旯作家 · GalWriter');
+  const title =
+    textOverrides?.['cover-title'] ?? getPptCoverTitle(projectName, '旮旯作家 · GalWriter');
   const subtitle = textOverrides?.['cover-subtitle'] ?? '由旮旯作家 · GalWriter 生成';
+  const description = textOverrides?.['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION;
   return (
     <div
       className="absolute inset-0 bg-black/35"
@@ -1353,6 +1520,20 @@ function CoverPreview({
         onUpdateText={(text) => onUpdateText?.('cover-subtitle', text)}
         onUpdateLayout={(patch) => onUpdateTextBoxLayout?.('cover-subtitle', patch)}
       />
+      <PptCoverTextBox
+        target="cover-description"
+        label="Galgame 游戏说明"
+        text={description}
+        layout={resolvePptTextBoxLayout(textBoxLayouts?.['cover-description'], 'cover-description')}
+        selected={selected}
+        animation={findAnimation(animations, 'cover-description')}
+        previewing={previewing}
+        previewAtMs={previewAtMs}
+        editable={editable}
+        onSelect={onSelect}
+        onUpdateText={(text) => onUpdateText?.('cover-description', text)}
+        onUpdateLayout={(patch) => onUpdateTextBoxLayout?.('cover-description', patch)}
+      />
     </div>
   );
 }
@@ -1371,7 +1552,7 @@ function PptCoverTextBox({
   onUpdateText,
   onUpdateLayout,
 }: {
-  target: 'cover-title' | 'cover-subtitle';
+  target: 'cover-title' | 'cover-subtitle' | 'cover-description';
   label: string;
   text: string;
   layout: PptTextBoxLayout;
@@ -1392,8 +1573,13 @@ function PptCoverTextBox({
   const initialTextRef = useRef('');
   const discardTextEditRef = useRef(false);
   const textClass =
-    target === 'cover-title' ? 'text-4xl font-black text-white' : 'text-sm text-white/75';
+    target === 'cover-title'
+      ? 'text-4xl font-black text-white'
+      : target === 'cover-subtitle'
+        ? 'text-sm text-white/75'
+        : 'text-base text-white/70';
   const webStyle = layout.webStyle || {};
+  const textAlignment = webStyle.textAlign || 'center';
   const textColor = webStyle.textColor || '#ffffff';
   const useTextGradient = webStyle.textColorType === 'gradient';
   const textGradientStops = webStyle.textGradientStops?.length
@@ -1407,7 +1593,11 @@ function PptCoverTextBox({
     fontFamily: webStyle.fontFamily,
     fontSize: webStyle.fontSize ? `${(webStyle.fontSize / PPT_CONTENT_HEIGHT) * 100}vh` : undefined,
     fontWeight: webStyle.fontWeight,
-    textAlign: webStyle.textAlign,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent:
+      textAlignment === 'left' ? 'flex-start' : textAlignment === 'right' ? 'flex-end' : 'center',
+    textAlign: textAlignment,
     letterSpacing: webStyle.letterSpacing,
     lineHeight: webStyle.lineHeight,
     opacity: webStyle.textVisible === false ? 0 : undefined,

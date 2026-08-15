@@ -1,7 +1,7 @@
 import type { PptAnimationTarget, PptExportSettings, PptManualSlide, PptSlideTransition } from '../video/shared/types';
 
 export type PptWorkspaceViewMode = 'normal' | 'sorter' | 'reading';
-export type PptWorkspaceSidebarTab = 'timeline' | 'style' | 'export';
+export type PptWorkspaceSidebarTab = 'timeline' | 'style';
 export type PptSlideItem = {
   id: string;
   title: string;

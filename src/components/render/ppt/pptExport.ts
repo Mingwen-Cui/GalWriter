@@ -23,6 +23,7 @@ import {
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
+import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { splitPptTextLines } from './pptTextLines';
 import {
@@ -123,6 +124,7 @@ export async function buildPptxBuffer({
   const textBoxLayouts = pptSettings.textBoxLayouts || {};
   const slideElements = pptSettings.slideElements || {};
   const slideBackgroundColors = pptSettings.slideBackgroundColors || {};
+  const slideBackgroundStyles = pptSettings.slideBackgroundStyles || {};
   const imageCache = new Map<string, Promise<string | undefined>>();
   const videoCache = new Map<string, Promise<string | undefined>>();
   const resolveImage = (url?: string) => {
@@ -140,6 +142,25 @@ export async function buildPptxBuffer({
     const video = toPptVideoData(url);
     videoCache.set(url, video);
     return video;
+  };
+  const backgroundColorFor = (slideId: string, fallback: string) => {
+    const background = slideBackgroundStyles[slideId];
+    if (background?.type === 'gradient')
+      return background.gradientStops?.[0]?.color || background.gradientStart || fallback;
+    return background?.color || slideBackgroundColors[slideId] || fallback;
+  };
+  const addBackgroundImage = async (
+    slide: PptxGenJS.Slide,
+    background: (typeof slideBackgroundStyles)[string] | undefined,
+  ) => {
+    if (background?.type !== 'image' || !background.imageUrl) return;
+    const image = await resolveImage(background.imageUrl);
+    if (image)
+      slide.addImage({
+        data: image,
+        ...fullContentFrame,
+        sizing: { type: 'cover', ...fullContentFrame },
+      });
   };
   const deletedSlideIds = new Set(pptSettings.deletedSlideIds || []);
   const hiddenSlideIds = new Set(pptSettings.hiddenSlideIds || []);
@@ -273,8 +294,9 @@ export async function buildPptxBuffer({
   };
   const addManualSlide = async (manual: PptManualSlide) => {
     const slide = pptx.addSlide();
-    slide.background = { color: hex(manual.backgroundColor) };
+    slide.background = { color: hex(backgroundColorFor(manual.id, manual.backgroundColor)) };
     slide.hidden = hiddenSlideIds.has(manual.id);
+    await addBackgroundImage(slide, manual.backgroundStyle);
     await addSlideElements(slide, manual.elements);
   };
   const appendManualSlides = async (anchorId: string) => {
@@ -287,8 +309,9 @@ export async function buildPptxBuffer({
 
   if (pptSettings.includeCover && !deletedSlideIds.has('cover')) {
     const coverText = textOverrides.cover || {};
-    const coverTitle = coverText['cover-title'] ?? projectName;
+    const coverTitle = coverText['cover-title'] ?? getPptCoverTitle(projectName, 'GalWriter');
     const coverSubtitle = coverText['cover-subtitle'] ?? generatedBy;
+    const coverDescription = coverText['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION;
     const coverTitleLayout = resolvePptTextBoxLayout(
       textBoxLayouts.cover?.['cover-title'],
       'cover-title',
@@ -297,16 +320,26 @@ export async function buildPptxBuffer({
       textBoxLayouts.cover?.['cover-subtitle'],
       'cover-subtitle',
     );
+    const coverDescriptionLayout = resolvePptTextBoxLayout(
+      textBoxLayouts.cover?.['cover-description'],
+      'cover-description',
+    );
     const coverTitleStyle = coverTitleLayout.webStyle || {};
     const coverSubtitleStyle = coverSubtitleLayout.webStyle || {};
+    const coverDescriptionStyle = coverDescriptionLayout.webStyle || {};
+    const coverBackground = slideBackgroundStyles.cover;
     const slide = pptx.addSlide();
     slide.background = {
       color: hex(
-        slideBackgroundColors.cover || settings.startMenuBackgroundColor || colors.background,
+        backgroundColorFor('cover', settings.startMenuBackgroundColor || colors.background),
       ),
     };
     slide.hidden = hiddenSlideIds.has('cover');
-    const coverImage = await resolveImage(settings.startMenuBackgroundImageUrl);
+    const coverImage = await resolveImage(
+      coverBackground?.type === 'image'
+        ? coverBackground.imageUrl
+        : settings.startMenuBackgroundImageUrl,
+    );
     if (coverImage) {
       slide.addImage({ data: coverImage, ...fullContentFrame });
     }
@@ -341,6 +374,20 @@ export async function buildPptxBuffer({
         valign: 'middle',
         margin: 0,
         rotate: coverSubtitleLayout.rotation,
+      });
+    }
+    if (coverDescriptionLayout.visible !== false) {
+      slide.addText(coverDescription || ' ', {
+        ...textBoxFrame(coverDescriptionLayout),
+        fontFace: toPptFontFace(coverDescriptionStyle.fontFamily || style.bodyFontFamily),
+        fontSize: Math.max(8, (coverDescriptionStyle.fontSize || 20) * page.scale),
+        bold: coverDescriptionStyle.fontWeight ? coverDescriptionStyle.fontWeight >= 600 : false,
+        color: hex(coverDescriptionStyle.textColor || colors.body),
+        align: coverDescriptionStyle.textAlign || 'center',
+        charSpacing: coverDescriptionStyle.letterSpacing,
+        valign: 'middle',
+        margin: 0,
+        rotate: coverDescriptionLayout.rotation,
       });
     }
     await addSlideElements(slide, slideElements.cover || []);
@@ -415,7 +462,7 @@ export async function buildPptxBuffer({
         },
       });
     };
-    slide.background = { color: hex(slideBackgroundColors[scene.id] || colors.background) };
+    slide.background = { color: hex(backgroundColorFor(scene.id, colors.background)) };
     const backgroundImage = await resolveImage(scene.backgroundUrl);
     const backgroundVideo = await resolveVideo(scene.backgroundVideoUrl);
     if (backgroundVideo) {
@@ -724,7 +771,7 @@ export async function buildPptxBuffer({
 
     const choiceSlide = pptx.addSlide();
     choiceSlide.background = {
-      color: hex(slideBackgroundColors[`choice:${scene.id}`] || colors.background),
+      color: hex(backgroundColorFor(`choice:${scene.id}`, colors.background)),
     };
     choiceSlide.hidden = hiddenSlideIds.has(`choice:${scene.id}`);
     const choiceBackgroundImage = backgroundVideo

@@ -159,7 +159,7 @@ export const toPptManualElementPatch = (
 };
 
 export const toPptCoverWebInspectorElement = (
-  target: 'cover-title' | 'cover-subtitle',
+  target: 'cover-title' | 'cover-subtitle' | 'cover-description',
   text: string,
   layout: PptTextBoxLayout,
 ): WebMenuElement => ({
@@ -175,7 +175,8 @@ export const toPptCoverWebInspectorElement = (
   height: toPercent(layout.height, 'y'),
   scale: 1,
   rotation: layout.rotation,
-  fontSize: layout.webStyle?.fontSize || (target === 'cover-title' ? 52 : 22),
+  fontSize:
+    layout.webStyle?.fontSize || (target === 'cover-title' ? 52 : target === 'cover-subtitle' ? 22 : 24),
   fontWeight: layout.webStyle?.fontWeight || (target === 'cover-title' ? 800 : 400),
   textColor: layout.webStyle?.textColor || '#ffffff',
   textAlign: layout.webStyle?.textAlign || 'center',

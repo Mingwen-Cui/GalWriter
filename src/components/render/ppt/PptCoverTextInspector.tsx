@@ -3,7 +3,10 @@ import type { PptTextBoxLayout, PptTextOverrideTarget } from '../video/shared/ty
 import { StartMenuElementInspector } from '../web/StartMenuElementInspector';
 import { toPptCoverPatch, toPptCoverWebInspectorElement } from './pptWebInspectorAdapter';
 
-type CoverTextTarget = Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle'>;
+type CoverTextTarget = Extract<
+  PptTextOverrideTarget,
+  'cover-title' | 'cover-subtitle' | 'cover-description'
+>;
 
 export function PptCoverTextInspector({
   target,

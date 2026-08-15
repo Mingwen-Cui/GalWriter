@@ -25,6 +25,26 @@ export type RenderWorkspaceLaunchIntent =
   | { workspaceMode: 'ppt'; entryMode: 'story' | 'manual' }
   | { workspaceMode: 'code'; codeTarget: 'renpy' | 'tyrano' | 'dialogic' };
 export type VideoTextScaleMode = 'literal' | 'webRatio';
+export type VideoCoverSourceType = 'videoFrame' | 'image' | 'gradient';
+export type VideoCoverLogoPosition = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
+export type VideoCoverSettings = {
+  sourceType: VideoCoverSourceType;
+  videoNodeId?: string;
+  frameTime: number;
+  imageUrl?: string;
+  gradientStart: string;
+  gradientEnd: string;
+  title: string;
+  subtitle: string;
+  titleX: number;
+  titleY: number;
+  subtitleX: number;
+  subtitleY: number;
+  titleFontSize: number;
+  subtitleFontSize: number;
+  textAlign: TextAlign;
+  logoPosition: VideoCoverLogoPosition;
+};
 export type TimelineSegmentMetric = {
   node: FlowNode;
   start: number;
@@ -558,6 +578,7 @@ export type PptAnimationDirection = 'left' | 'right' | 'up' | 'down';
 export type PptAnimationTarget =
   | 'cover-title'
   | 'cover-subtitle'
+  | 'cover-description'
   | 'background'
   | 'character'
   | 'dialog-panel'
@@ -570,6 +591,7 @@ export type PptAnimationTarget =
 export type PptTextOverrideTarget =
   | 'cover-title'
   | 'cover-subtitle'
+  | 'cover-description'
   | 'dialog-title'
   | 'dialog-body'
   | 'nameplate';
@@ -706,10 +728,31 @@ export type PptManualElement =
   | PptManualImageElement
   | PptManualTextElement
   | PptManualButtonElement;
+/** Background settings are intentionally local to one PPT slide. */
+export type PptSlideBackgroundStyle = {
+  type: 'solid' | 'gradient' | 'image' | 'video';
+  color: string;
+  gradientStart: string;
+  gradientEnd: string;
+  gradientAngle: number;
+  gradientStartX?: number;
+  gradientStartY?: number;
+  gradientEndX?: number;
+  gradientEndY?: number;
+  gradientShape?: 'linear' | 'radial' | 'diamond';
+  gradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
+  imageUrl?: string;
+  videoUrl?: string;
+  videoLoop?: boolean;
+  videoMuted?: boolean;
+  videoFit?: 'crop' | 'fit';
+};
+export type PptSlideBackgroundStyles = Record<string, PptSlideBackgroundStyle>;
 export type PptManualSlide = {
   id: string;
   title: string;
   backgroundColor: string;
+  backgroundStyle?: PptSlideBackgroundStyle;
   elements: PptManualElement[];
 };
 /** Inserted elements attached to a story-generated slide, keyed by the stable slide id. */
@@ -738,6 +781,8 @@ export type PptExportSettings = {
   slideElements?: PptSlideElements;
   /** Per-slide background fill overrides; they never change the shared web/render background. */
   slideBackgroundColors?: PptSlideBackgroundColors;
+  /** Full current-slide background styles, independent from shared web settings. */
+  slideBackgroundStyles?: PptSlideBackgroundStyles;
   /** Slides skipped during workspace playback and exported as hidden PowerPoint slides. */
   hiddenSlideIds?: string[];
   /** Slides removed only from this PPT arrangement; the source story cards stay untouched. */

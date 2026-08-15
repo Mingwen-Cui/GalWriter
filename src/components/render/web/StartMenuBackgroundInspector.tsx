@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
-import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
+import { normalizeSharedCanvasSettings, type SharedCanvasSettings } from '../canvas/canvasSettings';
 import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import { parseColorValue, toHex8 } from '../video/shared/colorValue';
@@ -33,6 +33,9 @@ type StartMenuBackgroundInspectorProps = {
     key: K,
     value: WebExportSettings[K],
   ) => void;
+  /** Lets another workspace retain the Web canvas UI while owning its settings. */
+  onCanvasSettingsChange?: (patch: Partial<SharedCanvasSettings>) => void;
+  hideMusic?: boolean;
   onGradientEditingChange?: (surface: BackgroundSurface | null) => void;
 };
 
@@ -48,6 +51,8 @@ export function StartMenuBackgroundInspector({
   showDescriptions,
   surface = 'start',
   updateWebSettings,
+  onCanvasSettingsChange,
+  hideMusic = false,
   onGradientEditingChange,
 }: StartMenuBackgroundInspectorProps) {
   const text = renderObjectText(language);
@@ -83,6 +88,10 @@ export function StartMenuBackgroundInspector({
         showDescriptions={showDescriptions}
         value={normalizeSharedCanvasSettings(settings)}
         onChange={(patch) => {
+          if (onCanvasSettingsChange) {
+            onCanvasSettingsChange(patch);
+            return;
+          }
           Object.entries(patch).forEach(([key, value]) =>
             updateWebSettings(
               key as keyof WebExportSettings,
@@ -279,7 +288,7 @@ export function StartMenuBackgroundInspector({
           </FloatingPopover>
         )}
       </Group>
-      {surface !== 'game' && (
+      {!hideMusic && surface !== 'game' && (
         <WebMenuMusicPanel
           language={language}
           settings={settings}

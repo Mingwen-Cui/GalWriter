@@ -59,6 +59,7 @@ export function AnimationRibbon({
   transition,
   onUpdateTransition,
   onApplyTransitionToAll,
+  exportRules,
 }: {
   activeTab: 'animation' | 'transition';
   selected: Selection | null;
@@ -72,6 +73,7 @@ export function AnimationRibbon({
   transition: PptSlideTransition;
   onUpdateTransition: (patch: Partial<PptSlideTransition>) => void;
   onApplyTransitionToAll: () => void;
+  exportRules?: ReactNode;
 }) {
   const copy = usePptCopy();
   const disabled = !selected;
@@ -256,6 +258,7 @@ export function AnimationRibbon({
           </RibbonGroup>
         </div>
       )}
+      {exportRules}
     </header>
   );
 }
