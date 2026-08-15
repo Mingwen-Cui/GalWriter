@@ -37,6 +37,7 @@ import { Language } from '../lib/i18n';
 import { downloadImageUrl, getImageExtension, getSafeDownloadName } from '../lib/media';
 import { getMediaFileKind } from '../lib/mediaImport';
 import { PanoramaModal, PanoramaViewer } from './PanoramaViewer';
+import { SceneTemplateControls } from './SceneTemplateControls';
 import { SettingLibraryMenu } from './SettingLibraryMenu';
 import { SETTING_NODE_CARD_WIDTH } from './story-editor/constants';
 
@@ -489,7 +490,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
           isAssistantCandidate ? 'assistant-candidate-card cursor-pointer' : ''
         } ${
           selected
-            ? 'border-blue-800 shadow-blue-800/25 ring-2 ring-blue-800/20'
+            ? 'border-blue-800 shadow-blue-800/25'
             : 'border-[var(--card-border)]'
         } flex flex-col relative`}
         style={{
@@ -652,6 +653,16 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                     onChange={(e) => updateNodeData({ sceneName: e.target.value })}
                     placeholder={lang === 'zh' ? '输入场景名称...' : 'Enter scene name...'}
                     className="w-full bg-transparent text-sm font-bold text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-b-2 focus:border-blue-700"
+                  />
+                  <SceneTemplateControls
+                    data={{
+                      sceneEnvironment: data.sceneEnvironment,
+                      scenePresetEnabled: data.scenePresetEnabled,
+                      visualStyle: data.visualStyle,
+                      ambientSound: data.ambientSound,
+                    }}
+                    onChange={(updates) => updateNodeData(updates)}
+                    language={lang}
                   />
                 </div>
                 <button

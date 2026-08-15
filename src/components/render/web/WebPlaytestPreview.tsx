@@ -31,6 +31,8 @@ import {
   normalizeStoryPresentation,
 } from '../../../lib/presentation';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
+import { useSceneAmbientSound } from '../../../lib/useSceneAmbientSound';
+import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getSceneBackgroundStyle, mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { getNameplateItems } from '../video/shared/nameplateRenderer';
@@ -483,6 +485,11 @@ export function WebPlaytestPreview({
   const storyPlaybackActive =
     previewMode !== 'test' || (previewGameStarted && !isPreviewStartMenuOpen);
   useRegionBackgroundMusic(
+    nodes,
+    storyPlaybackActive ? currentNode : null,
+    storyPlaybackActive && currentNodeId !== 'THE_END',
+  );
+  useSceneAmbientSound(
     nodes,
     storyPlaybackActive ? currentNode : null,
     storyPlaybackActive && currentNodeId !== 'THE_END',
@@ -2087,6 +2094,14 @@ export function WebPlaytestPreview({
         presentation.scene.scale || 1
       })`
     : '';
+  const presentedSceneData = presentation.scene
+    ? (nodes.find(
+        (node) => node.id === presentation.scene?.sourceNodeId && node.type === 'sceneNode',
+      )?.data as SceneNodeData | undefined)
+    : undefined;
+  const sceneVisualMediaStyle = getSceneVisualMediaStyle(
+    presentedSceneData?.scenePresetEnabled ? presentedSceneData.visualStyle : undefined,
+  );
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
       ? 'contain'
@@ -2106,6 +2121,7 @@ export function WebPlaytestPreview({
     transform:
       [
         sceneMediaTransform,
+        sceneVisualMediaStyle.transform,
         sceneAnimationActive && sceneMotion
           ? getPresentationTransform(sceneMotion.type, presentationExiting)
           : inlineActionTransform(activeSceneInlineAction),
@@ -2113,6 +2129,7 @@ export function WebPlaytestPreview({
         .filter(Boolean)
         .join(' ') || 'none',
     transformOrigin: 'center center',
+    filter: sceneVisualMediaStyle.filter,
     animation: inlineActionAnimation(activeSceneInlineAction),
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',

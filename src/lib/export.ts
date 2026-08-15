@@ -72,6 +72,15 @@ export function formatSceneNodeText(data: SceneNodeData | Record<string, unknown
     data.notes,
   ].some((value) => typeof value === 'string' && value.trim().length > 0);
 
+  const sceneEnvironment = data.sceneEnvironment === 'indoor' ? '室内' : data.sceneEnvironment === 'outdoor' ? '室外' : '';
+  const visualStyle = data.visualStyle as { templateId?: unknown; lighting?: unknown; filter?: unknown } | undefined;
+  const visualDirection = [visualStyle?.templateId, visualStyle?.lighting, visualStyle?.filter]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(' · ');
+
+  addSection('场景类别', sceneEnvironment);
+  addSection('视觉方向', visualDirection);
+
   if (useSceneProfile) {
     addSection('地点', data.location);
     addSection('时间', data.time);

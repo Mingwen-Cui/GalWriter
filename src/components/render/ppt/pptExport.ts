@@ -122,6 +122,7 @@ export async function buildPptxBuffer({
   const textOverrides = pptSettings.textOverrides || {};
   const textBoxLayouts = pptSettings.textBoxLayouts || {};
   const slideElements = pptSettings.slideElements || {};
+  const slideBackgroundColors = pptSettings.slideBackgroundColors || {};
   const imageCache = new Map<string, Promise<string | undefined>>();
   const videoCache = new Map<string, Promise<string | undefined>>();
   const resolveImage = (url?: string) => {
@@ -269,7 +270,11 @@ export async function buildPptxBuffer({
       'cover-subtitle',
     );
     const slide = pptx.addSlide();
-    slide.background = { color: hex(settings.startMenuBackgroundColor || colors.background) };
+    slide.background = {
+      color: hex(
+        slideBackgroundColors.cover || settings.startMenuBackgroundColor || colors.background,
+      ),
+    };
     slide.hidden = hiddenSlideIds.has('cover');
     const coverImage = await resolveImage(settings.startMenuBackgroundImageUrl);
     if (coverImage) {
@@ -376,7 +381,7 @@ export async function buildPptxBuffer({
         },
       });
     };
-    slide.background = { color: hex(colors.background) };
+    slide.background = { color: hex(slideBackgroundColors[scene.id] || colors.background) };
     const backgroundImage = await resolveImage(scene.backgroundUrl);
     const backgroundVideo = await resolveVideo(scene.backgroundVideoUrl);
     if (backgroundVideo) {
@@ -684,7 +689,9 @@ export async function buildPptxBuffer({
       continue;
 
     const choiceSlide = pptx.addSlide();
-    choiceSlide.background = { color: hex(colors.background) };
+    choiceSlide.background = {
+      color: hex(slideBackgroundColors[`choice:${scene.id}`] || colors.background),
+    };
     choiceSlide.hidden = hiddenSlideIds.has(`choice:${scene.id}`);
     const choiceBackgroundImage = backgroundVideo
       ? (await toPptVideoLastFrameData(scene.backgroundVideoUrl)) || backgroundImage

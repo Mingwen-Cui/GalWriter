@@ -784,6 +784,14 @@ export interface CharacterNodeData extends BaseEditorNodeData {
 
 export interface SceneNodeData extends BaseEditorNodeData {
   sceneName: string;
+  /** Indoor/outdoor scene-template family. Undefined preserves unclassified legacy scenes. */
+  sceneEnvironment?: SceneEnvironment;
+  /** Mirrors character appearancePresetEnabled: template media/effects are opt-in per scene. */
+  scenePresetEnabled?: boolean;
+  /** Reusable visual recipe applied only to the presented scene background. */
+  visualStyle?: SceneVisualStyle;
+  /** Optional looping ambience. This is deliberately separate from the text-only `sound` field. */
+  ambientSound?: SceneAmbientSound;
   /** New, place-only scene profile fields. */
   time?: string;
   weather?: string;
@@ -805,6 +813,52 @@ export interface SceneNodeData extends BaseEditorNodeData {
   showAtmosphere?: boolean;
   showOther?: boolean;
   generatedSettingImageId?: string;
+}
+
+export type SceneEnvironment = 'indoor' | 'outdoor';
+
+export type SceneLightingPreset =
+  | 'natural-daylight'
+  | 'warm-lamp'
+  | 'cool-fluorescent'
+  | 'neon-side-light'
+  | 'golden-hour'
+  | 'overcast-rain'
+  | 'night-street';
+
+export type SceneFilterPreset =
+  | 'none'
+  | 'clear'
+  | 'warm-film'
+  | 'cool-cinematic'
+  | 'neon'
+  | 'muted-rain'
+  | 'night-blue';
+
+export interface SceneVisualStyle {
+  templateId?: string;
+  lighting: SceneLightingPreset;
+  /** Gaussian blur in CSS pixels. Kept numeric so user adjustments remain precise. */
+  backgroundBlur: number;
+  filter: SceneFilterPreset;
+  /** 0..100: how strongly the filter and lighting overlays are applied. */
+  intensity: number;
+}
+
+export interface SceneAmbientSound {
+  enabled: boolean;
+  source: 'preset' | 'library';
+  /** Stable system-preset id. Browser audio is resolved from the downloaded cache. */
+  presetId?: string;
+  /** Stable user-library id for uploaded audio. */
+  libraryItemId?: string;
+  /** Original static path or registered blob URL; retained so exports can package the media. */
+  url?: string;
+  name?: string;
+  loop: boolean;
+  volume: number;
+  fadeIn: number;
+  fadeOut: number;
 }
 
 export interface AINodeData extends BaseEditorNodeData {

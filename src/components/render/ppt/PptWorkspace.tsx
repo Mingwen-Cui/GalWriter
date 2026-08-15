@@ -1,5 +1,13 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { getCharacterStageBounds } from '../../../lib/presentation';
@@ -19,6 +27,7 @@ import type {
   PptManualElement,
   PptManualSlide,
   PptObjectAnimation,
+  PptSlideBackgroundColors,
   PptSlideTransition,
   PptTextBoxLayout,
   PptTextOverrideTarget,
@@ -48,6 +57,7 @@ import {
 } from './pptManualContent';
 import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCanvas';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
+import { PptSlideBackgroundMenu } from './PptSlideBackgroundMenu';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { splitPptTextLines } from './pptTextLines';
@@ -251,6 +261,10 @@ export function PptWorkspace({
   const [previewRunId, setPreviewRunId] = useState(0);
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
   const [slideClipboard, setSlideClipboard] = useState<PptManualSlide>();
+  const [backgroundContextMenu, setBackgroundContextMenu] = useState<{
+    x: number;
+    y: number;
+  }>();
   const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
   const stageViewportRef = useRef<HTMLElement>(null);
@@ -275,7 +289,14 @@ export function PptWorkspace({
   const textOverrides = pptSettings.textOverrides || {};
   const textBoxLayouts = pptSettings.textBoxLayouts || {};
   const slideElements = pptSettings.slideElements || {};
+  const slideBackgroundColors: PptSlideBackgroundColors = pptSettings.slideBackgroundColors || {};
   const activeSlideElements = slideElements[selectedId] || [];
+  const activeSlideBackgroundColor =
+    manualSlide?.backgroundColor ||
+    slideBackgroundColors[selectedId] ||
+    (selectedId === 'cover'
+      ? webSettings.startMenuBackgroundColor || colors.background
+      : colors.background);
   const inspectorSlide =
     manualSlide ||
     (selectedManualElementId
@@ -452,7 +473,7 @@ export function PptWorkspace({
                 height: 180,
                 fontSize: 32,
                 bold: false,
-                align: 'left',
+                align: 'left' as const,
               },
             ]),
         ...copiedElements,
@@ -539,6 +560,20 @@ export function PptWorkspace({
     saveManualSlides(
       manualSlides.map((slide) => (slide.id === manualSlide.id ? { ...slide, ...patch } : slide)),
     );
+  };
+  const updateActiveSlideBackgroundColor = (color: string) => {
+    if (manualSlide) {
+      updateActiveManualSlide({ backgroundColor: color });
+      return;
+    }
+    updatePptSettings({
+      slideBackgroundColors: { ...slideBackgroundColors, [selectedId]: color },
+    });
+  };
+  const openSlideBackgroundMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    setSelectedManualElementId(undefined);
+    setSelectedObject({ target: 'background', label: copy.background });
+    setBackgroundContextMenu({ x: event.clientX, y: event.clientY });
   };
   const deleteActiveManualElement = (elementId: string) => {
     if (manualSlide) {
@@ -910,6 +945,7 @@ export function PptWorkspace({
               textOverrides={textOverrides}
               textBoxLayouts={textBoxLayouts}
               slideElements={slideElements}
+              slideBackgroundColors={slideBackgroundColors}
               hiddenSlideIds={hiddenSlideIds}
               layout={pptSettings.layout}
               manualSlides={manualSlides}
@@ -941,6 +977,7 @@ export function PptWorkspace({
                 textOverrides={textOverrides}
                 textBoxLayouts={textBoxLayouts}
                 slideElements={slideElements}
+                slideBackgroundColors={slideBackgroundColors}
                 layout={pptSettings.layout}
                 manualSlides={manualSlides}
                 onSelect={(id) => {
@@ -978,6 +1015,7 @@ export function PptWorkspace({
                           textOverrides={textOverrides[selectedId]}
                           textBoxLayouts={textBoxLayouts[selectedId]}
                           slideElements={activeSlideElements}
+                          backgroundColor={activeSlideBackgroundColor}
                           animations={currentAnimations}
                           transition={currentTransition}
                           selected={selectedObject}
@@ -993,6 +1031,7 @@ export function PptWorkspace({
                           selectedManualElementId={selectedManualElementId}
                           onSelectManualElement={selectManualElement}
                           onUpdateManualElement={updateActiveManualElement}
+                          onBackgroundContextMenu={openSlideBackgroundMenu}
                         />
                       </VirtualPresentationStage>
                     </div>
@@ -1070,6 +1109,7 @@ export function PptWorkspace({
             textOverrides={textOverrides[selectedId]}
             textBoxLayouts={textBoxLayouts[selectedId]}
             slideElements={activeSlideElements}
+            backgroundColor={activeSlideBackgroundColor}
             animations={currentAnimations}
             transition={currentTransition}
             layout={pptSettings.layout}
@@ -1079,6 +1119,15 @@ export function PptWorkspace({
             onPrevious={previous}
             onClose={closePlayer}
             onChoose={goToScene}
+          />
+        ) : null}
+        {backgroundContextMenu ? (
+          <PptSlideBackgroundMenu
+            position={backgroundContextMenu}
+            backgroundColor={activeSlideBackgroundColor}
+            copy={copy}
+            onChange={updateActiveSlideBackgroundColor}
+            onClose={() => setBackgroundContextMenu(undefined)}
           />
         ) : null}
         <PptFooterBar
@@ -1108,6 +1157,7 @@ export function SlideCanvas({
   textOverrides,
   textBoxLayouts,
   slideElements,
+  backgroundColor,
   animations,
   transition,
   selected,
@@ -1124,6 +1174,7 @@ export function SlideCanvas({
   selectedManualElementId,
   onSelectManualElement,
   onUpdateManualElement,
+  onBackgroundContextMenu,
 }: {
   selectedId: string;
   isChoiceSlide?: boolean;
@@ -1136,6 +1187,7 @@ export function SlideCanvas({
   textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
   textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
   slideElements?: PptManualElement[];
+  backgroundColor?: string;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   selected: Selection | null;
@@ -1152,18 +1204,32 @@ export function SlideCanvas({
   selectedManualElementId?: string;
   onSelectManualElement?: (elementId: string) => void;
   onUpdateManualElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
+  onBackgroundContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
 }) {
   const transitionStyle =
     transition.effect === 'none' ? undefined : { animationDuration: `${transition.durationMs}ms` };
+  const canvasBackgroundColor =
+    backgroundColor ||
+    (selectedId === 'cover' ? webSettings.startMenuBackgroundColor : colors.background);
   return (
     <div
       className={`ppt-slide-canvas ppt-transition-${transition.effect} relative aspect-video w-full overflow-hidden rounded-xl border border-white/15 bg-slate-950 shadow-2xl`}
       style={{
-        backgroundColor:
-          selectedId === 'cover' ? webSettings.startMenuBackgroundColor : colors.background,
+        backgroundColor: canvasBackgroundColor,
         ...transitionStyle,
       }}
+      onContextMenu={(event) => {
+        if (!editable || !onBackgroundContextMenu) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onBackgroundContextMenu(event);
+      }}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundColor: canvasBackgroundColor }}
+      />
       {manualSlide ? (
         <PptManualSlideCanvas
           slide={manualSlide}
@@ -1465,6 +1531,10 @@ function PptCoverTextBox({
       onClick={(event) => {
         event.stopPropagation();
         onSelect(selection);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
       }}
       onPointerDown={beginMove}
       onDoubleClick={beginTextEdit}
@@ -2053,6 +2123,10 @@ function PptEditableObject({
         event.stopPropagation();
         onSelect(selection);
       }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       onPointerDown={beginDrag}
       onDoubleClick={beginTextEdit}
       className={`ppt-selectable ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab active:cursor-grabbing' : ''} ${className}`}
@@ -2135,7 +2209,13 @@ function ChoicePreview({
         ) : null}
       </div>
       <div className="absolute inset-0 z-[1] bg-slate-950/55" />
-      <div className="absolute inset-x-[16%] top-[16%] z-20 text-center text-white">
+      <div
+        className="absolute inset-x-[16%] top-[16%] z-20 text-center text-white"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
         <p className="text-sm font-bold tracking-[0.28em] text-white/70">CHOOSE YOUR ROUTE</p>
         <h2 className="mt-3 text-3xl font-black">你的选择是？</h2>
         <div className="mt-9 space-y-3">
@@ -2249,6 +2329,11 @@ function Selectable({
       onClick={(event) => {
         event.stopPropagation();
         onSelect(selection);
+      }}
+      onContextMenu={(event) => {
+        if (selection.target === 'background') return;
+        event.preventDefault();
+        event.stopPropagation();
       }}
       onDoubleClick={beginTextEdit}
       onKeyDown={(event) => {

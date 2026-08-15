@@ -688,6 +688,8 @@ export type PptManualSlide = {
 };
 /** Inserted elements attached to a story-generated slide, keyed by the stable slide id. */
 export type PptSlideElements = Record<string, PptManualElement[]>;
+/** Slide-local fill colors for generated PPT pages. Manual slides own their color directly. */
+export type PptSlideBackgroundColors = Record<string, string>;
 
 export type PptExportSettings = {
   layout: 'LAYOUT_WIDE' | 'LAYOUT_STANDARD';
@@ -708,6 +710,8 @@ export type PptExportSettings = {
   textBoxLayouts?: PptTextBoxLayouts;
   /** Elements inserted onto generated slides, instead of creating a separate manual slide. */
   slideElements?: PptSlideElements;
+  /** Per-slide background fill overrides; they never change the shared web/render background. */
+  slideBackgroundColors?: PptSlideBackgroundColors;
   /** Slides skipped during workspace playback and exported as hidden PowerPoint slides. */
   hiddenSlideIds?: string[];
   /** Slides removed only from this PPT arrangement; the source story cards stay untouched. */

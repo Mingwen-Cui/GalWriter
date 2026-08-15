@@ -39,6 +39,10 @@ export type CharacterSettingLibraryData = Pick<
 export type SceneSettingLibraryData = Pick<
   SceneNodeData,
   | 'sceneName'
+  | 'sceneEnvironment'
+  | 'scenePresetEnabled'
+  | 'visualStyle'
+  | 'ambientSound'
   | 'time'
   | 'weather'
   | 'visual'
@@ -268,6 +272,10 @@ export const toCharacterSettingLibraryData = (
 
 export const toSceneSettingLibraryData = (data: SceneNodeData): SceneSettingLibraryData => ({
   sceneName: data.sceneName,
+  sceneEnvironment: data.sceneEnvironment,
+  scenePresetEnabled: data.scenePresetEnabled,
+  visualStyle: data.visualStyle ? { ...data.visualStyle } : undefined,
+  ambientSound: data.ambientSound ? { ...data.ambientSound } : undefined,
   time: data.time,
   weather: data.weather,
   visual: data.visual,

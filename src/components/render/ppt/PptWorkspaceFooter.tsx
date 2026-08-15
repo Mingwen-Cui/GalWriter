@@ -144,6 +144,7 @@ export function PlayerOverlay({
   textOverrides,
   textBoxLayouts,
   slideElements,
+  backgroundColor,
   animations,
   transition,
   layout,
@@ -167,6 +168,7 @@ export function PlayerOverlay({
   textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
   textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
   slideElements?: PptManualElement[];
+  backgroundColor?: string;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
@@ -203,6 +205,7 @@ export function PlayerOverlay({
               textOverrides={textOverrides}
               textBoxLayouts={textBoxLayouts}
               slideElements={slideElements}
+              backgroundColor={backgroundColor}
               animations={animations}
               transition={transition}
               selected={null}

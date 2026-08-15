@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { type MouseEvent, type ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import type {
@@ -20,6 +21,7 @@ import type {
   PptAnimationStart,
   PptManualSlide,
   PptObjectAnimation,
+  PptSlideBackgroundColors,
   PptSlideElements,
   PptSlideTransition,
   PptTextBoxLayouts,
@@ -405,6 +407,7 @@ type ThumbnailProps = {
   textOverrides: PptTextOverrides;
   textBoxLayouts: PptTextBoxLayouts;
   slideElements: PptSlideElements;
+  slideBackgroundColors: PptSlideBackgroundColors;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
@@ -420,6 +423,7 @@ function SlideThumbnail({
   textOverrides,
   textBoxLayouts,
   slideElements,
+  slideBackgroundColors,
   animations,
   transition,
   layout,
@@ -451,6 +455,7 @@ function SlideThumbnail({
           textOverrides={textOverrides[slide.id]}
           textBoxLayouts={textBoxLayouts[slide.id]}
           slideElements={slideElements[slide.id]}
+          backgroundColor={slideBackgroundColors[slide.id]}
           animations={animations}
           transition={transition}
           selected={null}
@@ -474,6 +479,7 @@ export function SlideList({
   textOverrides,
   textBoxLayouts,
   slideElements,
+  slideBackgroundColors,
   hiddenSlideIds,
   onSelect,
   onPlayCurrent,
@@ -498,6 +504,7 @@ export function SlideList({
   textOverrides: PptTextOverrides;
   textBoxLayouts: PptTextBoxLayouts;
   slideElements: PptSlideElements;
+  slideBackgroundColors: PptSlideBackgroundColors;
   hiddenSlideIds: string[];
   onSelect: (id: string) => void;
   onPlayCurrent: (id: string) => void;
@@ -530,10 +537,12 @@ export function SlideList({
     event.preventDefault();
     event.stopPropagation();
     onSelect(slide.id);
+    const menuWidth = 208;
+    const menuHeight = 304;
     setContextMenu({
       slide,
-      x: Math.min(event.clientX, window.innerWidth - 196),
-      y: Math.min(event.clientY, window.innerHeight - 290),
+      x: Math.max(8, Math.min(event.clientX + 8, window.innerWidth - menuWidth - 8)),
+      y: Math.max(8, Math.min(event.clientY + 8, window.innerHeight - menuHeight - 8)),
     });
   };
   const runContextAction = (action: () => void) => {
@@ -575,6 +584,7 @@ export function SlideList({
                 textOverrides={textOverrides}
                 textBoxLayouts={textBoxLayouts}
                 slideElements={slideElements}
+                slideBackgroundColors={slideBackgroundColors}
                 animations={timelines[slide.id] || []}
                 transition={transitions[slide.id] || DEFAULT_TRANSITION}
                 layout={layout}
@@ -589,50 +599,59 @@ export function SlideList({
           </div>
         ))}
       </div>
-      {contextMenu ? (
-        <div
-          role="menu"
-          aria-label={`${contextMenu.slide.title} 幻灯片菜单`}
-          className="fixed z-[1000] w-48 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] p-1 shadow-xl"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onPointerDown={(event) => event.stopPropagation()}
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          <SlideContextAction
-            icon={Play}
-            label={copy.playFromCurrent}
-            onClick={() => runContextAction(() => onPlayCurrent(contextMenu.slide.id))}
-          />
-          <SlideContextAction
-            icon={hiddenSlideIds.includes(contextMenu.slide.id) ? Eye : EyeOff}
-            label={hiddenSlideIds.includes(contextMenu.slide.id) ? copy.showSlide : copy.hideSlide}
-            onClick={() => runContextAction(() => onToggleSlideHidden(contextMenu.slide.id))}
-          />
-          <SlideContextAction
-            icon={Copy}
-            label={copy.copySlide}
-            onClick={() => runContextAction(() => onCopySlide(contextMenu.slide.id))}
-          />
-          <SlideContextAction
-            icon={ClipboardPaste}
-            label={copy.pasteSlide}
-            disabled={!canPasteSlide}
-            onClick={() => runContextAction(() => onPasteSlide(contextMenu.slide.id))}
-          />
-          <SlideContextAction
-            icon={FilePlus2}
-            label={copy.newSlide}
-            onClick={() => runContextAction(() => onNewSlide(contextMenu.slide.id))}
-          />
-          <div className="my-1 border-t border-[var(--vr-border)]" />
-          <SlideContextAction
-            icon={Trash2}
-            label={copy.delete}
-            destructive
-            onClick={() => runContextAction(() => onDeleteSlide(contextMenu.slide.id))}
-          />
-        </div>
-      ) : null}
+      {contextMenu && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="menu"
+              aria-label={`${contextMenu.slide.title} 幻灯片菜单`}
+              className="video-render-workspace fixed isolate z-[2147483647] w-52 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] p-1 text-[var(--vr-text)] shadow-xl"
+              style={{
+                left: contextMenu.x,
+                top: contextMenu.y,
+                backgroundColor: 'var(--vr-surface-strong, #ffffff)',
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              onContextMenu={(event) => event.preventDefault()}
+            >
+              <SlideContextAction
+                icon={Play}
+                label={copy.playFromCurrent}
+                onClick={() => runContextAction(() => onPlayCurrent(contextMenu.slide.id))}
+              />
+              <SlideContextAction
+                icon={hiddenSlideIds.includes(contextMenu.slide.id) ? Eye : EyeOff}
+                label={
+                  hiddenSlideIds.includes(contextMenu.slide.id) ? copy.showSlide : copy.hideSlide
+                }
+                onClick={() => runContextAction(() => onToggleSlideHidden(contextMenu.slide.id))}
+              />
+              <SlideContextAction
+                icon={Copy}
+                label={copy.copySlide}
+                onClick={() => runContextAction(() => onCopySlide(contextMenu.slide.id))}
+              />
+              <SlideContextAction
+                icon={ClipboardPaste}
+                label={copy.pasteSlide}
+                disabled={!canPasteSlide}
+                onClick={() => runContextAction(() => onPasteSlide(contextMenu.slide.id))}
+              />
+              <SlideContextAction
+                icon={FilePlus2}
+                label={copy.newSlide}
+                onClick={() => runContextAction(() => onNewSlide(contextMenu.slide.id))}
+              />
+              <div className="my-1 border-t border-[var(--vr-border)]" />
+              <SlideContextAction
+                icon={Trash2}
+                label={copy.delete}
+                destructive
+                onClick={() => runContextAction(() => onDeleteSlide(contextMenu.slide.id))}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </aside>
   );
 }
@@ -680,6 +699,7 @@ export function SlideSorter({
   textOverrides,
   textBoxLayouts,
   slideElements,
+  slideBackgroundColors,
   onSelect,
   layout,
   manualSlides,
@@ -696,6 +716,7 @@ export function SlideSorter({
   textOverrides: PptTextOverrides;
   textBoxLayouts: PptTextBoxLayouts;
   slideElements: PptSlideElements;
+  slideBackgroundColors: PptSlideBackgroundColors;
   onSelect: (id: string) => void;
   layout: PptCanvasLayout;
   manualSlides: PptManualSlide[];
@@ -729,6 +750,7 @@ export function SlideSorter({
               textOverrides={textOverrides}
               textBoxLayouts={textBoxLayouts}
               slideElements={slideElements}
+              slideBackgroundColors={slideBackgroundColors}
               animations={timelines[slide.id] || []}
               transition={transitions[slide.id] || DEFAULT_TRANSITION}
               layout={layout}

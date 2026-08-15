@@ -656,6 +656,9 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     let regionAudio = null;
     let regionAudioKey = "";
     let regionFadeFrame = 0;
+    let sceneAmbientAudio = null;
+    let sceneAmbientKey = "";
+    let sceneAmbientFadeFrame = 0;
     let startMenuFadeFrame = 0;
     let regionUnlockCleanup = null;
     let zenPositionFrame = 0;
@@ -1253,6 +1256,59 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       });
     }
 
+    function fadeSceneAmbient(audio, from, to, seconds, done) {
+      cancelAnimationFrame(sceneAmbientFadeFrame);
+      const duration = Math.max(0, Number(seconds) || 0) * 1000;
+      if (!duration) {
+        audio.volume = to;
+        if (done) done();
+        return;
+      }
+      const started = performance.now();
+      const tick = (now) => {
+        const progress = Math.min(1, (now - started) / duration);
+        audio.volume = from + (to - from) * progress;
+        if (progress < 1) sceneAmbientFadeFrame = requestAnimationFrame(tick);
+        else if (done) done();
+      };
+      sceneAmbientFadeFrame = requestAnimationFrame(tick);
+    }
+
+    function syncSceneAmbient(sound) {
+      const nextKey = sound && sound.enabled && sound.url ? sound.url : "";
+      if (sceneAmbientAudio && sceneAmbientKey === nextKey) {
+        sceneAmbientAudio.loop = sound.loop !== false;
+        sceneAmbientAudio.volume = Math.max(0, Math.min(1, Number(sound.volume) || 0));
+        if (sceneAmbientAudio.paused) sceneAmbientAudio.play().catch(() => {});
+        return;
+      }
+      const previous = sceneAmbientAudio;
+      const startNext = () => {
+        if (!nextKey) return;
+        const audio = new Audio(nextKey);
+        sceneAmbientAudio = audio;
+        sceneAmbientKey = nextKey;
+        audio.loop = sound.loop !== false;
+        audio._fadeOut = Math.max(0, Number(sound.fadeOut) || 0);
+        const targetVolume = Math.max(0, Math.min(1, Number(sound.volume) || 0));
+        audio.volume = Number(sound.fadeIn) > 0 ? 0 : targetVolume;
+        audio.play().catch(() => {});
+        fadeSceneAmbient(audio, audio.volume, targetVolume, sound.fadeIn);
+      };
+      if (!previous) {
+        startNext();
+        return;
+      }
+      fadeSceneAmbient(previous, previous.volume, 0, previous._fadeOut || 0, () => {
+        previous.pause();
+        if (sceneAmbientAudio === previous) {
+          sceneAmbientAudio = null;
+          sceneAmbientKey = "";
+        }
+        startNext();
+      });
+    }
+
     function nodeTitle(node) {
       return (node && node.data && node.data.title) || labels.option;
     }
@@ -1749,12 +1805,14 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       backButton.disabled = history.length === 0;
       if (!currentId) {
         syncRegionMusic(null);
+        syncSceneAmbient(null);
         backdropEl.style.backgroundImage = "";
         stageEl.innerHTML = '<div class="end">' + labels.noStory + '</div>';
         return;
       }
       if (currentId === "THE_END") {
         syncRegionMusic(null);
+        syncSceneAmbient(null);
         stageEl.innerHTML = '<div class="end">' + labels.end + '</div>';
         return;
       }
@@ -1782,6 +1840,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         return;
       }
       syncRegionMusic(data.backgroundMusic || null);
+      syncSceneAmbient(data.presentation && data.presentation.scene && data.presentation.scene.ambientSound || null);
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
       const hideCenteredTitle = style.titleVisible === false;
@@ -1795,6 +1854,28 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       const hasSceneEnter = sceneEnter && sceneEnter.type !== "none";
       const sceneDuration = hasSceneEnter ? (sceneEnter.duration || 0) : 0;
       const sceneCrop = data.presentation && data.presentation.scene && data.presentation.scene.cropMode;
+      const sceneVisual = data.presentation && data.presentation.scene && data.presentation.scene.scenePresetEnabled
+        ? data.presentation.scene.visualStyle || {}
+        : {};
+      const sceneStrength = Math.max(0, Math.min(1, Number(sceneVisual.intensity || 50) / 100));
+      const sceneBlur = Math.max(0, Math.min(12, Number(sceneVisual.backgroundBlur || 0)));
+      const sceneLightingFilter = {
+        'warm-lamp': 'brightness(' + (1 + sceneStrength * 0.05) + ') sepia(' + (sceneStrength * 0.18) + ') saturate(' + (1 + sceneStrength * 0.12) + ')',
+        'cool-fluorescent': 'brightness(' + (1 + sceneStrength * 0.04) + ') contrast(' + (1 + sceneStrength * 0.08) + ') saturate(' + (1 - sceneStrength * 0.08) + ')',
+        'neon-side-light': 'brightness(' + (1 - sceneStrength * 0.04) + ') contrast(' + (1 + sceneStrength * 0.18) + ') saturate(' + (1 + sceneStrength * 0.28) + ')',
+        'golden-hour': 'brightness(' + (1 + sceneStrength * 0.03) + ') sepia(' + (sceneStrength * 0.28) + ') saturate(' + (1 + sceneStrength * 0.16) + ')',
+        'overcast-rain': 'brightness(' + (1 - sceneStrength * 0.1) + ') saturate(' + (1 - sceneStrength * 0.3) + ')',
+        'night-street': 'brightness(' + (1 - sceneStrength * 0.18) + ') contrast(' + (1 + sceneStrength * 0.13) + ')',
+      }[sceneVisual.lighting] || '';
+      const scenePresetFilter = {
+        'clear': 'contrast(' + (1 + sceneStrength * 0.07) + ') saturate(' + (1 + sceneStrength * 0.06) + ')',
+        'warm-film': 'sepia(' + (sceneStrength * 0.24) + ') contrast(' + (1 + sceneStrength * 0.07) + ')',
+        'cool-cinematic': 'contrast(' + (1 + sceneStrength * 0.14) + ') saturate(' + (1 - sceneStrength * 0.1) + ')',
+        'neon': 'contrast(' + (1 + sceneStrength * 0.19) + ') saturate(' + (1 + sceneStrength * 0.34) + ')',
+        'muted-rain': 'saturate(' + (1 - sceneStrength * 0.44) + ') brightness(' + (1 - sceneStrength * 0.06) + ')',
+        'night-blue': 'brightness(' + (1 - sceneStrength * 0.14) + ') contrast(' + (1 + sceneStrength * 0.12) + ')',
+      }[sceneVisual.filter] || '';
+      const sceneFilter = [sceneBlur ? 'blur(' + sceneBlur + 'px)' : '', sceneLightingFilter, scenePresetFilter].filter(Boolean).join(' ') || 'none';
       const sceneScale = data.presentation && data.presentation.scene && data.presentation.scene.scale || 1;
       const sceneOffsetX = data.presentation && data.presentation.scene && data.presentation.scene.offsetX || 0;
       const sceneOffsetY = data.presentation && data.presentation.scene && data.presentation.scene.offsetY || 0;
@@ -1813,7 +1894,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         'object-fit: ' + finalCrop + '; ' +
         'object-position: ' + (50 + finalOffsetX) + '% ' + (50 + finalOffsetY) + '%; ' +
         'opacity: ' + initSceneOpacity + '; ' +
-        'transform: ' + initSceneTransform + '; ' +
+        'transform: ' + initSceneTransform + (sceneBlur ? ' scale(' + (1 + Math.min(0.06, sceneBlur / 100)) + ')' : '') + '; ' +
+        'filter: ' + sceneFilter + '; ' +
         'transition: opacity ' + sceneDuration + 'ms ease-out, transform ' + sceneDuration + 'ms ease-out;';
 
       const media = image

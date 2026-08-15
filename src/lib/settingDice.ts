@@ -1,3 +1,5 @@
+import { getSceneVisualTemplate, sceneVisualTemplates } from './sceneTemplates';
+
 export type LanguageCode = 'zh' | 'en' | 'ja';
 
 export type GeneratedCharacterSetting = {
@@ -14,6 +16,10 @@ export type GeneratedCharacterSetting = {
 
 export type GeneratedSceneSetting = {
   sceneName?: string;
+  /** Internal preset hints; validated before they touch the editable card. */
+  sceneEnvironment?: 'indoor' | 'outdoor';
+  visualTemplateId?: string;
+  ambientPresetId?: string;
   location?: string;
   time?: string;
   weather?: string;
@@ -111,6 +117,7 @@ export const buildSceneSettingPrompt = (data: Record<string, unknown>, lang: Lan
   const useExisting = hasUsefulSceneInfo(data);
   const context = joinContext([
     ['Name', data.sceneName],
+    ['Environment', data.sceneEnvironment === 'indoor' ? 'indoor' : data.sceneEnvironment === 'outdoor' ? 'outdoor' : 'unspecified'],
     ['Location', data.location],
     ['Time', data.time],
     ['Weather', data.weather],
@@ -122,10 +129,15 @@ export const buildSceneSettingPrompt = (data: Record<string, unknown>, lang: Lan
   const outputLanguage =
     lang === 'zh' ? 'Simplified Chinese' : lang === 'ja' ? 'Japanese' : 'English';
 
+  const visualTemplateList = sceneVisualTemplates
+    .map((template) => `${template.id} (${template.environment}, ${template.name})`)
+    .join(', ');
+
   return `You are a visual novel scene designer.
 Task: ${useExisting ? 'fill in the missing parts of this place profile without changing usable existing details' : 'create a fresh, distinct place profile'}.
 Output language: ${outputLanguage}.
 Preserve any usable existing details. Do not contradict them. Keep every field short and concrete: one or two sentences at most. Describe the place only; do not add characters, plot, events, goals, conflicts, or story development.
+Choose sceneEnvironment as exactly "indoor" or "outdoor" when the information is sufficient. You may choose visualTemplateId only from this list: ${visualTemplateList}. Ambient preset ids are optional and may only be "cafe-ambient", "rooftop-southeast-mountain", or "upbeat-daily". Selecting an ambient preset only recommends it; it must not imply that audio is downloaded or enabled.
 
 Available information:
 ${context}
@@ -134,6 +146,9 @@ Return ONLY valid JSON, with no markdown fences and no extra text.
 JSON keys:
 {
   "sceneName": "short scene name",
+  "sceneEnvironment": "indoor or outdoor",
+  "visualTemplateId": "optional allowed template id",
+  "ambientPresetId": "optional allowed ambience preset id",
   "location": "where this place is",
   "time": "time of day or season",
   "weather": "weather or indoor air condition",
@@ -213,6 +228,34 @@ export const buildSceneUpdates = (
 
   if (asText(generated.sceneName)) {
     updates.sceneName = asText(generated.sceneName);
+  }
+
+  if (generated.sceneEnvironment === 'indoor' || generated.sceneEnvironment === 'outdoor') {
+    updates.sceneEnvironment = generated.sceneEnvironment;
+  }
+
+  const template = getSceneVisualTemplate(asText(generated.visualTemplateId));
+  if (template) {
+    updates.sceneEnvironment = template.environment;
+    updates.visualStyle = { ...template.style };
+  }
+
+  const allowedAmbientIds = new Set([
+    'cafe-ambient',
+    'rooftop-southeast-mountain',
+    'upbeat-daily',
+  ]);
+  if (asText(generated.ambientPresetId) && allowedAmbientIds.has(asText(generated.ambientPresetId))) {
+    updates.ambientSound = {
+      enabled: false,
+      source: 'preset',
+      presetId: asText(generated.ambientPresetId),
+      name: 'AI 推荐环境音',
+      loop: true,
+      volume: 0.45,
+      fadeIn: 0.8,
+      fadeOut: 0.8,
+    };
   }
 
   if (asText(generated.location)) {

@@ -218,6 +218,10 @@ export function PptManualElementLayer({
             style={style}
             onPointerDown={(event) => beginMove(event, element)}
             onDoubleClick={(event) => beginTextEdit(event, element)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
             onClick={(event) => {
               event.stopPropagation();
               if (editable) onSelectElement?.(element.id);

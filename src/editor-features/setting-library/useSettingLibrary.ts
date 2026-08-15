@@ -80,7 +80,9 @@ const hasSceneSettingContent = (data: SceneNodeData) => {
       data.description,
       data.other,
       data.coverImageUrl,
+      data.sceneEnvironment,
     ].some(hasText) ||
+    Boolean(data.visualStyle?.templateId || data.ambientSound?.presetId || data.ambientSound?.libraryItemId) ||
     data.images?.some((image) => hasText(image.name) || hasText(image.imageUrl)) === true
   );
 };

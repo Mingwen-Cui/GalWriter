@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 
 import { resolveCharacterImageUrl } from '../../../../lib/inlineAssetSwitch';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
+import { resolveSceneAmbientPresetUrl } from '../../../../lib/sceneTemplates';
 import { buildDefaultRenderObjects } from '../../video/shared/renderObjects';
 import { filterMentionTags } from '../../video/shared/storyNodes';
 import type { RenderStyle } from '../../video/shared/types';
@@ -539,6 +540,27 @@ export async function buildInteractiveWebZipBlob(
     let webPresentation: any = undefined;
     const rawPresentation = node.data?.presentation as any;
     if (rawPresentation && Array.isArray(rawPresentation.characters)) {
+      const rawSceneSource = rawPresentation.scene
+        ? nodes.find(
+            (candidate) =>
+              candidate.id === rawPresentation.scene.sourceNodeId && candidate.type === 'sceneNode',
+          )
+        : undefined;
+      const sceneData = rawSceneSource?.data as
+        | { scenePresetEnabled?: boolean; visualStyle?: unknown; ambientSound?: any }
+        | undefined;
+      const rawAmbientSound = sceneData?.scenePresetEnabled ? sceneData.ambientSound : undefined;
+      const resolvedAmbientUrl = rawAmbientSound?.enabled
+        ? rawAmbientSound.source === 'preset'
+          ? await resolveSceneAmbientPresetUrl(rawAmbientSound)
+          : rawAmbientSound.url
+        : undefined;
+      const ambientSoundUrl = await addAudioAsset(
+        zip,
+        resolvedAmbientUrl,
+        `${titleText}-scene-ambience`,
+        assetMap,
+      );
       const packedChars = [];
       for (const charConfig of rawPresentation.characters) {
         const charNode = nodes.find((n) => n.id === charConfig.sourceNodeId);
@@ -571,7 +593,17 @@ export async function buildInteractiveWebZipBlob(
         }
       }
       webPresentation = {
-        scene: rawPresentation.scene ? structuredClone(rawPresentation.scene) : undefined,
+        scene: rawPresentation.scene
+          ? {
+              ...structuredClone(rawPresentation.scene),
+              visualStyle: sceneData?.visualStyle,
+              scenePresetEnabled: sceneData?.scenePresetEnabled === true,
+              ambientSound:
+                rawAmbientSound && ambientSoundUrl
+                  ? { ...rawAmbientSound, url: ambientSoundUrl }
+                  : undefined,
+            }
+          : undefined,
         characters: packedChars,
         inlineActions: Array.isArray(rawPresentation.inlineActions)
           ? structuredClone(rawPresentation.inlineActions)

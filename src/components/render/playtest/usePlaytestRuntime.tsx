@@ -35,6 +35,8 @@ import {
   normalizeStoryPresentation,
 } from '../../../lib/presentation';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
+import { useSceneAmbientSound } from '../../../lib/useSceneAmbientSound';
+import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
 import { mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { selectConditionHandle } from '../code/codeExport/ir/graphSemantics';
 import { getRenderObjects } from '../video/shared/renderObjects';
@@ -248,6 +250,7 @@ export function usePlaytestRuntime(
       ? currentNode.data.title.trim()
       : '';
   useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
+  useSceneAmbientSound(nodes, currentNode, currentNodeId !== 'THE_END');
   const presentation = React.useMemo(
     () =>
       normalizeStoryPresentation(currentNode?.data.presentation as StoryPresentation | undefined),
@@ -1507,6 +1510,12 @@ export function usePlaytestRuntime(
         presentation.scene.scale || 1
       })`
     : '';
+  const presentedSceneData = presentation.scene
+    ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId && node.type === 'sceneNode')?.data as SceneNodeData | undefined
+    : undefined;
+  const sceneVisualMediaStyle = getSceneVisualMediaStyle(
+    presentedSceneData?.scenePresetEnabled ? presentedSceneData.visualStyle : undefined,
+  );
   const sceneObjectFit = presentation.scene?.cropMode === 'stretch' ? 'fill' : 'cover';
   const baseSceneStyle: React.CSSProperties = {
     objectFit: sceneObjectFit,
@@ -1515,6 +1524,7 @@ export function usePlaytestRuntime(
     transform:
       [
         sceneMediaTransform,
+        sceneVisualMediaStyle.transform,
         sceneAnimationActive && sceneMotion
           ? getPresentationTransform(sceneMotion.type, presentationExiting)
           : inlineActionTransform(activeSceneInlineAction),
@@ -1522,6 +1532,7 @@ export function usePlaytestRuntime(
         .filter(Boolean)
         .join(' ') || 'none',
     transformOrigin: 'center center',
+    filter: sceneVisualMediaStyle.filter,
     animation: inlineActionAnimation(activeSceneInlineAction),
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
