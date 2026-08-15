@@ -334,6 +334,7 @@ export function PptManualSlideCanvas({
   onSelectElement,
   onUpdateElement,
   onNavigateSlide,
+  onSelectBackground,
 }: {
   slide: PptManualSlide;
   editable?: boolean;
@@ -341,11 +342,15 @@ export function PptManualSlideCanvas({
   onSelectElement?: (elementId: string) => void;
   onUpdateElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
   onNavigateSlide?: (slideId: string) => void;
+  onSelectBackground?: () => void;
 }) {
   return (
     <div
       className="absolute inset-0 overflow-hidden"
       style={{ backgroundColor: slide.backgroundColor }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onSelectBackground?.();
+      }}
     >
       <PptManualElementLayer
         elements={slide.elements}

@@ -1,4 +1,3 @@
-import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   ChevronDown,
@@ -28,6 +27,7 @@ import { LoadingAnimation } from '../../../LoadingAnimation';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import { type CodeTextKey, getCodeText } from '../../code/i18n';
 import { getPptCopy } from '../../ppt/i18n';
+import { formatVideoText } from '../i18n';
 import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
 
 type RenderHeaderProps = {

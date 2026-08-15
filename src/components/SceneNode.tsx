@@ -63,7 +63,7 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedSceneNodeMinHeight = (imagesCount: number) =>
-  70 + 73 + 24 + 4 * 75 + 3 * 8 + 24 + 20 + (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8);
+  70 + 73 + 24 + 4 * 75 + 3 * 8 + 24 + 20 + (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8) + 4;
 
 const SCENE_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const SCENE_NODE_HEIGHT_RECOVERY_EXCESS = 960;
@@ -490,7 +490,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
           isAssistantCandidate ? 'assistant-candidate-card cursor-pointer' : ''
         } ${
           selected
-            ? 'border-blue-800 shadow-blue-800/25'
+            ? 'border-blue-800 shadow-blue-800/25 ring-2 ring-blue-800/20'
             : 'border-[var(--card-border)]'
         } flex flex-col relative`}
         style={{

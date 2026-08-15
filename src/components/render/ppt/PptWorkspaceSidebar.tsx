@@ -19,10 +19,13 @@ import type {
   PptManualElement,
   PptManualSlide,
   PptObjectAnimation,
+  PptTextBoxLayout,
+  PptTextOverrideTarget,
   RenderStyle,
 } from '../video/shared/types';
 import { targetLabel } from './pptAnimationLabels';
 import { usePptCopy } from './pptCopyContext';
+import { PptCoverTextInspector } from './PptCoverTextInspector';
 import { PptManualInspector } from './PptManualInspector';
 import type { Scene, Selection, VideoTimelineTrack } from './PptWorkspace';
 import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
@@ -56,10 +59,13 @@ export function PptSidebar({
   onUpdate: _onUpdate,
   manualSlide,
   selectedManualElementId,
+  coverTextBox,
   slides,
-  onUpdateManualSlide,
+  onUpdateSlideBackgroundColor,
   onUpdateManualElement,
   onDeleteManualElement,
+  onUpdateCoverText,
+  onUpdateCoverTextBoxLayout,
 }: {
   language: Language;
   renderStyle: RenderStyle;
@@ -85,10 +91,24 @@ export function PptSidebar({
   onUpdate: (patch: Partial<PptObjectAnimation>) => void;
   manualSlide?: PptManualSlide;
   selectedManualElementId?: string;
+  coverTextBox?: {
+    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle'>;
+    label: string;
+    text: string;
+    layout: PptTextBoxLayout;
+  };
   slides: Array<{ id: string; title: string }>;
-  onUpdateManualSlide: (patch: Partial<PptManualSlide>) => void;
+  onUpdateSlideBackgroundColor: (color: string) => void;
   onUpdateManualElement: (elementId: string, patch: Partial<PptManualElement>) => void;
   onDeleteManualElement: (elementId: string) => void;
+  onUpdateCoverText: (
+    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle'>,
+    text: string,
+  ) => void;
+  onUpdateCoverTextBoxLayout: (
+    target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle'>,
+    patch: Partial<PptTextBoxLayout>,
+  ) => void;
 }) {
   const copy = usePptCopy();
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
@@ -180,9 +200,18 @@ export function PptSidebar({
               slide={manualSlide}
               selectedElementId={selectedManualElementId}
               slides={slides}
-              onUpdateSlide={onUpdateManualSlide}
+              onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
               onUpdateElement={onUpdateManualElement}
               onDeleteElement={onDeleteManualElement}
+            />
+          ) : coverTextBox ? (
+            <PptCoverTextInspector
+              target={coverTextBox.target}
+              label={coverTextBox.label}
+              text={coverTextBox.text}
+              layout={coverTextBox.layout}
+              onUpdateText={onUpdateCoverText}
+              onUpdateLayout={onUpdateCoverTextBoxLayout}
             />
           ) : (
             <>

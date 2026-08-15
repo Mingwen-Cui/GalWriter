@@ -1,5 +1,3 @@
-import { getVideoTextForChinesePreference } from '../i18n';
-import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import React, { Suspense, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -16,6 +14,8 @@ import {
   saveRenderedPptx,
 } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
+import { getVideoTextForChinesePreference } from '../i18n';
+import { formatVideoText } from '../i18n';
 import {
   DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
   type InteractivePreviewBounds,

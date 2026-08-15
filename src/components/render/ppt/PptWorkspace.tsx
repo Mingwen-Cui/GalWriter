@@ -1,13 +1,5 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import {
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { getCharacterStageBounds } from '../../../lib/presentation';
@@ -57,7 +49,6 @@ import {
 } from './pptManualContent';
 import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCanvas';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
-import { PptSlideBackgroundMenu } from './PptSlideBackgroundMenu';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { splitPptTextLines } from './pptTextLines';
@@ -261,10 +252,6 @@ export function PptWorkspace({
   const [previewRunId, setPreviewRunId] = useState(0);
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
   const [slideClipboard, setSlideClipboard] = useState<PptManualSlide>();
-  const [backgroundContextMenu, setBackgroundContextMenu] = useState<{
-    x: number;
-    y: number;
-  }>();
   const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
   const stageViewportRef = useRef<HTMLElement>(null);
@@ -299,14 +286,31 @@ export function PptWorkspace({
       : colors.background);
   const inspectorSlide =
     manualSlide ||
-    (selectedManualElementId
+    (selectedManualElementId || selectedObject?.target === 'background'
       ? {
           id: selectedId,
           title: activeSlide?.title || '',
-          backgroundColor: colors.background,
+          backgroundColor: activeSlideBackgroundColor,
           elements: activeSlideElements,
         }
       : undefined);
+  const selectedCoverTextBox =
+    selectedId === 'cover' &&
+    (selectedObject?.target === 'cover-title' || selectedObject?.target === 'cover-subtitle')
+      ? {
+          target: selectedObject.target,
+          label: selectedObject.label,
+          text:
+            textOverrides.cover?.[selectedObject.target] ??
+            (selectedObject.target === 'cover-title'
+              ? projectName || '旮旯作家 · GalWriter'
+              : '由旮旯作家 · GalWriter 生成'),
+          layout: resolvePptTextBoxLayout(
+            textBoxLayouts.cover?.[selectedObject.target],
+            selectedObject.target,
+          ),
+        }
+      : undefined;
   const savedAnimations = animations[selectedId] || [];
   // Story tags are the source of truth for character / scene animation.
   // Keep them visible in the native PPT timeline without serialising a second
@@ -570,10 +574,10 @@ export function PptWorkspace({
       slideBackgroundColors: { ...slideBackgroundColors, [selectedId]: color },
     });
   };
-  const openSlideBackgroundMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+  const selectBackground = () => {
     setSelectedManualElementId(undefined);
     setSelectedObject({ target: 'background', label: copy.background });
-    setBackgroundContextMenu({ x: event.clientX, y: event.clientY });
+    setSidebarTab('style');
   };
   const deleteActiveManualElement = (elementId: string) => {
     if (manualSlide) {
@@ -595,6 +599,7 @@ export function PptWorkspace({
     setSelectedManualElementId(undefined);
   };
   const selectManualElement = (elementId: string) => {
+    setSelectedObject(null);
     setSelectedManualElementId(elementId);
     setSidebarTab('style');
   };
@@ -652,6 +657,7 @@ export function PptWorkspace({
     return () => stageViewport.removeEventListener('wheel', handleStageWheel);
   }, [handleStageWheel]);
   const selectObject = (selection: Selection) => {
+    setSelectedManualElementId(undefined);
     setSelectedObject(selection);
     setSidebarTab('style');
     const renderObject = (
@@ -1031,7 +1037,7 @@ export function PptWorkspace({
                           selectedManualElementId={selectedManualElementId}
                           onSelectManualElement={selectManualElement}
                           onUpdateManualElement={updateActiveManualElement}
-                          onBackgroundContextMenu={openSlideBackgroundMenu}
+                          onSelectBackground={selectBackground}
                         />
                       </VirtualPresentationStage>
                     </div>
@@ -1087,10 +1093,13 @@ export function PptWorkspace({
               onUpdate={updateSelectedAnimation}
               manualSlide={inspectorSlide}
               selectedManualElementId={selectedManualElementId}
+              coverTextBox={selectedCoverTextBox}
               slides={slides}
-              onUpdateManualSlide={updateActiveManualSlide}
+              onUpdateSlideBackgroundColor={updateActiveSlideBackgroundColor}
               onUpdateManualElement={updateActiveManualElement}
               onDeleteManualElement={deleteActiveManualElement}
+              onUpdateCoverText={(target, text) => updatePptText(target, text)}
+              onUpdateCoverTextBoxLayout={(target, patch) => updatePptTextBoxLayout(target, patch)}
             />
           ) : null}
         </div>
@@ -1119,15 +1128,6 @@ export function PptWorkspace({
             onPrevious={previous}
             onClose={closePlayer}
             onChoose={goToScene}
-          />
-        ) : null}
-        {backgroundContextMenu ? (
-          <PptSlideBackgroundMenu
-            position={backgroundContextMenu}
-            backgroundColor={activeSlideBackgroundColor}
-            copy={copy}
-            onChange={updateActiveSlideBackgroundColor}
-            onClose={() => setBackgroundContextMenu(undefined)}
           />
         ) : null}
         <PptFooterBar
@@ -1174,7 +1174,7 @@ export function SlideCanvas({
   selectedManualElementId,
   onSelectManualElement,
   onUpdateManualElement,
-  onBackgroundContextMenu,
+  onSelectBackground,
 }: {
   selectedId: string;
   isChoiceSlide?: boolean;
@@ -1204,7 +1204,7 @@ export function SlideCanvas({
   selectedManualElementId?: string;
   onSelectManualElement?: (elementId: string) => void;
   onUpdateManualElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
-  onBackgroundContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  onSelectBackground?: () => void;
 }) {
   const transitionStyle =
     transition.effect === 'none' ? undefined : { animationDuration: `${transition.durationMs}ms` };
@@ -1218,11 +1218,9 @@ export function SlideCanvas({
         backgroundColor: canvasBackgroundColor,
         ...transitionStyle,
       }}
-      onContextMenu={(event) => {
-        if (!editable || !onBackgroundContextMenu) return;
-        event.preventDefault();
-        event.stopPropagation();
-        onBackgroundContextMenu(event);
+      onClick={(event) => {
+        if (!editable || event.target !== event.currentTarget) return;
+        onSelectBackground?.();
       }}
     >
       <div
@@ -1238,6 +1236,7 @@ export function SlideCanvas({
           onSelectElement={onSelectManualElement}
           onUpdateElement={onUpdateManualElement}
           onNavigateSlide={onChoose}
+          onSelectBackground={onSelectBackground}
         />
       ) : selectedId === 'cover' ? (
         <CoverPreview
@@ -1250,6 +1249,7 @@ export function SlideCanvas({
           previewing={previewing}
           previewAtMs={previewAtMs}
           onSelect={onSelect}
+          onSelectBackground={onSelectBackground}
           onUpdateText={onUpdateText}
           onUpdateTextBoxLayout={onUpdateTextBoxLayout}
         />
@@ -1299,6 +1299,7 @@ function CoverPreview({
   previewing,
   previewAtMs,
   onSelect,
+  onSelectBackground,
   onUpdateText,
   onUpdateTextBoxLayout,
 }: {
@@ -1311,13 +1312,19 @@ function CoverPreview({
   previewing: boolean;
   previewAtMs?: number;
   onSelect: (selection: Selection) => void;
+  onSelectBackground?: () => void;
   onUpdateText?: (target: PptTextOverrideTarget, text: string) => void;
   onUpdateTextBoxLayout?: (target: PptTextOverrideTarget, patch: Partial<PptTextBoxLayout>) => void;
 }) {
   const title = textOverrides?.['cover-title'] ?? (projectName || '旮旯作家 · GalWriter');
   const subtitle = textOverrides?.['cover-subtitle'] ?? '由旮旯作家 · GalWriter 生成';
   return (
-    <div className="absolute inset-0 bg-black/35">
+    <div
+      className="absolute inset-0 bg-black/35"
+      onClick={() => {
+        if (editable) onSelectBackground?.();
+      }}
+    >
       <PptCoverTextBox
         target="cover-title"
         label="封面标题"
