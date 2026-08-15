@@ -10,6 +10,7 @@ import { resolvePresentationDialogueLayout } from '../video/shared/presentationL
 import { getRenderObjects } from '../video/shared/renderObjects';
 import type {
   PptExportSettings,
+  PptManualElement,
   PptManualSlide,
   RenderStyle,
   WebExportSettings,
@@ -120,6 +121,7 @@ export async function buildPptxBuffer({
   const colors = pptSceneColors(style, settings);
   const textOverrides = pptSettings.textOverrides || {};
   const textBoxLayouts = pptSettings.textBoxLayouts || {};
+  const slideElements = pptSettings.slideElements || {};
   const imageCache = new Map<string, Promise<string | undefined>>();
   const videoCache = new Map<string, Promise<string | undefined>>();
   const resolveImage = (url?: string) => {
@@ -173,10 +175,8 @@ export async function buildPptxBuffer({
     items.push(slide);
     manualByAnchor.set(anchor, items);
   });
-  const addManualSlide = async (manual: PptManualSlide) => {
-    const slide = pptx.addSlide();
-    slide.background = { color: hex(manual.backgroundColor) };
-    for (const element of manual.elements) {
+  const addSlideElements = async (slide: PptxGenJS.Slide, elements: PptManualElement[]) => {
+    for (const element of elements) {
       const frame = page.frame(
         (element.x / 1920) * WIDE_PAGE_WIDTH,
         (element.y / 1080) * WIDE_PAGE_HEIGHT,
@@ -233,6 +233,11 @@ export async function buildPptxBuffer({
       });
     }
   };
+  const addManualSlide = async (manual: PptManualSlide) => {
+    const slide = pptx.addSlide();
+    slide.background = { color: hex(manual.backgroundColor) };
+    await addSlideElements(slide, manual.elements);
+  };
   const appendManualSlides = async (anchorId: string) => {
     for (const manual of manualByAnchor.get(anchorId) || []) {
       await addManualSlide(manual);
@@ -288,6 +293,7 @@ export async function buildPptxBuffer({
         rotate: coverSubtitleLayout.rotation,
       });
     }
+    await addSlideElements(slide, slideElements.cover || []);
     slide.addNotes(authorNote);
     authorNoteWritten = true;
     await appendManualSlides('cover');
@@ -298,7 +304,8 @@ export async function buildPptxBuffer({
     const sceneTitle = sceneTextOverrides['dialog-title'] ?? scene.title;
     const sceneBody = sceneTextOverrides['dialog-body'] ?? scene.text;
     const sceneNameplate =
-      sceneTextOverrides.nameplate ?? scene.characters.find((character) => character.name)?.name?.trim();
+      sceneTextOverrides.nameplate ??
+      scene.characters.find((character) => character.name)?.name?.trim();
     const slide = pptx.addSlide();
     const sceneSlideNumber = slideByNodeId.get(scene.id);
     const sceneAnimations = [
@@ -648,6 +655,7 @@ export async function buildPptxBuffer({
     const sceneNotes =
       pptSettings.speakerNotes?.[scene.id] ||
       `节点：${scene.id}\n\n${sceneBody}\n\n${scene.choices.map((choice) => `- ${choice.label}`).join('\n')}`;
+    await addSlideElements(slide, slideElements[scene.id] || []);
     if (pptSettings.includeNotes || !authorNoteWritten) {
       slide.addNotes(authorNoteWritten ? sceneNotes : `${authorNote}\n\n${sceneNotes}`);
       authorNoteWritten = true;
@@ -731,6 +739,7 @@ export async function buildPptxBuffer({
             : undefined,
       });
     });
+    await addSlideElements(choiceSlide, slideElements[`choice:${scene.id}`] || []);
     if (pptSettings.includeNotes)
       choiceSlide.addNotes(
         `选择节点：${scene.id}\n\n${scene.choices.map((choice, index) => `${index + 1}. ${choice.label}`).join('\n')}`,

@@ -46,7 +46,7 @@ import {
   duplicateManualSlide,
   updateManualElement,
 } from './pptManualContent';
-import { PptManualSlideCanvas } from './PptManualSlideCanvas';
+import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCanvas';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
@@ -262,6 +262,18 @@ export function PptWorkspace({
   const transitions = pptSettings.transitions || {};
   const textOverrides = pptSettings.textOverrides || {};
   const textBoxLayouts = pptSettings.textBoxLayouts || {};
+  const slideElements = pptSettings.slideElements || {};
+  const activeSlideElements = slideElements[selectedId] || [];
+  const inspectorSlide =
+    manualSlide ||
+    (selectedManualElementId
+      ? {
+          id: selectedId,
+          title: activeSlide?.title || '',
+          backgroundColor: colors.background,
+          elements: activeSlideElements,
+        }
+      : undefined);
   const savedAnimations = animations[selectedId] || [];
   // Story tags are the source of truth for character / scene animation.
   // Keep them visible in the native PPT timeline without serialising a second
@@ -336,31 +348,35 @@ export function PptWorkspace({
         ),
       );
       setSelectedManualElementId(element.id);
+      setSidebarTab('style');
       return;
     }
-    const slide = addManualSlide();
-    saveManualSlides(
-      [...manualSlides, { ...slide, elements: [element] }],
-      insertPptSlideOrder(
-        pptSettings.slideOrder,
-        [
-          ...generatedSlides.map((item) => item.id),
-          ...manualSlides.map((item) => item.id),
-          slide.id,
-        ],
-        selectedId,
-        slide.id,
-      ),
-    );
+    updatePptSettings({
+      slideElements: {
+        ...slideElements,
+        [selectedId]: [...activeSlideElements, element],
+      },
+    });
     setSelectedManualElementId(element.id);
+    setSidebarTab('style');
   };
   const updateActiveManualElement = (elementId: string, patch: Partial<PptManualElement>) => {
-    if (!manualSlide) return;
-    saveManualSlides(
-      manualSlides.map((slide) =>
-        slide.id === manualSlide.id ? updateManualElement(slide, elementId, patch) : slide,
-      ),
-    );
+    if (manualSlide) {
+      saveManualSlides(
+        manualSlides.map((slide) =>
+          slide.id === manualSlide.id ? updateManualElement(slide, elementId, patch) : slide,
+        ),
+      );
+      return;
+    }
+    updatePptSettings({
+      slideElements: {
+        ...slideElements,
+        [selectedId]: activeSlideElements.map((element) =>
+          element.id === elementId ? ({ ...element, ...patch } as PptManualElement) : element,
+        ),
+      },
+    });
   };
   const updateActiveManualSlide = (patch: Partial<PptManualSlide>) => {
     if (!manualSlide) return;
@@ -369,14 +385,22 @@ export function PptWorkspace({
     );
   };
   const deleteActiveManualElement = (elementId: string) => {
-    if (!manualSlide) return;
-    saveManualSlides(
-      manualSlides.map((slide) =>
-        slide.id === manualSlide.id
-          ? { ...slide, elements: slide.elements.filter((element) => element.id !== elementId) }
-          : slide,
-      ),
-    );
+    if (manualSlide) {
+      saveManualSlides(
+        manualSlides.map((slide) =>
+          slide.id === manualSlide.id
+            ? { ...slide, elements: slide.elements.filter((element) => element.id !== elementId) }
+            : slide,
+        ),
+      );
+    } else {
+      updatePptSettings({
+        slideElements: {
+          ...slideElements,
+          [selectedId]: activeSlideElements.filter((element) => element.id !== elementId),
+        },
+      });
+    }
     setSelectedManualElementId(undefined);
   };
   const selectManualElement = (elementId: string) => {
@@ -712,6 +736,7 @@ export function PptWorkspace({
               colors={colors}
               textOverrides={textOverrides}
               textBoxLayouts={textBoxLayouts}
+              slideElements={slideElements}
               layout={pptSettings.layout}
               manualSlides={manualSlides}
               onSelect={selectSlide}
@@ -734,6 +759,7 @@ export function PptWorkspace({
                 colors={colors}
                 textOverrides={textOverrides}
                 textBoxLayouts={textBoxLayouts}
+                slideElements={slideElements}
                 layout={pptSettings.layout}
                 manualSlides={manualSlides}
                 onSelect={(id) => {
@@ -770,6 +796,7 @@ export function PptWorkspace({
                           colors={colors}
                           textOverrides={textOverrides[selectedId]}
                           textBoxLayouts={textBoxLayouts[selectedId]}
+                          slideElements={activeSlideElements}
                           animations={currentAnimations}
                           transition={currentTransition}
                           selected={selectedObject}
@@ -838,7 +865,7 @@ export function PptWorkspace({
               previewing={isPreviewing}
               onPausePreview={pausePreview}
               onUpdate={updateSelectedAnimation}
-              manualSlide={manualSlide}
+              manualSlide={inspectorSlide}
               selectedManualElementId={selectedManualElementId}
               slides={slides}
               onUpdateManualSlide={updateActiveManualSlide}
@@ -861,6 +888,7 @@ export function PptWorkspace({
             colors={colors}
             textOverrides={textOverrides[selectedId]}
             textBoxLayouts={textBoxLayouts[selectedId]}
+            slideElements={activeSlideElements}
             animations={currentAnimations}
             transition={currentTransition}
             layout={pptSettings.layout}
@@ -898,6 +926,7 @@ export function SlideCanvas({
   colors,
   textOverrides,
   textBoxLayouts,
+  slideElements,
   animations,
   transition,
   selected,
@@ -925,6 +954,7 @@ export function SlideCanvas({
   colors: ReturnType<typeof pptSceneColors>;
   textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
   textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
+  slideElements?: PptManualElement[];
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   selected: Selection | null;
@@ -935,10 +965,7 @@ export function SlideCanvas({
   onSelect: (selection: Selection) => void;
   onUpdateObject?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
   onUpdateText?: (target: PptTextOverrideTarget, text: string) => void;
-  onUpdateTextBoxLayout?: (
-    target: PptTextOverrideTarget,
-    patch: Partial<PptTextBoxLayout>,
-  ) => void;
+  onUpdateTextBoxLayout?: (target: PptTextOverrideTarget, patch: Partial<PptTextBoxLayout>) => void;
   onChoose?: (targetId: string) => void;
   manualSlide?: PptManualSlide;
   selectedManualElementId?: string;
@@ -1001,6 +1028,16 @@ export function SlideCanvas({
           />
         )
       ) : null}
+      {!manualSlide && slideElements?.length ? (
+        <PptManualElementLayer
+          elements={slideElements}
+          editable={editable}
+          selectedElementId={selectedManualElementId}
+          onSelectElement={onSelectManualElement}
+          onUpdateElement={onUpdateManualElement}
+          onNavigateSlide={onChoose}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1028,10 +1065,7 @@ function CoverPreview({
   previewAtMs?: number;
   onSelect: (selection: Selection) => void;
   onUpdateText?: (target: PptTextOverrideTarget, text: string) => void;
-  onUpdateTextBoxLayout?: (
-    target: PptTextOverrideTarget,
-    patch: Partial<PptTextBoxLayout>,
-  ) => void;
+  onUpdateTextBoxLayout?: (target: PptTextOverrideTarget, patch: Partial<PptTextBoxLayout>) => void;
 }) {
   const title = textOverrides?.['cover-title'] ?? (projectName || '旮旯作家 · GalWriter');
   const subtitle = textOverrides?.['cover-subtitle'] ?? '由旮旯作家 · GalWriter 生成';
@@ -1104,9 +1138,7 @@ function PptCoverTextBox({
   const initialTextRef = useRef('');
   const discardTextEditRef = useRef(false);
   const textClass =
-    target === 'cover-title'
-      ? 'text-4xl font-black text-white'
-      : 'text-sm text-white/75';
+    target === 'cover-title' ? 'text-4xl font-black text-white' : 'text-sm text-white/75';
   useEffect(() => {
     if (!isEditingText) return;
     const frame = window.requestAnimationFrame(() => {
@@ -1223,7 +1255,7 @@ function PptCoverTextBox({
         layout.rotation +
         ((Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) - start) * 180) /
           Math.PI;
-      onUpdateLayout({ rotation: Math.round((((rotation + 180) % 360) + 360) % 360 - 180) });
+      onUpdateLayout({ rotation: Math.round(((((rotation + 180) % 360) + 360) % 360) - 180) });
     };
     const end = () => {
       window.removeEventListener('pointermove', move);
@@ -1280,7 +1312,9 @@ function PptCoverTextBox({
           }}
         />
       ) : (
-        <div className={`grid h-full w-full place-items-center whitespace-pre-wrap text-center ${textClass}`}>
+        <div
+          className={`grid h-full w-full place-items-center whitespace-pre-wrap text-center ${textClass}`}
+        >
           {text}
         </div>
       )}
@@ -1337,7 +1371,8 @@ function ScenePreview({
   const body = objects.body;
   const panel = objects.dialogBox;
   const nameplate = objects.nameplate;
-  const speakerName = textOverrides?.nameplate ?? scene.characters.find((character) => character.name)?.name?.trim();
+  const speakerName =
+    textOverrides?.nameplate ?? scene.characters.find((character) => character.name)?.name?.trim();
   const titleText = textOverrides?.['dialog-title'] ?? scene.title;
   const bodyText = textOverrides?.['dialog-body'] ?? scene.text;
   const bodyAnimations = findAnimation(animations, 'dialog-body');
@@ -1869,7 +1904,9 @@ function PptEditableObject({
             }
           }}
         />
-      ) : children}
+      ) : (
+        children
+      )}
       {animation.length ? <span className="ppt-animation-index">✦</span> : null}
       {editable && isSelected && onUpdate ? (
         <WebEditableElementFrame
@@ -2064,7 +2101,9 @@ function Selectable({
             }
           }}
         />
-      ) : children}
+      ) : (
+        children
+      )}
       {animation.length ? <span className="ppt-animation-index">✦</span> : null}
     </div>
   );

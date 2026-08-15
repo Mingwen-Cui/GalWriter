@@ -14,11 +14,26 @@ import {
 import type { ReactNode } from 'react';
 
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
-import type { PptManualSlide, PptObjectAnimation, PptSlideTransition, PptTextBoxLayout, PptTextOverrideTarget, RenderStyle, WebExportSettings } from '../video/shared/types';
+import type {
+  PptManualElement,
+  PptManualSlide,
+  PptObjectAnimation,
+  PptSlideTransition,
+  PptTextBoxLayout,
+  PptTextOverrideTarget,
+  RenderStyle,
+  WebExportSettings,
+} from '../video/shared/types';
 import { pptSceneColors } from './pptSceneResolver';
 import type { Scene } from './PptWorkspace';
 import { SlideCanvas } from './PptWorkspace';
-import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH, type PptCanvasLayout, pptCanvasViewportClass, type PptWorkspaceViewMode } from './pptWorkspaceModel';
+import {
+  PPT_CONTENT_HEIGHT,
+  PPT_CONTENT_WIDTH,
+  type PptCanvasLayout,
+  pptCanvasViewportClass,
+  type PptWorkspaceViewMode,
+} from './pptWorkspaceModel';
 
 type ViewMode = PptWorkspaceViewMode;
 
@@ -128,6 +143,7 @@ export function PlayerOverlay({
   colors,
   textOverrides,
   textBoxLayouts,
+  slideElements,
   animations,
   transition,
   layout,
@@ -150,6 +166,7 @@ export function PlayerOverlay({
   colors: ReturnType<typeof pptSceneColors>;
   textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
   textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
+  slideElements?: PptManualElement[];
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
@@ -185,6 +202,7 @@ export function PlayerOverlay({
               colors={colors}
               textOverrides={textOverrides}
               textBoxLayouts={textBoxLayouts}
+              slideElements={slideElements}
               animations={animations}
               transition={transition}
               selected={null}

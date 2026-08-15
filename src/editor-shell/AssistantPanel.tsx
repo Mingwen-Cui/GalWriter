@@ -342,23 +342,51 @@ const CreativeCharacterTraitAxis = ({
   onChange,
 }: CreativeCharacterTraitAxisProps) => {
   const [hoveredValue, setHoveredValue] = useState<number | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{
+    left: number;
+    top: number;
+    placement: 'above' | 'below';
+  } | null>(null);
+  const interactionRef = useRef<HTMLDivElement>(null);
   const previewValue = hoveredValue ?? value;
   const previewLevel =
     control.levels.find((level) => level.value === previewValue) || control.levels[2] || control.levels[0];
   const progress = ((value - 1) / 4) * 100;
-  const previewProgress = ((previewValue - 1) / 4) * 100;
 
   if (!previewLevel) return null;
 
   const updateHoveredValue = (clientX: number, left: number, width: number) => {
     if (locked) {
       setHoveredValue(value);
-      return;
+      return value;
     }
     const trackLeft = left + 16;
     const trackWidth = Math.max(1, width - 32);
     const relativePosition = Math.min(1, Math.max(0, (clientX - trackLeft) / trackWidth));
-    setHoveredValue(Math.round(relativePosition * 4) + 1);
+    const nextValue = Math.round(relativePosition * 4) + 1;
+    setHoveredValue(nextValue);
+    return nextValue;
+  };
+
+  const updateTooltipPosition = (nextValue: number) => {
+    const bounds = interactionRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+
+    const tooltipWidth = 208;
+    const horizontalPadding = 12;
+    const trackLeft = bounds.left + 16;
+    const trackWidth = Math.max(1, bounds.width - 32);
+    const desiredLeft = trackLeft + (((nextValue - 1) / 4) * trackWidth);
+    const left = Math.min(
+      window.innerWidth - tooltipWidth / 2 - horizontalPadding,
+      Math.max(tooltipWidth / 2 + horizontalPadding, desiredLeft),
+    );
+    const placement = bounds.top < 80 ? 'below' : 'above';
+    setTooltipPosition({
+      left,
+      top: placement === 'above' ? bounds.top - 9 : bounds.bottom + 9,
+      placement,
+    });
   };
 
   return (
@@ -369,30 +397,23 @@ const CreativeCharacterTraitAxis = ({
         <span>{control.upperLabel}</span>
       </div>
       <div
-        className="relative mt-1 h-8 px-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-400"
+        ref={interactionRef}
+        className="relative mt-1 h-8 px-4"
         onMouseMove={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect();
-          updateHoveredValue(event.clientX, bounds.left, bounds.width);
+          const nextValue = updateHoveredValue(event.clientX, bounds.left, bounds.width);
+          updateTooltipPosition(nextValue);
         }}
-        onMouseLeave={() => setHoveredValue(null)}
+        onMouseLeave={() => {
+          setHoveredValue(null);
+          setTooltipPosition(null);
+        }}
       >
         <div className="pointer-events-none absolute inset-x-4 top-1/2 h-3 -translate-y-1/2 rounded-full bg-indigo-100 dark:bg-indigo-950">
           <span
             className="absolute inset-y-0 left-0 rounded-full bg-indigo-600"
             style={{ width: `${progress}%` } as CSSProperties}
           />
-          <div
-            className={`absolute bottom-[calc(100%+9px)] z-10 w-52 -translate-x-1/2 rounded-lg bg-slate-800 px-2.5 py-2 text-[10px] leading-relaxed text-white shadow-lg transition-all dark:bg-slate-700 ${
-              hoveredValue === null ? 'translate-y-1 opacity-0' : 'translate-y-0 opacity-100'
-            }`}
-            style={{ left: `${previewProgress}%` } as CSSProperties}
-            role="status"
-          >
-            <span className="font-black text-indigo-200">
-              {control.currentLabel} {previewValue} / 5
-            </span>
-            <span className="mt-0.5 block text-slate-100">{previewLevel.description}</span>
-          </div>
           {control.levels.slice(1, -1).map((level, index) => (
             <span
               key={level.value}
@@ -418,13 +439,38 @@ const CreativeCharacterTraitAxis = ({
             const nextValue = Number(event.target.value);
             onChange(nextValue);
             setHoveredValue(nextValue);
+            updateTooltipPosition(nextValue);
           }}
-          onFocus={() => setHoveredValue(value)}
-          onBlur={() => setHoveredValue(null)}
+          onFocus={() => {
+            setHoveredValue(value);
+            updateTooltipPosition(value);
+          }}
+          onBlur={() => {
+            setHoveredValue(null);
+            setTooltipPosition(null);
+          }}
           className="assistant-character-trait-input absolute inset-0 z-10 h-8 w-full cursor-pointer opacity-0 disabled:cursor-default"
           aria-label={`${control.title}: ${control.lowerLabel} – ${control.upperLabel}`}
         />
       </div>
+      {hoveredValue !== null &&
+        tooltipPosition &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className={`pointer-events-none fixed z-[500] w-52 -translate-x-1/2 rounded-lg bg-slate-800 px-2.5 py-2 text-[10px] leading-relaxed text-white shadow-lg dark:bg-slate-700 ${
+              tooltipPosition.placement === 'above' ? '-translate-y-full' : ''
+            }`}
+            style={{ left: tooltipPosition.left, top: tooltipPosition.top }}
+            role="status"
+          >
+            <span className="font-black text-indigo-200">
+              {control.currentLabel} {previewValue} / 5
+            </span>
+            <span className="mt-0.5 block text-slate-100">{previewLevel.description}</span>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 };

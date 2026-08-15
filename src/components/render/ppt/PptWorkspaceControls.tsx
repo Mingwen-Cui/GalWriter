@@ -9,6 +9,7 @@ import type {
   PptAnimationStart,
   PptManualSlide,
   PptObjectAnimation,
+  PptSlideElements,
   PptSlideTransition,
   PptTextBoxLayouts,
   PptTextOverrides,
@@ -392,6 +393,7 @@ type ThumbnailProps = {
   colors: ReturnType<typeof pptSceneColors>;
   textOverrides: PptTextOverrides;
   textBoxLayouts: PptTextBoxLayouts;
+  slideElements: PptSlideElements;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
@@ -406,6 +408,7 @@ function SlideThumbnail({
   colors,
   textOverrides,
   textBoxLayouts,
+  slideElements,
   animations,
   transition,
   layout,
@@ -436,6 +439,7 @@ function SlideThumbnail({
           colors={colors}
           textOverrides={textOverrides[slide.id]}
           textBoxLayouts={textBoxLayouts[slide.id]}
+          slideElements={slideElements[slide.id]}
           animations={animations}
           transition={transition}
           selected={null}
@@ -458,6 +462,7 @@ export function SlideList({
   colors,
   textOverrides,
   textBoxLayouts,
+  slideElements,
   onSelect,
   layout,
   manualSlides,
@@ -473,6 +478,7 @@ export function SlideList({
   colors: ReturnType<typeof pptSceneColors>;
   textOverrides: PptTextOverrides;
   textBoxLayouts: PptTextBoxLayouts;
+  slideElements: PptSlideElements;
   onSelect: (id: string) => void;
   layout: PptCanvasLayout;
   manualSlides: PptManualSlide[];
@@ -506,6 +512,7 @@ export function SlideList({
                 colors={colors}
                 textOverrides={textOverrides}
                 textBoxLayouts={textBoxLayouts}
+                slideElements={slideElements}
                 animations={timelines[slide.id] || []}
                 transition={transitions[slide.id] || DEFAULT_TRANSITION}
                 layout={layout}
@@ -535,6 +542,7 @@ export function SlideSorter({
   colors,
   textOverrides,
   textBoxLayouts,
+  slideElements,
   onSelect,
   layout,
   manualSlides,
@@ -550,6 +558,7 @@ export function SlideSorter({
   colors: ReturnType<typeof pptSceneColors>;
   textOverrides: PptTextOverrides;
   textBoxLayouts: PptTextBoxLayouts;
+  slideElements: PptSlideElements;
   onSelect: (id: string) => void;
   layout: PptCanvasLayout;
   manualSlides: PptManualSlide[];
@@ -582,6 +591,7 @@ export function SlideSorter({
               colors={colors}
               textOverrides={textOverrides}
               textBoxLayouts={textBoxLayouts}
+              slideElements={slideElements}
               animations={timelines[slide.id] || []}
               transition={transitions[slide.id] || DEFAULT_TRANSITION}
               layout={layout}

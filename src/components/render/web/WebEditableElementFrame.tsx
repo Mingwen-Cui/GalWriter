@@ -89,26 +89,33 @@ export function WebEditableElementFrame({
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
-      {showAuxiliaryControls && showVisibilityControl && <span
-        tabIndex={-1}
-        className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
-        style={{ cursor: 'grab', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
-        onPointerDown={(event) => { event.stopPropagation(); onRotatePointerDown(event); }}
-        onClick={(event) => event.stopPropagation()}
-        aria-label="Rotate"
-      >
-        <RotateCw className="h-4 w-4" />
-      </span>}
-      {showAuxiliaryControls && <span
-        tabIndex={-1}
-        className="pointer-events-auto absolute -right-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
-        style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={onToggleVisible}
-        aria-label={visible ? 'Hide' : 'Show'}
-      >
-        {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-      </span>}
+      {showAuxiliaryControls && (
+        <span
+          tabIndex={-1}
+          className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
+          style={{ cursor: 'grab', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onRotatePointerDown(event);
+          }}
+          onClick={(event) => event.stopPropagation()}
+          aria-label="Rotate"
+        >
+          <RotateCw className="h-4 w-4" />
+        </span>
+      )}
+      {showAuxiliaryControls && showVisibilityControl && (
+        <span
+          tabIndex={-1}
+          className="pointer-events-auto absolute -right-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
+          style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={onToggleVisible}
+          aria-label={visible ? 'Hide' : 'Show'}
+        >
+          {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+        </span>
+      )}
       {onToggleSlotPreview && (
         <span
           tabIndex={-1}
@@ -134,17 +141,27 @@ export function WebEditableElementFrame({
           <Trash2 className="h-4 w-4" />
         </span>
       )}
-      {showResizeHandles && webEditableResizeHandles.map((handle) => (
-        <span
-          key={handle}
-          tabIndex={-1}
-          className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
-          style={{ cursor: cursorByHandle[handle], pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483647 }}
-          onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); onResizePointerDown(event, handle); }}
-          onClick={(event) => event.stopPropagation()}
-          aria-label="Resize border"
-        />
-      ))}
+      {showResizeHandles &&
+        webEditableResizeHandles.map((handle) => (
+          <span
+            key={handle}
+            tabIndex={-1}
+            className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
+            style={{
+              cursor: cursorByHandle[handle],
+              pointerEvents: 'auto',
+              touchAction: 'none',
+              zIndex: 2147483647,
+            }}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onResizePointerDown(event, handle);
+            }}
+            onClick={(event) => event.stopPropagation()}
+            aria-label="Resize border"
+          />
+        ))}
     </>
   );
 }

@@ -573,10 +573,7 @@ export type PptTextOverrideTarget =
   | 'dialog-title'
   | 'dialog-body'
   | 'nameplate';
-export type PptTextOverrides = Record<
-  string,
-  Partial<Record<PptTextOverrideTarget, string>>
->;
+export type PptTextOverrides = Record<string, Partial<Record<PptTextOverrideTarget, string>>>;
 /** Logical 1920×1080 frames for text boxes that are independently arranged in PPT. */
 export type PptTextBoxLayout = {
   x: number;
