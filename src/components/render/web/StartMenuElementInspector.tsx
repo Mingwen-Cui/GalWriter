@@ -2138,12 +2138,8 @@ export function GradientEditorPopover({
   const previewStops = orderedStops
     .map((stop) => `${alphaColor(stop.color, stop.alpha, '#ffffff')} ${stop.position}%`)
     .join(', ');
-  const trackPreview =
-    shape === 'radial'
-      ? `radial-gradient(circle at center, ${previewStops})`
-      : shape === 'diamond'
-        ? `conic-gradient(from 45deg at center, ${previewStops})`
-        : `linear-gradient(90deg, ${previewStops})`;
+  // 色标轨道始终按位置从左到右展示，避免圆形或菱形填充改变色标的含义。
+  const trackPreview = `linear-gradient(90deg, ${previewStops})`;
   const commitStops = (nextStops: RenderColorStop[]) => {
     onStopsChange([...nextStops].sort((a, b) => a.position - b.position));
   };
@@ -2264,31 +2260,6 @@ export function GradientEditorPopover({
           >
             <Plus className="h-5 w-5" />
           </button>
-        </div>
-        <div
-          className="relative mt-3 h-12 cursor-crosshair overflow-hidden rounded-xl border border-sky-200 bg-slate-950"
-          style={{ backgroundImage: `linear-gradient(${angle}deg, ${previewStops})` }}
-          title={copy.angle}
-          onPointerDown={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            const updateAngle = (clientX: number, clientY: number) => {
-              const x = clientX - rect.left - rect.width / 2;
-              const y = clientY - rect.top - rect.height / 2;
-              onAngleChange(Math.round(((Math.atan2(y, x) * 180) / Math.PI + 90 + 360) % 360));
-            };
-            event.currentTarget.setPointerCapture(event.pointerId);
-            updateAngle(event.clientX, event.clientY);
-          }}
-          onPointerMove={(event) => {
-            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = event.clientX - rect.left - rect.width / 2;
-            const y = event.clientY - rect.top - rect.height / 2;
-            onAngleChange(Math.round(((Math.atan2(y, x) * 180) / Math.PI + 90 + 360) % 360));
-          }}
-        >
-          <span className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/80" />
-          <span className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
         </div>
         <div
           className="relative mt-3 h-12 w-full rounded-xl border border-white/80 shadow-inner"

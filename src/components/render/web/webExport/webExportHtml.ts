@@ -240,16 +240,10 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       return "linear-gradient(" + angle + "deg, " + gradientStopsCss(stops) + ")";
     }
     function gradientFromStops(shape, angle, stops, geometry) {
-      let renderedStops = stops;
-      if (shape !== "radial" && geometry && [geometry.startX, geometry.startY, geometry.endX, geometry.endY].every(Number.isFinite)) {
-        const sx = geometry.startX / 100, sy = geometry.startY / 100, ex = geometry.endX / 100, ey = geometry.endY / 100;
-        const dx = ex - sx, dy = ey - sy;
-        const projections = [[0,0],[1,0],[0,1],[1,1]].map(function(point) { return point[0] * dx + point[1] * dy; });
-        const min = Math.min.apply(Math, projections), max = Math.max.apply(Math, projections), span = Math.max(.0001, max - min);
-        const start = (sx * dx + sy * dy - min) / span * 100, end = (ex * dx + ey * dy - min) / span * 100;
-        renderedStops = stops.map(function(stop) { return Object.assign({}, stop, { position: start + (end - start) * stop.position / 100 }); });
-      }
-      const cssStops = gradientStopsCss(renderedStops);
+      // Geometry is an editor direction handle. Its angle is already persisted separately;
+      // its length must not shift color stops and create a large first-color band.
+      void geometry;
+      const cssStops = gradientStopsCss(stops);
       if (shape === "radial") return "radial-gradient(circle at center, " + cssStops + ")";
       if (shape === "diamond") return "conic-gradient(from " + angle + "deg at center, " + cssStops + ")";
       return "linear-gradient(" + angle + "deg, " + cssStops + ")";

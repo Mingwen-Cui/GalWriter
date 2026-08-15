@@ -2357,6 +2357,10 @@ function GradientCanvasControl({
   const safeStartY = startY ?? 50 + Math.cos(radians) * 25;
   const safeEndX = endX ?? 50 + Math.sin(radians) * 25;
   const safeEndY = endY ?? 50 - Math.cos(radians) * 25;
+  const radialDiameter = Math.max(
+    12,
+    Math.min(200, Math.hypot(safeEndX - safeStartX, safeEndY - safeStartY) * 2),
+  );
   const updatePoint = (point: 'start' | 'end', clientX: number, clientY: number) => {
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -2377,18 +2381,88 @@ function GradientCanvasControl({
       angle: nextAngle,
     });
   };
+  const renderControlPoint = (point: 'start' | 'end') => {
+    const x = point === 'start' ? safeStartX : safeEndX;
+    const y = point === 'start' ? safeStartY : safeEndY;
+    const isStart = point === 'start';
+    return (
+      <button
+        key={point}
+        type="button"
+        className="pointer-events-auto absolute z-[10030] grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full bg-transparent"
+        style={{ left: `${x}%`, top: `${y}%` }}
+        aria-label={
+          shape === 'radial'
+            ? isStart
+              ? 'Radial gradient center'
+              : 'Radial gradient radius'
+            : `Gradient ${point}`
+        }
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.stopPropagation();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          updatePoint(point, event.clientX, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          event.stopPropagation();
+          updatePoint(point, event.clientX, event.clientY);
+        }}
+        onPointerUp={(event) => {
+          event.stopPropagation();
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+        }}
+      >
+        <span
+          className={`h-6 w-6 rounded-full border-[3px] border-white shadow-lg ${
+            isStart ? 'bg-sky-500' : 'bg-indigo-600'
+          }`}
+        />
+      </button>
+    );
+  };
   return (
     <div
       ref={rootRef}
-      className="pointer-events-none absolute inset-0 z-[240]"
+      className="pointer-events-none absolute inset-0 z-[10020]"
       data-gradient-canvas-control
     >
       <div className="absolute inset-0">
         {shape === 'radial' ? (
-          <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-white/90 shadow-[0_0_0_1px_#00000055]">
-            <span className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
-            <span className="absolute right-[-7px] top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-600 shadow" />
-          </div>
+          <>
+            <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
+              <line
+                x1={`${safeStartX}%`}
+                y1={`${safeStartY}%`}
+                x2={`${safeEndX}%`}
+                y2={`${safeEndY}%`}
+                stroke="rgba(0,0,0,.45)"
+                strokeWidth="4"
+              />
+              <line
+                x1={`${safeStartX}%`}
+                y1={`${safeStartY}%`}
+                x2={`${safeEndX}%`}
+                y2={`${safeEndY}%`}
+                stroke="white"
+                strokeWidth="2"
+              />
+            </svg>
+            <span
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-white/90 shadow-[0_0_0_1px_#00000055]"
+              style={{
+                left: `${safeStartX}%`,
+                top: `${safeStartY}%`,
+                width: `${radialDiameter}%`,
+                aspectRatio: '1',
+              }}
+            />
+            {renderControlPoint('start')}
+            {renderControlPoint('end')}
+          </>
         ) : (
           <>
             <svg className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
@@ -2418,35 +2492,8 @@ function GradientCanvasControl({
                 }}
               />
             )}
-            {(['start', 'end'] as const).map((point) => {
-              const x = point === 'start' ? safeStartX : safeEndX;
-              const y = point === 'start' ? safeStartY : safeEndY;
-              return (
-                <button
-                  key={point}
-                  type="button"
-                  className={`pointer-events-auto absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-[3px] border-white shadow-lg ${point === 'start' ? 'bg-sky-500' : 'bg-indigo-600'}`}
-                  style={{ left: `${x}%`, top: `${y}%` }}
-                  aria-label={`Gradient ${point}`}
-                  onPointerDown={(event) => {
-                    if (event.button !== 0) return;
-                    event.stopPropagation();
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                    updatePoint(point, event.clientX, event.clientY);
-                  }}
-                  onPointerMove={(event) => {
-                    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-                    event.stopPropagation();
-                    updatePoint(point, event.clientX, event.clientY);
-                  }}
-                  onPointerUp={(event) => {
-                    event.stopPropagation();
-                    if (event.currentTarget.hasPointerCapture(event.pointerId))
-                      event.currentTarget.releasePointerCapture(event.pointerId);
-                  }}
-                />
-              );
-            })}
+            {renderControlPoint('start')}
+            {renderControlPoint('end')}
           </>
         )}
       </div>

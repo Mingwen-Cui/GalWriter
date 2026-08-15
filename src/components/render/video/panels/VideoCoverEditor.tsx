@@ -1,6 +1,8 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   Check,
+  ClipboardPaste,
+  Copy,
   Download,
   ImagePlus,
   Redo2,
@@ -240,6 +242,7 @@ export function VideoCoverEditor({
     future: [],
   });
   const copiedElementRef = useRef<VideoCoverElement | null>(null);
+  const [hasCopiedElement, setHasCopiedElement] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const videoNodes = useMemo(
     () => nodes.filter((node) => typeof node.data?.videoUrl === 'string' && node.data.videoUrl),
@@ -536,16 +539,27 @@ export function VideoCoverEditor({
     updateElements([...elements, duplicate]);
     setSelectedElementId(duplicate.id);
   };
+  const copySelectedElement = () => {
+    if (!selectedElement) return;
+    copiedElementRef.current = cloneCoverSettings({
+      ...cover,
+      elements: [selectedElement],
+    }).elements![0];
+    setHasCopiedElement(true);
+    if (selectedElement.kind === 'text' && selectedElement.text) {
+      void navigator.clipboard?.writeText(selectedElement.text).catch(() => undefined);
+    }
+  };
+  const pasteCopiedElement = () => {
+    if (copiedElementRef.current) duplicateElement(copiedElementRef.current);
+  };
   useEffect(() => {
     const isNativeTextTarget = (target: EventTarget | null) =>
       target instanceof HTMLElement &&
       (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
     const copy = (event: ClipboardEvent) => {
       if (isNativeTextTarget(event.target) || !selectedElement) return;
-      copiedElementRef.current = cloneCoverSettings({
-        ...cover,
-        elements: [selectedElement],
-      }).elements![0];
+      copySelectedElement();
       event.stopPropagation();
       if (selectedElement.kind === 'text' && selectedElement.text) {
         event.clipboardData?.setData('text/plain', selectedElement.text);
@@ -1032,6 +1046,28 @@ export function VideoCoverEditor({
                   {ratio === 'none' ? '无' : ratio}
                 </button>
               ))}
+            </div>
+            <div className="flex shrink-0 items-center gap-2 border-r border-[var(--vr-border)] pr-3">
+              <button
+                type="button"
+                onClick={copySelectedElement}
+                disabled={!selectedElement}
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                title="复制选中的文字或图片"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                复制
+              </button>
+              <button
+                type="button"
+                onClick={pasteCopiedElement}
+                disabled={!hasCopiedElement}
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                title="粘贴最近复制的文字或图片"
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+                粘贴
+              </button>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button
