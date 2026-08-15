@@ -57,6 +57,8 @@ type InspectorProps = {
   selectedElementIds?: string[];
   /** Omitting this removes the practical upper limit for text-size entry. */
   fontSizeMax?: number;
+  /** Upper limit for stroke width; use Number.MAX_SAFE_INTEGER for unconstrained entry. */
+  strokeWidthMax?: number;
   showDescriptions: boolean;
   onUpdate: (patch: Partial<WebMenuElement>) => void;
   onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
@@ -332,6 +334,7 @@ export function StartMenuElementInspector({
   buttonFunctions,
   selectedElementIds = [],
   fontSizeMax = 120,
+  strokeWidthMax = 24,
   showDescriptions,
   onUpdate,
   onAlignSelected,
@@ -602,8 +605,8 @@ export function StartMenuElementInspector({
             label={inspectorCopy.zIndex}
             value={element.zIndex ?? 0}
             min={-100}
-            max={100}
-            onChange={(zIndex) => onUpdate({ zIndex })}
+            max={9999}
+            onChange={(zIndex) => onUpdate({ zIndex: Math.min(9999, zIndex) })}
           />
         }
       >
@@ -1329,7 +1332,7 @@ export function StartMenuElementInspector({
             description={showDescriptions ? text.field.strokeWidth : undefined}
             value={strokeWidth}
             min={0}
-            max={24}
+            max={strokeWidthMax}
             step={0.5}
             onChange={(value) =>
               onUpdate(strokeIsText ? { textStrokeWidth: value } : { borderWidth: value })

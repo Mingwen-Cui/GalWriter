@@ -17,7 +17,7 @@
     {
       "id": "template-cover1-1",
       "kind": "image",
-      "imageUrl": "/cover-templates/cover1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8815%E6%97%A5%2022_20_57%20(1).png",
+      "imageUrl": "/cover-templates/cover1/cover1-layer-01.png",
       "visible": true,
       "x": 0.08244274463467403,
       "y": 0,
@@ -34,7 +34,7 @@
     {
       "id": "template-cover1-2",
       "kind": "image",
-      "imageUrl": "/cover-templates/cover1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8815%E6%97%A5%2022_20_57%20(2).png",
+      "imageUrl": "/cover-templates/cover1/cover1-layer-02.png",
       "visible": true,
       "x": 50.78319097877267,
       "y": 3.2243200827837324,
@@ -51,7 +51,7 @@
     {
       "id": "template-cover1-3",
       "kind": "image",
-      "imageUrl": "/cover-templates/cover1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8815%E6%97%A5%2022_21_00%20(10).png",
+      "imageUrl": "/cover-templates/cover1/cover1-layer-03.png",
       "visible": true,
       "x": 14.097282891526618,
       "y": 10.259226489506052,
@@ -68,7 +68,7 @@
     {
       "id": "template-cover1-4",
       "kind": "image",
-      "imageUrl": "/cover-templates/cover1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8815%E6%97%A5%2023_05_11%20(1).png",
+      "imageUrl": "/cover-templates/cover1/cover1-layer-04.png",
       "visible": true,
       "x": 1.4014813730192675,
       "y": 1.6121868774044965,
@@ -85,7 +85,7 @@
     {
       "id": "template-cover1-5",
       "kind": "image",
-      "imageUrl": "/cover-templates/cover1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8815%E6%97%A5%2023_05_12%20(2).png",
+      "imageUrl": "/cover-templates/cover1/cover1-layer-05.png",
       "visible": true,
       "x": 77.41137857809476,
       "y": 2.1984195735435557,
@@ -102,7 +102,7 @@
     {
       "id": "template-cover1-6",
       "kind": "image",
-      "imageUrl": "/cover-templates/cover1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8815%E6%97%A5%2023_05_14%20(7).png",
+      "imageUrl": "/cover-templates/cover1/cover1-layer-06.png",
       "visible": true,
       "x": -0.2473244600898374,
       "y": 76.94420873480009,

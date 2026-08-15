@@ -341,7 +341,11 @@ export function VideoRenderModal({
   );
   const [videoCover, setVideoCover] = useState<VideoCoverSettings | null>(() =>
     persistedWorkspace?.videoCover
-      ? { ...DEFAULT_VIDEO_COVER, ...persistedWorkspace.videoCover, elements: persistedWorkspace.videoCover.elements }
+      ? {
+          ...DEFAULT_VIDEO_COVER,
+          ...persistedWorkspace.videoCover,
+          elements: persistedWorkspace.videoCover.elements,
+        }
       : null,
   );
   const [isVideoCoverEditorOpen, setIsVideoCoverEditorOpen] = useState(false);
@@ -353,13 +357,33 @@ export function VideoRenderModal({
           title: '',
           elements: [
             {
-              id: 'cover-title', kind: 'text', text: defaultWebProjectName, visible: true,
-              x: 16, y: 52, width: 68, height: 14, rotation: 0, opacity: 100,
-              fontSize: 72, fontWeight: 900, textAlign: 'center', textColor: '#ffffff',
+              id: 'cover-title',
+              kind: 'text',
+              text: '请选择你的封面',
+              visible: true,
+              x: 16,
+              y: 52,
+              width: 68,
+              height: 14,
+              rotation: 0,
+              opacity: 100,
+              fontSize: 72,
+              fontWeight: 900,
+              textAlign: 'center',
+              textColor: '#ffffff',
             },
             {
-              id: 'cover-logo', kind: 'image', imageUrl: '/glass.png', visible: true,
-              x: 92, y: 88, width: 5, height: 8.8, rotation: 0, opacity: 94, objectFit: 'contain',
+              id: 'cover-logo',
+              kind: 'image',
+              imageUrl: '/glass.png',
+              visible: true,
+              x: 92,
+              y: 88,
+              width: 5,
+              height: 8.8,
+              rotation: 0,
+              opacity: 94,
+              objectFit: 'contain',
             },
           ],
           logoInitialized: true,
