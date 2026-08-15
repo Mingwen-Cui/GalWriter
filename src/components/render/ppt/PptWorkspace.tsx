@@ -223,9 +223,20 @@ export function PptWorkspace({
     [pptSettings.branchMode, pptSettings.includeCover, projectName, scenes],
   );
   const manualSlides = pptSettings.manualSlides || [];
+  const hiddenSlideIds = pptSettings.hiddenSlideIds || [];
+  const deletedSlideIds = pptSettings.deletedSlideIds || [];
   const slides = useMemo(
-    () => composePptSlides(generatedSlides, manualSlides, pptSettings.slideOrder),
-    [generatedSlides, manualSlides, pptSettings.slideOrder],
+    () =>
+      composePptSlides(generatedSlides, manualSlides, pptSettings.slideOrder).filter(
+        (slide) =>
+          !deletedSlideIds.includes(slide.id) &&
+          !(slide.kind === 'choice' && slide.sceneId && deletedSlideIds.includes(slide.sceneId)),
+      ),
+    [deletedSlideIds, generatedSlides, manualSlides, pptSettings.slideOrder],
+  );
+  const playbackSlides = useMemo(
+    () => slides.filter((slide) => !hiddenSlideIds.includes(slide.id)),
+    [hiddenSlideIds, slides],
   );
   const [selectedId, setSelectedId] = useState(() => slides[0]?.id || 'cover');
   const [selectedObject, setSelectedObject] = useState<Selection | null>(null);
@@ -239,15 +250,16 @@ export function PptWorkspace({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewRunId, setPreviewRunId] = useState(0);
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
+  const [slideClipboard, setSlideClipboard] = useState<PptManualSlide>();
   const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
   const stageViewportRef = useRef<HTMLElement>(null);
   const previewTimerRef = useRef<number | null>(null);
   const previewFrameRef = useRef<number | null>(null);
   const stageWheelAtRef = useRef(0);
-  const selectedIndex = Math.max(
+  const playbackIndex = Math.max(
     0,
-    slides.findIndex((slide) => slide.id === selectedId),
+    playbackSlides.findIndex((slide) => slide.id === selectedId),
   );
   const activeSlide = slides.find((slide) => slide.id === selectedId);
   const manualSlide = activeSlide?.manualSlideId
@@ -338,6 +350,150 @@ export function PptWorkspace({
     selectSlide(slide.id);
     return slide;
   };
+  const createClipboardSlide = (sourceId: string) => {
+    const source = slides.find((slide) => slide.id === sourceId);
+    if (!source) return undefined;
+    const sourceManual = source.manualSlideId
+      ? manualSlides.find((slide) => slide.id === source.manualSlideId)
+      : undefined;
+    if (sourceManual) return duplicateManualSlide(sourceManual, sourceManual.title);
+
+    const copied = createManualSlide(source.title);
+    const copiedElements = slideElements[source.id] || [];
+    if (source.kind === 'cover') {
+      copied.backgroundColor = webSettings.startMenuBackgroundColor || '#020617';
+      copied.elements = [
+        ...(webSettings.startMenuBackgroundImageUrl
+          ? [
+              {
+                ...createManualImage(webSettings.startMenuBackgroundImageUrl),
+                x: 0,
+                y: 0,
+                width: PPT_CONTENT_WIDTH,
+                height: PPT_CONTENT_HEIGHT,
+              },
+            ]
+          : []),
+        {
+          ...createManualText(
+            textOverrides.cover?.['cover-title'] ?? (projectName || copy.untitled),
+          ),
+          x: 480,
+          y: 390,
+          width: 960,
+          height: 130,
+          fontSize: 72,
+        },
+        {
+          ...createManualText(textOverrides.cover?.['cover-subtitle'] ?? copy.generatedBy),
+          x: 600,
+          y: 545,
+          width: 720,
+          height: 56,
+          fontSize: 28,
+          bold: false,
+        },
+        ...copiedElements,
+      ];
+    } else {
+      const sourceScene = source.sceneId
+        ? scenes.find((scene) => scene.id === source.sceneId)
+        : undefined;
+      copied.backgroundColor = colors.background;
+      copied.elements = [
+        ...(sourceScene?.backgroundUrl
+          ? [
+              {
+                ...createManualImage(sourceScene.backgroundUrl),
+                x: 0,
+                y: 0,
+                width: PPT_CONTENT_WIDTH,
+                height: PPT_CONTENT_HEIGHT,
+              },
+            ]
+          : []),
+        ...(source.kind === 'choice'
+          ? [
+              {
+                ...createManualText('你的选择是？'),
+                x: 300,
+                y: 160,
+                width: 1320,
+                height: 110,
+              },
+              ...(sourceScene?.choices || []).map((choice, index) => ({
+                ...createManualText(choice.label),
+                y: 380 + index * 130,
+                width: 1200,
+                x: 360,
+                height: 82,
+                fontSize: 34,
+                bold: true,
+              })),
+            ]
+          : [
+              {
+                ...createManualText(
+                  textOverrides[source.id]?.['dialog-title'] ?? sourceScene?.title ?? source.title,
+                ),
+                x: 220,
+                y: 700,
+                width: 1480,
+                height: 100,
+                fontSize: 46,
+              },
+              {
+                ...createManualText(
+                  textOverrides[source.id]?.['dialog-body'] ?? sourceScene?.text ?? '',
+                ),
+                x: 220,
+                y: 820,
+                width: 1480,
+                height: 180,
+                fontSize: 32,
+                bold: false,
+                align: 'left',
+              },
+            ]),
+        ...copiedElements,
+      ];
+    }
+    return duplicateManualSlide(copied, `${source.title} · ${copy.duplicateSlide}`);
+  };
+  const copySlide = (sourceId: string) => {
+    const copied = createClipboardSlide(sourceId);
+    if (copied) setSlideClipboard(copied);
+  };
+  const pasteSlide = (afterId: string) => {
+    if (!slideClipboard) return;
+    addManualSlide(duplicateManualSlide(slideClipboard, slideClipboard.title), afterId);
+  };
+  const deleteSlide = (slideId: string) => {
+    const index = slides.findIndex((slide) => slide.id === slideId);
+    const source = slides[index];
+    if (!source) return;
+    const nextSlide = slides[index + 1] || slides[index - 1];
+    if (source.manualSlideId) {
+      updatePptSettings({
+        manualSlides: manualSlides.filter((slide) => slide.id !== source.manualSlideId),
+        slideOrder: (pptSettings.slideOrder || []).filter((id) => id !== source.id),
+        hiddenSlideIds: hiddenSlideIds.filter((id) => id !== source.id),
+      });
+    } else {
+      updatePptSettings({
+        deletedSlideIds: [...new Set([...deletedSlideIds, source.id])],
+        hiddenSlideIds: hiddenSlideIds.filter((id) => id !== source.id),
+      });
+    }
+    if (nextSlide) selectSlide(nextSlide.id);
+  };
+  const toggleSlideHidden = (slideId: string) => {
+    updatePptSettings({
+      hiddenSlideIds: hiddenSlideIds.includes(slideId)
+        ? hiddenSlideIds.filter((id) => id !== slideId)
+        : [...hiddenSlideIds, slideId],
+    });
+  };
   const appendManualElement = (element: PptManualElement) => {
     if (manualSlide) {
       saveManualSlides(
@@ -418,8 +574,21 @@ export function PptWorkspace({
       selectSlide(slides[Math.max(0, Math.min(slides.length - 1, index))]?.id || 'cover'),
     [selectSlide, slides],
   );
-  const next = useCallback(() => selectIndex(selectedIndex + 1), [selectIndex, selectedIndex]);
-  const previous = useCallback(() => selectIndex(selectedIndex - 1), [selectIndex, selectedIndex]);
+  const selectPlaybackIndex = useCallback(
+    (index: number) =>
+      selectSlide(
+        playbackSlides[Math.max(0, Math.min(playbackSlides.length - 1, index))]?.id || selectedId,
+      ),
+    [playbackSlides, selectSlide, selectedId],
+  );
+  const next = useCallback(
+    () => selectPlaybackIndex(playbackIndex + 1),
+    [playbackIndex, selectPlaybackIndex],
+  );
+  const previous = useCallback(
+    () => selectPlaybackIndex(playbackIndex - 1),
+    [playbackIndex, selectPlaybackIndex],
+  );
   const goToScene = useCallback(
     (sceneId: string) => {
       const index = slides.findIndex(
@@ -605,7 +774,11 @@ export function PptWorkspace({
     setTimelinePlayheadMs(milliseconds);
   };
   const playFromStart = () => {
-    selectIndex(0);
+    selectPlaybackIndex(0);
+    setIsPlaying(true);
+  };
+  const playFromSlide = (slideId: string) => {
+    selectSlide(slideId);
     setIsPlaying(true);
   };
   const closePlayer = async () => {
@@ -737,9 +910,17 @@ export function PptWorkspace({
               textOverrides={textOverrides}
               textBoxLayouts={textBoxLayouts}
               slideElements={slideElements}
+              hiddenSlideIds={hiddenSlideIds}
               layout={pptSettings.layout}
               manualSlides={manualSlides}
               onSelect={selectSlide}
+              onPlayCurrent={playFromSlide}
+              onDeleteSlide={deleteSlide}
+              onToggleSlideHidden={toggleSlideHidden}
+              onCopySlide={copySlide}
+              onPasteSlide={pasteSlide}
+              onNewSlide={(afterId) => addManualSlide(createManualSlide(copy.newSlide), afterId)}
+              canPasteSlide={Boolean(slideClipboard)}
             />
           ) : null}
           <section
@@ -892,8 +1073,8 @@ export function PptWorkspace({
             animations={currentAnimations}
             transition={currentTransition}
             layout={pptSettings.layout}
-            selectedIndex={selectedIndex}
-            total={slides.length}
+            selectedIndex={playbackIndex}
+            total={playbackSlides.length}
             onNext={next}
             onPrevious={previous}
             onClose={closePlayer}
@@ -1270,7 +1451,7 @@ function PptCoverTextBox({
       role="button"
       tabIndex={0}
       aria-label={`选择${label}`}
-      className={`ppt-selectable absolute z-20 ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab' : ''}`}
+      className={`ppt-selectable absolute z-20 ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
       style={{
         left: `${(layout.x / PPT_CONTENT_WIDTH) * 100}%`,
         top: `${(layout.y / PPT_CONTENT_HEIGHT) * 100}%`,
@@ -1293,7 +1474,7 @@ function PptCoverTextBox({
           ref={textEditorRef}
           contentEditable
           suppressContentEditableWarning
-          className={`grid h-full w-full place-items-center whitespace-pre-wrap text-center outline-none ${textClass}`}
+          className={`grid h-full w-full cursor-text place-items-center whitespace-pre-wrap text-center outline-none ${textClass}`}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
           onInput={(event) => setDraftText(event.currentTarget.innerText)}
@@ -1874,7 +2055,7 @@ function PptEditableObject({
       }}
       onPointerDown={beginDrag}
       onDoubleClick={beginTextEdit}
-      className={`ppt-selectable ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab' : ''} ${className}`}
+      className={`ppt-selectable ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab active:cursor-grabbing' : ''} ${className}`}
       style={{
         ...style,
         ...previewStyle(animation, previewing, previewAtMs),
@@ -1886,7 +2067,7 @@ function PptEditableObject({
           ref={textEditorRef}
           contentEditable
           suppressContentEditableWarning
-          className="h-full w-full whitespace-pre-wrap outline-none"
+          className="h-full w-full cursor-text whitespace-pre-wrap outline-none"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
           onInput={(event) => setDraftText(event.currentTarget.innerText)}

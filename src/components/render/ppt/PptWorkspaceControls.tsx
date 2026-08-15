@@ -1,5 +1,16 @@
-import { Eye, MousePointer2, Presentation, Sparkles } from 'lucide-react';
-import type { ReactNode } from 'react';
+import {
+  ClipboardPaste,
+  Copy,
+  Eye,
+  EyeOff,
+  FilePlus2,
+  MousePointer2,
+  Play,
+  Presentation,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
+import { type MouseEvent, type ReactNode, useEffect, useState } from 'react';
 
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import type {
@@ -463,7 +474,15 @@ export function SlideList({
   textOverrides,
   textBoxLayouts,
   slideElements,
+  hiddenSlideIds,
   onSelect,
+  onPlayCurrent,
+  onDeleteSlide,
+  onToggleSlideHidden,
+  onCopySlide,
+  onPasteSlide,
+  onNewSlide,
+  canPasteSlide,
   layout,
   manualSlides,
 }: {
@@ -479,10 +498,48 @@ export function SlideList({
   textOverrides: PptTextOverrides;
   textBoxLayouts: PptTextBoxLayouts;
   slideElements: PptSlideElements;
+  hiddenSlideIds: string[];
   onSelect: (id: string) => void;
+  onPlayCurrent: (id: string) => void;
+  onDeleteSlide: (id: string) => void;
+  onToggleSlideHidden: (id: string) => void;
+  onCopySlide: (id: string) => void;
+  onPasteSlide: (afterId: string) => void;
+  onNewSlide: (afterId: string) => void;
+  canPasteSlide: boolean;
   layout: PptCanvasLayout;
   manualSlides: PptManualSlide[];
 }) {
+  const copy = usePptCopy();
+  const [contextMenu, setContextMenu] = useState<{
+    slide: SlideItem;
+    x: number;
+    y: number;
+  }>();
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(undefined);
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [contextMenu]);
+  const openContextMenu = (event: MouseEvent<HTMLDivElement>, slide: SlideItem) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect(slide.id);
+    setContextMenu({
+      slide,
+      x: Math.min(event.clientX, window.innerWidth - 196),
+      y: Math.min(event.clientY, window.innerHeight - 290),
+    });
+  };
+  const runContextAction = (action: () => void) => {
+    action();
+    setContextMenu(undefined);
+  };
   return (
     <aside className="w-64 shrink-0 overflow-y-auto border-r border-[var(--vr-border)] bg-[var(--vr-surface-strong)] p-3">
       <div className="mb-3 flex items-center gap-2 px-1 text-xs font-black text-[var(--vr-text)]">
@@ -491,11 +548,16 @@ export function SlideList({
       </div>
       <div className="space-y-3">
         {slides.map((slide, index) => (
-          <div key={slide.id} className="flex items-start gap-2">
+          <div
+            key={slide.id}
+            className={`flex items-start gap-2 ${hiddenSlideIds.includes(slide.id) ? 'opacity-45' : ''}`}
+            onContextMenu={(event) => openContextMenu(event, slide)}
+          >
             <div
               className={`flex w-4 shrink-0 flex-col items-center gap-1 pt-0.5 text-sm leading-none ${selectedId === slide.id ? 'text-[var(--vr-accent-strong)]' : 'text-[var(--vr-text-muted)]'}`}
             >
               <span>{index + 1}</span>
+              {hiddenSlideIds.includes(slide.id) ? <EyeOff className="h-3.5 w-3.5" /> : null}
               <SlideTransitionIndicator transition={transitions[slide.id]} />
             </div>
             <button
@@ -527,7 +589,82 @@ export function SlideList({
           </div>
         ))}
       </div>
+      {contextMenu ? (
+        <div
+          role="menu"
+          aria-label={`${contextMenu.slide.title} 幻灯片菜单`}
+          className="fixed z-[1000] w-48 overflow-hidden rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] p-1 shadow-xl"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <SlideContextAction
+            icon={Play}
+            label={copy.playFromCurrent}
+            onClick={() => runContextAction(() => onPlayCurrent(contextMenu.slide.id))}
+          />
+          <SlideContextAction
+            icon={hiddenSlideIds.includes(contextMenu.slide.id) ? Eye : EyeOff}
+            label={hiddenSlideIds.includes(contextMenu.slide.id) ? copy.showSlide : copy.hideSlide}
+            onClick={() => runContextAction(() => onToggleSlideHidden(contextMenu.slide.id))}
+          />
+          <SlideContextAction
+            icon={Copy}
+            label={copy.copySlide}
+            onClick={() => runContextAction(() => onCopySlide(contextMenu.slide.id))}
+          />
+          <SlideContextAction
+            icon={ClipboardPaste}
+            label={copy.pasteSlide}
+            disabled={!canPasteSlide}
+            onClick={() => runContextAction(() => onPasteSlide(contextMenu.slide.id))}
+          />
+          <SlideContextAction
+            icon={FilePlus2}
+            label={copy.newSlide}
+            onClick={() => runContextAction(() => onNewSlide(contextMenu.slide.id))}
+          />
+          <div className="my-1 border-t border-[var(--vr-border)]" />
+          <SlideContextAction
+            icon={Trash2}
+            label={copy.delete}
+            destructive
+            onClick={() => runContextAction(() => onDeleteSlide(contextMenu.slide.id))}
+          />
+        </div>
+      ) : null}
     </aside>
+  );
+}
+
+function SlideContextAction({
+  icon: Icon,
+  label,
+  onClick,
+  disabled = false,
+  destructive = false,
+}: {
+  icon: typeof Play;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-9 w-full items-center gap-2 rounded px-2.5 text-left text-xs font-bold transition ${
+        destructive
+          ? 'text-rose-600 hover:bg-rose-50 disabled:text-rose-300'
+          : 'text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)] disabled:text-[var(--vr-text-muted)]'
+      } disabled:cursor-not-allowed`}
+    >
+      <Icon className="h-4 w-4" />
+      <span>{label}</span>
+    </button>
   );
 }
 export function SlideSorter({

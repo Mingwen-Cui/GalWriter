@@ -708,6 +708,10 @@ export type PptExportSettings = {
   textBoxLayouts?: PptTextBoxLayouts;
   /** Elements inserted onto generated slides, instead of creating a separate manual slide. */
   slideElements?: PptSlideElements;
+  /** Slides skipped during workspace playback and exported as hidden PowerPoint slides. */
+  hiddenSlideIds?: string[];
+  /** Slides removed only from this PPT arrangement; the source story cards stay untouched. */
+  deletedSlideIds?: string[];
   /** User-created pages stay separate from story-generated slides and retain their own content. */
   manualSlides?: PptManualSlide[];
   /** A stable mixed sequence of generated and user-created slide ids. */

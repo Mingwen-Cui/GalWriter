@@ -23,7 +23,7 @@ export const assistantPanelJa = {
     storyOnlyPrompt:
       'この短編ドラマ用に、順番に進むストーリーカードだけを 6〜10 枚作成してください。確定した人物は「{characterName}」、シーンは「{sceneName}」です。既存の設定カードと関連付けられるよう、各ストーリーカードに両方の名前を自然に含めてください。人物カードとシーンカードは返さないでください。元の依頼：{request}',
     createCharacterPrompt:
-      'この短編ドラマ用に、主要人物の設定カードを 1 枚だけ作成してください。JSON のみを返してください：{"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}。ストーリーカードとシーンカードは返さないでください。依頼：{request}',
+      'この短編ドラマ用に、主要人物の設定カードを 1 枚だけ作成してください。JSON のみを返してください：{"cards":[{"type":"character","characterName":"...","gender":"male または female（内部プリセット専用）","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}。gender は内部プリセット専用で、人物テキストには書かないでください。ストーリーカードとシーンカードは返さないでください。依頼：{request}',
     createScenePrompt:
       'この短編ドラマと確定済みの主要人物「{characterName}」用に、中心となるシーン設定カードを 1 枚だけ作成してください。JSON のみを返してください：{"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}。人物カードとストーリーカードは返さないでください。依頼：{request}',
     useLibraryScene: 'ライブラリのシーンを使う：{name}',

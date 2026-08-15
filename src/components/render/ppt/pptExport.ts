@@ -140,7 +140,11 @@ export async function buildPptxBuffer({
     videoCache.set(url, video);
     return video;
   };
-  const manualSlides = pptSettings.manualSlides || [];
+  const deletedSlideIds = new Set(pptSettings.deletedSlideIds || []);
+  const hiddenSlideIds = new Set(pptSettings.hiddenSlideIds || []);
+  const manualSlides = (pptSettings.manualSlides || []).filter(
+    (slide) => !deletedSlideIds.has(slide.id),
+  );
   const automaticSlideIds = [
     ...(pptSettings.includeCover ? ['cover'] : []),
     ...scenes.flatMap((scene) => [
@@ -149,7 +153,11 @@ export async function buildPptxBuffer({
         ? [`choice:${scene.id}`]
         : []),
     ]),
-  ];
+  ].filter(
+    (id) =>
+      !deletedSlideIds.has(id) &&
+      !(id.startsWith('choice:') && deletedSlideIds.has(id.slice('choice:'.length))),
+  );
   const knownSlideIds = new Set([...automaticSlideIds, ...manualSlides.map((slide) => slide.id)]);
   const orderedSlideIds = [
     ...(pptSettings.slideOrder || []).filter((id) => knownSlideIds.has(id)),
@@ -163,7 +171,8 @@ export async function buildPptxBuffer({
   const animationTargets: PptAnimationExportTarget[] = [];
   const videoPlaybackTargets: PptVideoPlaybackTarget[] = [];
   scenes.forEach((scene) => {
-    slideByNodeId.set(scene.id, slideNumberById.get(scene.id) || 1);
+    const slideNumber = slideNumberById.get(scene.id);
+    if (slideNumber) slideByNodeId.set(scene.id, slideNumber);
   });
   const manualByAnchor = new Map<string, PptManualSlide[]>();
   const manualById = new Map(manualSlides.map((slide) => [slide.id, slide]));
@@ -236,6 +245,7 @@ export async function buildPptxBuffer({
   const addManualSlide = async (manual: PptManualSlide) => {
     const slide = pptx.addSlide();
     slide.background = { color: hex(manual.backgroundColor) };
+    slide.hidden = hiddenSlideIds.has(manual.id);
     await addSlideElements(slide, manual.elements);
   };
   const appendManualSlides = async (anchorId: string) => {
@@ -246,7 +256,7 @@ export async function buildPptxBuffer({
   };
   await appendManualSlides('__start__');
 
-  if (pptSettings.includeCover) {
+  if (pptSettings.includeCover && !deletedSlideIds.has('cover')) {
     const coverText = textOverrides.cover || {};
     const coverTitle = coverText['cover-title'] ?? projectName;
     const coverSubtitle = coverText['cover-subtitle'] ?? generatedBy;
@@ -260,6 +270,7 @@ export async function buildPptxBuffer({
     );
     const slide = pptx.addSlide();
     slide.background = { color: hex(settings.startMenuBackgroundColor || colors.background) };
+    slide.hidden = hiddenSlideIds.has('cover');
     const coverImage = await resolveImage(settings.startMenuBackgroundImageUrl);
     if (coverImage) {
       slide.addImage({ data: coverImage, ...fullContentFrame });
@@ -300,6 +311,7 @@ export async function buildPptxBuffer({
   }
 
   for (const scene of scenes) {
+    if (deletedSlideIds.has(scene.id)) continue;
     const sceneTextOverrides = textOverrides[scene.id] || {};
     const sceneTitle = sceneTextOverrides['dialog-title'] ?? scene.title;
     const sceneBody = sceneTextOverrides['dialog-body'] ?? scene.text;
@@ -307,6 +319,7 @@ export async function buildPptxBuffer({
       sceneTextOverrides.nameplate ??
       scene.characters.find((character) => character.name)?.name?.trim();
     const slide = pptx.addSlide();
+    slide.hidden = hiddenSlideIds.has(scene.id);
     const sceneSlideNumber = slideByNodeId.get(scene.id);
     const sceneAnimations = [
       ...resolvePptTagAnimations(scene),
@@ -663,10 +676,16 @@ export async function buildPptxBuffer({
 
     await appendManualSlides(scene.id);
 
-    if (pptSettings.branchMode === 'linear' || scene.choices.length < 2) continue;
+    if (
+      pptSettings.branchMode === 'linear' ||
+      scene.choices.length < 2 ||
+      deletedSlideIds.has(`choice:${scene.id}`)
+    )
+      continue;
 
     const choiceSlide = pptx.addSlide();
     choiceSlide.background = { color: hex(colors.background) };
+    choiceSlide.hidden = hiddenSlideIds.has(`choice:${scene.id}`);
     const choiceBackgroundImage = backgroundVideo
       ? (await toPptVideoLastFrameData(scene.backgroundVideoUrl)) || backgroundImage
       : backgroundImage;

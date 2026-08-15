@@ -214,7 +214,7 @@ export function PptManualElementLayer({
             key={element.id}
             role={editable ? 'button' : undefined}
             tabIndex={editable ? 0 : undefined}
-            className={`pointer-events-auto absolute ${editable ? 'cursor-move touch-none' : ''}`}
+            className={`pointer-events-auto absolute ${editable ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
             style={style}
             onPointerDown={(event) => beginMove(event, element)}
             onDoubleClick={(event) => beginTextEdit(event, element)}
@@ -236,7 +236,7 @@ export function PptManualElementLayer({
                   ref={textEditorRef}
                   contentEditable
                   suppressContentEditableWarning
-                  className="h-full w-full whitespace-pre-wrap outline-none"
+                  className="h-full w-full cursor-text whitespace-pre-wrap outline-none"
                   style={{
                     color: element.color,
                     fontFamily: element.fontFamily,
@@ -280,7 +280,7 @@ export function PptManualElementLayer({
                 ref={textEditorRef}
                 contentEditable
                 suppressContentEditableWarning
-                className={`h-full w-full rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black outline-none transition ${buttonClass(element.variant)}`}
+                className={`h-full w-full cursor-text rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black outline-none transition ${buttonClass(element.variant)}`}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
                 onInput={(event) => setDraftText(event.currentTarget.innerText)}
@@ -302,7 +302,7 @@ export function PptManualElementLayer({
               <button
                 type="button"
                 onClick={() => runButtonAction(element)}
-                className={`h-full w-full rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black transition ${buttonClass(element.variant)}`}
+                className={`h-full w-full rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black transition ${editable ? 'cursor-grab active:cursor-grabbing' : ''} ${buttonClass(element.variant)}`}
               >
                 {element.text}
               </button>

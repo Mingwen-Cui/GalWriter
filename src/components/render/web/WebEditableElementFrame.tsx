@@ -93,7 +93,12 @@ export function WebEditableElementFrame({
         <span
           tabIndex={-1}
           className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
-          style={{ cursor: 'grab', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          style={{
+            cursor: 'crosshair',
+            pointerEvents: 'auto',
+            touchAction: 'none',
+            zIndex: 2147483646,
+          }}
           onPointerDown={(event) => {
             event.stopPropagation();
             onRotatePointerDown(event);
@@ -108,7 +113,12 @@ export function WebEditableElementFrame({
         <span
           tabIndex={-1}
           className="pointer-events-auto absolute -right-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-indigo-600 text-white shadow-lg"
-          style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          style={{
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+            touchAction: 'none',
+            zIndex: 2147483646,
+          }}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onToggleVisible}
           aria-label={visible ? 'Hide' : 'Show'}
@@ -120,7 +130,12 @@ export function WebEditableElementFrame({
         <span
           tabIndex={-1}
           className={`pointer-events-auto absolute -right-10 top-[calc(50%-40px)] z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-white shadow-lg ${slotPreviewActive ? 'bg-indigo-600' : 'bg-slate-700'}`}
-          style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          style={{
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+            touchAction: 'none',
+            zIndex: 2147483646,
+          }}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onToggleSlotPreview}
           aria-label={slotPreviewActive ? 'Show empty archive' : 'Preview saved archive'}
@@ -133,7 +148,12 @@ export function WebEditableElementFrame({
         <span
           tabIndex={-1}
           className="pointer-events-auto absolute -right-10 top-[calc(50%+40px)] z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-rose-500 text-white shadow-lg"
-          style={{ pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          style={{
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+            touchAction: 'none',
+            zIndex: 2147483646,
+          }}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onDelete}
           aria-label="Delete"

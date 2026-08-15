@@ -2230,14 +2230,14 @@ ${numberLogicInstruction}
   "reply": "给用户看的中文回复，说明思路和你做了什么",
   "cards": [
     {"type": "story", "chapterTitle": "章节标题，可选；文章转 galgame 时必填", "title": "剧情卡片标题", "text": "剧情卡片正文"},
-    {"type": "character", "characterName": "人物名", "identity": "年龄、职业或身份", "appearance": "外表", "personality": "性格", "habits": "习惯", "speechStyle": "说话方式", "experience": "经历", "relationships": "关系", "notes": "补充"},
+    {"type": "character", "characterName": "人物名", "gender": "male 或 female，仅用于内部人物预设", "identity": "年龄、职业或身份", "appearance": "外表", "personality": "性格", "habits": "习惯", "speechStyle": "说话方式", "experience": "经历", "relationships": "关系", "notes": "补充"},
     {"type": "scene", "sceneName": "场景名", "location": "地点", "time": "时间", "weather": "天气", "visual": "画面", "sound": "声音", "items": "物件", "notes": "补充"}
   ],
   "mode": "append" 或 "fill-selected"
 }
 
 当用户只是咨询建议时，cards 返回空数组。用户要求添加人物/角色设定时返回 type=character；要求添加场景/地点设定时返回 type=scene；要求修改选中的人物或场景设定时返回 mode=fill-selected，并只返回对应类型的字段。剧情卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
-字段质量要求：character 的 identity/appearance/personality/habits/speechStyle/experience/relationships/notes 都是人物本身的信息，每项只写一两句简短内容；不要在人物卡里加入剧情发展、场景事件、目标或冲突。scene 的 location/time/weather/visual/sound/items/notes 都只描述地点本身，每项只写一两句具体内容；不要在场景卡里加入人物、剧情、事件、目标或冲突。单张 story 的 text 保持短而可演出，通常 20 到 80 个中文字符，优先写一个角色的一句或一小组连续台词，同时自然带上当前场景名；尽量避免动作描写、神态描写和环境描写，只有在承接关系必须交代时才写极短的动作节拍；story text 不要以括号开头，不要包含“@人物：”、冒号台词或引号台词；多张 story 连起来组成完整场景，整体以对话推进为主。
+字段质量要求：character 必须提供 gender，值只能是 male 或 female；它只用于内部人物预设，不要把性别写进 identity、appearance 等可见字段。identity/appearance/personality/habits/speechStyle/experience/relationships/notes 都是人物本身的信息，每项只写一两句简短内容；不要在人物卡里加入剧情发展、场景事件、目标或冲突。scene 的 location/time/weather/visual/sound/items/notes 都只描述地点本身，每项只写一两句具体内容；不要在场景卡里加入人物、剧情、事件、目标或冲突。单张 story 的 text 保持短而可演出，通常 20 到 80 个中文字符，优先写一个角色的一句或一小组连续台词，同时自然带上当前场景名；尽量避免动作描写、神态描写和环境描写，只有在承接关系必须交代时才写极短的动作节拍；story text 不要以括号开头，不要包含“@人物：”、冒号台词或引号台词；多张 story 连起来组成完整场景，整体以对话推进为主。
 如果用户请求里写了“回复格式：...”，reply 必须严格按该格式组织可见回复；cards 仍然按上面的 JSON 结构返回。
 
 用户偏好记忆 skill：

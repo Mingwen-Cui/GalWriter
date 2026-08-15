@@ -231,19 +231,24 @@ const normalizeCharacterCards = (content: string): AssistantCardDraft[] => {
       [];
     return rawCards
       .filter((card): card is Record<string, unknown> => Boolean(card) && typeof card === 'object')
-      .map((card) => ({
-        ...card,
-        type: 'character' as const,
-        characterName: String(card.characterName || card.name || card.title || '').trim(),
-        identity: String(card.identity || card.role || card.occupation || '').trim(),
-        appearance: String(card.appearance || card.look || '').trim(),
-        personality: String(card.personality || card.traits || '').trim(),
-        habits: String(card.habits || '').trim(),
-        speechStyle: String(card.speechStyle || card.speech || '').trim(),
-        experience: String(card.experience || card.backstory || '').trim(),
-        relationships: String(card.relationships || card.relationship || '').trim(),
-        notes: String(card.notes || card.description || '').trim(),
-      }))
+      .map((card): AssistantCardDraft => {
+        const gender: AssistantCardDraft['gender'] =
+          card.gender === 'male' ? 'male' : card.gender === 'female' ? 'female' : undefined;
+        return {
+          ...card,
+          type: 'character',
+          characterName: String(card.characterName || card.name || card.title || '').trim(),
+          gender,
+          identity: String(card.identity || card.role || card.occupation || '').trim(),
+          appearance: String(card.appearance || card.look || '').trim(),
+          personality: String(card.personality || card.traits || '').trim(),
+          habits: String(card.habits || '').trim(),
+          speechStyle: String(card.speechStyle || card.speech || '').trim(),
+          experience: String(card.experience || card.backstory || '').trim(),
+          relationships: String(card.relationships || card.relationship || '').trim(),
+          notes: String(card.notes || card.description || '').trim(),
+        };
+      })
       .filter((card) => Boolean(card.characterName));
   } catch {
     return [];
@@ -257,6 +262,7 @@ const buildFallbackCharacterCards = (session: CreativeStorySession): AssistantCa
     {
       type: 'character',
       characterName: '林见星',
+      gender: 'female',
       identity: rolePreference,
       appearance: '干净利落，却总像在观察周围。',
       personality: '克制、敏锐，愿意为重要的人冒险。',
@@ -268,6 +274,7 @@ const buildFallbackCharacterCards = (session: CreativeStorySession): AssistantCa
     {
       type: 'character',
       characterName: '顾遥',
+      gender: 'male',
       identity: '看似可靠的同行者',
       appearance: '气质沉静，笑起来让人难以判断真心。',
       personality: '温和、坚定，也擅长隐瞒。',
@@ -279,6 +286,7 @@ const buildFallbackCharacterCards = (session: CreativeStorySession): AssistantCa
     {
       type: 'character',
       characterName: '周弥',
+      gender: 'female',
       identity: '不请自来的知情人',
       appearance: '总是带着不合时宜的从容。',
       personality: '风趣、难以捉摸，却会在危险时出手。',
@@ -290,6 +298,7 @@ const buildFallbackCharacterCards = (session: CreativeStorySession): AssistantCa
     {
       type: 'character',
       characterName: '苏澈',
+      gender: 'male',
       identity: '立场不明的关键人物',
       appearance: '冷静克制，目光总停留在细节上。',
       personality: '理性、有原则，不轻易站队。',
@@ -912,8 +921,8 @@ export const createCreativeStorySessionHandlers = ({
       const prompt = `你是视觉小说的实时创作导演。题材是「${
         session.direction?.genre || session.background?.name || '未命名题材'
       }」，作者想扮演的角色类型是「${session.direction?.rolePreference || '由你提供有反差感的候选人'}」。角色细节强度为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。生成恰好 4 位彼此差异明显、适合互动故事的角色；四位都必须在核心行为上符合这四项五级调节，因此无论作者选中哪一位作为玩家，都能继续保持一致。至少一位要贴近作者想扮演的类型。用可观察的习惯、语言、关系边界和过去经历体现强度，避免只贴标签。只返回 JSON：
-{"cards":[{"type":"character","characterName":"","identity":"","appearance":"","personality":"","habits":"","speechStyle":"","experience":"","relationships":"","notes":""}]}
-不要返回剧情或场景卡。`;
+{"cards":[{"type":"character","characterName":"","gender":"male 或 female","identity":"","appearance":"","personality":"","habits":"","speechStyle":"","experience":"","relationships":"","notes":""}]}
+gender 仅用于内部人物预设的性别选择，不要把性别写进任何人物文字字段。不要返回剧情或场景卡。`;
       let cards: AssistantCardDraft[] = [];
       let usedFallback = false;
       try {

@@ -22,7 +22,7 @@ export const assistantPanelZh = {
     storyOnlyPrompt:
       '只为这个短剧生成 6 到 10 张按顺序推进的剧情卡。已确认的人物是“{characterName}”，场景是“{sceneName}”。每张剧情卡都要自然写到这两者，以便应用关联已有设定卡。不要返回人物或场景卡。原始请求：{request}',
     createCharacterPrompt:
-      '为这个短剧只创建一张主要人物设定卡。只返回 JSON：{"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}。不要返回剧情或场景卡。请求：{request}',
+      '为这个短剧只创建一张主要人物设定卡。只返回 JSON：{"cards":[{"type":"character","characterName":"...","gender":"male 或 female，仅用于内部人物预设","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}。gender 仅用于预设性别，不要写进人物文本。不要返回剧情或场景卡。请求：{request}',
     createScenePrompt:
       '为这个短剧及已确认的主要人物“{characterName}”只创建一张核心场景设定卡。只返回 JSON：{"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}。不要返回人物或剧情卡。请求：{request}',
     useLibraryScene: '使用库场景：{name}',

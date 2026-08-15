@@ -23,7 +23,7 @@ export const assistantPanelEn = {
     storyOnlyPrompt:
       'Create 6 to 10 sequential story cards only for this short drama. The confirmed character is "{characterName}" and the confirmed scene is "{sceneName}". Use both names naturally in each story card so the app can link the existing setting cards. Do not return character or scene cards. Original request: {request}',
     createCharacterPrompt:
-      'Create exactly one main character setting for this short drama. Return JSON only: {"cards":[{"type":"character","characterName":"...","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}. Do not return story or scene cards. Request: {request}',
+      'Create exactly one main character setting for this short drama. Return JSON only: {"cards":[{"type":"character","characterName":"...","gender":"male or female, internal preset only","identity":"...","appearance":"...","personality":"...","habits":"...","speechStyle":"...","experience":"...","relationships":"...","notes":"..."}]}. gender is only for the internal preset and must not be written into character text. Do not return story or scene cards. Request: {request}',
     createScenePrompt:
       'Create exactly one core scene setting for this short drama and its confirmed main character "{characterName}". Return JSON only: {"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}. Do not return character or story cards. Request: {request}',
     useLibraryScene: 'Use library scene: {name}',

@@ -21,6 +21,9 @@ export type AssistantCardDraft = {
   avatarUrl?: string;
   threeViewUrl?: string;
   tagSpriteUrl?: string;
+  /** Internal appearance hint for the modular preset; never rendered as card text. */
+  gender?: 'male' | 'female';
+  appearanceTemplate?: CharacterNodeData['appearanceTemplate'];
   outfits?: CharacterNodeData['outfits'];
   features?: string;
   background?: string;

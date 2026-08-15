@@ -21,6 +21,10 @@ import {
 } from '../../editor-features/assistant/useAssistantPanel';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
+import {
+  getCharacterAppearanceCatalog,
+  type CharacterAppearanceGender,
+} from '../../lib/characterAppearance';
 import type { Language } from '../../lib/i18n';
 import {
   applyAssistantStoryTags,
@@ -40,6 +44,84 @@ import {
 // ---------------------------------------------------------------------------
 // Params
 // ---------------------------------------------------------------------------
+
+type CharacterAppearanceTemplate = NonNullable<CharacterNodeData['appearanceTemplate']>;
+
+const hashAssistantAppearanceSeed = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const getAppearanceStyleKey = (template: CharacterAppearanceTemplate) =>
+  `${template.gender}:${template.hairId}:${template.outfitId}`;
+
+const normalizeAssistantAppearanceGender = (value: unknown): CharacterAppearanceGender | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'male' || normalized === 'man' || normalized === '男' || normalized === '男性') {
+    return 'male';
+  }
+  if (
+    normalized === 'female' ||
+    normalized === 'woman' ||
+    normalized === '女' ||
+    normalized === '女性'
+  ) {
+    return 'female';
+  }
+  return undefined;
+};
+
+/**
+ * AI often creates several characters in one request. Pick a deterministic
+ * preset for each card while reserving its hair/outfit pair, so same-gender
+ * characters do not arrive looking like copies of one another.
+ */
+const createDistinctAssistantAppearanceTemplate = (
+  nodeId: string,
+  usedStyleKeys: Set<string>,
+  preferredGender?: CharacterAppearanceGender,
+): CharacterAppearanceTemplate => {
+  const seed = hashAssistantAppearanceSeed(nodeId);
+  const gender = preferredGender || (seed % 2 === 0 ? 'female' : 'male');
+  const catalog = getCharacterAppearanceCatalog(gender);
+  const hairCount = Math.max(1, catalog.hairs.length);
+  const outfitCount = Math.max(1, catalog.outfits.length);
+  const styleCount = hairCount * outfitCount;
+
+  for (let attempt = 0; attempt < styleCount; attempt += 1) {
+    const styleIndex = (seed + attempt) % styleCount;
+    const hair = catalog.hairs[styleIndex % hairCount] || catalog.hairs[0];
+    const outfit = catalog.outfits[Math.floor(styleIndex / hairCount) % outfitCount] || catalog.outfits[0];
+    const face = catalog.faces[(Math.floor(seed / styleCount) + attempt) % catalog.faces.length] || catalog.faces[0];
+    const template = {
+      gender,
+      faceId: face?.id || '',
+      hairId: hair?.id || '',
+      outfitId: outfit?.id || '',
+    };
+    const styleKey = getAppearanceStyleKey(template);
+    if (!usedStyleKeys.has(styleKey)) {
+      usedStyleKeys.add(styleKey);
+      return template;
+    }
+  }
+
+  // A project can contain more same-gender cards than available style pairs.
+  // In that rare case, keep a deterministic fallback instead of failing card creation.
+  const template = {
+    gender,
+    faceId: catalog.faces[seed % Math.max(1, catalog.faces.length)]?.id || '',
+    hairId: catalog.hairs[seed % hairCount]?.id || '',
+    outfitId: catalog.outfits[Math.floor(seed / hairCount) % outfitCount]?.id || '',
+  };
+  usedStyleKeys.add(getAppearanceStyleKey(template));
+  return template;
+};
 
 interface UseAssistantSystemParams {
   nodes: Node[];
@@ -234,6 +316,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           avatarUrl: cleanText(card.avatarUrl) || undefined,
           threeViewUrl: cleanText(card.threeViewUrl) || undefined,
           tagSpriteUrl: cleanText(card.tagSpriteUrl) || undefined,
+          gender: normalizeAssistantAppearanceGender(card.gender),
+          appearanceTemplate: card.appearanceTemplate,
           outfits: Array.isArray(card.outfits) ? card.outfits.map((outfit) => ({ ...outfit })) : undefined,
           features: cleanText(card.features),
           background: cleanText(card.background),
@@ -338,6 +422,13 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         validCards.some((draft) => draft.type === 'story');
       const usedDraftIndexes = new Set<number>();
       const usedTargetIds = new Set<string>();
+      const usedFillAppearanceStyleKeys = new Set(
+        nodes.flatMap((node) => {
+          if (node.type !== 'characterNode') return [];
+          const template = (node.data as CharacterNodeData).appearanceTemplate;
+          return template ? [getAppearanceStyleKey(template)] : [];
+        }),
+      );
       let filledCount = 0;
 
       if (mode === 'fill-selected' && selectedFillTargets.length > 0) {
@@ -365,10 +456,25 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             filledCount += 1;
 
             if (compatibleType === 'character') {
+              const requestedGender = normalizeAssistantAppearanceGender(draft.gender);
+              const currentTemplate = (node.data as CharacterNodeData).appearanceTemplate;
+              const appearanceTemplate =
+                draft.appearanceTemplate ||
+                (requestedGender && currentTemplate?.gender !== requestedGender
+                  ? createDistinctAssistantAppearanceTemplate(
+                      node.id,
+                      usedFillAppearanceStyleKeys,
+                      requestedGender,
+                    )
+                  : currentTemplate);
+              if (appearanceTemplate) {
+                usedFillAppearanceStyleKeys.add(getAppearanceStyleKey(appearanceTemplate));
+              }
               return {
                 ...node,
                 data: {
                   ...node.data,
+                  ...(appearanceTemplate ? { appearanceTemplate } : {}),
                   characterName: draft.characterName || draft.title || node.data.characterName,
                   identity: draft.identity || node.data.identity || '',
                   appearance:
@@ -616,6 +722,13 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       };
 
       const cardIds = remainingCards.map(() => uuidv4());
+      const usedAppearanceStyleKeys = new Set(
+        nodes.flatMap((node) => {
+          if (node.type !== 'characterNode') return [];
+          const template = (node.data as CharacterNodeData).appearanceTemplate;
+          return template ? [getAppearanceStyleKey(template)] : [];
+        }),
+      );
       const existingMentionReferences = buildAssistantMentionReferencesFromNodes(nodes);
       const generatedMentionReferences: AssistantMentionReference[] = remainingCards
         .map((card, index): AssistantMentionReference | null => {
@@ -715,6 +828,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           };
         }
         if (card.type === 'character') {
+          const appearanceTemplate =
+            card.appearanceTemplate ||
+            createDistinctAssistantAppearanceTemplate(id, usedAppearanceStyleKeys, card.gender);
+          if (appearanceTemplate) usedAppearanceStyleKeys.add(getAppearanceStyleKey(appearanceTemplate));
           return {
             id,
             type: 'characterNode',
@@ -743,6 +860,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               // Let text-only AI characters immediately use a modular preset
               // portrait. A supplied AI avatar or tag sprite still wins.
               appearancePresetEnabled: !card.avatarUrl && !card.tagSpriteUrl,
+              appearanceTemplate,
               features: card.features || '',
               background: card.background || '',
               other: card.other || '',
@@ -2152,8 +2270,16 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     (nodeIds: string[] | undefined, cards: AssistantCardDraft[], completed = false) => {
       if (!nodeIds || nodeIds.length === 0 || cards.length === 0) return;
       const completionNonce = completed ? Date.now() : undefined;
-      setNodes((currentNodes) =>
-        currentNodes.map((node) => {
+      setNodes((currentNodes) => {
+        const usedAppearanceStyleKeys = new Set(
+          currentNodes.flatMap((node) => {
+            if (node.type !== 'characterNode') return [];
+            const template = (node.data as CharacterNodeData).appearanceTemplate;
+            return template ? [getAppearanceStyleKey(template)] : [];
+          }),
+        );
+
+        return currentNodes.map((node) => {
           const cardIndex = nodeIds.indexOf(node.id);
           if (cardIndex < 0) return node;
           const card = cards[cardIndex];
@@ -2161,10 +2287,21 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           const type = getAgentDraftType(card);
 
           if (node.type === 'characterNode' && type === 'character') {
+            const requestedGender = normalizeAssistantAppearanceGender(card.gender);
+            const currentTemplate = (node.data as CharacterNodeData).appearanceTemplate;
+            const appearanceTemplate =
+              requestedGender && currentTemplate?.gender !== requestedGender
+                ? createDistinctAssistantAppearanceTemplate(
+                    node.id,
+                    usedAppearanceStyleKeys,
+                    requestedGender,
+                  )
+                : currentTemplate;
             return {
               ...node,
               data: {
                 ...node.data,
+                ...(appearanceTemplate ? { appearanceTemplate } : {}),
                 characterName: card.characterName || card.title || node.data.characterName,
                 identity: card.identity || node.data.identity || '',
                 appearance:
@@ -2259,8 +2396,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               ...sceneMedia,
             },
           };
-        }),
-      );
+        });
+      });
 
       if (completed) {
         window.requestAnimationFrame(() => finalizeAssistantStoryHeights(nodeIds));

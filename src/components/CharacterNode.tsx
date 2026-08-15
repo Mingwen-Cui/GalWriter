@@ -286,8 +286,12 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const threeViewUrl = data.threeViewUrl;
   const tagSpriteUrl = data.tagSpriteUrl;
   const placeholderAvatarUrl = data.placeholderIdentityId || '';
-  const defaultAppearanceTemplate =
-    !data.appearanceTemplate && !avatarUrl ? createRandomAppearanceTemplate(id) : undefined;
+  // Keep gender/template state even when the modular portrait is disabled or
+  // a custom avatar is present. The gender selector is an independent choice
+  // that determines which preset will be used if the user enables it later.
+  const defaultAppearanceTemplate = !data.appearanceTemplate
+    ? createRandomAppearanceTemplate(id)
+    : undefined;
   const selectedAppearanceTemplate = data.appearanceTemplate || defaultAppearanceTemplate;
   const templateGender =
     selectedAppearanceTemplate?.gender === 'female' || selectedAppearanceTemplate?.gender === 'male'
@@ -606,7 +610,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   );
 
   useEffect(() => {
-    if (!data.appearanceTemplate && !avatarUrl && defaultAppearanceTemplate) {
+    if (!data.appearanceTemplate && defaultAppearanceTemplate) {
       updateNodeData({
         appearanceTemplate: defaultAppearanceTemplate,
         // AI-created cards can request a preset portrait up front. Keep that
@@ -614,7 +618,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         appearancePresetEnabled: data.appearancePresetEnabled ?? false,
       });
     }
-  }, [avatarUrl, data.appearancePresetEnabled, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
+  }, [data.appearancePresetEnabled, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
 
   useEffect(() => {
     if (typeof data.appearancePresetEnabled === 'boolean') {
@@ -1392,7 +1396,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                   />
                 </div>
                 <div className="nodrag mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-purple-600">
-                  {presetEnabled && templateGender && (
+                  {templateGender && (
                     <div
                       className="inline-flex h-5 overflow-hidden rounded border border-purple-200 bg-white/80 dark:border-purple-800 dark:bg-slate-900"
                       role="group"
