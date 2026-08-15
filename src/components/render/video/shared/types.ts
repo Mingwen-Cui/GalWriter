@@ -27,6 +27,24 @@ export type RenderWorkspaceLaunchIntent =
 export type VideoTextScaleMode = 'literal' | 'webRatio';
 export type VideoCoverSourceType = 'videoFrame' | 'image' | 'gradient';
 export type VideoCoverLogoPosition = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
+export type VideoCoverElement = {
+  id: string;
+  kind: 'text' | 'image';
+  text?: string;
+  imageUrl?: string;
+  visible: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+  fontSize?: number;
+  fontWeight?: number;
+  textAlign?: TextAlign;
+  textColor?: string;
+  objectFit?: 'cover' | 'contain';
+} & Partial<WebMenuElement>;
 export type VideoCoverSettings = {
   sourceType: VideoCoverSourceType;
   videoNodeId?: string;
@@ -44,6 +62,9 @@ export type VideoCoverSettings = {
   subtitleFontSize: number;
   textAlign: TextAlign;
   logoPosition: VideoCoverLogoPosition;
+  elements?: VideoCoverElement[];
+  logoInitialized?: boolean;
+  canvasSettings?: Partial<WebExportSettings>;
 };
 export type TimelineSegmentMetric = {
   node: FlowNode;

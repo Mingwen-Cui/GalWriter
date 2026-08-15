@@ -1,7 +1,7 @@
 import type { Node as FlowNode } from '@xyflow/react';
 
 import { loadCachedImage, loadVideo, seekVideo } from '../shared/mediaUtils';
-import type { VideoCoverSettings } from '../shared/types';
+import type { VideoCoverElement, VideoCoverSettings } from '../shared/types';
 
 export const DEFAULT_VIDEO_COVER: VideoCoverSettings = {
   sourceType: 'gradient',
@@ -18,6 +18,7 @@ export const DEFAULT_VIDEO_COVER: VideoCoverSettings = {
   subtitleFontSize: 30,
   textAlign: 'center',
   logoPosition: 'bottomRight',
+  elements: [],
 };
 
 const drawCoverImage = (
@@ -50,6 +51,15 @@ const wrapLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number
     if (line) lines.push(line);
   });
   return lines;
+};
+
+const colorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
+  const source = color || '#ffffff';
+  const match = source.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return source;
+  const safeAlpha = Math.max(0, Math.min(100, alpha ?? 100)) / 100;
+  const hex = match[1];
+  return `rgba(${Number.parseInt(hex.slice(0, 2), 16)}, ${Number.parseInt(hex.slice(2, 4), 16)}, ${Number.parseInt(hex.slice(4, 6), 16)}, ${safeAlpha})`;
 };
 
 const drawText = (
@@ -86,25 +96,64 @@ const drawText = (
   ctx.restore();
 };
 
-const drawLogo = async (
+const drawCoverElement = async (
   ctx: CanvasRenderingContext2D,
-  position: VideoCoverSettings['logoPosition'],
+  element: VideoCoverElement,
   width: number,
   height: number,
 ) => {
-  try {
-    const logo = await loadCachedImage('/glass.png');
-    const size = Math.max(28, height * 0.058);
-    const margin = Math.max(18, height * 0.032);
-    const x = position === 'topLeft' || position === 'bottomLeft' ? margin : width - margin - size;
-    const y = position === 'topLeft' || position === 'topRight' ? margin : height - margin - size;
-    ctx.save();
-    ctx.globalAlpha = 0.94;
-    ctx.drawImage(logo, x, y, size, size);
-    ctx.restore();
-  } catch {
-    // A cover remains usable when the bundled brand asset cannot be loaded.
+  if (!element.visible) return;
+  const x = (element.x / 100) * width;
+  const y = (element.y / 100) * height;
+  const elementWidth = Math.max(1, (element.width / 100) * width);
+  const elementHeight = Math.max(1, (element.height / 100) * height);
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, element.opacity / 100));
+  ctx.translate(x + elementWidth / 2, y + elementHeight / 2);
+  ctx.rotate((element.rotation * Math.PI) / 180);
+  ctx.translate(-elementWidth / 2, -elementHeight / 2);
+  if (element.kind === 'image' && element.imageUrl) {
+    try {
+      const image = await loadCachedImage(element.imageUrl);
+      if (element.objectFit === 'contain') {
+        const scale = Math.min(elementWidth / image.naturalWidth, elementHeight / image.naturalHeight);
+        const drawWidth = image.naturalWidth * scale;
+        const drawHeight = image.naturalHeight * scale;
+        ctx.drawImage(
+          image,
+          (elementWidth - drawWidth) / 2,
+          (elementHeight - drawHeight) / 2,
+          drawWidth,
+          drawHeight,
+        );
+      } else {
+        drawCoverImage(ctx, image, image.naturalWidth, image.naturalHeight, elementWidth, elementHeight);
+      }
+    } catch {
+      // A missing asset should not stop the rest of the cover from exporting.
+    }
   }
+  if (element.kind === 'text' && element.textVisible !== false && element.text?.trim()) {
+    const fontSize = Math.max(14, ((element.fontSize || 54) / 1080) * height);
+    const textAlign = element.textAlign || 'center';
+    const textX = textAlign === 'left' ? 0 : textAlign === 'right' ? elementWidth : elementWidth / 2;
+    ctx.font = `${element.fontWeight || 800} ${fontSize}px ${element.fontFamily || '"Noto Sans SC", "Microsoft YaHei", sans-serif'}`;
+    ctx.textAlign = textAlign;
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(1, fontSize * 0.07);
+    ctx.strokeStyle = 'rgba(2, 6, 23, 0.62)';
+    ctx.fillStyle = colorWithAlpha(element.textColor, element.textColorAlpha);
+    const lineHeight = fontSize * (element.lineHeight || 1.28);
+    const lines = wrapLines(ctx, element.text, elementWidth).slice(0, 5);
+    const firstY = elementHeight / 2 - ((lines.length - 1) * lineHeight) / 2;
+    lines.forEach((line, index) => {
+      const lineY = firstY + index * lineHeight;
+      ctx.strokeText(line, textX, lineY);
+      ctx.fillText(line, textX, lineY);
+    });
+  }
+  ctx.restore();
 };
 
 export const renderVideoCoverCanvas = async ({
@@ -113,12 +162,14 @@ export const renderVideoCoverCanvas = async ({
   width,
   height,
   canvas = document.createElement('canvas'),
+  includeElements = true,
 }: {
   settings: VideoCoverSettings;
   nodes: FlowNode[];
   width: number;
   height: number;
   canvas?: HTMLCanvasElement;
+  includeElements?: boolean;
 }) => {
   canvas.width = width;
   canvas.height = height;
@@ -179,7 +230,11 @@ export const renderVideoCoverCanvas = async ({
     height,
     600,
   );
-  await drawLogo(ctx, settings.logoPosition, width, height);
+  if (includeElements) {
+    for (const element of settings.elements || []) {
+      await drawCoverElement(ctx, element, width, height);
+    }
+  }
   return canvas;
 };
 

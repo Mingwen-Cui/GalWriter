@@ -341,10 +341,32 @@ export function VideoRenderModal({
   );
   const [videoCover, setVideoCover] = useState<VideoCoverSettings | null>(() =>
     persistedWorkspace?.videoCover
-      ? { ...DEFAULT_VIDEO_COVER, ...persistedWorkspace.videoCover }
+      ? { ...DEFAULT_VIDEO_COVER, ...persistedWorkspace.videoCover, elements: persistedWorkspace.videoCover.elements }
       : null,
   );
   const [isVideoCoverEditorOpen, setIsVideoCoverEditorOpen] = useState(false);
+  const openVideoCoverEditor = () => {
+    setVideoCover(
+      (current) =>
+        current || {
+          ...DEFAULT_VIDEO_COVER,
+          title: '',
+          elements: [
+            {
+              id: 'cover-title', kind: 'text', text: defaultWebProjectName, visible: true,
+              x: 16, y: 52, width: 68, height: 14, rotation: 0, opacity: 100,
+              fontSize: 72, fontWeight: 900, textAlign: 'center', textColor: '#ffffff',
+            },
+            {
+              id: 'cover-logo', kind: 'image', imageUrl: '/glass.png', visible: true,
+              x: 92, y: 88, width: 5, height: 8.8, rotation: 0, opacity: 94, objectFit: 'contain',
+            },
+          ],
+          logoInitialized: true,
+        },
+    );
+    setIsVideoCoverEditorOpen(true);
+  };
   const [videoCanvasSelected, setVideoCanvasSelected] = useState(true);
   const [outputDir, setOutputDir] = useState(() => persistedWorkspace?.outputDir || '');
   const [webOutputDir, setWebOutputDir] = useState(() => persistedWorkspace?.webOutputDir || '');
@@ -1928,6 +1950,12 @@ export function VideoRenderModal({
       exportOrderIds: interactiveExportOrderIds,
       outputDir,
       frameRate,
+      videoCover,
+      coverNodes: [...nodes, ...uploadedAssetNodes],
+      coverResolution: {
+        width: videoCover?.canvasSettings?.canvasWidth || resolution.width,
+        height: videoCover?.canvasSettings?.canvasHeight || resolution.height,
+      },
       renderVideo,
       setStatus,
       setError,
@@ -2368,6 +2396,8 @@ export function VideoRenderModal({
                 onSelectSegment={setActiveInteractiveSegmentId}
                 onSegmentsChange={setInteractiveSegments}
                 onRescan={rescanInteractiveSegments}
+                hasVideoCover={Boolean(videoCover)}
+                onOpenVideoCover={openVideoCoverEditor}
                 setExportFormat={setExportFormat}
                 setFrameRate={setFrameRate}
                 setResolutionIndex={setResolutionIndex}
@@ -2607,16 +2637,7 @@ export function VideoRenderModal({
                   setTimelineStartById={setTimelineStartById}
                   setTimelineDurationById={setTimelineDurationById}
                   hasVideoCover={Boolean(videoCover)}
-                  onOpenVideoCover={() => {
-                    setVideoCover(
-                      (current) =>
-                        current || {
-                          ...DEFAULT_VIDEO_COVER,
-                          title: defaultWebProjectName,
-                        },
-                    );
-                    setIsVideoCoverEditorOpen(true);
-                  }}
+                  onOpenVideoCover={openVideoCoverEditor}
                 />
               </>
             )

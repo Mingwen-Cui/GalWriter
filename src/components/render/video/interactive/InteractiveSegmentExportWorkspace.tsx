@@ -1,4 +1,3 @@
-import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   ArrowDown,
@@ -9,6 +8,7 @@ import {
   ChevronRight,
   FolderOpen,
   GitBranch,
+  Image as ImageIcon,
   Layers3,
   Pause,
   Play,
@@ -20,11 +20,27 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { formatVideoText } from '../i18n';
+import { drawRenderFrame } from '../preview/frameRenderer';
 import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS } from '../shared/constants';
 import { loadVideo, seekVideo } from '../shared/mediaUtils';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../shared/storyNodes';
 import type { ExportFormat, RenderStatus, RenderStyle, VideoTextScaleMode } from '../shared/types';
-import { drawRenderFrame } from '../preview/frameRenderer';
+import {
+  type InteractivePreviewBounds,
+  type InteractivePreviewResizeEdge,
+  useInteractivePreviewWindow,
+} from './interactivePreviewWindow';
+import {
+  buildInteractiveSegmentExportOrder,
+  exportOrderNumberMap,
+} from './InteractiveSegmentExportOrder';
+import {
+  GraphEditingOverlays,
+  SegmentConnectionHandles,
+  useInteractiveSegmentGraphEditing,
+} from './InteractiveSegmentGraphEditing';
+import type { GraphPoint, LayoutDirection } from './interactiveSegmentGraphLayout';
 import {
   buildSegmentLayout,
   clamp,
@@ -33,21 +49,6 @@ import {
   isGeneratedChoiceLabel,
   segmentLinkPath,
 } from './interactiveSegmentGraphLayout';
-import type { GraphPoint, LayoutDirection } from './interactiveSegmentGraphLayout';
-import {
-  type InteractivePreviewBounds,
-  type InteractivePreviewResizeEdge,
-  useInteractivePreviewWindow,
-} from './interactivePreviewWindow';
-import {
-  GraphEditingOverlays,
-  SegmentConnectionHandles,
-  useInteractiveSegmentGraphEditing,
-} from './InteractiveSegmentGraphEditing';
-import {
-  buildInteractiveSegmentExportOrder,
-  exportOrderNumberMap,
-} from './InteractiveSegmentExportOrder';
 import { InteractiveSegmentMinimap } from './InteractiveSegmentMinimap';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
 
@@ -83,6 +84,8 @@ type Props = {
   onSelectSegment: (id: string) => void;
   onSegmentsChange: (segments: InteractiveSegmentDraft[]) => void;
   onRescan: () => void;
+  hasVideoCover: boolean;
+  onOpenVideoCover: () => void;
   setExportFormat: (value: ExportFormat) => void;
   setFrameRate: (value: number) => void;
   setResolutionIndex: (value: number) => void;
@@ -190,6 +193,8 @@ export function InteractiveSegmentExportWorkspace({
   onSelectSegment,
   onSegmentsChange,
   onRescan,
+  hasVideoCover,
+  onOpenVideoCover,
   setExportFormat,
   setFrameRate,
   setResolutionIndex,
@@ -200,6 +205,18 @@ export function InteractiveSegmentExportWorkspace({
   chooseOutputDir,
 }: Props) {
   const isRendering = status === 'rendering';
+  const coverActionLabel =
+    language === 'zh'
+      ? hasVideoCover
+        ? '编辑封面'
+        : '添加封面'
+      : language === 'ja'
+        ? hasVideoCover
+          ? 'カバーを編集'
+          : 'カバーを追加'
+        : hasVideoCover
+          ? 'Edit cover'
+          : 'Add cover';
   const activeSegment = segments.find((segment) => segment.id === activeSegmentId) || segments[0];
   const enabledCount = segments.filter((segment) => segment.enabled).length;
   const choiceCount = segments.reduce((sum, segment) => sum + segment.choices.length, 0);
@@ -793,6 +810,21 @@ export function InteractiveSegmentExportWorkspace({
                 'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText792',
               )}
             </span>
+            <button
+              type="button"
+              onClick={onOpenVideoCover}
+              disabled={isRendering}
+              className={`flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors disabled:opacity-40 ${
+                hasVideoCover
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-[var(--vr-surface)] text-[var(--vr-text-soft)] ring-1 ring-[var(--vr-border)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
+              }`}
+              title={coverActionLabel}
+              aria-label={coverActionLabel}
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              <span>{language === 'zh' ? '封面' : language === 'ja' ? 'カバー' : 'Cover'}</span>
+            </button>
           </div>
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex items-center">

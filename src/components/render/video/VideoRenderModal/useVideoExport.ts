@@ -279,8 +279,8 @@ export const useVideoExport = ({
         ? await renderVideoCoverPngBytes({
             settings: videoCover,
             nodes,
-            width: resolution.width,
-            height: resolution.height,
+            width: videoCover.canvasSettings?.canvasWidth || resolution.width,
+            height: videoCover.canvasSettings?.canvasHeight || resolution.height,
           })
         : null;
 

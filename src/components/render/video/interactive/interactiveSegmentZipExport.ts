@@ -1,22 +1,23 @@
-import { formatVideoText } from '../i18n';
 import type { Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { saveRenderedWebZip } from '../export/tauriRenderAdapter';
+import { renderVideoCoverPngBytes } from '../export/videoCover';
+import { formatVideoText } from '../i18n';
 import { isTauriRuntime } from '../shared/mediaUtils';
-import type { RenderStatus } from '../shared/types';
-import {
-  buildSegmentLayout,
-  graphBoundsFromPositions,
-  type LayoutDirection,
-} from './interactiveSegmentGraphLayout';
+import type { RenderStatus, VideoCoverSettings } from '../shared/types';
 import {
   buildInteractiveSegmentExportOrder,
   createInteractiveSegmentStructurePngBytes,
   sortSegmentsByExportOrder,
 } from './InteractiveSegmentExportOrder';
+import {
+  buildSegmentLayout,
+  graphBoundsFromPositions,
+  type LayoutDirection,
+} from './interactiveSegmentGraphLayout';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
 import { makeInteractiveSegmentFileName } from './interactiveSegments';
 
@@ -39,6 +40,9 @@ type ExportZipArgs = {
   exportOrderIds?: string[];
   outputDir: string;
   frameRate: number;
+  videoCover?: VideoCoverSettings | null;
+  coverNodes?: FlowNode[];
+  coverResolution?: { width: number; height: number };
   renderVideo: RenderSegmentVideo;
   setStatus: Dispatch<SetStateAction<RenderStatus>>;
   setError: Dispatch<SetStateAction<string>>;
@@ -68,6 +72,9 @@ export const exportInteractiveSegmentZip = async ({
   exportOrderIds,
   outputDir,
   frameRate,
+  videoCover,
+  coverNodes = [],
+  coverResolution = { width: 1920, height: 1080 },
   renderVideo,
   setStatus,
   setError,
@@ -183,6 +190,16 @@ export const exportInteractiveSegmentZip = async ({
     });
     if (structureBytes.length > 0) {
       zip.file('interactive-segment-structure.png', structureBytes);
+    }
+
+    if (videoCover) {
+      const coverBytes = await renderVideoCoverPngBytes({
+        settings: videoCover,
+        nodes: coverNodes,
+        width: coverResolution.width,
+        height: coverResolution.height,
+      });
+      zip.file('cover.png', coverBytes);
     }
 
     setProgressValue(90);
