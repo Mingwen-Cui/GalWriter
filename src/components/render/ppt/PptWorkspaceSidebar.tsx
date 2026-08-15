@@ -197,6 +197,7 @@ export function PptSidebar({
           manualSlide ? (
             <PptManualInspector
               copy={copy}
+              language={language}
               slide={manualSlide}
               selectedElementId={selectedManualElementId}
               slides={slides}
@@ -207,9 +208,9 @@ export function PptSidebar({
           ) : coverTextBox ? (
             <PptCoverTextInspector
               target={coverTextBox.target}
-              label={coverTextBox.label}
               text={coverTextBox.text}
               layout={coverTextBox.layout}
+              language={language}
               onUpdateText={onUpdateCoverText}
               onUpdateLayout={onUpdateCoverTextBoxLayout}
             />

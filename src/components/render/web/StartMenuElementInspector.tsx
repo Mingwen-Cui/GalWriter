@@ -1,5 +1,3 @@
-import { getWebStructuredText } from './i18n';
-import { formatWebText, getWebShadowOrdinal } from './i18n';
 import {
   Baseline,
   Blend,
@@ -27,13 +25,15 @@ import {
 import type React from 'react';
 import { useEffect, useState } from 'react';
 
-import { DraggableNumberInput } from '../../DraggableNumberInput';
 import type { Language } from '../../../lib/i18n';
+import { DraggableNumberInput } from '../../DraggableNumberInput';
 import { DragSizeControl } from '../video/controls/RenderControls';
 import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import { parseColorValue, toHex8 } from '../video/shared/colorValue';
 import type { RenderColorStop, RenderFillType, WebMenuElement } from '../video/shared/types';
+import { getWebStructuredText } from './i18n';
+import { formatWebText, getWebShadowOrdinal } from './i18n';
 import { normalizeGradientStops } from './webGradientStops';
 import {
   AlignButtons,
@@ -52,6 +52,8 @@ type InspectorProps = {
   element: WebMenuElement;
   language: Language;
   surface?: 'start' | 'archive' | 'settings' | 'game';
+  /** Restricts button actions when the inspector is embedded by another workspace. */
+  buttonFunctions?: ButtonFunction[];
   selectedElementIds?: string[];
   showDescriptions: boolean;
   onUpdate: (patch: Partial<WebMenuElement>) => void;
@@ -325,6 +327,7 @@ export function StartMenuElementInspector({
   element,
   language,
   surface = 'start',
+  buttonFunctions,
   selectedElementIds = [],
   showDescriptions,
   onUpdate,
@@ -450,10 +453,12 @@ export function StartMenuElementInspector({
     setPopover(null);
   };
   const functionCopy = buttonFunctionCopy(language);
-  const buttonFunctionOptions = BUTTON_FUNCTIONS_BY_SURFACE[surface].map((role) => ({
-    label: functionCopy[role],
-    value: role,
-  }));
+  const buttonFunctionOptions = (buttonFunctions || BUTTON_FUNCTIONS_BY_SURFACE[surface]).map(
+    (role) => ({
+      label: functionCopy[role],
+      value: role,
+    }),
+  );
   const buttonFunction = (element.role || 'custom') as ButtonFunction;
   const inspectorCopy = getWebStructuredText(
     language,

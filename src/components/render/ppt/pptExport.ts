@@ -186,7 +186,11 @@ export async function buildPptxBuffer({
     manualByAnchor.set(anchor, items);
   });
   const addSlideElements = async (slide: PptxGenJS.Slide, elements: PptManualElement[]) => {
-    for (const element of elements) {
+    for (const element of [...elements].sort(
+      (left, right) => (left.webStyle?.zIndex || 0) - (right.webStyle?.zIndex || 0),
+    )) {
+      if (element.visible === false) continue;
+      const webStyle = element.webStyle || {};
       const frame = page.frame(
         (element.x / 1920) * WIDE_PAGE_WIDTH,
         (element.y / 1080) * WIDE_PAGE_HEIGHT,
@@ -195,17 +199,26 @@ export async function buildPptxBuffer({
       );
       if (element.kind === 'image') {
         const image = await resolveImage(element.src);
-        if (image) slide.addImage({ data: image, ...frame, rotate: element.rotation || 0 });
+        if (image)
+          slide.addImage({
+            data: image,
+            ...frame,
+            rotate: element.rotation || 0,
+            transparency: Math.max(0, Math.min(100, 100 - (webStyle.opacity ?? 100))),
+          });
         continue;
       }
       if (element.kind === 'text') {
         slide.addText(element.text || ' ', {
           ...frame,
-          fontFace: toPptFontFace(element.fontFamily || style.bodyFontFamily),
-          fontSize: Math.max(8, element.fontSize * 0.75 * page.scale),
-          bold: element.bold,
-          color: hex(element.color),
-          align: element.align || 'left',
+          fontFace: toPptFontFace(
+            webStyle.fontFamily || element.fontFamily || style.bodyFontFamily,
+          ),
+          fontSize: Math.max(8, (webStyle.fontSize || element.fontSize) * 0.75 * page.scale),
+          bold: webStyle.fontWeight ? webStyle.fontWeight >= 600 : element.bold,
+          color: hex(webStyle.textColor || element.color),
+          align: webStyle.textAlign || element.align || 'left',
+          charSpacing: webStyle.letterSpacing,
           margin: 0,
           rotate: element.rotation || 0,
         });
@@ -222,24 +235,39 @@ export async function buildPptxBuffer({
             : undefined;
       const isPrimary = element.variant === 'primary';
       const isSecondary = element.variant === 'secondary';
+      const hasCustomFill = webStyle.fillEnabled !== false && Boolean(webStyle.backgroundColor);
+      const hasCustomLine = webStyle.strokeEnabled && Boolean(webStyle.borderColor);
       slide.addShape(pptx.ShapeType.roundRect, {
         ...frame,
-        rectRadius: 0.08,
-        fill: isPrimary
-          ? { color: '4F46E5' }
-          : { color: 'FFFFFF', transparency: isSecondary ? 0 : 100 },
-        line: isSecondary ? { color: '4F46E5', width: 1.4 } : { transparency: 100 },
+        rectRadius: webStyle.borderRadius ? Math.min(0.2, webStyle.borderRadius / 100) : 0.08,
+        fill: hasCustomFill
+          ? {
+              color: hex(webStyle.backgroundColor || '#4F46E5'),
+              transparency: Math.max(0, Math.min(100, 100 - (webStyle.opacity ?? 100))),
+            }
+          : isPrimary
+            ? { color: '4F46E5' }
+            : { color: 'FFFFFF', transparency: isSecondary ? 0 : 100 },
+        line: hasCustomLine
+          ? { color: hex(webStyle.borderColor || '#ffffff'), width: webStyle.borderWidth || 1 }
+          : isSecondary
+            ? { color: '4F46E5', width: 1.4 }
+            : { transparency: 100 },
         hyperlink,
+        rotate: element.rotation || 0,
       });
       slide.addText(element.text || ' ', {
         ...frame,
-        fontSize: Math.max(8, 18 * page.scale),
-        bold: true,
-        color: isPrimary ? 'FFFFFF' : '4F46E5',
-        align: 'center',
+        fontFace: toPptFontFace(webStyle.fontFamily || style.bodyFontFamily),
+        fontSize: Math.max(8, (webStyle.fontSize || 18) * page.scale),
+        bold: webStyle.fontWeight ? webStyle.fontWeight >= 600 : true,
+        color: hex(webStyle.textColor || (isPrimary ? '#FFFFFF' : '#4F46E5')),
+        align: webStyle.textAlign || 'center',
+        charSpacing: webStyle.letterSpacing,
         valign: 'middle',
         margin: 0,
         hyperlink,
+        rotate: element.rotation || 0,
       });
     }
   };
@@ -269,6 +297,8 @@ export async function buildPptxBuffer({
       textBoxLayouts.cover?.['cover-subtitle'],
       'cover-subtitle',
     );
+    const coverTitleStyle = coverTitleLayout.webStyle || {};
+    const coverSubtitleStyle = coverSubtitleLayout.webStyle || {};
     const slide = pptx.addSlide();
     slide.background = {
       color: hex(
@@ -288,11 +318,12 @@ export async function buildPptxBuffer({
     if (coverTitleLayout.visible !== false) {
       slide.addText(coverTitle || ' ', {
         ...textBoxFrame(coverTitleLayout),
-        fontFace: toPptFontFace(style.titleFontFamily),
-        fontSize: 34 * page.scale,
-        bold: true,
-        color: hex(colors.title),
-        align: 'center',
+        fontFace: toPptFontFace(coverTitleStyle.fontFamily || style.titleFontFamily),
+        fontSize: Math.max(8, (coverTitleStyle.fontSize || 34) * page.scale),
+        bold: coverTitleStyle.fontWeight ? coverTitleStyle.fontWeight >= 600 : true,
+        color: hex(coverTitleStyle.textColor || colors.title),
+        align: coverTitleStyle.textAlign || 'center',
+        charSpacing: coverTitleStyle.letterSpacing,
         valign: 'middle',
         margin: 0,
         rotate: coverTitleLayout.rotation,
@@ -301,9 +332,12 @@ export async function buildPptxBuffer({
     if (coverSubtitleLayout.visible !== false) {
       slide.addText(coverSubtitle || ' ', {
         ...textBoxFrame(coverSubtitleLayout),
-        fontSize: 15 * page.scale,
-        color: hex(colors.body),
-        align: 'center',
+        fontFace: toPptFontFace(coverSubtitleStyle.fontFamily || style.bodyFontFamily),
+        fontSize: Math.max(8, (coverSubtitleStyle.fontSize || 15) * page.scale),
+        bold: coverSubtitleStyle.fontWeight ? coverSubtitleStyle.fontWeight >= 600 : false,
+        color: hex(coverSubtitleStyle.textColor || colors.body),
+        align: coverSubtitleStyle.textAlign || 'center',
+        charSpacing: coverSubtitleStyle.letterSpacing,
         valign: 'middle',
         margin: 0,
         rotate: coverSubtitleLayout.rotation,

@@ -1393,6 +1393,37 @@ function PptCoverTextBox({
   const discardTextEditRef = useRef(false);
   const textClass =
     target === 'cover-title' ? 'text-4xl font-black text-white' : 'text-sm text-white/75';
+  const webStyle = layout.webStyle || {};
+  const textColor = webStyle.textColor || '#ffffff';
+  const useTextGradient = webStyle.textColorType === 'gradient';
+  const textGradientStops = webStyle.textGradientStops?.length
+    ? [...webStyle.textGradientStops]
+        .sort((left, right) => left.position - right.position)
+        .map((stop) => `${alphaColor(stop.color, stop.alpha)} ${stop.position}%`)
+        .join(', ')
+    : `${webStyle.textGradientStart || textColor}, ${webStyle.textGradientEnd || '#0ea5e9'}`;
+  const textPaint: React.CSSProperties = {
+    color: useTextGradient ? 'transparent' : alphaColor(textColor, webStyle.textColorAlpha ?? 100),
+    fontFamily: webStyle.fontFamily,
+    fontSize: webStyle.fontSize ? `${(webStyle.fontSize / PPT_CONTENT_HEIGHT) * 100}vh` : undefined,
+    fontWeight: webStyle.fontWeight,
+    textAlign: webStyle.textAlign,
+    letterSpacing: webStyle.letterSpacing,
+    lineHeight: webStyle.lineHeight,
+    opacity: webStyle.textVisible === false ? 0 : undefined,
+    WebkitBackgroundClip: useTextGradient ? 'text' : undefined,
+    backgroundImage: useTextGradient
+      ? `linear-gradient(${webStyle.textGradientAngle ?? 90}deg, ${textGradientStops})`
+      : undefined,
+    WebkitTextStroke:
+      webStyle.strokeEnabled && webStyle.textStrokeWidth
+        ? `${webStyle.textStrokeWidth}px ${webStyle.textStrokeColor || '#000000'}`
+        : undefined,
+    textShadow:
+      webStyle.shadowEnabled && webStyle.shadowOpacity
+        ? `${webStyle.shadowOffsetX || 0}px ${webStyle.shadowOffsetY || 0}px ${webStyle.shadowBlur || 0}px ${alphaColor(webStyle.shadowColor || '#000000', webStyle.shadowOpacity)}`
+        : undefined,
+  };
   useEffect(() => {
     if (!isEditingText) return;
     const frame = window.requestAnimationFrame(() => {
@@ -1532,7 +1563,11 @@ function PptCoverTextBox({
         height: `${(layout.height / PPT_CONTENT_HEIGHT) * 100}%`,
         transform: `rotate(${layout.rotation}deg)`,
         transformOrigin: 'center',
-        opacity: layout.visible === false ? 0.3 : undefined,
+        zIndex: webStyle.zIndex,
+        opacity:
+          layout.visible === false
+            ? Math.min(0.3, (webStyle.opacity ?? 100) / 100)
+            : (webStyle.opacity ?? 100) / 100,
         ...previewStyle(animation, previewing, previewAtMs),
       }}
       onClick={(event) => {
@@ -1551,7 +1586,8 @@ function PptCoverTextBox({
           ref={textEditorRef}
           contentEditable
           suppressContentEditableWarning
-          className={`grid h-full w-full cursor-text place-items-center whitespace-pre-wrap text-center outline-none ${textClass}`}
+          className={`grid h-full w-full cursor-text place-items-center whitespace-pre-wrap outline-none ${textClass}`}
+          style={textPaint}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
           onInput={(event) => setDraftText(event.currentTarget.innerText)}
@@ -1571,7 +1607,8 @@ function PptCoverTextBox({
         />
       ) : (
         <div
-          className={`grid h-full w-full place-items-center whitespace-pre-wrap text-center ${textClass}`}
+          className={`grid h-full w-full place-items-center whitespace-pre-wrap ${textClass}`}
+          style={textPaint}
         >
           {text}
         </div>

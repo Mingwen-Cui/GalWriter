@@ -582,6 +582,8 @@ export type PptTextBoxLayout = {
   height: number;
   rotation: number;
   visible?: boolean;
+  /** Web-style presentation options retained locally for this PPT text box. */
+  webStyle?: PptManualElementWebStyle;
 };
 export type PptTextBoxLayouts = Record<
   string,
@@ -646,6 +648,28 @@ export type PptSlideTransition = {
   advanceAfterMs?: number;
 };
 
+/**
+ * PPT keeps its own pixel-based canvas, while reusing the Web workspace's
+ * inspector. This stores the visual options that have a direct counterpart in
+ * that inspector without coupling manual slide content to web export settings.
+ */
+export type PptManualElementWebStyle = Partial<
+  Omit<
+    WebMenuElement,
+    | 'id'
+    | 'kind'
+    | 'role'
+    | 'text'
+    | 'visible'
+    | 'x'
+    | 'y'
+    | 'width'
+    | 'height'
+    | 'scale'
+    | 'rotation'
+  >
+>;
+
 export type PptManualElementBase = {
   id: string;
   x: number;
@@ -653,6 +677,8 @@ export type PptManualElementBase = {
   width: number;
   height: number;
   rotation?: number;
+  visible?: boolean;
+  webStyle?: PptManualElementWebStyle;
 };
 export type PptManualImageElement = PptManualElementBase & {
   kind: 'image';

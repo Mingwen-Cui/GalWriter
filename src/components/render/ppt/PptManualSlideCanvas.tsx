@@ -1,7 +1,11 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { PptManualElement, PptManualSlide } from '../video/shared/types';
+import type {
+  PptManualElement,
+  PptManualElementWebStyle,
+  PptManualSlide,
+} from '../video/shared/types';
 import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
@@ -14,6 +18,111 @@ const buttonClass = (variant: 'primary' | 'secondary' | 'link') =>
     : variant === 'secondary'
       ? 'border-2 border-indigo-500 bg-white text-indigo-700'
       : 'bg-transparent text-indigo-300 underline underline-offset-4';
+
+const withAlpha = (color: string | undefined, alpha = 100, fallback = '#000000') => {
+  const source = color || fallback;
+  if (!/^#[0-9a-f]{6}$/i.test(source)) return source;
+  const normalized = Math.max(0, Math.min(100, alpha)) / 100;
+  const red = Number.parseInt(source.slice(1, 3), 16);
+  const green = Number.parseInt(source.slice(3, 5), 16);
+  const blue = Number.parseInt(source.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${normalized})`;
+};
+
+const gradientPaint = (style: PptManualElementWebStyle) => {
+  const stops = style.backgroundGradientStops?.length
+    ? [...style.backgroundGradientStops]
+        .sort((left, right) => left.position - right.position)
+        .map((stop) => `${withAlpha(stop.color, stop.alpha)} ${stop.position}%`)
+        .join(', ')
+    : `${style.backgroundGradientStart || '#0ea5e9'}, ${style.backgroundGradientEnd || '#0f172a'}`;
+  if (style.backgroundGradientShape === 'radial') return `radial-gradient(circle, ${stops})`;
+  if (style.backgroundGradientShape === 'diamond') return `conic-gradient(${stops})`;
+  return `linear-gradient(${style.backgroundGradientAngle ?? 135}deg, ${stops})`;
+};
+
+const paintBackground = (style: PptManualElementWebStyle) => {
+  if (style.fillEnabled === false) return 'transparent';
+  if (style.backgroundType === 'gradient') return gradientPaint(style);
+  if (style.backgroundType === 'image' && style.backgroundImageUrl)
+    return `url("${style.backgroundImageUrl.replace(/"/g, '\\"')}") center / cover`;
+  return style.backgroundColor;
+};
+
+const shadowPaint = (style: PptManualElementWebStyle) => {
+  if (style.shadowEnabled === false) return undefined;
+  const shadows = style.shadows?.length
+    ? style.shadows.filter((shadow) => shadow.enabled !== false)
+    : style.shadowOpacity
+      ? [
+          {
+            color: style.shadowColor || '#000000',
+            opacity: style.shadowOpacity,
+            blur: style.shadowBlur || 0,
+            offsetX: style.shadowOffsetX || 0,
+            offsetY: style.shadowOffsetY || 0,
+          },
+        ]
+      : [];
+  return shadows
+    .map(
+      (shadow) =>
+        `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${withAlpha(shadow.color, shadow.opacity)}`,
+    )
+    .join(', ');
+};
+
+const borderPaint = (style: PptManualElementWebStyle) => {
+  if (style.strokeEnabled === false || !style.borderWidth) return undefined;
+  return `${style.borderWidth}px solid ${style.borderColor || '#ffffff'}`;
+};
+
+const manualElementPaint = (element: PptManualElement): React.CSSProperties => {
+  const style = element.webStyle || {};
+  return {
+    zIndex: style.zIndex,
+    opacity: (style.opacity ?? 100) / 100,
+    borderRadius: style.borderRadius,
+    border: borderPaint(style),
+    boxShadow: shadowPaint(style),
+    background: element.kind === 'button' ? paintBackground(style) : undefined,
+    backgroundSize: style.backgroundType === 'image' ? 'cover' : undefined,
+    backgroundPosition: style.backgroundType === 'image' ? 'center' : undefined,
+    mixBlendMode: style.blendMode as React.CSSProperties['mixBlendMode'],
+  };
+};
+
+const manualTextPaint = (
+  element: Extract<PptManualElement, { kind: 'text' | 'button' }>,
+): React.CSSProperties => {
+  const style = element.webStyle || {};
+  const color = style.textColor || (element.kind === 'text' ? element.color : '#ffffff');
+  const usesGradient = style.textColorType === 'gradient';
+  const stops = style.textGradientStops?.length
+    ? [...style.textGradientStops]
+        .sort((left, right) => left.position - right.position)
+        .map((stop) => `${withAlpha(stop.color, stop.alpha)} ${stop.position}%`)
+        .join(', ')
+    : `${style.textGradientStart || color}, ${style.textGradientEnd || '#0ea5e9'}`;
+  return {
+    color: usesGradient ? 'transparent' : withAlpha(color, style.textColorAlpha ?? 100, '#ffffff'),
+    fontFamily: style.fontFamily || (element.kind === 'text' ? element.fontFamily : undefined),
+    fontSize: `${((style.fontSize || (element.kind === 'text' ? element.fontSize : 28)) / PPT_CONTENT_HEIGHT) * 100}vh`,
+    fontWeight: style.fontWeight || (element.kind === 'text' && element.bold ? 700 : 400),
+    textAlign: style.textAlign || (element.kind === 'text' ? element.align : 'center'),
+    letterSpacing: style.letterSpacing,
+    lineHeight: style.lineHeight,
+    opacity: style.textVisible === false ? 0 : undefined,
+    WebkitBackgroundClip: usesGradient ? 'text' : undefined,
+    backgroundImage: usesGradient
+      ? `linear-gradient(${style.textGradientAngle ?? 90}deg, ${stops})`
+      : undefined,
+    WebkitTextStroke:
+      style.strokeEnabled && style.textStrokeWidth
+        ? `${style.textStrokeWidth}px ${style.textStrokeColor || '#000000'}`
+        : undefined,
+  };
+};
 
 export function PptManualElementLayer({
   elements,
@@ -198,6 +307,7 @@ export function PptManualElementLayer({
   return (
     <div className="pointer-events-none absolute inset-0 z-30">
       {elements.map((element) => {
+        if (element.visible === false && !editable) return null;
         const selected = editable && selectedElementId === element.id;
         const editingText =
           editingElementId === element.id && (element.kind === 'text' || element.kind === 'button');
@@ -208,6 +318,11 @@ export function PptManualElementLayer({
           height: `${(element.height / PPT_CONTENT_HEIGHT) * 100}%`,
           transform: `rotate(${element.rotation || 0}deg)`,
           transformOrigin: 'center',
+          ...manualElementPaint(element),
+          opacity:
+            element.visible === false && editable
+              ? Math.min(0.3, (element.webStyle?.opacity ?? 100) / 100)
+              : (element.webStyle?.opacity ?? 100) / 100,
         };
         return (
           <div
@@ -233,6 +348,11 @@ export function PptManualElementLayer({
                 alt={element.alt || ''}
                 draggable={false}
                 className="h-full w-full object-contain"
+                style={{
+                  borderRadius: element.webStyle?.borderRadius,
+                  border: borderPaint(element.webStyle || {}),
+                  boxShadow: shadowPaint(element.webStyle || {}),
+                }}
               />
             ) : element.kind === 'text' ? (
               editingText ? (
@@ -242,11 +362,7 @@ export function PptManualElementLayer({
                   suppressContentEditableWarning
                   className="h-full w-full cursor-text whitespace-pre-wrap outline-none"
                   style={{
-                    color: element.color,
-                    fontFamily: element.fontFamily,
-                    fontSize: `${(element.fontSize / PPT_CONTENT_HEIGHT) * 100}vh`,
-                    fontWeight: element.bold ? 700 : 400,
-                    textAlign: element.align,
+                    ...manualTextPaint(element),
                   }}
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={(event) => event.stopPropagation()}
@@ -269,11 +385,7 @@ export function PptManualElementLayer({
                 <div
                   className="h-full w-full whitespace-pre-wrap"
                   style={{
-                    color: element.color,
-                    fontFamily: element.fontFamily,
-                    fontSize: `${(element.fontSize / PPT_CONTENT_HEIGHT) * 100}vh`,
-                    fontWeight: element.bold ? 700 : 400,
-                    textAlign: element.align,
+                    ...manualTextPaint(element),
                   }}
                 >
                   {element.text}
@@ -284,7 +396,8 @@ export function PptManualElementLayer({
                 ref={textEditorRef}
                 contentEditable
                 suppressContentEditableWarning
-                className={`h-full w-full cursor-text rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black outline-none transition ${buttonClass(element.variant)}`}
+                className={`h-full w-full cursor-text px-8 outline-none transition ${buttonClass(element.variant)}`}
+                style={{ ...manualElementPaint(element), ...manualTextPaint(element) }}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
                 onInput={(event) => setDraftText(event.currentTarget.innerText)}
@@ -306,7 +419,8 @@ export function PptManualElementLayer({
               <button
                 type="button"
                 onClick={() => runButtonAction(element)}
-                className={`h-full w-full rounded-2xl px-8 text-[clamp(12px,1.7vw,28px)] font-black transition ${editable ? 'cursor-grab active:cursor-grabbing' : ''} ${buttonClass(element.variant)}`}
+                className={`h-full w-full px-8 transition ${editable ? 'cursor-grab active:cursor-grabbing' : ''} ${buttonClass(element.variant)}`}
+                style={{ ...manualElementPaint(element), ...manualTextPaint(element) }}
               >
                 {element.text}
               </button>
