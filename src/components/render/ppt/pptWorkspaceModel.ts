@@ -16,6 +16,8 @@ export const PPT_CONTENT_WIDTH = 1920;
 export const PPT_CONTENT_HEIGHT = 1080;
 export const pptCanvasViewportClass = (layout: PptCanvasLayout) =>
   layout === 'LAYOUT_STANDARD' ? 'aspect-[4/3]' : 'aspect-video';
+export const pptCanvasContentHeight = (layout: PptCanvasLayout) =>
+  layout === 'LAYOUT_STANDARD' ? (PPT_CONTENT_WIDTH * 3) / 4 : PPT_CONTENT_HEIGHT;
 
 export const DEFAULT_PPT_TRANSITION: PptSlideTransition = {
   effect: 'none',

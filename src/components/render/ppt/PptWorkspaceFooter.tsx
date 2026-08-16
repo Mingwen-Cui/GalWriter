@@ -29,8 +29,8 @@ import { pptSceneColors } from './pptSceneResolver';
 import type { Scene } from './PptWorkspace';
 import { SlideCanvas } from './PptWorkspace';
 import {
-  PPT_CONTENT_HEIGHT,
   PPT_CONTENT_WIDTH,
+  pptCanvasContentHeight,
   type PptCanvasLayout,
   pptCanvasViewportClass,
   type PptWorkspaceViewMode,
@@ -150,6 +150,7 @@ export function PlayerOverlay({
   animations,
   transition,
   layout,
+  layoutContentMode,
   selectedIndex,
   total,
   onNext,
@@ -175,6 +176,7 @@ export function PlayerOverlay({
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
+  layoutContentMode?: 'maximize' | 'fit';
   selectedIndex: number;
   total: number;
   onNext: () => void;
@@ -191,7 +193,7 @@ export function PlayerOverlay({
           <VirtualPresentationStage
             fit="contain"
             width={PPT_CONTENT_WIDTH}
-            height={PPT_CONTENT_HEIGHT}
+            height={pptCanvasContentHeight(layout)}
             className="absolute inset-0 h-full w-full"
           >
             <SlideCanvas
@@ -212,6 +214,8 @@ export function PlayerOverlay({
               backgroundStyle={backgroundStyle}
               animations={animations}
               transition={transition}
+              layout={layout}
+              layoutContentMode={layoutContentMode}
               selected={null}
               previewing
               onSelect={() => undefined}

@@ -15,6 +15,7 @@ import type {
   RenderStyle,
   WebExportSettings,
 } from '../video/shared/types';
+import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
 import {
   getPptImageDimensions,
   toPptImageData,
@@ -23,7 +24,6 @@ import {
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
-import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { splitPptTextLines } from './pptTextLines';
 import {
@@ -52,14 +52,22 @@ const toPptxGenLayout = (layout: PptExportSettings['layout']) =>
  * a 16:9 logical scene. Standard (4:3) slides therefore contain that scene
  * instead of independently reflowing it.
  */
-const createPptPageMapper = (layout: PptExportSettings['layout']) => {
+const createPptPageMapper = (
+  layout: PptExportSettings['layout'],
+  contentMode: NonNullable<PptExportSettings['layoutContentMode']> = 'maximize',
+) => {
   const pageWidth = layout === 'LAYOUT_STANDARD' ? 10 : WIDE_PAGE_WIDTH;
   const pageHeight = WIDE_PAGE_HEIGHT;
-  const scale = pageWidth / WIDE_PAGE_WIDTH;
+  const scale =
+    layout === 'LAYOUT_STANDARD' && contentMode === 'fit'
+      ? pageWidth / WIDE_PAGE_WIDTH
+      : pageHeight / WIDE_PAGE_HEIGHT;
+  const contentWidth = WIDE_PAGE_WIDTH * scale;
   const contentHeight = WIDE_PAGE_HEIGHT * scale;
+  const offsetX = (pageWidth - contentWidth) / 2;
   const offsetY = (pageHeight - contentHeight) / 2;
   const frame = (x: number, y: number, w: number, h: number) => ({
-    x: x * scale,
+    x: offsetX + x * scale,
     y: offsetY + y * scale,
     w: w * scale,
     h: h * scale,
@@ -105,7 +113,7 @@ export async function buildPptxBuffer({
   pptx.author = `${language === 'zh' ? '旮旯作家 · GalWriter' : 'GalWriter'} (Mingwen Cui)`;
   pptx.subject = 'Interactive story presentation';
   pptx.title = projectName;
-  const page = createPptPageMapper(pptSettings.layout);
+  const page = createPptPageMapper(pptSettings.layout, pptSettings.layoutContentMode);
   const fullContentFrame = page.frame(0, 0, WIDE_PAGE_WIDTH, WIDE_PAGE_HEIGHT);
   const textBoxFrame = (layout: import('../video/shared/types').PptTextBoxLayout) =>
     page.frame(

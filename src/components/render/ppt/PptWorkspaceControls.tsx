@@ -40,8 +40,8 @@ import {
   TRANSITIONS,
 } from './PptWorkspace';
 import {
-  PPT_CONTENT_HEIGHT,
   PPT_CONTENT_WIDTH,
+  pptCanvasContentHeight,
   type PptCanvasLayout,
   pptCanvasViewportClass,
 } from './pptWorkspaceModel';
@@ -414,6 +414,7 @@ type ThumbnailProps = {
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
+  layoutContentMode?: 'maximize' | 'fit';
   manualSlides: PptManualSlide[];
 };
 function SlideThumbnail({
@@ -430,6 +431,7 @@ function SlideThumbnail({
   animations,
   transition,
   layout,
+  layoutContentMode,
   manualSlides,
 }: ThumbnailProps) {
   const scene = slide.sceneId ? scenes.find((item) => item.id === slide.sceneId) : undefined;
@@ -443,7 +445,7 @@ function SlideThumbnail({
       <VirtualPresentationStage
         fit="contain"
         width={PPT_CONTENT_WIDTH}
-        height={PPT_CONTENT_HEIGHT}
+        height={pptCanvasContentHeight(layout)}
         className="absolute inset-0 h-full w-full"
       >
         <SlideCanvas
@@ -461,6 +463,8 @@ function SlideThumbnail({
           backgroundColor={slideBackgroundColors[slide.id]}
           animations={animations}
           transition={transition}
+          layout={layout}
+          layoutContentMode={layoutContentMode}
           selected={null}
           previewing={false}
           onSelect={() => undefined}
@@ -493,6 +497,7 @@ export function SlideList({
   onNewSlide,
   canPasteSlide,
   layout,
+  layoutContentMode,
   manualSlides,
 }: {
   slides: SlideItem[];
@@ -518,6 +523,7 @@ export function SlideList({
   onNewSlide: (afterId: string) => void;
   canPasteSlide: boolean;
   layout: PptCanvasLayout;
+  layoutContentMode?: 'maximize' | 'fit';
   manualSlides: PptManualSlide[];
 }) {
   const copy = usePptCopy();
@@ -591,6 +597,7 @@ export function SlideList({
                 animations={timelines[slide.id] || []}
                 transition={transitions[slide.id] || DEFAULT_TRANSITION}
                 layout={layout}
+                layoutContentMode={layoutContentMode}
                 manualSlides={manualSlides}
               />
               {(timelines[slide.id]?.length || 0) > 0 ? (
@@ -705,6 +712,7 @@ export function SlideSorter({
   slideBackgroundColors,
   onSelect,
   layout,
+  layoutContentMode,
   manualSlides,
 }: {
   slides: SlideItem[];
@@ -722,6 +730,7 @@ export function SlideSorter({
   slideBackgroundColors: PptSlideBackgroundColors;
   onSelect: (id: string) => void;
   layout: PptCanvasLayout;
+  layoutContentMode?: 'maximize' | 'fit';
   manualSlides: PptManualSlide[];
 }) {
   return (
@@ -757,6 +766,7 @@ export function SlideSorter({
               animations={timelines[slide.id] || []}
               transition={transitions[slide.id] || DEFAULT_TRANSITION}
               layout={layout}
+              layoutContentMode={layoutContentMode}
               manualSlides={manualSlides}
             />
             <div className="mt-2 truncate text-sm font-black">{slide.title}</div>

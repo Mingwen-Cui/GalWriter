@@ -70,6 +70,7 @@ import {
   insertPptSlideOrder,
   PPT_CONTENT_HEIGHT,
   PPT_CONTENT_WIDTH,
+  pptCanvasContentHeight,
   pptCanvasViewportClass,
   type PptSelection,
   type PptSlideItem,
@@ -1083,6 +1084,7 @@ export function PptWorkspace({
               slideBackgroundColors={slideBackgroundColors}
               hiddenSlideIds={hiddenSlideIds}
               layout={pptSettings.layout}
+              layoutContentMode={pptSettings.layoutContentMode}
               manualSlides={manualSlides}
               onSelect={selectSlide}
               onPlayCurrent={playFromSlide}
@@ -1114,6 +1116,7 @@ export function PptWorkspace({
                 slideElements={slideElements}
                 slideBackgroundColors={slideBackgroundColors}
                 layout={pptSettings.layout}
+                layoutContentMode={pptSettings.layoutContentMode}
                 manualSlides={manualSlides}
                 onSelect={(id) => {
                   selectSlide(id);
@@ -1133,7 +1136,7 @@ export function PptWorkspace({
                       <VirtualPresentationStage
                         fit="contain"
                         width={PPT_CONTENT_WIDTH}
-                        height={PPT_CONTENT_HEIGHT}
+                        height={pptCanvasContentHeight(pptSettings.layout)}
                         className="absolute inset-0 h-full w-full"
                       >
                         <SlideCanvas
@@ -1154,6 +1157,8 @@ export function PptWorkspace({
                           backgroundStyle={activeSlideBackground}
                           animations={currentAnimations}
                           transition={currentTransition}
+                          layout={pptSettings.layout}
+                          layoutContentMode={pptSettings.layoutContentMode}
                           selected={selectedObject}
                           previewing={isPreviewing}
                           previewAtMs={timelinePlayheadMs}
@@ -1256,6 +1261,7 @@ export function PptWorkspace({
             animations={currentAnimations}
             transition={currentTransition}
             layout={pptSettings.layout}
+            layoutContentMode={pptSettings.layoutContentMode}
             selectedIndex={playbackIndex}
             total={playbackSlides.length}
             onNext={next}
@@ -1295,6 +1301,8 @@ export function SlideCanvas({
   backgroundStyle,
   animations,
   transition,
+  layout = 'LAYOUT_WIDE',
+  layoutContentMode = 'maximize',
   selected,
   previewing,
   previewAtMs,
@@ -1326,6 +1334,8 @@ export function SlideCanvas({
   backgroundStyle?: PptSlideBackgroundStyle;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
+  layout?: PptExportSettings['layout'];
+  layoutContentMode?: NonNullable<PptExportSettings['layoutContentMode']>;
   selected: Selection | null;
   previewing: boolean;
   previewAtMs?: number;
@@ -1348,9 +1358,10 @@ export function SlideCanvas({
     backgroundColor ||
     (selectedId === 'cover' ? webSettings.startMenuBackgroundColor : colors.background);
   const backgroundPaint = pptBackgroundCss(backgroundStyle);
+  const shouldFitContent = layout === 'LAYOUT_STANDARD' && layoutContentMode === 'fit';
   return (
     <div
-      className={`ppt-slide-canvas ppt-transition-${transition.effect} relative aspect-video w-full overflow-hidden rounded-xl border border-white/15 bg-slate-950 shadow-2xl`}
+      className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden rounded-xl border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
       style={{
         backgroundColor: canvasBackgroundColor,
         ...backgroundPaint,
@@ -1387,53 +1398,63 @@ export function SlideCanvas({
           onNavigateSlide={onChoose}
           onSelectBackground={onSelectBackground}
         />
-      ) : selectedId === 'cover' ? (
-        <CoverPreview
-          projectName={projectName}
-          editable={editable}
-          textOverrides={textOverrides}
-          textBoxLayouts={textBoxLayouts}
-          selected={selected}
-          animations={animations}
-          previewing={previewing}
-          previewAtMs={previewAtMs}
-          onSelect={onSelect}
-          onSelectBackground={onSelectBackground}
-          onUpdateText={onUpdateText}
-          onUpdateTextBoxLayout={onUpdateTextBoxLayout}
-        />
-      ) : scene ? (
-        isChoiceSlide ? (
-          <ChoicePreview scene={scene} colors={colors} onChoose={onChoose} />
-        ) : (
-          <ScenePreview
-            scene={scene}
-            videoLoop={videoLoop}
-            renderStyle={renderStyle}
-            colors={colors}
-            selected={selected}
-            animations={animations}
-            previewing={previewing}
-            previewAtMs={previewAtMs}
-            onVideoDurationChange={onVideoDurationChange}
-            editable={editable}
-            onSelect={onSelect}
-            onUpdateObject={onUpdateObject}
-            textOverrides={textOverrides}
-            onUpdateText={onUpdateText}
-          />
-        )
-      ) : null}
-      {!manualSlide && slideElements?.length ? (
-        <PptManualElementLayer
-          elements={slideElements}
-          editable={editable}
-          selectedElementId={selectedManualElementId}
-          onSelectElement={onSelectManualElement}
-          onUpdateElement={onUpdateManualElement}
-          onNavigateSlide={onChoose}
-        />
-      ) : null}
+      ) : (
+        <div
+          className={
+            shouldFitContent
+              ? 'absolute inset-x-0 top-1/2 aspect-video -translate-y-1/2 overflow-hidden'
+              : 'absolute inset-0 overflow-hidden'
+          }
+        >
+          {selectedId === 'cover' ? (
+            <CoverPreview
+              projectName={projectName}
+              editable={editable}
+              textOverrides={textOverrides}
+              textBoxLayouts={textBoxLayouts}
+              selected={selected}
+              animations={animations}
+              previewing={previewing}
+              previewAtMs={previewAtMs}
+              onSelect={onSelect}
+              onSelectBackground={onSelectBackground}
+              onUpdateText={onUpdateText}
+              onUpdateTextBoxLayout={onUpdateTextBoxLayout}
+            />
+          ) : scene ? (
+            isChoiceSlide ? (
+              <ChoicePreview scene={scene} colors={colors} onChoose={onChoose} />
+            ) : (
+              <ScenePreview
+                scene={scene}
+                videoLoop={videoLoop}
+                renderStyle={renderStyle}
+                colors={colors}
+                selected={selected}
+                animations={animations}
+                previewing={previewing}
+                previewAtMs={previewAtMs}
+                onVideoDurationChange={onVideoDurationChange}
+                editable={editable}
+                onSelect={onSelect}
+                onUpdateObject={onUpdateObject}
+                textOverrides={textOverrides}
+                onUpdateText={onUpdateText}
+              />
+            )
+          ) : null}
+          {slideElements?.length ? (
+            <PptManualElementLayer
+              elements={slideElements}
+              editable={editable}
+              selectedElementId={selectedManualElementId}
+              onSelectElement={onSelectManualElement}
+              onUpdateElement={onUpdateManualElement}
+              onNavigateSlide={onChoose}
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

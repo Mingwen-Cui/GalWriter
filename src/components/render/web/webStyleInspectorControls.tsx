@@ -598,7 +598,7 @@ export function FloatingPopover({
         createPortal(
           <div
             ref={panelRef}
-            className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : popoverKey === 'gradient' ? 'w-[min(460px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`}
+            className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : popoverKey === 'gradient' ? 'w-[min(392px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`}
             style={position}
             data-web-style-popover
           >

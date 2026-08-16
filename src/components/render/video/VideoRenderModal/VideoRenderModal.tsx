@@ -165,6 +165,7 @@ export function VideoRenderModal({
       persistedWorkspace?.pptSettings?.layout === 'LAYOUT_STANDARD'
         ? 'LAYOUT_STANDARD'
         : 'LAYOUT_WIDE',
+    layoutContentMode: persistedWorkspace?.pptSettings?.layoutContentMode || 'maximize',
     branchMode: persistedWorkspace?.pptSettings?.branchMode || 'interactive',
     density: persistedWorkspace?.pptSettings?.density || 'oneNodePerSlide',
     includeCover: persistedWorkspace?.pptSettings?.includeCover ?? true,

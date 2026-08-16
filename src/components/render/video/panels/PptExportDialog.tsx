@@ -1,8 +1,10 @@
-import { formatVideoText } from '../i18n';
 import { ChevronDown, Download, FolderOpen, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { getPptCopy } from '../../ppt/i18n';
+import { PptLayoutChangeDialog } from '../../ppt/PptLayoutChangeDialog';
+import { formatVideoText } from '../i18n';
 import type { PptExportSettings } from '../shared/types';
 
 type PptExportDialogProps = {
@@ -36,6 +38,8 @@ export function PptExportDialog({
 }: PptExportDialogProps) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [draftName, setDraftName] = useState(projectName || defaultProjectName);
+  const [pendingLayout, setPendingLayout] = useState<PptExportSettings['layout']>();
+  const copy = getPptCopy(language);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -65,6 +69,12 @@ export function PptExportDialog({
   const handleConfirm = () => {
     onProjectNameChange(draftName.trim() || defaultProjectName);
     onConfirm(draftName.trim() || defaultProjectName);
+  };
+
+  const applyLayout = (layoutContentMode: NonNullable<PptExportSettings['layoutContentMode']>) => {
+    if (!pendingLayout) return;
+    onSettingsChange({ layout: pendingLayout, layoutContentMode });
+    setPendingLayout(undefined);
   };
 
   return (
@@ -128,9 +138,10 @@ export function PptExportDialog({
                   'componentsrendervideopanelsPptExportDialogText96',
                 )}
                 value={settings.layout}
-                onChange={(value) =>
-                  onSettingsChange({ layout: value as PptExportSettings['layout'] })
-                }
+                onChange={(value) => {
+                  const nextLayout = value as PptExportSettings['layout'];
+                  if (nextLayout !== settings.layout) setPendingLayout(nextLayout);
+                }}
                 options={[
                   ['LAYOUT_WIDE', '16:9'],
                   ['LAYOUT_STANDARD', '4:3'],
@@ -244,6 +255,13 @@ export function PptExportDialog({
           </div>
         </div>
       </div>
+      {pendingLayout ? (
+        <PptLayoutChangeDialog
+          copy={copy}
+          onChoose={applyLayout}
+          onCancel={() => setPendingLayout(undefined)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -788,6 +788,8 @@ export type PptSlideBackgroundColors = Record<string, string>;
 
 export type PptExportSettings = {
   layout: 'LAYOUT_WIDE' | 'LAYOUT_STANDARD';
+  /** How existing 16:9 slide content is scaled when the page ratio changes. */
+  layoutContentMode?: 'maximize' | 'fit';
   branchMode: 'interactive' | 'linear' | 'all';
   density: 'oneNodePerSlide' | 'mergeShortDialogue';
   includeCover: boolean;
