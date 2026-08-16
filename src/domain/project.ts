@@ -182,9 +182,13 @@ export type CreativeStoryTurn = {
   id: string;
   chapter: number;
   story: string;
+  /** Empty when this turn is narrative-only and does not ask the player. */
   question: string;
+  /** Empty when narrative-only; may contain one or more concrete choices. */
   options: string[];
   decision?: string;
+  /** Affection change applied during this turn (usually toward the lead). */
+  affectionDelta?: number;
   /** The first canvas card for this turn, used to preserve and branch its route. */
   nodeId?: string;
   sceneName?: string;
@@ -199,6 +203,8 @@ export type CreativeStorySession = {
   background?: { nodeId: string; name: string; imageUrl?: string };
   player?: CreativeStoryParticipant;
   lead?: CreativeStoryParticipant;
+  /** Running affection toward the lead character. */
+  affection?: number;
   /** A decision that is still being written by AI and can be withdrawn. */
   pendingDecision?: string;
   turns: CreativeStoryTurn[];

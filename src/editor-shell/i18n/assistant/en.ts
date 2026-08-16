@@ -192,9 +192,9 @@ Return JSON only:
     },
     continue: {
       title: 'Play, chat, and create a story',
-      description: 'Choose a story setting first, then decide each next step with AI as you play.',
+      description: 'Choose a setting first; everyday dialogue plays out, and you decide only at key branches.',
       prompt:
-        'I want to create a story by playing and talking with AI. Do not continue or generate cards yet. First, briefly guide me to choose or describe a story setting; then advance only one small beat at a time and ask me what should happen next at key moments.',
+        'I want to create a story by playing and talking with AI. First guide me to choose a setting and cast; then advance about 3–10 sentences at a time. Everyday dialogue should be narrative only; ask a concrete question with options only at relationship turns, irreversible consequences, or route forks; and you may output affection changes.',
     },
     article: {
       title: 'Article to Galgame',

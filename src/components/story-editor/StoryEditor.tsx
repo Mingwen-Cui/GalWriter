@@ -3148,6 +3148,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     question: creativeStoryTurn.question,
                     options: creativeStoryTurn.options,
                     sceneName: creativeStoryTurn.sceneName,
+                    affection: creativeStorySession.affection,
                     loading: Boolean(creativeStorySession.pendingDecision),
                     onDecision: handleCreativeStoryDecision,
                     onWithdrawDecision: handleWithdrawCreativeStoryDecision,

@@ -315,8 +315,52 @@ type CreativeStoryOpeningPayload = {
   question: string;
   options: string[];
   sceneName: string;
+  affectionDelta?: number;
   chapterSummary?: string;
   cards: AssistantCardDraft[];
+};
+
+const CREATIVE_STORY_BEAT_RULES = `演出长度约 3 到 10 句。
+规则：
+- 日常对白、情绪反应、环境描写：只返回正文，question 必须是 ""，options 必须是 []。
+- 仅在关系转折、不可逆后果、立场冲突或真正的路线分叉时，才提出一个具体问题，并给出对应选项。
+- 问题必须具体，指向当下可做的事或要表态的立场；禁止空泛的「你想怎么做」「接下来呢」。
+- 选项数量不限，可以只有 1 个；没有关键分歧时不要硬凑选项。
+- 可根据剧情填写好感度：在 JSON 顶层给出整数 affectionDelta（可正可负），并在对应 story 卡上写 nodeValue（与本段变化一致）。`;
+
+const parseFiniteNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+};
+
+const applyAffectionToCards = (
+  cards: AssistantCardDraft[],
+  affectionDelta: number | undefined,
+): AssistantCardDraft[] => {
+  if (!affectionDelta || cards.length === 0) return cards;
+  const hasNodeValue = cards.some(
+    (card) => typeof card.nodeValue === 'number' && Number.isFinite(card.nodeValue) && card.nodeValue !== 0,
+  );
+  if (hasNodeValue) return cards;
+  return cards.map((card, index) =>
+    index === cards.length - 1 ? { ...card, nodeValue: affectionDelta } : card,
+  );
+};
+
+const resolveAffectionDelta = (
+  payload: Pick<CreativeStoryOpeningPayload, 'affectionDelta' | 'cards'>,
+): number => {
+  if (typeof payload.affectionDelta === 'number' && Number.isFinite(payload.affectionDelta)) {
+    return payload.affectionDelta;
+  }
+  return payload.cards.reduce((sum, card) => {
+    const value = typeof card.nodeValue === 'number' && Number.isFinite(card.nodeValue) ? card.nodeValue : 0;
+    return sum + value;
+  }, 0);
 };
 
 const normalizeOpeningPayload = (content: string): CreativeStoryOpeningPayload | null => {
@@ -327,8 +371,12 @@ const normalizeOpeningPayload = (content: string): CreativeStoryOpeningPayload |
       content?: unknown;
       question?: unknown;
       prompt?: unknown;
+      needsChoice?: unknown;
       sceneName?: unknown;
       scene?: unknown;
+      affectionDelta?: unknown;
+      affection?: unknown;
+      favorability?: unknown;
       chapterSummary?: unknown;
       options?: unknown[];
       choices?: unknown[];
@@ -340,12 +388,20 @@ const normalizeOpeningPayload = (content: string): CreativeStoryOpeningPayload |
     const rawCards = parsed.cards || parsed.storyCards || parsed.data?.cards || parsed.data?.storyCards || [];
     const cards = rawCards
       .filter((card): card is Record<string, unknown> => Boolean(card) && typeof card === 'object')
-      .map((card) => ({
-        ...card,
-        type: 'story' as const,
-        title: String(card.title || card.name || '').trim(),
-        text: normalizeAssistantStoryDraftText(String(card.text || card.content || card.description || '')),
-      }))
+      .map((card) => {
+        const nodeValue =
+          parseFiniteNumber(card.nodeValue) ??
+          parseFiniteNumber(card.affection) ??
+          parseFiniteNumber(card.affectionDelta) ??
+          parseFiniteNumber(card.favorability);
+        return {
+          ...card,
+          type: 'story' as const,
+          title: String(card.title || card.name || '').trim(),
+          text: normalizeAssistantStoryDraftText(String(card.text || card.content || card.description || '')),
+          ...(nodeValue !== undefined ? { nodeValue } : {}),
+        };
+      })
       .filter((card) => Boolean(card.text));
     const storyCards = cards.length > 0 ? cards.slice(0, 3) : reply ? [{ type: 'story' as const, text: reply }] : [];
     if (storyCards.length === 0) return null;
@@ -353,14 +409,22 @@ const normalizeOpeningPayload = (content: string): CreativeStoryOpeningPayload |
       .map((option) => (typeof option === 'string' ? option : String((option as { label?: unknown })?.label || '')))
       .map((option) => option.trim())
       .filter(Boolean)
-      .slice(0, 3);
+      .slice(0, 8);
+    const question = String(parsed.question || parsed.prompt || '').trim();
+    const affectionDelta =
+      parseFiniteNumber(parsed.affectionDelta) ??
+      parseFiniteNumber(parsed.affection) ??
+      parseFiniteNumber(parsed.favorability);
+    const hasChoice = options.length > 0 || parsed.needsChoice === true;
+    const normalizedCards = applyAffectionToCards(storyCards, affectionDelta);
     return {
-      reply: reply || storyCards.map((card) => card.text || '').join('\n'),
-      question: String(parsed.question || parsed.prompt || '接下来你想怎么做？').trim(),
-      options,
+      reply: reply || normalizedCards.map((card) => card.text || '').join('\n'),
+      question: hasChoice ? question : '',
+      options: hasChoice ? options : [],
       sceneName: String(parsed.sceneName || parsed.scene || '').trim(),
+      affectionDelta,
       chapterSummary: String(parsed.chapterSummary || '').trim(),
-      cards: storyCards,
+      cards: normalizedCards,
     };
   } catch {
     return null;
@@ -375,14 +439,23 @@ const buildFallbackContinuation = (
   const lead = session.lead?.name || '对方';
   const previous = session.turns.at(-1);
   const sceneName = previous?.sceneName || session.direction?.genre || session.background?.name || '故事进行中';
-  const reply = `${player}做出了选择：「${decision}」。${lead}沉默了片刻，随后给出了一个没有完全说透的回应。空气里的紧张感没有消失，反而让你意识到，这件事比最初想象的更重要。`;
+  const isContinue = decision === '继续';
+  const reply = isContinue
+    ? `${lead}没有立刻催促。气氛缓了一拍，${player}能听清彼此的呼吸，也听清那些还没说出口的话。`
+    : `${player}做出了选择：「${decision}」。${lead}沉默了片刻，随后给出了一个没有完全说透的回应。空气里的紧张感没有消失，反而让你意识到，这件事比最初想象的更重要。`;
   return {
     reply,
-    question: `${lead}在等你决定下一步。你想怎么继续？`,
-    options: ['追问刚才没有说清的部分', '先观察周围的变化', '提出自己的条件再继续'],
+    question: isContinue ? '' : `${lead}看着你，等你明确表态：要追问真相，还是先稳住局面？`,
+    options: isContinue ? [] : ['追问刚才没有说清的部分', '先稳住局面，再找机会'],
+    affectionDelta: isContinue ? 0 : 1,
     sceneName,
     cards: [
-      { type: 'story', title: '你的决定', text: `${player}选择了：${decision}` },
+      {
+        type: 'story',
+        title: isContinue ? '继续' : '你的决定',
+        text: isContinue ? reply : `${player}选择了：${decision}`,
+        nodeValue: isContinue ? 0 : 1,
+      },
       { type: 'story', title: '新的变化', text: reply },
     ],
   };
@@ -396,11 +469,12 @@ const buildFallbackOpening = (session: CreativeStorySession): CreativeStoryOpeni
   const reply = `夜色刚刚落下，${player}在熟悉又陌生的街角停住脚步。${lead}已经在那里等候，手里握着一件与今晚有关、却还不能解释的东西。你们都知道，只要开口，原本平静的生活就会开始改变。`;
   return {
     reply,
-    question: `${lead}看向你，像是在等一个答案。你想先怎么做？`,
-    options: ['先问清楚发生了什么', '先观察对方隐藏的细节', '带着疑问答应同行'],
+    question: `${lead}把那件东西半递过来，目光停在你脸上：你是现在问清来历，还是先接过去再谈？`,
+    options: ['现在就问清来历', '先接过去，稍后再谈'],
+    affectionDelta: 0,
     sceneName,
     cards: [
-      { type: 'story', title: '第一幕', text: reply },
+      { type: 'story', title: '第一幕', text: reply, nodeValue: 0 },
       {
         type: 'story',
         title: '等待回答',
@@ -1024,11 +1098,14 @@ gender 仅用于内部人物预设的性别选择，不要把性别写进任何�
     if (!hasTextApiKey) return onMissingTextApiKeyRequest?.();
     setLoading(true);
     try {
+      const leadName = session.lead?.name || '主要角色';
       const prompt = `你是视觉小说的实时创作导演。题材是「${
         session.background?.name || session.direction?.genre || ''
-      }」，玩家扮演「${session.player?.name || ''}」，主要角色是「${session.lead?.name || ''}」。玩家角色细节为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。让人物的动作、语气、犹豫和关系距离持续符合这些五级设定，不要只在介绍里提一次。先演出 2 到 3 个很短的剧情节拍，然后停在一个必须由玩家决定的关键时刻。只返回 JSON：
-{"reply":"给玩家看的简短开场","question":"带有情绪和具体分歧的提问","options":["选项一","选项二","选项三"],"sceneName":"当前适合的场景名","cards":[{"type":"story","title":"","text":""}]}
-cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两位角色的名字。`;
+      }」，玩家扮演「${session.player?.name || ''}」，主要角色是「${leadName}」。玩家角色细节为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。让人物的动作、语气、犹豫和关系距离持续符合这些五级设定，不要只在介绍里提一次。当前对「${leadName}」的好感度为 0。
+${CREATIVE_STORY_BEAT_RULES}
+先写出开场演出。只返回 JSON：
+{"reply":"给玩家看的开场正文","question":"","options":[],"affectionDelta":0,"sceneName":"当前适合的场景名","cards":[{"type":"story","title":"","text":"","nodeValue":0}]}
+cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两位角色的名字。有关键分歧时再填写具体 question 与 options；否则 question 为 ""，options 为 []。`;
       let opening: CreativeStoryOpeningPayload | null = null;
       let usedFallback = false;
       try {
@@ -1037,7 +1114,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
           opening = normalizeOpeningPayload(
             (
               await callAIForTextResult(
-                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options 和 cards；cards 中每一项必须有 text。`,
+                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options、affectionDelta 和 cards；cards 中每一项必须有 text。无关键分歧时 question 为 ""、options 为 []。`,
               )
             ).content,
           );
@@ -1057,17 +1134,20 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       } catch {
         usedFallback = true;
       }
+      const affectionDelta = resolveAffectionDelta(opening);
       const now = Date.now();
       updateSession(taskId, {
         ...session,
         status: 'playing',
+        affection: affectionDelta,
         turns: [
           {
             id: uuidv4(),
             chapter: session.chapter,
             story: opening.reply,
             question: opening.question,
-            options: opening.options.length > 0 ? opening.options : buildFallbackOpening(session).options,
+            options: opening.options,
+            affectionDelta,
             sceneName: opening.sceneName || session.background?.name || session.direction?.genre,
             nodeId: placement?.nodeIds?.[0],
             createdAt: now,
@@ -1110,7 +1190,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
     }
     const now = Date.now();
     const session: CreativeStorySession = {
-      id: uuidv4(), status: 'setup', chapter: 1, turns: [], chapterSummaries: [], createdAt: now, updatedAt: now,
+      id: uuidv4(), status: 'setup', chapter: 1, affection: 0, turns: [], chapterSummaries: [], createdAt: now, updatedAt: now,
     };
     const task: AssistantTask = {
       id: uuidv4(), title: creativeCopy.taskTitle, createdAt: now, updatedAt: now, kind: 'creative-playtest', creativeSession: session,
@@ -1147,9 +1227,35 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
     setLoading(true);
     try {
       const previous = session.turns.at(-1);
-      const history = session.turns.slice(-7).map((turn) => `演出：${turn.story}\n提问：${turn.question}\n决定：${turn.decision || '未选择'}`).join('\n---\n');
+      const leadName = session.lead?.name || '主要角色';
+      const currentAffection = session.affection ?? 0;
+      const chapterContext = session.chapterSummaries
+        .slice(-3)
+        .map((summary) => `章节总结：${summary}`)
+        .join('\n');
+      const history = session.turns
+        .slice(-7)
+        .map((turn) => {
+          const choiceLine =
+            turn.decision || (turn === previous ? '未选择' : turn.options.length > 0 ? '未选择' : '（本段无玩家选择）');
+          const affectionLine =
+            typeof turn.affectionDelta === 'number' ? `\n好感变化：${turn.affectionDelta}` : '';
+          return `演出：${turn.story}\n提问：${turn.question || '（无）'}\n决定：${choiceLine}${affectionLine}`;
+        })
+        .join('\n---\n');
       const summarize = session.turns.length >= 8;
-      const prompt = `你是视觉小说的实时创作导演。严格承接故事，不要替玩家决定方向，也不要让故事结束。题材「${session.background?.name || session.direction?.genre || ''}」，玩家「${session.player?.name || ''}」，主要角色「${session.lead?.name || ''}」。玩家角色细节为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。后续的动作、情绪表达、秘密揭露速度与道德取舍必须持续符合这些五级设定。\n${history}\n\n玩家刚刚决定：${input}\n\n只演出下一小段（2 到 3 个短节拍），再提出具体问题。${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，供开启新章节使用。' : ''}\n只返回 JSON：{"reply":"","question":"","options":["","",""],"sceneName":"","chapterSummary":"","cards":[{"type":"story","title":"","text":""}]}。cards 只能有 2 到 3 张 story 卡。`;
+      const playerAction =
+        input === '继续' && (!previous || previous.options.length === 0)
+          ? '玩家已读完上一段，请自然续写，不要复述。'
+          : `玩家刚刚决定：${input}`;
+      const prompt = `你是视觉小说的实时创作导演。严格承接故事，不要替玩家决定方向，也不要让故事结束。题材「${session.background?.name || session.direction?.genre || ''}」，玩家「${session.player?.name || ''}」，主要角色「${leadName}」。玩家角色细节为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。后续的动作、情绪表达、秘密揭露速度与道德取舍必须持续符合这些五级设定。当前对「${leadName}」的好感度为 ${currentAffection}。
+${chapterContext ? `${chapterContext}\n` : ''}${history}
+
+${playerAction}
+
+${CREATIVE_STORY_BEAT_RULES}
+${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，供开启新章节使用。' : ''}
+只返回 JSON：{"reply":"","question":"","options":[],"affectionDelta":0,"sceneName":"","chapterSummary":"","cards":[{"type":"story","title":"","text":"","nodeValue":0}]}。cards 只能有 2 到 3 张 story 卡。有关键分歧时再填写具体 question 与 options；否则 question 为 ""，options 为 []。`;
       let continuation: CreativeStoryOpeningPayload | null = null;
       try {
         continuation = normalizeOpeningPayload((await callAIForTextResult(prompt)).content);
@@ -1157,7 +1263,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
           continuation = normalizeOpeningPayload(
             (
               await callAIForTextResult(
-                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options 和 cards；不要结束故事。`,
+                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options、affectionDelta 和 cards；不要结束故事。无关键分歧时 question 为 ""、options 为 []。`,
               )
             ).content,
           );
@@ -1168,11 +1274,20 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       // The player can withdraw while AI is writing; ignore that stale response.
       if (generation !== continuationGenerationRef.current) return;
       const next = continuation || buildFallbackContinuation(session, input);
+      const affectionDelta = resolveAffectionDelta(next);
+      const nextAffection = currentAffection + affectionDelta;
       const summary = summarize ? next.chapterSummary || `${session.chapter} 章：${history.slice(-260)}` : '';
       let placement: AssistantCardPlacementResult | undefined;
       try {
         placement = await createAssistantCards([
-          ...(previous ? [{ type: 'story' as const, title: 'AI 创作提问', text: previous.question }, { type: 'story' as const, title: '作者决定', text: input }] : []),
+          ...(previous
+            ? [
+                ...(previous.question
+                  ? [{ type: 'story' as const, title: 'AI 创作提问', text: previous.question }]
+                  : []),
+                { type: 'story' as const, title: '作者决定', text: input },
+              ]
+            : []),
           ...(summary ? [{ type: 'story' as const, title: `第 ${session.chapter} 章创作总结`, text: summary }] : []),
           ...next.cards,
         ], 'append', previous?.nodeId ? { targetNodeIds: [previous.nodeId] } : undefined);
@@ -1181,21 +1296,24 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       }
       if (generation !== continuationGenerationRef.current) return;
       const now = Date.now();
-      const continuationStartIndex = (previous ? 2 : 0) + (summary ? 1 : 0);
+      const bookkeepingCount =
+        (previous ? 1 + (previous.question ? 1 : 0) : 0) + (summary ? 1 : 0);
       const nextTurn = {
         id: uuidv4(), chapter: summarize ? session.chapter + 1 : session.chapter,
         story: next.reply,
         question: next.question,
-        options: next.options.length > 0 ? next.options : buildFallbackContinuation(session, input).options,
+        options: next.options,
+        affectionDelta,
         sceneName: next.sceneName || previous?.sceneName || session.background?.name || session.direction?.genre,
         // The earlier cards record the question, decision, and optional chapter
         // summary. The active playtest turn must point to the first new story
         // card, not to one of those bookkeeping cards.
-        nodeId: placement?.nodeIds?.[continuationStartIndex],
+        nodeId: placement?.nodeIds?.[bookkeepingCount],
         createdAt: now,
       };
       updateSession(task.id, {
         ...session, status: 'playing', chapter: nextTurn.chapter, pendingDecision: undefined,
+        affection: nextAffection,
         turns: summarize ? [nextTurn] : [...session.turns.slice(0, -1), ...(previous ? [{ ...previous, decision: input }] : []), nextTurn],
         chapterSummaries: summary ? [...session.chapterSummaries, summary] : session.chapterSummaries, updatedAt: now,
       });

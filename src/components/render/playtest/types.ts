@@ -17,6 +17,8 @@ export type PlaytestCreativeInteraction = {
   question: string;
   options: string[];
   sceneName?: string;
+  /** Running affection toward the lead character. */
+  affection?: number;
   loading?: boolean;
   onDecision: (decision: string) => Promise<void>;
   onWithdrawDecision?: () => void;

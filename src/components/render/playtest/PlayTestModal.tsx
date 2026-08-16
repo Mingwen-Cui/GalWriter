@@ -135,13 +135,33 @@ export function PlayTestModal(props: PlayTestProps) {
   const { followSelectedCard, autoScaleOnHover } = props.windowSettings;
   const [showMobileWindowMenu, setShowMobileWindowMenu] = React.useState(false);
   const [customCreativeDecision, setCustomCreativeDecision] = React.useState('');
+  const [creativeChoicesVisible, setCreativeChoicesVisible] = React.useState(false);
   const creativeInteraction = props.creativeInteraction;
   const appliedCreativeTurnRef = React.useRef<string | null>(null);
-  const activeChoicesReady = choicesReady;
+  const creativeChoiceRevealDelayMs = 2000;
+  const activeChoicesReady = creativeInteraction ? creativeChoicesVisible : choicesReady;
 
   React.useEffect(() => {
     setCustomCreativeDecision('');
   }, [creativeInteraction?.turnId]);
+
+  // Creative choices appear only after typewriter finishes, then wait 2 seconds.
+  React.useEffect(() => {
+    if (!creativeInteraction) {
+      setCreativeChoicesVisible(false);
+      return;
+    }
+    if (creativeInteraction.loading) {
+      setCreativeChoicesVisible(true);
+      return;
+    }
+    setCreativeChoicesVisible(false);
+    if (!choicesReady) return;
+    const timer = window.setTimeout(() => {
+      setCreativeChoicesVisible(true);
+    }, creativeChoiceRevealDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [choicesReady, creativeInteraction, creativeInteraction?.loading, creativeInteraction?.turnId]);
 
   // Every completed AI turn has a generated story card. Move the playtest cursor
   // to that card before showing the next question, so the dialogue, scene, and
@@ -184,6 +204,9 @@ export function PlayTestModal(props: PlayTestProps) {
           ? 'または、自分の言葉で次の展開を AI に伝えてください…'
           : 'Or tell AI, in your own words, what should happen next…';
     const sendLabel = language === 'zh' ? '继续故事' : language === 'ja' ? '物語を続ける' : 'Continue story';
+    const continueLabel = language === 'zh' ? '继续' : language === 'ja' ? '続ける' : 'Continue';
+    const affectionLabel =
+      language === 'zh' ? '好感度' : language === 'ja' ? '好感度' : 'Affection';
     if (creativeInteraction.loading) {
       return (
         <section
@@ -215,6 +238,8 @@ export function PlayTestModal(props: PlayTestProps) {
         </section>
       );
     }
+    if (!creativeChoicesVisible) return null;
+    const hasOptions = creativeInteraction.options.length > 0;
     return (
       <section
         className={`w-full rounded-2xl border p-3 shadow-lg backdrop-blur-md ${
@@ -225,26 +250,58 @@ export function PlayTestModal(props: PlayTestProps) {
               : 'border-slate-200 bg-white/95 text-slate-900'
         }`}
       >
-        <p className="mb-3 text-sm font-black leading-6">{creativeInteraction.question}</p>
-        <div className="grid grid-cols-1 gap-2">
-          {creativeInteraction.options.map((option) => (
-            <button
-              key={option}
-              type="button"
-              disabled={creativeInteraction.loading}
-              onClick={() => submitCreativeDecision(option)}
-              className={`min-h-11 rounded-xl border px-3 py-2 text-left text-sm font-bold transition disabled:cursor-wait disabled:opacity-60 ${
-                isImmersive
-                  ? 'border-amber-300 bg-white text-slate-700 hover:border-amber-500 hover:bg-amber-50'
-                  : isDarkMode
-                    ? 'border-white/15 bg-white/5 hover:border-sky-400/70 hover:bg-sky-500/15'
-                    : 'border-slate-200 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
+        {typeof creativeInteraction.affection === 'number' && (
+          <p className="mb-2 text-xs font-bold opacity-65">
+            {affectionLabel}：{creativeInteraction.affection}
+          </p>
+        )}
+        {creativeInteraction.question ? (
+          <p className="mb-3 text-sm font-black leading-6">{creativeInteraction.question}</p>
+        ) : !hasOptions ? (
+          <p className="mb-3 text-sm font-bold leading-6 opacity-75">
+            {language === 'zh'
+              ? '本段没有关键分歧，可以继续往下看。'
+              : language === 'ja'
+                ? 'この段落に重要な分岐はありません。続きへ進めます。'
+                : 'No major branch here — you can continue.'}
+          </p>
+        ) : null}
+        {hasOptions ? (
+          <div className="grid grid-cols-1 gap-2">
+            {creativeInteraction.options.map((option, index) => (
+              <button
+                key={`${index}-${option}`}
+                type="button"
+                disabled={creativeInteraction.loading}
+                onClick={() => submitCreativeDecision(option)}
+                className={`min-h-11 rounded-xl border px-3 py-2 text-left text-sm font-bold transition disabled:cursor-wait disabled:opacity-60 ${
+                  isImmersive
+                    ? 'border-amber-300 bg-white text-slate-700 hover:border-amber-500 hover:bg-amber-50'
+                    : isDarkMode
+                      ? 'border-white/15 bg-white/5 hover:border-sky-400/70 hover:bg-sky-500/15'
+                      : 'border-slate-200 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={creativeInteraction.loading}
+            onClick={() => submitCreativeDecision('继续')}
+            className={`min-h-11 w-full rounded-xl border px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60 ${
+              isImmersive
+                ? 'border-amber-300 bg-white text-slate-700 hover:border-amber-500 hover:bg-amber-50'
+                : isDarkMode
+                  ? 'border-white/15 bg-white/5 hover:border-sky-400/70 hover:bg-sky-500/15'
+                  : 'border-slate-200 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'
+            }`}
+          >
+            {continueLabel}
+          </button>
+        )}
         <div className="mt-3 flex gap-2">
           <textarea
             value={customCreativeDecision}
@@ -971,7 +1028,9 @@ export function PlayTestModal(props: PlayTestProps) {
                     style={dialogueFrameStyle}
                   >
                     {/* 选项区域 - 文字上方 */}
-                    {choicesPosition === 'aboveText' && renderActiveChoices(true)}
+                    {choicesPosition === 'aboveText' &&
+                      (!creativeInteraction || activeChoicesReady) &&
+                      renderActiveChoices(true)}
 
                     {useInlineFocusButton &&
                       renderPlaytestFocusButton(
@@ -1038,7 +1097,9 @@ export function PlayTestModal(props: PlayTestProps) {
                     </div>
 
                     {/* 选项区域 - 文字下方 */}
-                    {choicesPosition === 'belowText' && renderActiveChoices(true)}
+                    {choicesPosition === 'belowText' &&
+                      (!creativeInteraction || activeChoicesReady) &&
+                      renderActiveChoices(true)}
                   </div>
                 </div>
 
