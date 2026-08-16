@@ -27,6 +27,11 @@ import {
 } from '../../lib/characterAppearance';
 import type { Language } from '../../lib/i18n';
 import {
+  resolveAssistantAppendLayoutOrigin,
+  spawnCursorFromBounds,
+  spawnCursorFromNodes,
+} from './assistantCardPlacementLayout';
+import {
   applyAssistantStoryTags,
   type AssistantMentionReference,
   buildAssistantMentionReferencesFromNodes,
@@ -206,6 +211,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
   } = params;
   const assistantCopy = assistantPanelCopy(language);
   const streamingHeightReflowTimerRef = React.useRef<number | null>(null);
+  // Remembers the right edge of the last assistant append batch so the next
+  // independent placement continues beside it instead of stacking on the
+  // viewport center.
+  const assistantSpawnCursorRef = React.useRef<{ x: number; y: number } | null>(null);
 
   const { fitView, getNodes, setCenter } = useReactFlow();
 
@@ -559,6 +568,18 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       const center = getCenterPosition();
       const currentCanvasNodes = options?.setupNodeIds?.length ? getNodes() : nodes;
       const setupNodeIdSet = new Set(options?.setupNodeIds || []);
+      if (
+        mode === 'append' &&
+        !nodes.some(
+          (node) =>
+            node.type === 'storyNode' ||
+            node.type === 'characterNode' ||
+            node.type === 'sceneNode' ||
+            node.type === 'numberConditionNode',
+        )
+      ) {
+        assistantSpawnCursorRef.current = null;
+      }
       const stagedSetupNodes = currentCanvasNodes.filter(
         (node) =>
           setupNodeIdSet.has(node.id) &&
@@ -683,8 +704,27 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         0,
         ...layoutColumns.map((column) => getColumnHeight(column.indexes, column.type)),
       );
-      const layoutLeft = center.x - totalLayoutWidth / 2;
-      const layoutTop = center.y - maxColumnHeight / 2;
+      // Default append/fill leftovers use canvas-aware placement. Relative
+      // modes (adjacent / future / bridge) still override per-card positions.
+      const usesRelativeCardPositions =
+        mode === 'adjacent-revision' ||
+        mode === 'future-targets' ||
+        mode === 'bridge-to-target';
+      const appendOrigin = usesRelativeCardPositions
+        ? {
+            layoutLeft: center.x - totalLayoutWidth / 2,
+            layoutTop: center.y - maxColumnHeight / 2,
+          }
+        : resolveAssistantAppendLayoutOrigin({
+            existingNodes: nodes,
+            batchWidth: Math.max(totalLayoutWidth, 1),
+            batchHeight: Math.max(maxColumnHeight, 1),
+            viewportCenter: center,
+            spawnCursor: assistantSpawnCursorRef.current,
+            excludeIds: setupNodeIdSet.size > 0 ? setupNodeIdSet : undefined,
+          });
+      const layoutLeft = appendOrigin.layoutLeft;
+      const layoutTop = appendOrigin.layoutTop;
       const columnXByType = new Map<'character' | 'scene' | 'story' | 'number-condition', number>();
       layoutColumns.reduce((x, column) => {
         columnXByType.set(column.type, x);
@@ -760,7 +800,23 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           0,
         ) +
         Math.max(0, remainingCards.length - 1) * candidateGap;
-      const candidateLeft = center.x - candidateTotalWidth / 2;
+      const candidateMaxHeight = Math.max(
+        1,
+        ...remainingCards.map((_card, cardIndex) => cardLayouts[cardIndex].height),
+      );
+      const candidateOrigin = usesRelativeCardPositions
+        ? {
+            layoutLeft: center.x - candidateTotalWidth / 2,
+            layoutTop: center.y - candidateMaxHeight / 2,
+          }
+        : resolveAssistantAppendLayoutOrigin({
+            existingNodes: nodes,
+            batchWidth: Math.max(candidateTotalWidth, 1),
+            batchHeight: candidateMaxHeight,
+            viewportCenter: center,
+            spawnCursor: assistantSpawnCursorRef.current,
+          });
+      const candidateLeft = candidateOrigin.layoutLeft;
       const getAssistantCandidatePosition = (cardIndex: number) => ({
         x:
           candidateLeft +
@@ -771,7 +827,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                 offset + cardLayouts[previousIndex].width + candidateGap,
               0,
             ),
-        y: center.y - cardLayouts[cardIndex].height / 2,
+        y: candidateOrigin.layoutTop + (candidateMaxHeight - cardLayouts[cardIndex].height) / 2,
       });
 
       const newNodes: Node[] = remainingCards.map((card, index) => {
@@ -1500,6 +1556,12 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         ...chapterBackgroundNodes,
         ...batchBackgroundNodes,
       ]);
+      // Record the batch footprint before optional setup reflow. Reflow overwrites
+      // the cursor once character / scene / story columns share a final origin.
+      if (!usesRelativeCardPositions && newNodes.length > 0) {
+        const placedCursor = spawnCursorFromNodes(newNodes);
+        if (placedCursor) assistantSpawnCursorRef.current = placedCursor;
+      }
       // Character and scene setup cards are created in earlier short-drama
       // steps. Re-read the actual canvas state after this story batch has
       // been appended, then align all three sections from the same top edge.
@@ -1558,9 +1620,18 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             getColumnHeight(sceneNodes, settingRowGap),
             storyColumnHeight,
           );
-          const layoutTop = center.y - layoutHeight / 2;
-          const layoutLeft =
-            center.x - (SETTING_NODE_CARD_WIDTH * 2 + storyWidth + columnGap * 2) / 2;
+          const layoutWidth = SETTING_NODE_CARD_WIDTH * 2 + storyWidth + columnGap * 2;
+          const reflowExcludeIds = new Set([...setupNodeIds, ...storyNodeIdSet]);
+          const reflowOrigin = resolveAssistantAppendLayoutOrigin({
+            existingNodes: currentNodes,
+            batchWidth: layoutWidth,
+            batchHeight: layoutHeight,
+            viewportCenter: center,
+            spawnCursor: null,
+            excludeIds: reflowExcludeIds,
+          });
+          const layoutTop = reflowOrigin.layoutTop;
+          const layoutLeft = reflowOrigin.layoutLeft;
           const positions = new Map<string, { x: number; y: number }>();
           const positionColumn = (items: Node[], x: number, gap: number) => {
             let y = layoutTop;
@@ -1591,6 +1662,13 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                   0,
                 ),
             });
+          });
+
+          assistantSpawnCursorRef.current = spawnCursorFromBounds({
+            minX: layoutLeft,
+            minY: layoutTop,
+            maxX: layoutLeft + layoutWidth,
+            maxY: layoutTop + layoutHeight,
           });
 
           return currentNodes.map((node) => {
@@ -1639,9 +1717,15 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         });
       }
       if (newEdges.length > 0) setEdges((eds) => [...eds, ...newEdges]);
+      const focusX = usesRelativeCardPositions
+        ? center.x
+        : layoutLeft + totalLayoutWidth / 2;
+      const focusY = usesRelativeCardPositions
+        ? center.y
+        : layoutTop + maxColumnHeight / 2;
       return {
         count: filledCount + remainingCards.length,
-        position: { x: center.x, y: center.y, zoom: getViewportZoom() },
+        position: { x: focusX, y: focusY, zoom: getViewportZoom() },
         nodeIds: [...filledTargetNodeIds, ...newNodes.map((node) => node.id)],
       };
     },
@@ -1993,6 +2077,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           // cards cannot collide. Once their final DOM height is available,
           // pack each story column using the real measured height instead of
           // leaving those estimates as permanent blank space.
+          const autofitChildIds = new Set<string>();
           currentNodes.forEach((region) => {
             if (region.type !== 'backgroundNode' && region.type !== 'groupNode') return;
             const regionData = region.data as Record<string, unknown>;
@@ -2001,6 +2086,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                   (childId): childId is string => typeof childId === 'string',
                 )
               : [];
+            childIds.forEach((childId) => autofitChildIds.add(childId));
             const shouldReflowRegion =
               regionData.assistantAutoFitPending === true ||
               childIds.some((childId) => nodeIdSet.has(childId));
@@ -2035,6 +2121,48 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                 });
             });
           });
+
+          // Free-floating assistant stories (no chapter/batch autofit region)
+          // still grow after streaming. Pack matching columns so they do not
+          // stack once real heights exceed the initial estimate.
+          const freeFloatingStories = currentNodes.filter(
+            (node) =>
+              node.type === 'storyNode' &&
+              nodeIdSet.has(node.id) &&
+              !autofitChildIds.has(node.id) &&
+              !storyPositionById.has(node.id),
+          );
+          if (freeFloatingStories.length >= 2) {
+            const columns: Node[][] = [];
+            [...freeFloatingStories]
+              .sort(
+                (left, right) =>
+                  left.position.x - right.position.x || left.position.y - right.position.y,
+              )
+              .forEach((child) => {
+                const column = columns.find(
+                  (items) => Math.abs(items[0].position.x - child.position.x) < 1,
+                );
+                if (column) column.push(child);
+                else columns.push([child]);
+              });
+            const storyGap = 140;
+            columns.forEach((column) => {
+              if (column.length < 2) return;
+              const top = Math.min(...column.map((child) => child.position.y));
+              let nextY = top;
+              column
+                .sort((left, right) => left.position.y - right.position.y)
+                .forEach((child) => {
+                  storyPositionById.set(child.id, { x: child.position.x, y: nextY });
+                  const measuredHeight =
+                    readDimension(child.measured?.height) ||
+                    readDimension(child.style?.height) ||
+                    AI_STORY_CARD_HEIGHT;
+                  nextY += measuredHeight + storyGap;
+                });
+            });
+          }
 
           const reflowedNodes = currentNodes.map((node) => {
             const position = storyPositionById.get(node.id);
