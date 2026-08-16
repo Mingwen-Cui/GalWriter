@@ -137,7 +137,7 @@ export const buildSceneSettingPrompt = (data: Record<string, unknown>, lang: Lan
 Task: ${useExisting ? 'fill in the missing parts of this place profile without changing usable existing details' : 'create a fresh, distinct place profile'}.
 Output language: ${outputLanguage}.
 Preserve any usable existing details. Do not contradict them. Keep every field short and concrete: one or two sentences at most. Describe the place only; do not add characters, plot, events, goals, conflicts, or story development.
-Choose sceneEnvironment as exactly "indoor" or "outdoor" when the information is sufficient. You may choose visualTemplateId only from this list: ${visualTemplateList}. Ambient preset ids are optional and may only be "cafe-ambient", "rooftop-southeast-mountain", or "upbeat-daily". Selecting an ambient preset only recommends it; it must not imply that audio is downloaded or enabled.
+Choose sceneEnvironment as exactly "indoor" or "outdoor" when the information is sufficient. You may choose visualTemplateId only from this list: ${visualTemplateList}. Do not invent ambientPresetId values; leave ambientPresetId empty unless a future scene music preset id is explicitly known.
 
 Available information:
 ${context}
@@ -238,24 +238,6 @@ export const buildSceneUpdates = (
   if (template) {
     updates.sceneEnvironment = template.environment;
     updates.visualStyle = { ...template.style };
-  }
-
-  const allowedAmbientIds = new Set([
-    'cafe-ambient',
-    'rooftop-southeast-mountain',
-    'upbeat-daily',
-  ]);
-  if (asText(generated.ambientPresetId) && allowedAmbientIds.has(asText(generated.ambientPresetId))) {
-    updates.ambientSound = {
-      enabled: false,
-      source: 'preset',
-      presetId: asText(generated.ambientPresetId),
-      name: 'AI 推荐环境音',
-      loop: true,
-      volume: 0.45,
-      fadeIn: 0.8,
-      fadeOut: 0.8,
-    };
   }
 
   if (asText(generated.location)) {

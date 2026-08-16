@@ -1,4 +1,4 @@
-import { ChevronDown, ImagePlus, Loader2, Volume2 } from 'lucide-react';
+import { ChevronDown, ImagePlus, Loader2, Upload, Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { SceneEnvironment, SceneNodeData } from '../domain/project';
@@ -7,16 +7,20 @@ import { type MusicLibraryItem, saveMusicLibraryItem } from '../lib/db';
 import {
   ambientSoundFromPreset,
   downloadSceneAmbientPreset,
+  getSceneBackgroundAssetUrl,
+  getSceneBackgroundPresets,
   getSceneVisualTemplates,
+  isSameSceneBackgroundUrl,
   listSceneAmbientPresets,
   type PresetAmbientTrack,
+  type SceneBackgroundPreset,
   type SceneVisualTemplate,
 } from '../lib/sceneTemplates';
 
 type SceneTemplateControlsProps = {
   data: Pick<
     SceneNodeData,
-    'sceneEnvironment' | 'scenePresetEnabled' | 'visualStyle' | 'ambientSound'
+    'sceneEnvironment' | 'scenePresetEnabled' | 'visualStyle' | 'ambientSound' | 'coverImageUrl'
   >;
   onChange: (
     updates: Pick<
@@ -24,10 +28,12 @@ type SceneTemplateControlsProps = {
       'sceneEnvironment' | 'scenePresetEnabled' | 'visualStyle' | 'ambientSound'
     >,
   ) => void;
+  onSelectSceneImage: (imageUrl: string) => void;
+  onUploadSceneImage: (file: File) => void;
   language: 'zh' | 'en' | 'ja';
 };
 
-type OpenMenu = 'lighting' | 'sound' | null;
+type OpenMenu = 'sceneImage' | 'lighting' | 'sound' | null;
 
 const label = (language: SceneTemplateControlsProps['language'], zh: string, en: string) =>
   language === 'zh' ? zh : en;
@@ -54,28 +60,42 @@ const musicPreviewClass = [
 ];
 
 /** Compact scene-preset row. Both selection menus expand to a four-column image grid. */
-export function SceneTemplateControls({ data, onChange, language }: SceneTemplateControlsProps) {
+export function SceneTemplateControls({
+  data,
+  onChange,
+  onSelectSceneImage,
+  onUploadSceneImage,
+  language,
+}: SceneTemplateControlsProps) {
   const controlsRef = useRef<HTMLDivElement>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const soundUploadInputRef = useRef<HTMLInputElement>(null);
+  const sceneImageUploadInputRef = useRef<HTMLInputElement>(null);
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [tracks, setTracks] = useState<PresetAmbientTrack[]>([]);
   const [downloadingSoundId, setDownloadingSoundId] = useState<string | null>(null);
+  const [hiddenSceneImageIds, setHiddenSceneImageIds] = useState<Set<string>>(() => new Set());
   const environment = data.sceneEnvironment || 'indoor';
   const enabled = data.scenePresetEnabled === true;
   const templates = getSceneVisualTemplates(environment);
+  const sceneImages = getSceneBackgroundPresets(environment).filter(
+    (item) => !hiddenSceneImageIds.has(item.id),
+  );
   const selectedTemplate = templates.find((item) => item.id === data.visualStyle?.templateId);
   const selectedPresetId = data.ambientSound?.source === 'preset' ? data.ambientSound.presetId || '' : '';
   const selectedSoundName = data.ambientSound?.name || label(language, '背景音', 'Ambience');
+  const selectedSceneImage = sceneImages.find((item) =>
+    isSameSceneBackgroundUrl(data.coverImageUrl, item.assetPath),
+  );
 
   useEffect(() => {
     let cancelled = false;
-    void listSceneAmbientPresets().then((items) => {
+    void listSceneAmbientPresets(environment).then((items) => {
       if (!cancelled) setTracks(items);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [environment]);
 
   useEffect(() => {
     const closeMenu = (event: PointerEvent) => {
@@ -105,6 +125,11 @@ export function SceneTemplateControls({ data, onChange, language }: SceneTemplat
 
   const chooseVisual = (template: SceneVisualTemplate) => {
     apply({ sceneEnvironment: template.environment, visualStyle: { ...template.style } });
+    setOpenMenu(null);
+  };
+
+  const chooseSceneImage = (preset: SceneBackgroundPreset) => {
+    onSelectSceneImage(getSceneBackgroundAssetUrl(preset.assetPath));
     setOpenMenu(null);
   };
 
@@ -190,6 +215,66 @@ export function SceneTemplateControls({ data, onChange, language }: SceneTemplat
         </button>
       ) : (
         <>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setOpenMenu((menu) => (menu === 'sceneImage' ? null : 'sceneImage'))}
+              className={menuButtonClass}
+              aria-expanded={openMenu === 'sceneImage'}
+              title={selectedSceneImage?.label || label(language, '场景图', 'Scene image')}
+            >
+              <span>{label(language, '场景图', 'Scene')}</span>
+              <ChevronDown className="h-2.5 w-2.5" />
+            </button>
+            {openMenu === 'sceneImage' ? (
+              <div className="absolute left-0 top-[calc(100%+5px)] z-[120] w-[276px] rounded-lg border border-blue-200 bg-[var(--card-bg)] p-1.5 shadow-xl dark:border-blue-800">
+                <div className="grid grid-cols-4 gap-1">
+                  {sceneImages.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => chooseSceneImage(preset)}
+                      className={`relative min-w-0 overflow-hidden rounded-md border p-1 text-center transition-colors ${
+                        selectedSceneImage?.id === preset.id
+                          ? 'border-blue-400 bg-blue-500/10 text-blue-700'
+                          : 'border-transparent hover:border-blue-200 hover:bg-blue-50 dark:hover:border-blue-800 dark:hover:bg-slate-800'
+                      }`}
+                      title={preset.label}
+                    >
+                      <img
+                        src={getSceneBackgroundAssetUrl(preset.assetPath)}
+                        alt={preset.label}
+                        loading="lazy"
+                        onError={() => {
+                          setHiddenSceneImageIds((current) => {
+                            if (current.has(preset.id)) return current;
+                            const next = new Set(current);
+                            next.add(preset.id);
+                            return next;
+                          });
+                        }}
+                        className="mx-auto h-12 w-full object-cover"
+                      />
+                      <span className="mt-0.5 block truncate text-[9px] leading-3">{preset.label}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => sceneImageUploadInputRef.current?.click()}
+                    className="relative min-w-0 overflow-hidden rounded-md border border-dashed border-blue-300 p-1 text-center text-blue-700 transition-colors hover:border-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-950/40"
+                  >
+                    <span className="flex h-12 items-center justify-center bg-blue-50/70 dark:bg-blue-950/30">
+                      <Upload className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="mt-0.5 block truncate text-[9px] leading-3">
+                      {label(language, '上传', 'Upload')}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <div className="relative shrink-0">
             <button
               type="button"
@@ -302,7 +387,7 @@ export function SceneTemplateControls({ data, onChange, language }: SceneTemplat
                   ))}
                   <button
                     type="button"
-                    onClick={() => uploadInputRef.current?.click()}
+                    onClick={() => soundUploadInputRef.current?.click()}
                     className="relative min-w-0 overflow-hidden rounded-md border border-dashed border-blue-300 p-1 text-center text-blue-700 transition-colors hover:border-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:hover:bg-blue-950/40"
                   >
                     <span className="flex h-12 items-center justify-center bg-blue-50/70 dark:bg-blue-950/30">
@@ -318,7 +403,21 @@ export function SceneTemplateControls({ data, onChange, language }: SceneTemplat
           </div>
 
           <input
-            ref={uploadInputRef}
+            ref={sceneImageUploadInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                onUploadSceneImage(file);
+                setOpenMenu(null);
+              }
+              event.target.value = '';
+            }}
+          />
+          <input
+            ref={soundUploadInputRef}
             type="file"
             accept="audio/*"
             className="hidden"

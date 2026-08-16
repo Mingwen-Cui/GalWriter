@@ -660,8 +660,22 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                       scenePresetEnabled: data.scenePresetEnabled,
                       visualStyle: data.visualStyle,
                       ambientSound: data.ambientSound,
+                      coverImageUrl,
                     }}
                     onChange={(updates) => updateNodeData(updates)}
+                    onSelectSceneImage={(imageUrl) =>
+                      updateNodeData({
+                        coverImageUrl: imageUrl,
+                        images: syncPrimarySceneImage(images, imageUrl),
+                      })
+                    }
+                    onUploadSceneImage={(file) => {
+                      const url = registerBlobAsset(URL.createObjectURL(file), file);
+                      updateNodeData({
+                        coverImageUrl: url,
+                        images: syncPrimarySceneImage(images, url),
+                      });
+                    }}
                     language={lang}
                   />
                 </div>
