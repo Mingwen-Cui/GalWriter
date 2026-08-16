@@ -315,9 +315,70 @@ type CreativeStoryOpeningPayload = {
   question: string;
   options: string[];
   sceneName: string;
+  sceneEnvironment?: 'indoor' | 'outdoor';
   affectionDelta?: number;
   chapterSummary?: string;
   cards: AssistantCardDraft[];
+};
+
+const normalizeCreativeSceneEnvironment = (
+  value: unknown,
+): 'indoor' | 'outdoor' | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === 'indoor' ||
+    normalized === 'inner' ||
+    normalized === '室内' ||
+    normalized === '屋内'
+  ) {
+    return 'indoor';
+  }
+  if (
+    normalized === 'outdoor' ||
+    normalized === 'outter' ||
+    normalized === 'outer' ||
+    normalized === '室外' ||
+    normalized === '户外'
+  ) {
+    return 'outdoor';
+  }
+  return undefined;
+};
+
+/**
+ * When the beat moves to a new named place, create a scene setting card so the
+ * canvas gets a modular scene preset (background + no lighting by default).
+ */
+const buildCreativeSceneSettingCard = (
+  sceneName: string | undefined,
+  sceneEnvironment: 'indoor' | 'outdoor' | undefined,
+  previousSceneName?: string,
+): AssistantCardDraft | null => {
+  const name = String(sceneName || '').trim();
+  if (!name) return null;
+  if (previousSceneName && previousSceneName.trim() === name) return null;
+  return {
+    type: 'scene',
+    sceneName: name,
+    sceneEnvironment,
+    location: name,
+    visual: name,
+    notes: '',
+  };
+};
+
+const withCreativeSceneSettingCard = (
+  cards: AssistantCardDraft[],
+  sceneName: string | undefined,
+  sceneEnvironment: 'indoor' | 'outdoor' | undefined,
+  previousSceneName?: string,
+) => {
+  const sceneCard = buildCreativeSceneSettingCard(sceneName, sceneEnvironment, previousSceneName);
+  return {
+    cards: sceneCard ? [sceneCard, ...cards] : cards,
+    sceneCardCount: sceneCard ? 1 : 0,
+  };
 };
 
 const CREATIVE_STORY_BEAT_RULES = `演出长度约 3 到 10 句。
@@ -326,7 +387,9 @@ const CREATIVE_STORY_BEAT_RULES = `演出长度约 3 到 10 句。
 - 仅在关系转折、不可逆后果、立场冲突或真正的路线分叉时，才提出一个具体问题，并给出对应选项。
 - 问题必须具体，指向当下可做的事或要表态的立场；禁止空泛的「你想怎么做」「接下来呢」。
 - 选项数量不限，可以只有 1 个；没有关键分歧时不要硬凑选项。
-- 可根据剧情填写好感度：在 JSON 顶层给出整数 affectionDelta（可正可负），并在对应 story 卡上写 nodeValue（与本段变化一致）。`;
+- 可根据剧情填写好感度：在 JSON 顶层给出整数 affectionDelta（可正可负），并在对应 story 卡上写 nodeValue（与本段变化一致）。
+- 必须填写 sceneName（当前演出发生的地点名）。若地点相对上一段发生变化，sceneName 必须换成新地点。
+- 同时填写 sceneEnvironment，值只能是 indoor 或 outdoor，仅用于内部场景预设，不要写进对白。`;
 
 const parseFiniteNumber = (value: unknown): number | undefined => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -374,6 +437,7 @@ const normalizeOpeningPayload = (content: string): CreativeStoryOpeningPayload |
       needsChoice?: unknown;
       sceneName?: unknown;
       scene?: unknown;
+      sceneEnvironment?: unknown;
       affectionDelta?: unknown;
       affection?: unknown;
       favorability?: unknown;
@@ -422,6 +486,7 @@ const normalizeOpeningPayload = (content: string): CreativeStoryOpeningPayload |
       question: hasChoice ? question : '',
       options: hasChoice ? options : [],
       sceneName: String(parsed.sceneName || parsed.scene || '').trim(),
+      sceneEnvironment: normalizeCreativeSceneEnvironment(parsed.sceneEnvironment),
       affectionDelta,
       chapterSummary: String(parsed.chapterSummary || '').trim(),
       cards: normalizedCards,
@@ -700,17 +765,34 @@ export const createCreativeStorySessionHandlers = ({
 角色偏好：${direction?.rolePreference || '由 AI 选择一个有吸引力的角色切入点'}
 
 请生成恰好 3 个彼此明显不同、可以直接开始游玩的故事背景。每个背景都要有具体地点、时间或世界规则、一个立即发生的矛盾；不要写人物设定或后续剧情。只返回 JSON：
-{"cards":[{"type":"scene","sceneName":"不超过12字的故事门标题","location":"","time":"","weather":"","visual":"","sound":"","items":"","notes":"不超过45字的沉浸式钩子"}]}`);
+{"cards":[{"type":"scene","sceneName":"不超过12字的故事门标题","sceneEnvironment":"indoor 或 outdoor","location":"","time":"","weather":"","visual":"","sound":"","items":"","notes":"不超过45字的沉浸式钩子"}]}
+sceneEnvironment 只用于内部场景预设，不要把室内/室外写进 notes 或其他可见字段。`);
       const parsed = JSON.parse(extractFirstJsonObject(result.content)) as { cards?: AssistantCardDraft[] };
       const candidates = (parsed.cards || [])
         .filter((card) => getAssistantDraftType(card) === 'scene')
         .slice(0, 3)
-        .map((scene, index) => ({
-          id: uuidv4(),
-          name: scene.sceneName || scene.title || `故事门 ${index + 1}`,
-          description: scene.notes || scene.description || scene.visual || scene.location || '',
-          scene,
-        }));
+        .map((scene, index) => {
+          const sceneEnvironment = normalizeCreativeSceneEnvironment(
+            (scene as { sceneEnvironment?: unknown }).sceneEnvironment,
+          );
+          const normalizedScene: AssistantCardDraft = {
+            ...scene,
+            type: 'scene',
+            sceneName: scene.sceneName || scene.title || `故事门 ${index + 1}`,
+            ...(sceneEnvironment ? { sceneEnvironment } : {}),
+          };
+          return {
+            id: uuidv4(),
+            name: normalizedScene.sceneName || `故事门 ${index + 1}`,
+            description:
+              normalizedScene.notes ||
+              normalizedScene.description ||
+              normalizedScene.visual ||
+              normalizedScene.location ||
+              '',
+            scene: normalizedScene,
+          };
+        });
       if (candidates.length !== 3) throw new Error('Missing story door candidates');
       workflowRef.current = {
         type: 'creative-background-candidate-awaiting',
@@ -1104,7 +1186,7 @@ gender 仅用于内部人物预设的性别选择，不要把性别写进任何�
       }」，玩家扮演「${session.player?.name || ''}」，主要角色是「${leadName}」。玩家角色细节为：${getCreativeStoryTraitPromptContext(session.direction?.roleTraits)}。让人物的动作、语气、犹豫和关系距离持续符合这些五级设定，不要只在介绍里提一次。当前对「${leadName}」的好感度为 0。
 ${CREATIVE_STORY_BEAT_RULES}
 先写出开场演出。只返回 JSON：
-{"reply":"给玩家看的开场正文","question":"","options":[],"affectionDelta":0,"sceneName":"当前适合的场景名","cards":[{"type":"story","title":"","text":"","nodeValue":0}]}
+{"reply":"给玩家看的开场正文","question":"","options":[],"affectionDelta":0,"sceneName":"当前适合的场景名","sceneEnvironment":"indoor 或 outdoor","cards":[{"type":"story","title":"","text":"","nodeValue":0}]}
 cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两位角色的名字。有关键分歧时再填写具体 question 与 options；否则 question 为 ""，options 为 []。`;
       let opening: CreativeStoryOpeningPayload | null = null;
       let usedFallback = false;
@@ -1114,7 +1196,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
           opening = normalizeOpeningPayload(
             (
               await callAIForTextResult(
-                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options、affectionDelta 和 cards；cards 中每一项必须有 text。无关键分歧时 question 为 ""、options 为 []。`,
+                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options、affectionDelta、sceneName、sceneEnvironment 和 cards；cards 中每一项必须有 text。无关键分歧时 question 为 ""、options 为 []。`,
               )
             ).content,
           );
@@ -1126,9 +1208,17 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
         opening = buildFallbackOpening(session);
         usedFallback = true;
       }
+      const openingSceneName =
+        opening.sceneName || session.background?.name || session.direction?.genre;
+      const { cards: openingCards, sceneCardCount } = withCreativeSceneSettingCard(
+        opening.cards,
+        openingSceneName,
+        opening.sceneEnvironment,
+        session.background?.name,
+      );
       let placement: AssistantCardPlacementResult | undefined;
       try {
-        placement = await createAssistantCards(opening.cards, 'append', {
+        placement = await createAssistantCards(openingCards, 'append', {
           setFirstStoryAsRoot: true,
         });
       } catch {
@@ -1148,8 +1238,8 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
             question: opening.question,
             options: opening.options,
             affectionDelta,
-            sceneName: opening.sceneName || session.background?.name || session.direction?.genre,
-            nodeId: placement?.nodeIds?.[0],
+            sceneName: openingSceneName,
+            nodeId: placement?.nodeIds?.[sceneCardCount],
             createdAt: now,
           },
         ],
@@ -1254,8 +1344,9 @@ ${chapterContext ? `${chapterContext}\n` : ''}${history}
 ${playerAction}
 
 ${CREATIVE_STORY_BEAT_RULES}
+上一段场景名：${previous?.sceneName || session.background?.name || '未知'}。若本段地点改变，必须换成新的 sceneName 与对应 sceneEnvironment。
 ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，供开启新章节使用。' : ''}
-只返回 JSON：{"reply":"","question":"","options":[],"affectionDelta":0,"sceneName":"","chapterSummary":"","cards":[{"type":"story","title":"","text":"","nodeValue":0}]}。cards 只能有 2 到 3 张 story 卡。有关键分歧时再填写具体 question 与 options；否则 question 为 ""，options 为 []。`;
+只返回 JSON：{"reply":"","question":"","options":[],"affectionDelta":0,"sceneName":"","sceneEnvironment":"indoor 或 outdoor","chapterSummary":"","cards":[{"type":"story","title":"","text":"","nodeValue":0}]}。cards 只能有 2 到 3 张 story 卡。有关键分歧时再填写具体 question 与 options；否则 question 为 ""，options 为 []。`;
       let continuation: CreativeStoryOpeningPayload | null = null;
       try {
         continuation = normalizeOpeningPayload((await callAIForTextResult(prompt)).content);
@@ -1263,7 +1354,7 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
           continuation = normalizeOpeningPayload(
             (
               await callAIForTextResult(
-                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options、affectionDelta 和 cards；不要结束故事。无关键分歧时 question 为 ""、options 为 []。`,
+                `${prompt}\n上一次输出无法读取。请只返回一个 JSON 对象，包含 reply、question、options、affectionDelta、sceneName、sceneEnvironment 和 cards；不要结束故事。无关键分歧时 question 为 ""、options 为 []。`,
               )
             ).content,
           );
@@ -1277,6 +1368,14 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
       const affectionDelta = resolveAffectionDelta(next);
       const nextAffection = currentAffection + affectionDelta;
       const summary = summarize ? next.chapterSummary || `${session.chapter} 章：${history.slice(-260)}` : '';
+      const nextSceneName =
+        next.sceneName || previous?.sceneName || session.background?.name || session.direction?.genre;
+      const { cards: continuationSceneAndStoryCards, sceneCardCount } = withCreativeSceneSettingCard(
+        next.cards,
+        nextSceneName,
+        next.sceneEnvironment,
+        previous?.sceneName || session.background?.name,
+      );
       let placement: AssistantCardPlacementResult | undefined;
       try {
         placement = await createAssistantCards([
@@ -1289,7 +1388,7 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
               ]
             : []),
           ...(summary ? [{ type: 'story' as const, title: `第 ${session.chapter} 章创作总结`, text: summary }] : []),
-          ...next.cards,
+          ...continuationSceneAndStoryCards,
         ], 'append', previous?.nodeId ? { targetNodeIds: [previous.nodeId] } : undefined);
       } catch {
         placement = undefined;
@@ -1304,11 +1403,11 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
         question: next.question,
         options: next.options,
         affectionDelta,
-        sceneName: next.sceneName || previous?.sceneName || session.background?.name || session.direction?.genre,
+        sceneName: nextSceneName,
         // The earlier cards record the question, decision, and optional chapter
-        // summary. The active playtest turn must point to the first new story
-        // card, not to one of those bookkeeping cards.
-        nodeId: placement?.nodeIds?.[bookkeepingCount],
+        // summary; a scene setting card may also precede the new story cards.
+        // The active playtest turn must point to the first new story card.
+        nodeId: placement?.nodeIds?.[bookkeepingCount + sceneCardCount],
         createdAt: now,
       };
       updateSession(task.id, {
