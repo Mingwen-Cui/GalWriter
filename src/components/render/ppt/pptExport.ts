@@ -25,7 +25,7 @@ import {
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
-import { splitPptTextLines } from './pptTextLines';
+import { splitPptTextLines, splitPptTypewriterChars } from './pptTextLines';
 import {
   finalizePptxForPowerPoint,
   type PptAnimationExportTarget,
@@ -618,6 +618,169 @@ export async function buildPptxBuffer({
     const panelPaddingX = (layout.paddingX / 1920) * 13.333;
     const panelPaddingY = (layout.paddingY / 1080) * 7.5;
     const panelFrame = page.frame(panelX, panelY, panelW, panelH);
+      const addTypewriterSlideText = ({
+        target,
+        objectNamePrefix,
+        text,
+        x,
+        y,
+        width,
+        lineHeight,
+        fontFace,
+        fontSize,
+        color,
+        bold,
+        align,
+        rotate,
+        start,
+        durationMs,
+        lineGapMs,
+      }: {
+        target: 'dialog-title' | 'dialog-body';
+        objectNamePrefix: string;
+        text: string;
+        x: number;
+        y: number;
+        width: number;
+        lineHeight: number;
+        fontFace?: string;
+        fontSize: number;
+        color: string;
+        bold: boolean;
+        align: 'left' | 'center' | 'right';
+        rotate: number;
+        start: 'onClick' | 'withPrevious' | 'afterPrevious';
+        durationMs: number;
+        lineGapMs: number;
+      }) => {
+        const lines = splitPptTextLines(text || ' ', Math.max(8, width * 72), fontSize, 40);
+        lines.forEach((line, index) => {
+          const objectName = `${objectNamePrefix}-line-${index + 1}`;
+          slide.addText(line, {
+            objectName,
+            ...page.frame(x, y + index * lineHeight, width, lineHeight + 0.04),
+            fontFace: toPptFontFace(fontFace || 'Arial'),
+            fontSize,
+            bold,
+            color: hex(color),
+            align,
+            breakLine: false,
+            fit: 'resize',
+            margin: 0,
+            valign: 'top',
+            rotate,
+          });
+          if (sceneSlideNumber) {
+            animationTargets.push({
+              slideNumber: sceneSlideNumber,
+              objectName,
+              animation: {
+                id: `${objectName}-typewriter`,
+                target,
+                phase: 'enter' as const,
+                effect: 'wipe' as const,
+                start:
+                  index === 0
+                    ? start === 'onClick'
+                      ? ('withPrevious' as const)
+                      : start
+                    : ('afterPrevious' as const),
+                durationMs,
+                delayMs: index === 0 ? 0 : lineGapMs,
+                direction: 'left' as const,
+              },
+            });
+          }
+        });
+      };
+      const addCharacterTypewriterSlideText = ({
+        target,
+        objectNamePrefix,
+        text,
+        x,
+        y,
+        width,
+        lineHeight,
+        fontFace,
+        fontSize,
+        color,
+        bold,
+        align,
+        rotate,
+        start,
+        durationMs,
+      }: {
+        target: 'dialog-title' | 'dialog-body';
+        objectNamePrefix: string;
+        text: string;
+        x: number;
+        y: number;
+        width: number;
+        lineHeight: number;
+        fontFace?: string;
+        fontSize: number;
+        color: string;
+        bold: boolean;
+        align: 'left' | 'center' | 'right';
+        rotate: number;
+        start: 'onClick' | 'withPrevious' | 'afterPrevious';
+        durationMs: number;
+      }) => {
+        const charDurationMs = Math.max(60, Math.min(180, Math.round(durationMs / 6)));
+        const lines = splitPptTypewriterChars(
+          text || ' ',
+          Math.max(8, width * 72),
+          fontSize,
+          60,
+        );
+        lines.forEach((line, lineIndex) => {
+          const totalLineWidthIn = line.widthPt / 72;
+          const startX =
+            align === 'center'
+              ? x + (width - totalLineWidthIn) / 2
+              : align === 'right'
+                ? x + width - totalLineWidthIn
+                : x;
+          let charX = startX;
+          line.glyphs.forEach((glyph, charIndex) => {
+            const objectName = `${objectNamePrefix}-line-${lineIndex + 1}-char-${charIndex + 1}`;
+            const charWidthIn = Math.max(0.04, glyph.widthPt / 72);
+            slide.addText(glyph.char === ' ' ? '\u00A0' : glyph.char, {
+              objectName,
+              ...page.frame(charX, y + lineIndex * lineHeight, charWidthIn + 0.02, lineHeight + 0.04),
+              fontFace: toPptFontFace(fontFace || 'Arial'),
+              fontSize,
+              bold,
+              color: hex(color),
+              align: 'center',
+              breakLine: false,
+              fit: 'resize',
+              margin: 0,
+              valign: 'top',
+              rotate,
+            });
+            if (sceneSlideNumber) {
+              animationTargets.push({
+                slideNumber: sceneSlideNumber,
+                objectName,
+                animation: {
+                  id: `${objectName}-typewriter-char`,
+                  target,
+                  phase: 'enter' as const,
+                  effect: 'fade' as const,
+                  start: lineIndex === 0 && charIndex === 0 ? start : ('afterPrevious' as const),
+                  durationMs: charDurationMs,
+                  delayMs: 0,
+                  direction: 'left' as const,
+                },
+              });
+            }
+            charX += charWidthIn + 0.02;
+          });
+        });
+      };
+
+
     if (panel.visible) {
       const objectName = `ppt-dialog-panel-${scene.id}`;
       slide.addShape(pptx.ShapeType.roundRect, {
@@ -637,7 +800,58 @@ export async function buildPptxBuffer({
       addAnimationTargets(objectName, 'dialog-panel');
     }
     const hasTitle = title.visible && Boolean(sceneTitle.trim());
+            const titleTypewriter = title.animation.animation === 'typewriter';
+      const titleTypewriterMode = title.animation.typewriterMode;
+      const hasSavedTitleAnimation = sceneAnimations.some(
+        (animation) => animation.target === 'dialog-title',
+      );
+      const titleX = panelX + panelPaddingX + title.x / 144;
+      const titleY = panelY + panelPaddingY + title.y / 144;
+      const titleW = Math.min(panelW - panelPaddingX * 2, (panelW * title.width) / 100);
+      const titleH = Math.max(0.18, title.height / 144);
+      const titleFontSize = Math.max(8 * page.scale, title.fontSize * 0.75 * page.scale);
     if (hasTitle) {
+        if (titleTypewriter && !hasSavedTitleAnimation) {
+            if (titleTypewriterMode === 'character') {
+              addCharacterTypewriterSlideText({
+                target: 'dialog-title',
+                objectNamePrefix: `ppt-dialog-title-${scene.id}`,
+                text: sceneTitle,
+                x: titleX,
+                y: titleY,
+                width: titleW,
+                lineHeight: Math.max(0.2, (titleFontSize / 72) * (title.lineHeight || 1.25)),
+                fontFace: title.fontFamily,
+                fontSize: titleFontSize,
+                color: title.fill.color,
+                bold: title.fontWeight >= 700,
+                align: title.textAlign,
+                rotate: title.rotation,
+                start: sceneAnimations.length ? 'afterPrevious' : 'withPrevious',
+                durationMs: Math.max(500, title.animation.durationMs || 600),
+              });
+            } else {
+          addTypewriterSlideText({
+            target: 'dialog-title',
+            objectNamePrefix: `ppt-dialog-title-${scene.id}`,
+            text: sceneTitle,
+            x: titleX,
+            y: titleY,
+            width: titleW,
+            lineHeight: Math.max(0.2, (titleFontSize / 72) * (title.lineHeight || 1.25)),
+            fontFace: title.fontFamily,
+            fontSize: titleFontSize,
+            color: title.fill.color,
+            bold: title.fontWeight >= 700,
+            align: title.textAlign,
+            rotate: title.rotation,
+            start: sceneAnimations.length ? 'afterPrevious' : 'onClick',
+            durationMs: Math.max(500, title.animation.durationMs || 600),
+            lineGapMs: 140,
+          });
+            }
+        } else {
+  
       const objectName = `ppt-dialog-title-${scene.id}`;
       slide.addText(sceneTitle, {
         objectName,
@@ -660,6 +874,7 @@ export async function buildPptxBuffer({
       });
       addAnimationTargets(objectName, 'dialog-title');
     }
+      }
     if (body.visible) {
       const bodyX = panelX + panelPaddingX + body.x / 144;
       const bodyY =
@@ -667,6 +882,11 @@ export async function buildPptxBuffer({
       const bodyW = Math.min(panelW - panelPaddingX * 2, (panelW * body.width) / 100);
       const bodyH = Math.max(0.2, body.height / 144);
       const bodyFontSize = Math.max(8 * page.scale, body.fontSize * 0.75 * page.scale);
+        const bodyTypewriter = body.animation.animation === 'typewriter';
+          const bodyTypewriterMode = body.animation.typewriterMode;
+        const hasSavedBodyAnimation = sceneAnimations.some(
+          (animation) => animation.target === 'dialog-body',
+        );
       const lineWipe = sceneAnimations.find(
         (animation) =>
           animation.target === 'dialog-body' &&
@@ -675,7 +895,7 @@ export async function buildPptxBuffer({
           animation.textBuild?.mode === 'line-wipe',
       );
       if (lineWipe) {
-        const lines = splitPptTextLines(sceneBody || ' ', bodyW * 72, bodyFontSize);
+        const lines = splitPptTextLines(sceneBody || ' ', bodyW * 72, bodyFontSize, 40);
         const lineHeight = Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45));
         lines.forEach((line, index) => {
           const objectName = `ppt-dialog-body-${scene.id}-line-${index + 1}`;
@@ -707,7 +927,47 @@ export async function buildPptxBuffer({
           }
         });
       } else {
-        const objectName = `ppt-dialog-body-${scene.id}`;
+        if (bodyTypewriter && !hasSavedBodyAnimation) {
+            if (bodyTypewriterMode === 'character') {
+              addCharacterTypewriterSlideText({
+                target: 'dialog-body',
+                objectNamePrefix: `ppt-dialog-body-${scene.id}`,
+                text: sceneBody,
+                x: bodyX,
+                y: bodyY,
+                width: bodyW,
+                lineHeight: Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45)),
+                fontFace: body.fontFamily,
+                fontSize: bodyFontSize,
+                color: body.fill.color,
+                bold: body.fontWeight >= 700,
+                align: body.textAlign,
+                rotate: body.rotation,
+                start: sceneAnimations.length ? 'afterPrevious' : 'withPrevious',
+                durationMs: Math.max(500, body.animation.durationMs || 600),
+              });
+            } else {
+            addTypewriterSlideText({
+              target: 'dialog-body',
+              objectNamePrefix: `ppt-dialog-body-${scene.id}`,
+              text: sceneBody,
+              x: bodyX,
+              y: bodyY,
+              width: bodyW,
+              lineHeight: Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45)),
+              fontFace: body.fontFamily,
+              fontSize: bodyFontSize,
+              color: body.fill.color,
+              bold: body.fontWeight >= 700,
+              align: body.textAlign,
+              rotate: body.rotation,
+              start: sceneAnimations.length ? 'afterPrevious' : 'onClick',
+              durationMs: Math.max(500, body.animation.durationMs || 600),
+              lineGapMs: 160,
+            });
+            }
+          } else {
+            const objectName = `ppt-dialog-body-${scene.id}`;
         slide.addText(sceneBody || ' ', {
           objectName,
           ...page.frame(bodyX, bodyY, bodyW, bodyH),
@@ -723,6 +983,7 @@ export async function buildPptxBuffer({
           rotate: body.rotation,
         });
         addAnimationTargets(objectName, 'dialog-body');
+          }
       }
     }
     const speakerName = sceneNameplate;

@@ -406,9 +406,54 @@ export function PptWorkspace({
   // Keep them visible in the native PPT timeline without serialising a second
   // copy into the workspace settings.
   const tagAnimations = scene ? resolvePptTagAnimations(scene) : [];
+    const styleTextAnimations = useMemo(() => {
+      if (!scene) return [] as PptObjectAnimation[];
+      const objects = getRenderObjects(renderStyle);
+      const entries: PptObjectAnimation[] = [];
+      const hasSaved = (target: PptAnimationTarget) =>
+        savedAnimations.some((item) => item.target === target);
+      if (
+        objects.title.visible &&
+        objects.title.animation.animation === 'typewriter' &&
+        !hasSaved('dialog-title')
+      ) {
+        entries.push({
+          id: `style:${scene.id}:dialog-title:typewriter`,
+          source: 'tag',
+          target: 'dialog-title',
+          phase: 'enter',
+          effect: 'wipe',
+          start: 'afterPrevious',
+          durationMs: Math.max(500, objects.title.animation.durationMs || 600),
+          delayMs: 0,
+          direction: 'left',
+          textBuild: { mode: 'line-wipe', lineGapMs: 140 },
+        });
+      }
+      if (
+        objects.body.visible &&
+        objects.body.animation.animation === 'typewriter' &&
+        !hasSaved('dialog-body')
+      ) {
+        entries.push({
+          id: `style:${scene.id}:dialog-body:typewriter`,
+          source: 'tag',
+          target: 'dialog-body',
+          phase: 'enter',
+          effect: 'wipe',
+          start: 'afterPrevious',
+          durationMs: Math.max(500, objects.body.animation.durationMs || 600),
+          delayMs: 0,
+          direction: 'left',
+          textBuild: { mode: 'line-wipe', lineGapMs: 160 },
+        });
+      }
+      return entries;
+    }, [renderStyle, savedAnimations, scene]);
+
   const currentAnimations = useMemo(
-    () => withTimelineStarts([...tagAnimations, ...savedAnimations]),
-    [savedAnimations, tagAnimations],
+    () => withTimelineStarts([...tagAnimations, ...styleTextAnimations, ...savedAnimations]),
+    [savedAnimations, styleTextAnimations, tagAnimations],
   );
   const currentTransition = transitions[selectedId] || DEFAULT_TRANSITION;
   const currentVideoLoop = scene ? (pptSettings.videoLoopByScene?.[scene.id] ?? false) : false;
@@ -720,9 +765,7 @@ export function PptWorkspace({
     setSidebarTab('style');
   };
   const duplicateCurrentManualSlide = () => {
-    const next = manualSlide
-      ? duplicateManualSlide(manualSlide, copy.duplicateSlide)
-      : createManualSlide(copy.manualSlide);
+    const next = createClipboardSlide(selectedId) || createManualSlide(copy.manualSlide);
     addManualSlide(next);
   };
   const selectIndex = useCallback(
