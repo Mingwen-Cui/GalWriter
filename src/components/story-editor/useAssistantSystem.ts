@@ -23,6 +23,7 @@ import type { AITextResult, AITextStreamHandlers } from '../../editor-services/a
 import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
 import {
   getCharacterAppearanceCatalog,
+  listMatchedHairOutfitPairs,
   type CharacterAppearanceGender,
 } from '../../lib/characterAppearance';
 import type { Language } from '../../lib/i18n';
@@ -83,8 +84,9 @@ const normalizeAssistantAppearanceGender = (value: unknown): CharacterAppearance
 
 /**
  * AI often creates several characters in one request. Pick a deterministic
- * preset for each card while reserving its hair/outfit pair, so same-gender
- * characters do not arrive looking like copies of one another.
+ * preset for each card while reserving its matched hair/outfit pair
+ * (hair3 ↔ cloth3), so same-gender characters do not arrive looking like
+ * copies of one another. Face stays independent of that pairing.
  */
 const createDistinctAssistantAppearanceTemplate = (
   nodeId: string,
@@ -94,20 +96,18 @@ const createDistinctAssistantAppearanceTemplate = (
   const seed = hashAssistantAppearanceSeed(nodeId);
   const gender = preferredGender || (seed % 2 === 0 ? 'female' : 'male');
   const catalog = getCharacterAppearanceCatalog(gender);
-  const hairCount = Math.max(1, catalog.hairs.length);
-  const outfitCount = Math.max(1, catalog.outfits.length);
-  const styleCount = hairCount * outfitCount;
+  const pairs = listMatchedHairOutfitPairs(catalog);
+  const pairCount = Math.max(1, pairs.length);
+  const faceCount = Math.max(1, catalog.faces.length);
 
-  for (let attempt = 0; attempt < styleCount; attempt += 1) {
-    const styleIndex = (seed + attempt) % styleCount;
-    const hair = catalog.hairs[styleIndex % hairCount] || catalog.hairs[0];
-    const outfit = catalog.outfits[Math.floor(styleIndex / hairCount) % outfitCount] || catalog.outfits[0];
-    const face = catalog.faces[(Math.floor(seed / styleCount) + attempt) % catalog.faces.length] || catalog.faces[0];
+  for (let attempt = 0; attempt < pairCount; attempt += 1) {
+    const pair = pairs[(seed + attempt) % pairCount] || pairs[0];
+    const face = catalog.faces[(Math.floor(seed / pairCount) + attempt) % faceCount] || catalog.faces[0];
     const template = {
       gender,
       faceId: face?.id || '',
-      hairId: hair?.id || '',
-      outfitId: outfit?.id || '',
+      hairId: pair?.hair.id || catalog.hairs[0]?.id || '',
+      outfitId: pair?.outfit.id || catalog.outfits[0]?.id || '',
     };
     const styleKey = getAppearanceStyleKey(template);
     if (!usedStyleKeys.has(styleKey)) {
@@ -117,12 +117,13 @@ const createDistinctAssistantAppearanceTemplate = (
   }
 
   // A project can contain more same-gender cards than available style pairs.
-  // In that rare case, keep a deterministic fallback instead of failing card creation.
+  // In that rare case, keep a deterministic matched fallback instead of failing.
+  const pair = pairs[seed % pairCount] || pairs[0];
   const template = {
     gender,
-    faceId: catalog.faces[seed % Math.max(1, catalog.faces.length)]?.id || '',
-    hairId: catalog.hairs[seed % hairCount]?.id || '',
-    outfitId: catalog.outfits[Math.floor(seed / hairCount) % outfitCount]?.id || '',
+    faceId: catalog.faces[seed % faceCount]?.id || '',
+    hairId: pair?.hair.id || catalog.hairs[0]?.id || '',
+    outfitId: pair?.outfit.id || catalog.outfits[0]?.id || '',
   };
   usedStyleKeys.add(getAppearanceStyleKey(template));
   return template;

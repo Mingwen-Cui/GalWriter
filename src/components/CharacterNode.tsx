@@ -56,6 +56,7 @@ import {
   getCharacterAppearanceAssetUrl,
   getCharacterAppearanceAssetUrls,
   getCharacterAppearanceCatalog,
+  resolveMatchedHairOutfitSelection,
   type AppearanceAdjustment,
   type CharacterAppearanceGender,
 } from '../lib/characterAppearance';
@@ -122,12 +123,16 @@ const createRandomAppearanceTemplate = (
   const catalog = getCharacterAppearanceCatalog(gender);
   const choose = (options: AppearanceMenuOption[], offset: number) =>
     options[(seed >>> offset) % options.length]?.id || options[0]?.id || '';
+  const matched = resolveMatchedHairOutfitSelection(catalog, {
+    hairId: choose(catalog.hairs, 7),
+    outfitId: choose(catalog.outfits, 13),
+  });
 
   return {
     gender,
     faceId: choose(catalog.faces, 2),
-    hairId: choose(catalog.hairs, 7),
-    outfitId: choose(catalog.outfits, 13),
+    hairId: matched.hairId,
+    outfitId: matched.outfitId,
   };
 };
 
@@ -168,8 +173,10 @@ function AppearanceImageMenu({
   disabled,
   assetUrlBySource = {},
   thumbnailCrop = 'full',
+  customAssetUrl,
   onToggle,
   onChange,
+  onUploadCustom,
 }: {
   label: string;
   options: AppearanceMenuOption[];
@@ -178,16 +185,30 @@ function AppearanceImageMenu({
   disabled?: boolean;
   assetUrlBySource?: Record<string, string>;
   thumbnailCrop?: 'full' | 'face';
+  customAssetUrl?: string;
   onToggle: () => void;
   onChange: (value: string) => void;
+  onUploadCustom?: (file: File) => void;
 }) {
   const itemsPerPage = 16;
-  const totalPages = Math.max(1, Math.ceil(options.length / itemsPerPage));
   const [page, setPage] = useState(0);
-  const visibleOptions = options.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+  const [hiddenOptionIds, setHiddenOptionIds] = useState<Set<string>>(() => new Set());
+  const [uploadGuideOpen, setUploadGuideOpen] = useState(false);
+  const visibleCatalogOptions = options.filter((option) => !hiddenOptionIds.has(option.id));
+  const totalPages = Math.max(1, Math.ceil(visibleCatalogOptions.length / itemsPerPage));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageOptions = visibleCatalogOptions.slice(
+    safePage * itemsPerPage,
+    (safePage + 1) * itemsPerPage,
+  );
+  const isLastPage = safePage >= totalPages - 1;
+  const resolveOptionSrc = (option: AppearanceMenuOption) =>
+    assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)] ||
+    getCharacterAppearanceAssetUrl(option.assetPath);
 
   const toggleMenu = () => {
     setPage(0);
+    setUploadGuideOpen(false);
     onToggle();
   };
 
@@ -207,53 +228,132 @@ function AppearanceImageMenu({
       </button>
       {isOpen && !disabled && (
         <div className="absolute left-0 top-[calc(100%+5px)] z-[120] w-[276px] rounded-lg border border-purple-200 bg-[var(--card-bg)] p-1.5 shadow-xl dark:border-purple-800">
-          <div className="grid grid-cols-4 gap-1">
-          {visibleOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onChange(option.id);
-              }}
-              className={`relative overflow-hidden rounded-md border p-1 text-center transition-colors ${value === option.id ? 'border-purple-400 bg-purple-500/10 text-purple-600' : 'border-transparent hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-slate-800'}`}
-            >
-              <img
-                src={
-                  assetUrlBySource[getCharacterAppearanceAssetUrl(option.assetPath)] ||
-                  getCharacterAppearanceAssetUrl(option.assetPath)
-                }
-                alt={option.label}
-                loading="lazy"
-                className={`mx-auto h-12 w-full origin-top object-cover object-top ${
-                  thumbnailCrop === 'face'
-                    ? 'scale-[2.25]'
-                    : 'scale-[1.7]'
-                }`}
-              />
-              <span className="mt-0.5 block truncate text-[9px] leading-3">{option.label}</span>
-            </button>
-          ))}
+          <div className="relative">
+            <div className="grid grid-cols-4 gap-1">
+              {pageOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setUploadGuideOpen(false);
+                    onChange(option.id);
+                  }}
+                  className={`relative overflow-hidden rounded-md border p-1 text-center transition-colors ${
+                    !customAssetUrl && value === option.id
+                      ? 'border-purple-400 bg-purple-500/10 text-purple-600'
+                      : 'border-transparent hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <img
+                    src={resolveOptionSrc(option)}
+                    alt={option.label}
+                    loading="lazy"
+                    onError={() => {
+                      setHiddenOptionIds((current) => {
+                        if (current.has(option.id)) return current;
+                        const next = new Set(current);
+                        next.add(option.id);
+                        return next;
+                      });
+                    }}
+                    className={`mx-auto h-12 w-full origin-top object-cover object-top ${
+                      thumbnailCrop === 'face' ? 'scale-[2.25]' : 'scale-[1.7]'
+                    }`}
+                  />
+                  <span className="mt-0.5 block truncate text-[9px] leading-3">{option.label}</span>
+                </button>
+              ))}
+              {isLastPage && onUploadCustom ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setUploadGuideOpen(true);
+                  }}
+                  className={`relative overflow-hidden rounded-md border p-1 text-center transition-colors ${
+                    customAssetUrl
+                      ? 'border-purple-400 bg-purple-500/10 text-purple-600'
+                      : 'border-dashed border-purple-200 hover:border-purple-400 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {customAssetUrl ? (
+                    <img
+                      src={customAssetUrl}
+                      alt=""
+                      className={`mx-auto h-12 w-full origin-top object-cover object-top ${
+                        thumbnailCrop === 'face' ? 'scale-[2.25]' : 'scale-[1.7]'
+                      }`}
+                    />
+                  ) : (
+                    <span className="mx-auto flex h-12 w-full items-center justify-center rounded bg-purple-50 text-purple-500 dark:bg-slate-900">
+                      <Upload className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className="mt-0.5 block truncate text-[9px] leading-3">上传</span>
+                </button>
+              ) : null}
+            </div>
+            {uploadGuideOpen && onUploadCustom ? (
+              <div className="absolute inset-x-0 top-0 z-[130] rounded-md border border-purple-200 bg-[var(--card-bg)] p-2.5 shadow-lg dark:border-purple-800">
+                <p className="text-[10px] leading-4 text-[var(--text-secondary)]">
+                  推荐使用分辨率为 <span className="font-semibold text-purple-600">1024×1820</span>{' '}
+                  的竖版图片。
+                </p>
+                <div className="mt-2 flex items-center gap-1.5">
+                  <label className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-purple-500 px-2 py-1 text-[9px] font-semibold text-white hover:bg-purple-600">
+                    <Upload className="h-3 w-3" />
+                    选择图片
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = '';
+                        if (!file) return;
+                        onUploadCustom(file);
+                        setUploadGuideOpen(false);
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setUploadGuideOpen(false);
+                    }}
+                    className="rounded-md px-2 py-1 text-[9px] text-[var(--text-muted)] hover:bg-purple-50 dark:hover:bg-slate-800"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
           {totalPages > 1 && (
             <div className="mt-1.5 flex items-center justify-between border-t border-purple-100 pt-1.5 text-[9px] text-[var(--text-secondary)] dark:border-purple-900">
               <button
                 type="button"
-                disabled={page === 0}
+                disabled={safePage === 0}
                 onClick={(event) => {
                   event.stopPropagation();
+                  setUploadGuideOpen(false);
                   setPage((current) => Math.max(0, current - 1));
                 }}
                 className="rounded px-1.5 py-0.5 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-purple-900/30"
               >
                 上一页
               </button>
-              <span>{page + 1} / {totalPages}</span>
+              <span>
+                {safePage + 1} / {totalPages}
+              </span>
               <button
                 type="button"
-                disabled={page >= totalPages - 1}
+                disabled={safePage >= totalPages - 1}
                 onClick={(event) => {
                   event.stopPropagation();
+                  setUploadGuideOpen(false);
                   setPage((current) => Math.min(totalPages - 1, current + 1));
                 }}
                 className="rounded px-1.5 py-0.5 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-35 dark:hover:bg-purple-900/30"
@@ -302,6 +402,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     () =>
       templateGender ? createCharacterAppearance(templateGender, selectedAppearanceTemplate) : null,
     [
+      selectedAppearanceTemplate?.customFaceAssetUrl,
+      selectedAppearanceTemplate?.customFrontHairAssetUrl,
+      selectedAppearanceTemplate?.customOutfitAssetUrl,
       selectedAppearanceTemplate?.faceId,
       selectedAppearanceTemplate?.hairId,
       selectedAppearanceTemplate?.outfitId,
@@ -329,6 +432,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         templateAppearance.faceId,
         templateAppearance.hairId,
         templateAppearance.outfitId,
+        selectedAppearanceTemplate?.customFaceAssetUrl || '',
+        selectedAppearanceTemplate?.customFrontHairAssetUrl || '',
+        selectedAppearanceTemplate?.customOutfitAssetUrl || '',
         appearanceAdjustment.hairX,
         appearanceAdjustment.hairY,
         appearanceAdjustment.hairScale,
@@ -718,9 +824,34 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
   const enablePresetAppearance = async () => {
     if (presetEnabled || !templateAppearance) return;
-    if (!requiresPresetDownload()) {
+
+    const applyEnabledPresetState = () => {
+      const matched = resolveMatchedHairOutfitSelection(
+        getCharacterAppearanceCatalog(templateAppearance.gender),
+        {
+          hairId: templateAppearance.hairId,
+          outfitId: templateAppearance.outfitId,
+        },
+      );
       setPresetEnabled(true);
-      updateNodeData({ appearancePresetEnabled: true });
+      updateNodeData({
+        appearancePresetEnabled: true,
+        appearanceTemplate: {
+          gender: templateAppearance.gender,
+          faceId: templateAppearance.faceId,
+          hairId: matched.hairId,
+          outfitId: matched.outfitId,
+          // Keep a custom face if present; hair/outfit re-sync to a matched preset pair.
+          ...(selectedAppearanceTemplate?.customFaceAssetUrl
+            ? { customFaceAssetUrl: selectedAppearanceTemplate.customFaceAssetUrl }
+            : {}),
+          adjustment: appearanceAdjustment,
+        },
+      });
+    };
+
+    if (!requiresPresetDownload()) {
+      applyEnabledPresetState();
       return;
     }
 
@@ -741,8 +872,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         });
       }
       setAppearanceAssetUrls(await getCachedPresetAssetUrls(presetCatalogSourceUrls));
-      setPresetEnabled(true);
-      updateNodeData({ appearancePresetEnabled: true });
+      applyEnabledPresetState();
       setPresetDownloadState('idle');
     } catch (error) {
       if ((error as DOMException)?.name === 'AbortError') {
@@ -826,38 +956,97 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
 
   const selectAppearanceGender = (gender: CharacterAppearanceGender) => {
     const appearanceTemplate = createCharacterAppearance(gender);
+    const matched = resolveMatchedHairOutfitSelection(getCharacterAppearanceCatalog(gender), {
+      hairId: appearanceTemplate.hairId,
+      outfitId: appearanceTemplate.outfitId,
+    });
     updateNodeData({
       appearanceTemplate: {
         gender,
         faceId: appearanceTemplate.faceId,
-        hairId: appearanceTemplate.hairId,
-        outfitId: appearanceTemplate.outfitId,
+        hairId: matched.hairId,
+        outfitId: matched.outfitId,
       },
     });
+  };
+
+  const buildAppearanceTemplatePayload = (
+    next: Partial<NonNullable<CharacterNodeData['appearanceTemplate']>>,
+  ): NonNullable<CharacterNodeData['appearanceTemplate']> => {
+    const current = selectedAppearanceTemplate;
+    return {
+      gender: next.gender || current?.gender || 'female',
+      faceId: next.faceId ?? current?.faceId ?? '',
+      hairId: next.hairId ?? current?.hairId ?? '',
+      outfitId: next.outfitId ?? current?.outfitId ?? '',
+      ...(next.customFaceAssetUrl !== undefined
+        ? next.customFaceAssetUrl
+          ? { customFaceAssetUrl: next.customFaceAssetUrl }
+          : {}
+        : current?.customFaceAssetUrl
+          ? { customFaceAssetUrl: current.customFaceAssetUrl }
+          : {}),
+      ...(next.customFrontHairAssetUrl !== undefined
+        ? next.customFrontHairAssetUrl
+          ? { customFrontHairAssetUrl: next.customFrontHairAssetUrl }
+          : {}
+        : current?.customFrontHairAssetUrl
+          ? { customFrontHairAssetUrl: current.customFrontHairAssetUrl }
+          : {}),
+      ...(next.customOutfitAssetUrl !== undefined
+        ? next.customOutfitAssetUrl
+          ? { customOutfitAssetUrl: next.customOutfitAssetUrl }
+          : {}
+        : current?.customOutfitAssetUrl
+          ? { customOutfitAssetUrl: current.customOutfitAssetUrl }
+          : {}),
+      ...(next.adjustment || current?.adjustment
+        ? { adjustment: next.adjustment || current?.adjustment }
+        : {}),
+    };
   };
 
   const updateAppearanceTemplate = (key: 'faceId' | 'hairId' | 'outfitId', value: string) => {
     if (!templateAppearance) return;
     updateNodeData({
-      appearanceTemplate: {
-        gender: templateAppearance.gender,
+      appearanceTemplate: buildAppearanceTemplatePayload({
         faceId: key === 'faceId' ? value : templateAppearance.faceId,
         hairId: key === 'hairId' ? value : templateAppearance.hairId,
         outfitId: key === 'outfitId' ? value : templateAppearance.outfitId,
-      },
+        ...(key === 'faceId' ? { customFaceAssetUrl: '' } : {}),
+        ...(key === 'hairId' ? { customFrontHairAssetUrl: '' } : {}),
+        ...(key === 'outfitId' ? { customOutfitAssetUrl: '' } : {}),
+        adjustment: appearanceAdjustment,
+      }),
+    });
+  };
+
+  const uploadCustomAppearanceLayer = (
+    key: 'customFaceAssetUrl' | 'customFrontHairAssetUrl' | 'customOutfitAssetUrl',
+    file: File,
+  ) => {
+    if (!templateAppearance) return;
+    const url = URL.createObjectURL(file);
+    updateNodeData({
+      appearanceTemplate: buildAppearanceTemplatePayload({
+        faceId: templateAppearance.faceId,
+        hairId: templateAppearance.hairId,
+        outfitId: templateAppearance.outfitId,
+        [key]: url,
+        adjustment: appearanceAdjustment,
+      }),
     });
   };
 
   const updateAppearanceAdjustment = (key: keyof AppearanceAdjustment, value: number) => {
     if (!templateAppearance) return;
     updateNodeData({
-      appearanceTemplate: {
-        gender: templateAppearance.gender,
+      appearanceTemplate: buildAppearanceTemplatePayload({
         faceId: templateAppearance.faceId,
         hairId: templateAppearance.hairId,
         outfitId: templateAppearance.outfitId,
         adjustment: { ...appearanceAdjustment, [key]: Number.isFinite(value) ? value : 0 },
-      },
+      }),
     });
   };
 
@@ -1431,6 +1620,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         disabled={!templateCatalog.installed || !presetEnabled}
                         assetUrlBySource={appearanceAssetUrls}
                         thumbnailCrop="face"
+                        customAssetUrl={selectedAppearanceTemplate?.customFaceAssetUrl}
                         onToggle={() =>
                           setOpenAppearanceMenu((current) =>
                             current === 'faceId' ? null : 'faceId',
@@ -1440,6 +1630,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           updateAppearanceTemplate('faceId', value);
                           setOpenAppearanceMenu(null);
                         }}
+                        onUploadCustom={(file) => uploadCustomAppearanceLayer('customFaceAssetUrl', file)}
                       />
                       <AppearanceImageMenu
                         label={lang === 'zh' ? '发型' : lang === 'ja' ? '髪型' : 'Hair'}
@@ -1448,6 +1639,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         isOpen={openAppearanceMenu === 'hairId'}
                         disabled={!templateCatalog.installed || !presetEnabled}
                         assetUrlBySource={appearanceAssetUrls}
+                        customAssetUrl={selectedAppearanceTemplate?.customFrontHairAssetUrl}
                         onToggle={() =>
                           setOpenAppearanceMenu((current) =>
                             current === 'hairId' ? null : 'hairId',
@@ -1457,6 +1649,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           updateAppearanceTemplate('hairId', value);
                           setOpenAppearanceMenu(null);
                         }}
+                        onUploadCustom={(file) =>
+                          uploadCustomAppearanceLayer('customFrontHairAssetUrl', file)
+                        }
                       />
                       <AppearanceImageMenu
                         label={lang === 'zh' ? '衣服' : lang === 'ja' ? '服装' : 'Outfit'}
@@ -1465,6 +1660,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                         isOpen={openAppearanceMenu === 'outfitId'}
                         disabled={!templateCatalog.installed || !presetEnabled}
                         assetUrlBySource={appearanceAssetUrls}
+                        customAssetUrl={selectedAppearanceTemplate?.customOutfitAssetUrl}
                         onToggle={() =>
                           setOpenAppearanceMenu((current) =>
                             current === 'outfitId' ? null : 'outfitId',
@@ -1474,6 +1670,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           updateAppearanceTemplate('outfitId', value);
                           setOpenAppearanceMenu(null);
                         }}
+                        onUploadCustom={(file) =>
+                          uploadCustomAppearanceLayer('customOutfitAssetUrl', file)
+                        }
                       />
                       {presetEnabled ? (
                         <button

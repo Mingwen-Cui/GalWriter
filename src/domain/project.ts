@@ -740,6 +740,10 @@ export interface CharacterNodeData extends BaseEditorNodeData {
     faceId: string;
     hairId: string;
     outfitId: string;
+    /** Optional user-uploaded full-canvas layer overrides (1024×1820). */
+    customFaceAssetUrl?: string;
+    customFrontHairAssetUrl?: string;
+    customOutfitAssetUrl?: string;
     adjustment?: {
       hairX?: number;
       hairY?: number;
