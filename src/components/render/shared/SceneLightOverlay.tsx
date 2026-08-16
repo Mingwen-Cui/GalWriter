@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react';
 
-import type { SceneVisualStyle } from '../domain/project';
+import type { SceneVisualStyle } from '../../../domain/project';
 import {
   getSceneLightOverlayDomStyle,
   resolveSceneLightOverlayUrl,
-} from '../lib/sceneVisualStyle';
+} from '../../../lib/sceneVisualStyle';
 
 type SceneLightOverlayProps = {
   style?: SceneVisualStyle;
