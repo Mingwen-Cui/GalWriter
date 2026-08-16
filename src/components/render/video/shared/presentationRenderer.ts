@@ -23,6 +23,11 @@ import {
 import { latestPersistentInlineAction } from '../../../../lib/inlinePresentationPlayback';
 import { clamp, loadCachedImage } from './mediaUtils';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
+import {
+  getSceneLightOverlayOpacity,
+  getSceneVisualFilter,
+  resolveSceneLightOverlayUrl,
+} from '../../../../lib/sceneVisualStyle';
 
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
 
@@ -365,7 +370,18 @@ export const drawPresentationVisuals = async ({
     ctx.translate(width / 2 + state.x + inlineState.x, height / 2 + state.y + inlineState.y);
     ctx.rotate(inlineState.rotation);
     ctx.scale(state.scale * inlineState.scale, state.scale * inlineState.scale);
-    ctx.filter = inlineState.brightness === 1 ? 'none' : `brightness(${inlineState.brightness})`;
+    const sceneNodeForStyle = scene
+      ? nodes.find((item) => item.id === scene.sourceNodeId && item.type === 'sceneNode')
+      : undefined;
+    const sceneDataForStyle = sceneNodeForStyle?.data as SceneNodeData | undefined;
+    const scenePresetStyle =
+      sceneDataForStyle?.scenePresetEnabled === true ? sceneDataForStyle.visualStyle : undefined;
+    const backgroundFilter = getSceneVisualFilter(scenePresetStyle);
+    ctx.filter =
+      inlineState.brightness === 1
+        ? backgroundFilter
+        : `${backgroundFilter === 'none' ? '' : `${backgroundFilter} `}brightness(${inlineState.brightness})`.trim() ||
+          'none';
     ctx.translate(-width / 2, -height / 2);
     drawFitted(
       ctx,
@@ -450,6 +466,37 @@ export const drawPresentationVisuals = async ({
       ctx.drawImage(image, -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
       ctx.restore();
     });
+
+  const sceneNodeForLight = scene
+    ? nodes.find((item) => item.id === scene.sourceNodeId && item.type === 'sceneNode')
+    : undefined;
+  const sceneDataForLight = sceneNodeForLight?.data as SceneNodeData | undefined;
+  const lightOverlayUrl = resolveSceneLightOverlayUrl(
+    sceneDataForLight?.visualStyle,
+    sceneDataForLight?.scenePresetEnabled === true,
+  );
+  if (lightOverlayUrl) {
+    try {
+      const lightImage = await loadCachedImage(lightOverlayUrl);
+      ctx.save();
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.globalAlpha = getSceneLightOverlayOpacity(sceneDataForLight?.visualStyle);
+      drawFitted(
+        ctx,
+        lightImage,
+        lightImage.naturalWidth || width,
+        lightImage.naturalHeight || height,
+        width,
+        height,
+        'cover',
+        0,
+        0,
+      );
+      ctx.restore();
+    } catch {
+      /* Skip unavailable lighting overlays. */
+    }
+  }
 
   ctx.restore();
 };

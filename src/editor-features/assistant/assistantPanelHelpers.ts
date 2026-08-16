@@ -541,7 +541,7 @@ Allowed events:
 {"type":"field_set","index":0,"field":"branchTargets","value":[{"target":"ending_a","label":"Ending A"}]}
 {"type":"card_end","index":0}
 {"type":"done"}
-Use card indexes starting at 0. For character cards stream characterName, then set gender to exactly "male" or "female" with a field_set event; gender is internal-only and must not be written into visible text fields. Then stream identity, appearance, personality, habits, speechStyle, experience, relationships, notes. For scene cards stream sceneName, location, time, weather, visual, sound, items, notes. For story cards stream title and text.`;
+Use card indexes starting at 0. For character cards stream characterName, then set gender to exactly "male" or "female" with a field_set event; gender is internal-only and must not be written into visible text fields. Then stream identity, appearance, personality, habits, speechStyle, experience, relationships, notes. For scene cards stream sceneName, then set sceneEnvironment to exactly "indoor" or "outdoor" with a field_set event; sceneEnvironment is internal-only and must not be written into visible text fields. Then stream location, time, weather, visual, sound, items, notes. For story cards stream title and text.`;
 
 export const orderAssistantCardsForCreation = (cards: AssistantCardDraft[]) => {
   const priority = { character: 0, scene: 1, story: 2, 'number-condition': 3 } as const;

@@ -4,6 +4,7 @@ import type {
   CharacterNodeData,
   CharacterPresentation,
   InlinePresentationAction,
+  SceneVisualStyle,
   StoryPresentation,
 } from '../../../domain/project';
 import {
@@ -20,6 +21,7 @@ import {
 } from '../../../lib/presentation';
 import { getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
 import type { WebExportSettings } from '../video/shared/types';
+import { SceneLightOverlay } from '../shared/SceneLightOverlay';
 
 type PresentedCharacter = {
   config: CharacterPresentation;
@@ -42,6 +44,8 @@ type WebPlaytestMediaLayersProps = {
   completedInlineActions: InlinePresentationAction[];
   emptyText: string;
   onVideoEnded: () => void;
+  sceneVisualStyle?: SceneVisualStyle;
+  scenePresetEnabled?: boolean;
 };
 
 export function WebPlaytestMediaLayers({
@@ -59,6 +63,8 @@ export function WebPlaytestMediaLayers({
   completedInlineActions,
   emptyText,
   onVideoEnded,
+  sceneVisualStyle,
+  scenePresetEnabled = false,
 }: WebPlaytestMediaLayersProps) {
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -148,6 +154,7 @@ export function WebPlaytestMediaLayers({
             })}
           </div>
         )}
+        <SceneLightOverlay style={sceneVisualStyle} enabled={scenePresetEnabled} />
       </div>
     </div>
   );

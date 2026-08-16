@@ -847,6 +847,11 @@ export type SceneFilterPreset =
 
 export interface SceneVisualStyle {
   templateId?: string;
+  /**
+   * Full-canvas lighting overlay drawn above characters
+   * (public/ path under presets/scenes/images/.../light).
+   */
+  lightOverlayAssetPath?: string;
   lighting: SceneLightingPreset;
   /** Gaussian blur in CSS pixels. Kept numeric so user adjustments remain precise. */
   backgroundBlur: number;

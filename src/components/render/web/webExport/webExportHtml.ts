@@ -1851,25 +1851,12 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       const sceneVisual = data.presentation && data.presentation.scene && data.presentation.scene.scenePresetEnabled
         ? data.presentation.scene.visualStyle || {}
         : {};
-      const sceneStrength = Math.max(0, Math.min(1, Number(sceneVisual.intensity || 50) / 100));
       const sceneBlur = Math.max(0, Math.min(12, Number(sceneVisual.backgroundBlur || 0)));
-      const sceneLightingFilter = {
-        'warm-lamp': 'brightness(' + (1 + sceneStrength * 0.05) + ') sepia(' + (sceneStrength * 0.18) + ') saturate(' + (1 + sceneStrength * 0.12) + ')',
-        'cool-fluorescent': 'brightness(' + (1 + sceneStrength * 0.04) + ') contrast(' + (1 + sceneStrength * 0.08) + ') saturate(' + (1 - sceneStrength * 0.08) + ')',
-        'neon-side-light': 'brightness(' + (1 - sceneStrength * 0.04) + ') contrast(' + (1 + sceneStrength * 0.18) + ') saturate(' + (1 + sceneStrength * 0.28) + ')',
-        'golden-hour': 'brightness(' + (1 + sceneStrength * 0.03) + ') sepia(' + (sceneStrength * 0.28) + ') saturate(' + (1 + sceneStrength * 0.16) + ')',
-        'overcast-rain': 'brightness(' + (1 - sceneStrength * 0.1) + ') saturate(' + (1 - sceneStrength * 0.3) + ')',
-        'night-street': 'brightness(' + (1 - sceneStrength * 0.18) + ') contrast(' + (1 + sceneStrength * 0.13) + ')',
-      }[sceneVisual.lighting] || '';
-      const scenePresetFilter = {
-        'clear': 'contrast(' + (1 + sceneStrength * 0.07) + ') saturate(' + (1 + sceneStrength * 0.06) + ')',
-        'warm-film': 'sepia(' + (sceneStrength * 0.24) + ') contrast(' + (1 + sceneStrength * 0.07) + ')',
-        'cool-cinematic': 'contrast(' + (1 + sceneStrength * 0.14) + ') saturate(' + (1 - sceneStrength * 0.1) + ')',
-        'neon': 'contrast(' + (1 + sceneStrength * 0.19) + ') saturate(' + (1 + sceneStrength * 0.34) + ')',
-        'muted-rain': 'saturate(' + (1 - sceneStrength * 0.44) + ') brightness(' + (1 - sceneStrength * 0.06) + ')',
-        'night-blue': 'brightness(' + (1 - sceneStrength * 0.14) + ') contrast(' + (1 + sceneStrength * 0.12) + ')',
-      }[sceneVisual.filter] || '';
-      const sceneFilter = [sceneBlur ? 'blur(' + sceneBlur + 'px)' : '', sceneLightingFilter, scenePresetFilter].filter(Boolean).join(' ') || 'none';
+      const sceneFilter = sceneBlur ? 'blur(' + sceneBlur + 'px)' : 'none';
+      const sceneLightOverlayUrl = data.presentation && data.presentation.scene && data.presentation.scene.scenePresetEnabled
+        ? (data.presentation.scene.lightOverlayUrl || '')
+        : '';
+      const sceneLightOpacity = Math.max(0.2, Math.min(1, Number(sceneVisual.intensity || 50) / 100));
       const sceneScale = data.presentation && data.presentation.scene && data.presentation.scene.scale || 1;
       const sceneOffsetX = data.presentation && data.presentation.scene && data.presentation.scene.offsetX || 0;
       const sceneOffsetY = data.presentation && data.presentation.scene && data.presentation.scene.offsetY || 0;
@@ -1948,6 +1935,10 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           "</div>";
       }
 
+      const lightOverlayHtml = sceneLightOverlayUrl
+        ? '<img class="scene-light-overlay" src="' + escapeAttr(sceneLightOverlayUrl) + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:30;mix-blend-mode:soft-light;opacity:' + sceneLightOpacity + ';" />'
+        : '';
+
       backdropEl.style.backgroundImage = image ? 'url("' + image.replace(/"/g, '\\"') + '")' : "";
       if (!immersive) {
         stageEl.style.background = !settings.sceneBackgroundVisible
@@ -1960,8 +1951,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       }
       stageEl.innerHTML =
         '<div class="media ' + (!image && !video ? 'empty' : '') + '">' +
-          '<div class="presentation-scale" style="transform: translate(' + (immersive ? 0 : settings.sceneOffsetX / 2) + '%, ' + (immersive ? 0 : settings.sceneOffsetY / 2) + '%) scale(' + finalSceneScaleX + ', ' + finalSceneScaleY + ')">' +
-            media + charactersHtml +
+          '<div class="presentation-scale" style="position:relative;transform: translate(' + (immersive ? 0 : settings.sceneOffsetX / 2) + '%, ' + (immersive ? 0 : settings.sceneOffsetY / 2) + '%) scale(' + finalSceneScaleX + ', ' + finalSceneScaleY + ')">' +
+            media + charactersHtml + lightOverlayHtml +
           '</div>' +
         '</div>' +
         '<div class="dialogue">' +

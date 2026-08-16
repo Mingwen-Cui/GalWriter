@@ -37,6 +37,7 @@ import {
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { useSceneAmbientSound } from '../../../lib/useSceneAmbientSound';
 import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
+import { SceneLightOverlay } from '../shared/SceneLightOverlay';
 import { mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { selectConditionHandle } from '../code/codeExport/ir/graphSemantics';
 import { getRenderObjects } from '../video/shared/renderObjects';
@@ -1513,9 +1514,9 @@ export function usePlaytestRuntime(
   const presentedSceneData = presentation.scene
     ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId && node.type === 'sceneNode')?.data as SceneNodeData | undefined
     : undefined;
-  const sceneVisualMediaStyle = getSceneVisualMediaStyle(
-    presentedSceneData?.scenePresetEnabled ? presentedSceneData.visualStyle : undefined,
-  );
+  const scenePresetVisualStyle =
+    presentedSceneData?.scenePresetEnabled === true ? presentedSceneData.visualStyle : undefined;
+  const sceneVisualMediaStyle = getSceneVisualMediaStyle(scenePresetVisualStyle);
   const sceneObjectFit = presentation.scene?.cropMode === 'stretch' ? 'fill' : 'cover';
   const baseSceneStyle: React.CSSProperties = {
     objectFit: sceneObjectFit,
@@ -1563,65 +1564,74 @@ export function usePlaytestRuntime(
       };
 
   const renderPresentedCharacters = (constrainToClassicStage = false) => (
-    <div
-      className={`absolute inset-y-0 z-10 overflow-hidden pointer-events-none ${
-        constrainToClassicStage
-          ? 'left-1/2 w-full max-w-[1200px] -translate-x-1/2'
-          : 'left-0 right-0'
-      }`}
-    >
-      {presentedCharacters.map(({ config, data, imageUrl, appearance }) => {
-        const motion = presentationExiting ? config.exit : config.enter;
-        const animationActive = presentationExiting || !presentationVisible;
-        const animationTransform =
-          animationActive && motion
-            ? getPresentationTransform(motion.type, presentationExiting)
-            : '';
-        const inlineAction =
-          activeInlineAction?.kind === 'character' &&
-          activeInlineAction.sourceNodeId === config.sourceNodeId
-            ? activeInlineAction
-            : latestPersistentInlineAction(
-                completedInlineActions,
-                'character',
-                config.sourceNodeId,
-              );
-        const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
-        const style = {
-          ...getCharacterStageBounds(config),
-          zIndex: clampCharacterLayer(config.layer),
-          opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-          transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-          animation: inlineActionAnimation(inlineAction),
-          ...inlineActionCssVars(inlineAction),
-          transformOrigin: 'bottom center',
-          transitionProperty: 'opacity, transform',
-          transitionDuration: `${inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
-          transitionDelay: `${presentationExiting ? 0 : getCharacterEnterDelay(presentation)}ms`,
-          transitionTimingFunction: 'ease-out',
-        };
-        return appearance ? (
-          <CharacterAppearancePreview
-            key={config.sourceNodeId}
-            appearance={appearance}
-            adjustment={data.appearanceTemplate?.adjustment}
-            mode="sprite"
-            className="preview-media-safe absolute w-auto object-contain object-bottom"
-            style={style}
-          />
-        ) : (
-          <img
-            key={config.sourceNodeId}
-            src={imageUrl}
-            alt={data.characterName}
-            draggable={false}
-            onDragStart={(event) => event.preventDefault()}
-            className="preview-media-safe absolute w-auto object-contain object-bottom"
-            style={style}
-          />
-        );
-      })}
-    </div>
+    <>
+      <div
+        className={`absolute inset-y-0 z-10 overflow-hidden pointer-events-none ${
+          constrainToClassicStage
+            ? 'left-1/2 w-full max-w-[1200px] -translate-x-1/2'
+            : 'left-0 right-0'
+        }`}
+      >
+        {presentedCharacters.map(({ config, data, imageUrl, appearance }) => {
+          const motion = presentationExiting ? config.exit : config.enter;
+          const animationActive = presentationExiting || !presentationVisible;
+          const animationTransform =
+            animationActive && motion
+              ? getPresentationTransform(motion.type, presentationExiting)
+              : '';
+          const inlineAction =
+            activeInlineAction?.kind === 'character' &&
+            activeInlineAction.sourceNodeId === config.sourceNodeId
+              ? activeInlineAction
+              : latestPersistentInlineAction(
+                  completedInlineActions,
+                  'character',
+                  config.sourceNodeId,
+                );
+          const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
+          const style = {
+            ...getCharacterStageBounds(config),
+            zIndex: clampCharacterLayer(config.layer),
+            opacity: animationActive && motion.type === 'fade' ? 0 : 1,
+            transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
+            animation: inlineActionAnimation(inlineAction),
+            ...inlineActionCssVars(inlineAction),
+            transformOrigin: 'bottom center',
+            transitionProperty: 'opacity, transform',
+            transitionDuration: `${inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
+            transitionDelay: `${presentationExiting ? 0 : getCharacterEnterDelay(presentation)}ms`,
+            transitionTimingFunction: 'ease-out',
+          };
+          return appearance ? (
+            <CharacterAppearancePreview
+              key={config.sourceNodeId}
+              appearance={appearance}
+              adjustment={data.appearanceTemplate?.adjustment}
+              mode="sprite"
+              className="preview-media-safe absolute w-auto object-contain object-bottom"
+              style={style}
+            />
+          ) : (
+            <img
+              key={config.sourceNodeId}
+              src={imageUrl}
+              alt={data.characterName}
+              draggable={false}
+              onDragStart={(event) => event.preventDefault()}
+              className="preview-media-safe absolute w-auto object-contain object-bottom"
+              style={style}
+            />
+          );
+        })}
+      </div>
+      <SceneLightOverlay
+        style={scenePresetVisualStyle}
+        enabled={Boolean(scenePresetVisualStyle)}
+        className={
+          constrainToClassicStage ? 'left-1/2 w-full max-w-[1200px] -translate-x-1/2' : ''
+        }
+      />
+    </>
   );
 
   return {

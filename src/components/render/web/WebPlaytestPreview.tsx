@@ -2099,9 +2099,9 @@ export function WebPlaytestPreview({
         (node) => node.id === presentation.scene?.sourceNodeId && node.type === 'sceneNode',
       )?.data as SceneNodeData | undefined)
     : undefined;
-  const sceneVisualMediaStyle = getSceneVisualMediaStyle(
-    presentedSceneData?.scenePresetEnabled ? presentedSceneData.visualStyle : undefined,
-  );
+  const scenePresetEnabled = presentedSceneData?.scenePresetEnabled === true;
+  const scenePresetVisualStyle = scenePresetEnabled ? presentedSceneData?.visualStyle : undefined;
+  const sceneVisualMediaStyle = getSceneVisualMediaStyle(scenePresetVisualStyle);
   const sceneObjectFit =
     presentation.scene?.cropMode === 'contain'
       ? 'contain'
@@ -2165,6 +2165,8 @@ export function WebPlaytestPreview({
       completedInlineActions={completedInlineActions}
       emptyText={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText2153')}
       onVideoEnded={() => setCurrentVideoEnded(true)}
+      sceneVisualStyle={scenePresetVisualStyle}
+      scenePresetEnabled={scenePresetEnabled}
     />
   );
 

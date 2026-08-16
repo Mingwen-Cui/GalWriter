@@ -605,6 +605,20 @@ export async function buildPptxBuffer({
       }
     }
 
+    if (scene.lightOverlayUrl) {
+      const lightImage = await resolveImage(scene.lightOverlayUrl);
+      if (lightImage) {
+        slide.addImage({
+          data: lightImage,
+          objectName: `ppt-light-${scene.id}`,
+          ...fullContentFrame,
+          sizing: { type: 'cover', ...fullContentFrame },
+          // pptxgenjs transparency is 0..100 where 100 is fully transparent.
+          transparency: Math.round((1 - (scene.lightOverlayOpacity ?? 0.5)) * 100),
+        });
+      }
+    }
+
     const objects = getRenderObjects(style);
     const panel = objects.dialogBox;
     const title = objects.title;

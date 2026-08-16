@@ -4,10 +4,15 @@ import type {
   CharacterNodeData,
   CharacterPresentation,
   SceneNodeData,
+  SceneVisualStyle,
   StoryPresentation,
 } from '../../../domain/project';
 import { resolveCharacterImageUrl, resolveSceneMedia } from '../../../lib/inlineAssetSwitch';
 import { normalizeStoryPresentation } from '../../../lib/presentation';
+import {
+  getSceneLightOverlayOpacity,
+  resolveSceneLightOverlayUrl,
+} from '../../../lib/sceneVisualStyle';
 import { filterMentionTags, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings } from '../video/shared/types';
 
@@ -29,6 +34,10 @@ export type PptScene = {
   presentation: StoryPresentation;
   backgroundUrl?: string;
   backgroundVideoUrl?: string;
+  /** Full-frame lighting overlay drawn above characters. */
+  lightOverlayUrl?: string;
+  lightOverlayOpacity?: number;
+  sceneVisualStyle?: SceneVisualStyle;
   sceneSwitchImageUrls?: Record<string, string>;
   characters: PptCharacter[];
   choices: PptChoice[];
@@ -110,6 +119,9 @@ export function resolvePptScenes(
       fallbackImageUrl: data.imageUrl || settings.sceneBackgroundImageUrl,
       fallbackVideoUrl: data.videoUrl,
     });
+    const sceneData = sceneSource?.data as SceneNodeData | undefined;
+    const scenePresetEnabled = sceneData?.scenePresetEnabled === true;
+    const sceneVisualStyle = scenePresetEnabled ? sceneData?.visualStyle : undefined;
     const characters = presentation.characters
       .map((config) => {
         const source = nodes.find(
@@ -141,8 +153,11 @@ export function resolvePptScenes(
       presentation,
       backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,
       backgroundVideoUrl: sceneMedia.videoUrl,
+      lightOverlayUrl: resolveSceneLightOverlayUrl(sceneVisualStyle, scenePresetEnabled),
+      lightOverlayOpacity: getSceneLightOverlayOpacity(sceneVisualStyle),
+      sceneVisualStyle,
       sceneSwitchImageUrls: Object.fromEntries(
-        ((sceneSource?.data as SceneNodeData | undefined)?.images || [])
+        (sceneData?.images || [])
           .filter((image) => Boolean(image.id && image.imageUrl))
           .map((image) => [image.id, image.imageUrl!] as const),
       ),

@@ -1996,6 +1996,17 @@ function ScenePreview({
           </Selectable>
         );
       })}
+      {scene.lightOverlayUrl ? (
+        <img
+          src={scene.lightOverlayUrl}
+          alt=""
+          className="pointer-events-none absolute inset-0 z-[25] h-full w-full object-cover"
+          style={{
+            mixBlendMode: 'soft-light',
+            opacity: scene.lightOverlayOpacity ?? 0.5,
+          }}
+        />
+      ) : null}
       <PptEditableObject
         kind="dialogBox"
         target="dialog-panel"

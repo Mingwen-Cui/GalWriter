@@ -28,6 +28,10 @@ export type AssistantCardDraft = {
   features?: string;
   background?: string;
   sceneName?: string;
+  /** Internal scene-preset hint (indoor/outdoor); never rendered as card text. */
+  sceneEnvironment?: 'indoor' | 'outdoor';
+  scenePresetEnabled?: SceneNodeData['scenePresetEnabled'];
+  visualStyle?: SceneNodeData['visualStyle'];
   time?: string;
   weather?: string;
   visual?: string;

@@ -1,4 +1,4 @@
-import { getSceneVisualTemplate, sceneVisualTemplates } from './sceneTemplates';
+import { getSceneVisualTemplate, createNoneSceneVisualStyle, sceneVisualTemplates } from './sceneTemplates';
 
 export type LanguageCode = 'zh' | 'en' | 'ja';
 
@@ -137,7 +137,7 @@ export const buildSceneSettingPrompt = (data: Record<string, unknown>, lang: Lan
 Task: ${useExisting ? 'fill in the missing parts of this place profile without changing usable existing details' : 'create a fresh, distinct place profile'}.
 Output language: ${outputLanguage}.
 Preserve any usable existing details. Do not contradict them. Keep every field short and concrete: one or two sentences at most. Describe the place only; do not add characters, plot, events, goals, conflicts, or story development.
-Choose sceneEnvironment as exactly "indoor" or "outdoor" when the information is sufficient. You may choose visualTemplateId only from this list: ${visualTemplateList}. Do not invent ambientPresetId values; leave ambientPresetId empty unless a future scene music preset id is explicitly known.
+Choose sceneEnvironment as exactly "indoor" or "outdoor" when the information is sufficient. Leave visualTemplateId empty or set it to "none" unless the user explicitly wants a lighting overlay; allowed lighting ids are: ${visualTemplateList}. Do not invent ambientPresetId values; leave ambientPresetId empty unless a future scene music preset id is explicitly known.
 
 Available information:
 ${context}
@@ -147,7 +147,7 @@ JSON keys:
 {
   "sceneName": "short scene name",
   "sceneEnvironment": "indoor or outdoor",
-  "visualTemplateId": "optional allowed template id",
+  "visualTemplateId": "optional lighting template id, or none",
   "ambientPresetId": "optional allowed ambience preset id",
   "location": "where this place is",
   "time": "time of day or season",
@@ -234,10 +234,15 @@ export const buildSceneUpdates = (
     updates.sceneEnvironment = generated.sceneEnvironment;
   }
 
-  const template = getSceneVisualTemplate(asText(generated.visualTemplateId));
-  if (template) {
-    updates.sceneEnvironment = template.environment;
-    updates.visualStyle = { ...template.style };
+  // templateId "none" or empty means no lighting overlay; do not invent light presets.
+  if (asText(generated.visualTemplateId) === 'none') {
+    updates.visualStyle = createNoneSceneVisualStyle();
+  } else {
+    const template = getSceneVisualTemplate(asText(generated.visualTemplateId));
+    if (template) {
+      updates.sceneEnvironment = template.environment;
+      updates.visualStyle = { ...template.style };
+    }
   }
 
   if (asText(generated.location)) {

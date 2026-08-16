@@ -2219,7 +2219,7 @@ ${numberLogicInstruction}
 请根据用户请求、选中卡片和画布摘要给出简洁建议。若用户要求生成、布置或填充卡片，请同时给出可落到画布上的卡片草稿。
 如果用户只说“重新生成”“再来一次”“重写”等简短指令，请结合最近对话理解要重新生成的内容，不要把它当成缺少上下文的新请求。
 当用户要扩展脑洞、生成故事、写完整故事片段、开场、桥段或剧情场面时，请按创作需要返回组合卡片；通常至少包含 type=character 的人物卡、type=scene 的场景卡、type=story 的剧情卡。只有用户明确要求只生成某一种卡片时，才只返回该类型。
-组合卡片必须互相对应：人物卡要写剧情里实际出场的人，场景卡要写剧情实际发生的地点，剧情卡正文要使用这些人物和场景。不要返回空字段或只有几个字的设定。
+组合卡片必须互相对应：人物卡要写剧情里实际出场的人，场景卡要写剧情实际发生的地点，剧情卡正文要使用这些人物和场景。生成故事时必须同时生成人物设定卡和场景设定卡，不要只返回剧情卡。不要返回空字段或只有几个字的设定。
 剧情卡正文要按视觉小说台本来写：对白优先，少写大段环境描写和心理散文。不要手写裸 @ 前缀，不要写“角色名：台词”，不要用冒号表示说话范围，不要用引号包裹台词，不要把动作或神态放进中文/英文括号里。
 剧情正文必须明确写出主要人物名和场景名；每一张 story 普通卡都必须包含对应场景名，让系统插入场景 tag 并把对应场景照片放进卡片内部。只有人物 tag、没有场景 tag 的普通卡会缺少场景照片，必须避免。人物第一次出场、靠近/转身/沉默/离开等关键动作处，都要再次写人物名或场景名，方便系统自动插入人物/场景 tag 并控制入场、中场动作和出场动画。系统自动插入的 tag 是必要的，可以保留；tag 在正文开头或结尾用于入场/出场动画，在正文中央用于角色中场动画。中场人物 tag 要少用，只在需要表现明显神态或情绪反应时使用，例如紧张、惊讶、害怕、激动、兴奋等可以通过抖动或反应动画表达的瞬间；普通叙述和普通台词不要频繁插入中场 tag。人物名或场景名应自然放在句首或句中，例如“艾琳在旧图书馆低声说，隐藏附录怎么可能”，不要写成“@艾琳：‘隐藏附录怎么可能？’”。
 拆卡粒度要求：不要把一整个场景塞进一张 story 卡。一个角色的一次发言、一次沉默、一次靠近/离开/转身等短动作，尽量单独写成一张 story 卡。不同人说的话必须拆到不同的 story 卡里；每张 story 卡只承载一个角色的一句或一小组连续台词，或一个短动作节拍。不要害怕生成很多剧情卡，完整片段通常生成 6 到 12 张 story 卡。
@@ -2231,13 +2231,13 @@ ${numberLogicInstruction}
   "cards": [
     {"type": "story", "chapterTitle": "章节标题，可选；文章转 galgame 时必填", "title": "剧情卡片标题", "text": "剧情卡片正文"},
     {"type": "character", "characterName": "人物名", "gender": "male 或 female，仅用于内部人物预设", "identity": "年龄、职业或身份", "appearance": "外表", "personality": "性格", "habits": "习惯", "speechStyle": "说话方式", "experience": "经历", "relationships": "关系", "notes": "补充"},
-    {"type": "scene", "sceneName": "场景名", "location": "地点", "time": "时间", "weather": "天气", "visual": "画面", "sound": "声音", "items": "物件", "notes": "补充"}
+    {"type": "scene", "sceneName": "场景名", "sceneEnvironment": "indoor 或 outdoor，仅用于内部场景预设", "location": "地点", "time": "时间", "weather": "天气", "visual": "画面", "sound": "声音", "items": "物件", "notes": "补充"}
   ],
   "mode": "append" 或 "fill-selected"
 }
 
 当用户只是咨询建议时，cards 返回空数组。用户要求添加人物/角色设定时返回 type=character；要求添加场景/地点设定时返回 type=scene；要求修改选中的人物或场景设定时返回 mode=fill-selected，并只返回对应类型的字段。剧情卡片正文适合直接放进剧情卡片，保持可编辑、具体、有行动和情绪推进。
-字段质量要求：character 必须提供 gender，值只能是 male 或 female；它只用于内部人物预设，不要把性别写进 identity、appearance 等可见字段。identity/appearance/personality/habits/speechStyle/experience/relationships/notes 都是人物本身的信息，每项只写一两句简短内容；不要在人物卡里加入剧情发展、场景事件、目标或冲突。scene 的 location/time/weather/visual/sound/items/notes 都只描述地点本身，每项只写一两句具体内容；不要在场景卡里加入人物、剧情、事件、目标或冲突。单张 story 的 text 保持短而可演出，通常 20 到 80 个中文字符，优先写一个角色的一句或一小组连续台词，同时自然带上当前场景名；尽量避免动作描写、神态描写和环境描写，只有在承接关系必须交代时才写极短的动作节拍；story text 不要以括号开头，不要包含“@人物：”、冒号台词或引号台词；多张 story 连起来组成完整场景，整体以对话推进为主。
+字段质量要求：character 必须提供 gender，值只能是 male 或 female；它只用于内部人物预设，不要把性别写进 identity、appearance 等可见字段。identity/appearance/personality/habits/speechStyle/experience/relationships/notes 都是人物本身的信息，每项只写一两句简短内容；不要在人物卡里加入剧情发展、场景事件、目标或冲突。scene 必须提供 sceneEnvironment，值只能是 indoor 或 outdoor；它只用于内部场景预设（背景图/室内外），不要把“室内/室外”写进 location、visual 等可见字段。scene 的 location/time/weather/visual/sound/items/notes 都只描述地点本身，每项只写一两句具体内容；不要在场景卡里加入人物、剧情、事件、目标或冲突。单张 story 的 text 保持短而可演出，通常 20 到 80 个中文字符，优先写一个角色的一句或一小组连续台词，同时自然带上当前场景名；尽量避免动作描写、神态描写和环境描写，只有在承接关系必须交代时才写极短的动作节拍；story text 不要以括号开头，不要包含“@人物：”、冒号台词或引号台词；多张 story 连起来组成完整场景，整体以对话推进为主。
 如果用户请求里写了“回复格式：...”，reply 必须严格按该格式组织可见回复；cards 仍然按上面的 JSON 结构返回。
 
 用户偏好记忆 skill：

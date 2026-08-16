@@ -159,6 +159,7 @@ const buildLightTemplates = (
       previewUrl: getScenePresetAssetUrl(assetPath),
       style: {
         templateId: id,
+        lightOverlayAssetPath: assetPath,
         lighting: meta.lighting,
         backgroundBlur: meta.backgroundBlur,
         filter: meta.filter,
@@ -194,11 +195,22 @@ export const sceneFilterOptions: Array<{ id: SceneFilterPreset; name: string }> 
 ];
 
 export const defaultSceneVisualStyle = (): SceneVisualStyle => ({
+  templateId: 'none',
   lighting: 'natural-daylight',
   backgroundBlur: 0,
   filter: 'none',
   intensity: 50,
 });
+
+/** Explicit no-lighting preset used by the UI picker and AI defaults. */
+export const createNoneSceneVisualStyle = (): SceneVisualStyle => defaultSceneVisualStyle();
+
+export const isSceneLightingNone = (style: SceneVisualStyle | undefined) => {
+  if (!style) return true;
+  if (style.lightOverlayAssetPath) return false;
+  if (!style.templateId || style.templateId === 'none') return true;
+  return !getSceneVisualTemplate(style.templateId)?.previewUrl;
+};
 
 export const normalizeSceneVisualStyle = (value: Partial<SceneVisualStyle> | undefined) => ({
   ...defaultSceneVisualStyle(),

@@ -11,6 +11,7 @@ import type {
 import type {
   CharacterNodeData,
   NumberConditionNodeData,
+  SceneEnvironment,
   SceneNodeData,
   StoryNodeData,
 } from '../../domain/project';
@@ -27,6 +28,11 @@ import {
   type CharacterAppearanceGender,
 } from '../../lib/characterAppearance';
 import type { Language } from '../../lib/i18n';
+import {
+  createNoneSceneVisualStyle,
+  getSceneBackgroundPresets,
+  getScenePresetAssetUrl,
+} from '../../lib/sceneTemplates';
 import {
   resolveAssistantAppendLayoutOrigin,
   spawnCursorFromBounds,
@@ -82,6 +88,29 @@ const normalizeAssistantAppearanceGender = (value: unknown): CharacterAppearance
   return undefined;
 };
 
+const normalizeAssistantSceneEnvironment = (value: unknown): SceneEnvironment | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === 'indoor' ||
+    normalized === 'inner' ||
+    normalized === '室内' ||
+    normalized === '屋内'
+  ) {
+    return 'indoor';
+  }
+  if (
+    normalized === 'outdoor' ||
+    normalized === 'outter' ||
+    normalized === 'outer' ||
+    normalized === '室外' ||
+    normalized === '户外'
+  ) {
+    return 'outdoor';
+  }
+  return undefined;
+};
+
 /**
  * AI often creates several characters in one request. Pick a deterministic
  * preset for each card while reserving its matched hair/outfit pair
@@ -126,6 +155,74 @@ const createDistinctAssistantAppearanceTemplate = (
     outfitId: pair?.outfit.id || catalog.outfits[0]?.id || '',
   };
   usedStyleKeys.add(getAppearanceStyleKey(template));
+  return template;
+};
+
+type AssistantSceneTemplate = Pick<
+  SceneNodeData,
+  'sceneEnvironment' | 'scenePresetEnabled' | 'visualStyle' | 'coverImageUrl' | 'images'
+>;
+
+const getSceneStyleKey = (template: AssistantSceneTemplate) =>
+  `${template.sceneEnvironment || 'indoor'}:${template.coverImageUrl || ''}`;
+
+/**
+ * Mirror character presets for scenes: pick a distinct indoor/outdoor background,
+ * enable the scene preset pack, and keep lighting at "none" by default.
+ */
+const createDistinctAssistantSceneTemplate = (
+  nodeId: string,
+  usedStyleKeys: Set<string>,
+  preferredEnvironment?: SceneEnvironment,
+): AssistantSceneTemplate => {
+  const seed = hashAssistantAppearanceSeed(`scene:${nodeId}`);
+  const environment = preferredEnvironment || (seed % 2 === 0 ? 'indoor' : 'outdoor');
+  const backgrounds = getSceneBackgroundPresets(environment);
+  const backgroundCount = Math.max(1, backgrounds.length);
+
+  for (let attempt = 0; attempt < backgroundCount; attempt += 1) {
+    const background = backgrounds[(seed + attempt) % backgroundCount] || backgrounds[0];
+    const coverImageUrl = background ? getScenePresetAssetUrl(background.assetPath) : '';
+    const template: AssistantSceneTemplate = {
+      sceneEnvironment: environment,
+      scenePresetEnabled: true,
+      visualStyle: createNoneSceneVisualStyle(),
+      coverImageUrl: coverImageUrl || undefined,
+      images: coverImageUrl
+        ? [
+            {
+              id: uuidv4(),
+              name: background?.label || (environment === 'indoor' ? '室内场景' : '室外场景'),
+              imageUrl: coverImageUrl,
+            },
+          ]
+        : undefined,
+    };
+    const styleKey = getSceneStyleKey(template);
+    if (!usedStyleKeys.has(styleKey)) {
+      usedStyleKeys.add(styleKey);
+      return template;
+    }
+  }
+
+  const background = backgrounds[seed % backgroundCount] || backgrounds[0];
+  const coverImageUrl = background ? getScenePresetAssetUrl(background.assetPath) : '';
+  const template: AssistantSceneTemplate = {
+    sceneEnvironment: environment,
+    scenePresetEnabled: true,
+    visualStyle: createNoneSceneVisualStyle(),
+    coverImageUrl: coverImageUrl || undefined,
+    images: coverImageUrl
+      ? [
+          {
+            id: uuidv4(),
+            name: background?.label || (environment === 'indoor' ? '室内场景' : '室外场景'),
+            imageUrl: coverImageUrl,
+          },
+        ]
+      : undefined,
+  };
+  usedStyleKeys.add(getSceneStyleKey(template));
   return template;
 };
 
@@ -332,6 +429,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           features: cleanText(card.features),
           background: cleanText(card.background),
           sceneName: cleanText(card.sceneName),
+          sceneEnvironment: normalizeAssistantSceneEnvironment(card.sceneEnvironment),
           time: cleanText(card.time),
           weather: cleanText(card.weather),
           visual: cleanText(card.visual),
@@ -439,6 +537,22 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           return template ? [getAppearanceStyleKey(template)] : [];
         }),
       );
+      const usedFillSceneStyleKeys = new Set(
+        nodes.flatMap((node) => {
+          if (node.type !== 'sceneNode') return [];
+          const data = node.data as SceneNodeData;
+          if (!data.scenePresetEnabled || !data.coverImageUrl) return [];
+          return [
+            getSceneStyleKey({
+              sceneEnvironment: data.sceneEnvironment,
+              scenePresetEnabled: true,
+              visualStyle: data.visualStyle,
+              coverImageUrl: data.coverImageUrl,
+              images: data.images,
+            }),
+          ];
+        }),
+      );
       let filledCount = 0;
 
       if (mode === 'fill-selected' && selectedFillTargets.length > 0) {
@@ -508,6 +622,22 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             }
 
             if (compatibleType === 'scene') {
+              const currentData = node.data as SceneNodeData;
+              const requestedEnvironment = normalizeAssistantSceneEnvironment(draft.sceneEnvironment);
+              const shouldAssignSceneTemplate =
+                !currentData.scenePresetEnabled ||
+                !currentData.coverImageUrl ||
+                (requestedEnvironment && currentData.sceneEnvironment !== requestedEnvironment);
+              const sceneTemplate = shouldAssignSceneTemplate
+                ? createDistinctAssistantSceneTemplate(
+                    node.id,
+                    usedFillSceneStyleKeys,
+                    requestedEnvironment,
+                  )
+                : null;
+              if (sceneTemplate?.coverImageUrl) {
+                usedFillSceneStyleKeys.add(getSceneStyleKey(sceneTemplate));
+              }
               return {
                 ...node,
                 data: {
@@ -532,6 +662,15 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
                     node.data.other ||
                     node.data.atmosphere ||
                     '',
+                  ...(sceneTemplate
+                    ? {
+                        sceneEnvironment: sceneTemplate.sceneEnvironment,
+                        scenePresetEnabled: sceneTemplate.scenePresetEnabled,
+                        visualStyle: sceneTemplate.visualStyle,
+                        coverImageUrl: sceneTemplate.coverImageUrl,
+                        images: sceneTemplate.images,
+                      }
+                    : {}),
                 },
               };
             }
@@ -770,6 +909,22 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           return template ? [getAppearanceStyleKey(template)] : [];
         }),
       );
+      const usedSceneStyleKeys = new Set(
+        nodes.flatMap((node) => {
+          if (node.type !== 'sceneNode') return [];
+          const data = node.data as SceneNodeData;
+          if (!data.scenePresetEnabled || !data.coverImageUrl) return [];
+          return [
+            getSceneStyleKey({
+              sceneEnvironment: data.sceneEnvironment,
+              scenePresetEnabled: true,
+              visualStyle: data.visualStyle,
+              coverImageUrl: data.coverImageUrl,
+              images: data.images,
+            }),
+          ];
+        }),
+      );
       const existingMentionReferences = buildAssistantMentionReferencesFromNodes(nodes);
       const generatedMentionReferences: AssistantMentionReference[] = remainingCards
         .map((card, index): AssistantMentionReference | null => {
@@ -935,6 +1090,23 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         }
 
         if (card.type === 'scene') {
+          const sceneTemplate =
+            card.coverImageUrl || card.images?.length
+              ? {
+                  sceneEnvironment: card.sceneEnvironment,
+                  scenePresetEnabled: card.scenePresetEnabled ?? true,
+                  visualStyle: card.visualStyle || createNoneSceneVisualStyle(),
+                  coverImageUrl: card.coverImageUrl,
+                  images: card.images?.map((image) => ({ ...image })),
+                }
+              : createDistinctAssistantSceneTemplate(
+                  id,
+                  usedSceneStyleKeys,
+                  card.sceneEnvironment,
+                );
+          if (sceneTemplate.coverImageUrl) {
+            usedSceneStyleKeys.add(getSceneStyleKey(sceneTemplate));
+          }
           return {
             id,
             type: 'sceneNode',
@@ -956,8 +1128,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               notes: card.notes || card.other || card.atmosphere || '',
               atmosphere: card.atmosphere || '',
               other: card.other || '',
-              coverImageUrl: card.coverImageUrl,
-              images: card.images?.map((image) => ({ ...image })),
+              sceneEnvironment: sceneTemplate.sceneEnvironment || card.sceneEnvironment,
+              scenePresetEnabled: sceneTemplate.scenePresetEnabled !== false,
+              visualStyle: sceneTemplate.visualStyle || createNoneSceneVisualStyle(),
+              coverImageUrl: sceneTemplate.coverImageUrl || card.coverImageUrl,
+              images: sceneTemplate.images || card.images?.map((image) => ({ ...image })),
               libraryItemId: card.libraryItemId,
               showLocation: !!card.location,
               showItems: !!card.items,

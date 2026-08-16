@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import { resolveCharacterImageUrl } from '../../../../lib/inlineAssetSwitch';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { resolveSceneAmbientPresetUrl } from '../../../../lib/sceneTemplates';
+import { resolveSceneLightOverlayUrl } from '../../../../lib/sceneVisualStyle';
 import { buildDefaultRenderObjects } from '../../video/shared/renderObjects';
 import { filterMentionTags } from '../../video/shared/storyNodes';
 import type { RenderStyle } from '../../video/shared/types';
@@ -561,6 +562,13 @@ export async function buildInteractiveWebZipBlob(
         `${titleText}-scene-ambience`,
         assetMap,
       );
+      const lightOverlaySourceUrl = resolveSceneLightOverlayUrl(
+        sceneData?.visualStyle as any,
+        sceneData?.scenePresetEnabled === true,
+      );
+      const lightOverlayUrl = lightOverlaySourceUrl
+        ? await addImageAsset(zip, lightOverlaySourceUrl, `${titleText}-scene-light`, assetMap)
+        : undefined;
       const packedChars = [];
       for (const charConfig of rawPresentation.characters) {
         const charNode = nodes.find((n) => n.id === charConfig.sourceNodeId);
@@ -598,6 +606,7 @@ export async function buildInteractiveWebZipBlob(
               ...structuredClone(rawPresentation.scene),
               visualStyle: sceneData?.visualStyle,
               scenePresetEnabled: sceneData?.scenePresetEnabled === true,
+              lightOverlayUrl: lightOverlayUrl || undefined,
               ambientSound:
                 rawAmbientSound && ambientSoundUrl
                   ? { ...rawAmbientSound, url: ambientSoundUrl }

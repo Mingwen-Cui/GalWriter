@@ -1,4 +1,4 @@
-import { ChevronDown, ImagePlus, Loader2, Upload, Volume2 } from 'lucide-react';
+import { ChevronDown, ImagePlus, Loader2, Upload, Volume2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { SceneEnvironment, SceneNodeData } from '../domain/project';
@@ -6,11 +6,13 @@ import { registerBlobAsset } from '../lib/blobAssetRegistry';
 import { type MusicLibraryItem, saveMusicLibraryItem } from '../lib/db';
 import {
   ambientSoundFromPreset,
+  createNoneSceneVisualStyle,
   downloadSceneAmbientPreset,
   getSceneBackgroundAssetUrl,
   getSceneBackgroundPresets,
   getSceneVisualTemplates,
   isSameSceneBackgroundUrl,
+  isSceneLightingNone,
   listSceneAmbientPresets,
   type PresetAmbientTrack,
   type SceneBackgroundPreset,
@@ -81,11 +83,15 @@ export function SceneTemplateControls({
     (item) => !hiddenSceneImageIds.has(item.id),
   );
   const selectedTemplate = templates.find((item) => item.id === data.visualStyle?.templateId);
+  const lightingIsNone = isSceneLightingNone(data.visualStyle);
   const selectedPresetId = data.ambientSound?.source === 'preset' ? data.ambientSound.presetId || '' : '';
   const selectedSoundName = data.ambientSound?.name || label(language, '背景音', 'Ambience');
   const selectedSceneImage = sceneImages.find((item) =>
     isSameSceneBackgroundUrl(data.coverImageUrl, item.assetPath),
   );
+  const lightingTitle = lightingIsNone
+    ? label(language, '无打光', 'No lighting')
+    : selectedTemplate?.name || label(language, '打光', 'Lighting');
 
   useEffect(() => {
     let cancelled = false;
@@ -119,12 +125,16 @@ export function SceneTemplateControls({
     });
 
   const chooseEnvironment = (next: SceneEnvironment) => {
-    const first = getSceneVisualTemplates(next)[0];
-    apply({ sceneEnvironment: next, visualStyle: first ? { ...first.style } : data.visualStyle });
+    apply({
+      sceneEnvironment: next,
+      visualStyle: createNoneSceneVisualStyle(),
+    });
   };
 
-  const chooseVisual = (template: SceneVisualTemplate) => {
-    apply({ sceneEnvironment: template.environment, visualStyle: { ...template.style } });
+  const chooseVisual = (template: SceneVisualTemplate | null) => {
+    apply({
+      visualStyle: template ? { ...template.style } : createNoneSceneVisualStyle(),
+    });
     setOpenMenu(null);
   };
 
@@ -208,7 +218,14 @@ export function SceneTemplateControls({
       {!enabled ? (
         <button
           type="button"
-          onClick={() => apply({ scenePresetEnabled: true })}
+          onClick={() =>
+            apply({
+              scenePresetEnabled: true,
+              visualStyle: data.visualStyle?.templateId
+                ? data.visualStyle
+                : createNoneSceneVisualStyle(),
+            })
+          }
           className="h-5 shrink-0 rounded-md border border-blue-200 bg-blue-50/70 px-1.5 text-[9px] font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30"
         >
           {label(language, '启用背景预设', 'Enable background preset')}
@@ -281,7 +298,7 @@ export function SceneTemplateControls({
               onClick={() => setOpenMenu((menu) => (menu === 'lighting' ? null : 'lighting'))}
               className={menuButtonClass}
               aria-expanded={openMenu === 'lighting'}
-              title={selectedTemplate?.name || label(language, '打光', 'Lighting')}
+              title={lightingTitle}
             >
               <span>{label(language, '打光', 'Lighting')}</span>
               <ChevronDown className="h-2.5 w-2.5" />
@@ -289,13 +306,30 @@ export function SceneTemplateControls({
             {openMenu === 'lighting' ? (
               <div className="absolute left-0 top-[calc(100%+5px)] z-[120] w-[276px] rounded-lg border border-blue-200 bg-[var(--card-bg)] p-1.5 shadow-xl dark:border-blue-800">
                 <div className="grid grid-cols-4 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => chooseVisual(null)}
+                    className={`relative min-w-0 overflow-hidden rounded-md border p-1 text-center transition-colors ${
+                      lightingIsNone
+                        ? 'border-blue-400 bg-blue-500/10 text-blue-700'
+                        : 'border-transparent hover:border-blue-200 hover:bg-blue-50 dark:hover:border-blue-800 dark:hover:bg-slate-800'
+                    }`}
+                    title={label(language, '无打光', 'No lighting')}
+                  >
+                    <span className="flex h-12 items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-900">
+                      <X className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="mt-0.5 block truncate text-[9px] leading-3">
+                      {label(language, '无', 'None')}
+                    </span>
+                  </button>
                   {templates.map((template) => (
                     <button
                       key={template.id}
                       type="button"
                       onClick={() => chooseVisual(template)}
                       className={`relative min-w-0 overflow-hidden rounded-md border p-1 text-center transition-colors ${
-                        selectedTemplate?.id === template.id
+                        !lightingIsNone && selectedTemplate?.id === template.id
                           ? 'border-blue-400 bg-blue-500/10 text-blue-700'
                           : 'border-transparent hover:border-blue-200 hover:bg-blue-50 dark:hover:border-blue-800 dark:hover:bg-slate-800'
                       }`}
