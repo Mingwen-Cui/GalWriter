@@ -29,8 +29,8 @@ export const homepageCoverTemplates: HomepageCoverTemplate[] = [
     name: '樱花校园',
     description: '暖春校园、左侧标题安全区、右侧人物构图。',
     accent: '#fb7185',
-    previewUrl: '/web-homepage/page1/效果.png',
-    backgroundUrl: '/web-homepage/page1/效果.png',
+    previewUrl: '/web-homepage/page1/pages/home/background.png',
+    backgroundUrl: '/web-homepage/page1/pages/home/background.png',
     backgroundColor: '#d89093',
     templateUrl: '/web-homepage/page1/template.json',
     aiPrompt:
