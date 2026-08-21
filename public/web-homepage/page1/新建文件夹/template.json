@@ -19,7 +19,7 @@
     "sceneBackgroundGradientStart": "#020617",
     "sceneBackgroundGradientEnd": "#0f172a",
     "sceneBackgroundGradientAngle": 135,
-    "sceneBackgroundImageUrl": "",
+    "sceneBackgroundImageUrl": "/web-homepage/page1/",
     "choicesPosition": "center",
     "showStartMenu": true,
     "startMenuTemplate": "cinematic",
@@ -51,7 +51,7 @@
         "text": "新的相遇      ",
         "visible": true,
         "x": 30.099882162805997,
-        "y": 52.024767173935444,
+        "y": 52.02476717393545,
         "width": 22,
         "height": 11.722465678728291,
         "scale": 1,
@@ -66,10 +66,10 @@
         "borderRadius": 30,
         "fontFamily": "Georgia, \"Times New Roman\", serif",
         "textAlign": "right",
-        "backgroundImageUrl": "assets/image-2.png",
-        "backgroundImageScale": 35,
-        "backgroundImageOffsetX": -115.33331298828125,
-        "backgroundImageOffsetY": 3.3333740234375,
+        "backgroundImageUrl": "assets/image-1.png",
+        "backgroundImageScale": 32,
+        "backgroundImageOffsetX": -127.33334350585938,
+        "backgroundImageOffsetY": 7.33331298828125,
         "backgroundImageBackgroundColor": "#fbf3ffff",
         "borderTopLeftRadius": 30,
         "borderTopRightRadius": 30,
@@ -99,9 +99,9 @@
         "borderColor": "#ed6ebc",
         "borderRadius": 30,
         "backgroundImageUrl": "assets/image-4.png",
-        "backgroundImageScale": 32,
-        "backgroundImageOffsetX": -86.66667175292969,
-        "backgroundImageOffsetY": 2.66668701171875,
+        "backgroundImageScale": 35,
+        "backgroundImageOffsetX": -90,
+        "backgroundImageOffsetY": 3.33331298828125,
         "backgroundImageBackgroundColor": "#fbf3ffff",
         "textAlign": "right",
         "fontFamily": "Georgia, \"Times New Roman\", serif",
@@ -136,10 +136,10 @@
         "backgroundColor": "#0ea5e9",
         "borderColor": "#ed6ebc",
         "borderRadius": 30,
-        "backgroundImageUrl": "assets/image-1.png",
+        "backgroundImageUrl": "assets/image-2.png",
         "backgroundImageScale": 42,
-        "backgroundImageOffsetX": -92,
-        "backgroundImageOffsetY": -0.6666259765625,
+        "backgroundImageOffsetX": -89.33332824707031,
+        "backgroundImageOffsetY": -2,
         "backgroundImageBackgroundColor": "#fbf3fff5",
         "textAlign": "right",
         "fontFamily": "Georgia, \"Times New Roman\", serif",
@@ -176,8 +176,8 @@
         "textAlign": "right",
         "backgroundImageUrl": "assets/image-3.png",
         "backgroundImageScale": 36,
-        "backgroundImageOffsetX": -113.33331298828125,
-        "backgroundImageOffsetY": 2.6666259765625,
+        "backgroundImageOffsetX": -123.33334350585938,
+        "backgroundImageOffsetY": 3.3333740234375,
         "backgroundImageBackgroundColor": "#fbf3ffff",
         "borderTopLeftRadius": 30,
         "borderTopRightRadius": 30,
@@ -192,10 +192,10 @@
         "role": "custom",
         "text": "",
         "visible": true,
-        "x": 35.063636968167145,
-        "y": 7.535726041607782,
-        "width": 64.88531862866965,
-        "height": 92.46427395839221,
+        "x": 6.122344761086218,
+        "y": 5.719890544319237,
+        "width": 93.87765523891379,
+        "height": 94.28010945568076,
         "scale": 1,
         "rotation": 0,
         "imageUrl": "assets/image-6.png",
@@ -208,10 +208,10 @@
         "role": "custom",
         "text": "",
         "visible": true,
-        "x": 6.242019539590043,
-        "y": 7.125592247665087,
-        "width": 43.95774945913401,
-        "height": 35.88600832554753,
+        "x": 8.436863452039102,
+        "y": 19.56408576909905,
+        "width": 30.125141455102423,
+        "height": 29.348994716735213,
         "scale": 1,
         "rotation": 0,
         "imageUrl": "assets/image-5.png",
@@ -689,7 +689,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "imageFit": "crop",
           "imageAngle": 0,
           "imageAlpha": 100,
@@ -718,7 +718,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "dashed": false,
           "lineCap": "round",
           "lineJoin": "round"
@@ -772,7 +772,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "imageFit": "crop",
           "imageAngle": 0,
           "imageAlpha": 100,
@@ -801,7 +801,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "dashed": false,
           "lineCap": "round",
           "lineJoin": "round"
@@ -864,7 +864,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "imageFit": "crop",
           "imageAngle": 0,
           "imageAlpha": 100,
@@ -893,7 +893,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "dashed": false,
           "lineCap": "round",
           "lineJoin": "round"
@@ -956,7 +956,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "imageFit": "crop",
           "imageAngle": 0,
           "imageAlpha": 100,
@@ -985,7 +985,7 @@
               "position": 100
             }
           ],
-          "imageUrl": "",
+          "imageUrl": "/web-homepage/page1/",
           "dashed": false,
           "lineCap": "round",
           "lineJoin": "round"
@@ -1080,7 +1080,7 @@
         "position": 100
       }
     ],
-    "dialogImageUrl": "",
+    "dialogImageUrl": "/web-homepage/page1/",
     "nameplateVisible": true,
     "nameplateInside": false,
     "nameplateFollowCharacter": true,
@@ -1111,7 +1111,7 @@
         "position": 100
       }
     ],
-    "nameplateImageUrl": "",
+    "nameplateImageUrl": "/web-homepage/page1/",
     "titleAnimation": "none",
     "bodyAnimation": "typewriter"
   },

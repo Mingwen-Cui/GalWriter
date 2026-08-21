@@ -54,6 +54,7 @@ const webSmallTabActiveClass = `${webSmallTabClass} bg-indigo-600 text-white`;
 const templateImageUrlField = /image(?:url)?$/i;
 
 const resolveHomepageTemplateAssetUrl = (template: HomepageCoverTemplate, value: string) => {
+  if (!value.trim()) return value;
   if (
     value.startsWith('data:') ||
     value.startsWith('blob:') ||
@@ -705,58 +706,9 @@ export function WebWorkspace({
   const archivePageElements = webSettings.archivePageElements?.length
     ? webSettings.archivePageElements
     : defaultArchivePageElements;
-  useEffect(() => {
-    if (!webSettings.archivePageElements?.length) return;
-    const requiredRoles = new Set(['slotContinue', 'slotDelete']);
-    const existingRoles = new Set(webSettings.archivePageElements.map((element) => element.role));
-    const missing = defaultArchivePageElements.filter(
-      (element) => requiredRoles.has(element.role || '') && !existingRoles.has(element.role),
-    );
-    if (missing.length) {
-      updateWebSettings('archivePageElements', [...webSettings.archivePageElements, ...missing]);
-    }
-  }, [defaultArchivePageElements, updateWebSettings, webSettings.archivePageElements]);
   const settingsPageElements = webSettings.settingsPageElements?.length
     ? webSettings.settingsPageElements
     : defaultSettingsPageElements;
-  useEffect(() => {
-    if (!webSettings.settingsPageElements?.length) return;
-    const requiredRoles = new Set(['textSize', 'animationSpeed', 'sound']);
-    const existingRoles = new Set(webSettings.settingsPageElements.map((element) => element.role));
-    const missing = defaultSettingsPageElements.filter(
-      (element) => requiredRoles.has(element.role || '') && !existingRoles.has(element.role),
-    );
-    const compactLayout: Record<string, number> = {
-      auto: 34,
-      speed: 42,
-      textSize: 50,
-      animationSpeed: 58,
-      sound: 66,
-      controls: 74,
-    };
-    const compacted = [...webSettings.settingsPageElements, ...missing].map((element) => {
-      const patch =
-        element.role === 'back'
-          ? { text: getWebSettingsCopy(language).backToMainMenu }
-          : element.role && compactLayout[element.role] !== undefined
-            ? { x: 28, y: compactLayout[element.role], width: 44, height: 6 }
-            : null;
-      if (
-        !patch ||
-        Object.entries(patch).every(
-          ([key, value]) => element[key as keyof typeof element] === value,
-        )
-      )
-        return element;
-      return { ...element, ...patch };
-    });
-    if (
-      missing.length ||
-      compacted.some((element, index) => element !== webSettings.settingsPageElements[index])
-    ) {
-      updateWebSettings('settingsPageElements', compacted);
-    }
-  }, [defaultSettingsPageElements, language, updateWebSettings, webSettings.settingsPageElements]);
   const activeElementSettingsKey:
     | 'startMenuElements'
     | 'archivePageElements'
@@ -891,18 +843,17 @@ export function WebWorkspace({
     if (pageMatch) {
       const key = pageMatch[1] === 'archive' ? 'archivePageElements' : 'settingsPageElements';
       const elementId = pageMatch[2];
-      const source = webSettings[key] || [];
-      const element = source.find((candidate) => candidate.id === elementId);
-      if (element?.role === 'back') return;
+      const source =
+        webSettings[key].length > 0
+          ? webSettings[key]
+          : key === 'archivePageElements'
+            ? archivePageElements
+            : settingsPageElements;
       updateWebSettings(
         key,
         source.filter((candidate) => candidate.id !== elementId),
       );
       setSelectedStartMenuElementId(null);
-      return;
-    }
-    const element = (webSettings.startMenuElements || []).find((candidate) => candidate.id === id);
-    if (element?.kind === 'button' && protectedStartMenuElementRoles.has(element.role || '')) {
       return;
     }
     updateWebSettings(
@@ -911,6 +862,30 @@ export function WebWorkspace({
     );
     setSelectedStartMenuElementId(null);
   };
+  useEffect(() => {
+    const deleteSelectedButton = (event: KeyboardEvent) => {
+      if (
+        startMenuPreviewMode !== 'edit' ||
+        !['Delete', 'Backspace'].includes(event.key) ||
+        selectedStartMenuElement?.kind !== 'button'
+      )
+        return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))
+      )
+        return;
+      event.preventDefault();
+      const id =
+        currentPreviewSurface === 'archive' || currentPreviewSurface === 'settings'
+          ? `${currentPreviewSurface}:${selectedStartMenuElement.id}`
+          : selectedStartMenuElement.id;
+      deleteStartMenuElement(id);
+    };
+    window.addEventListener('keydown', deleteSelectedButton);
+    return () => window.removeEventListener('keydown', deleteSelectedButton);
+  }, [currentPreviewSurface, deleteStartMenuElement, selectedStartMenuElement, startMenuPreviewMode]);
   const updateSelectedPageElement = (patch: Partial<WebMenuElement>) => {
     if (!selectedStartMenuElement) return;
     updateActivePageElement(selectedStartMenuElement.id, patch);

@@ -34,6 +34,7 @@ import { parseColorValue, toHex8 } from '../video/shared/colorValue';
 import type { RenderColorStop, RenderFillType, WebMenuElement } from '../video/shared/types';
 import { getWebStructuredText } from './i18n';
 import { formatWebText, getWebShadowOrdinal } from './i18n';
+import { webImageFillBackgroundColor } from './webElementStyle';
 import { normalizeGradientStops } from './webGradientStops';
 import {
   AlignButtons,
@@ -1055,7 +1056,8 @@ export function StartMenuElementInspector({
                 labels={text.option}
                 onChange={(type) => {
                   if (type === 'image') {
-                    openImageFillPopover();
+                    onUpdate({ backgroundType: 'image' });
+                    setPopover(null);
                     return;
                   }
                   onUpdate({ backgroundType: type });
@@ -1237,9 +1239,11 @@ export function StartMenuElementInspector({
                       : {}),
                   });
                 }}
-                imageBackgroundColor={element.backgroundImageBackgroundColor || '#00000000'}
+                imageBackgroundColor={
+                  webImageFillBackgroundColor(element)
+                }
                 onImageBackgroundColorChange={(backgroundImageBackgroundColor) =>
-                  onUpdate({ backgroundImageBackgroundColor })
+                  onUpdate({ backgroundImageBackgroundColor, backgroundColor: backgroundImageBackgroundColor })
                 }
               />
             </FloatingPopover>

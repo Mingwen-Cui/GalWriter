@@ -1,4 +1,3 @@
-import { formatWebText } from './i18n';
 import type { CSSProperties } from 'react';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -6,6 +5,7 @@ import { useRef, useState } from 'react';
 import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { GradientCanvasControl } from './GradientCanvasControl';
+import { formatWebText } from './i18n';
 import { getSurfaceBackground } from './StartMenuBackgroundInspector';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
@@ -17,6 +17,7 @@ import {
   webElementBoxStyle,
   webElementShadowStyle,
   webElementTextPaintStyle,
+  webImageFillBackgroundColor,
 } from './webElementStyle';
 import type { WebSaveSlot } from './webExport/webSaveSlots';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
@@ -743,9 +744,9 @@ function MenuPageElementLayer({
                         endX: element.backgroundGradientEndX,
                         endY: element.backgroundGradientEndY,
                       },
-                    )
+                  )
                   : element.backgroundType === 'image'
-                    ? element.backgroundImageBackgroundColor || 'transparent'
+                    ? webImageFillBackgroundColor(element)
                     : element.backgroundColor || (element.primary ? choiceColor : '#ffffff1a');
 
             return (
@@ -759,10 +760,9 @@ function MenuPageElementLayer({
                   style={{
                     ...commonStyle,
                     ...contentStyle,
-                    background: element.backgroundType === 'gradient' ? undefined : background,
                     backgroundImage: element.backgroundType === 'gradient' ? background : undefined,
                     backgroundColor:
-                      element.backgroundType === 'gradient' ? 'transparent' : undefined,
+                      element.backgroundType === 'gradient' ? 'transparent' : background,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     ...webElementBoxStyle(element),
@@ -1071,14 +1071,10 @@ function SelectedElementFrame({
       onResizePointerDown={(event, handle) =>
         onBeginElementDrag(page, event, element, 'resize', handle)
       }
-      onDelete={
-        element.role === 'back'
-          ? undefined
-          : (event) => {
-              event.stopPropagation();
-              onDelete?.(element.id);
-            }
-      }
+      onDelete={(event) => {
+        event.stopPropagation();
+        onDelete?.(element.id);
+      }}
       slotPreviewActive={slotPreviewActive}
       onToggleSlotPreview={
         onToggleSlotPreview

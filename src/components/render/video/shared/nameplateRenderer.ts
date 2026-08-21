@@ -81,7 +81,7 @@ export const getNameplateCssBackground = (style: RenderStyle): CSSProperties => 
     const stops = getGradientStops(style)
       .map((stop) => `${colorWithAlpha(stop.color, stop.alpha)} ${stop.position}%`)
       .join(', ');
-    return { background: `linear-gradient(${angle}deg, ${stops})` };
+    return { backgroundImage: `linear-gradient(${angle}deg, ${stops})` };
   }
   if (style.nameplateBackgroundType === 'image' && style.nameplateImageUrl) {
     return {

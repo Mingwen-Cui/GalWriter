@@ -47,6 +47,15 @@ const fillPaint = (fill: RenderFillStyle): string => {
   return withAlpha(fill.color, fill.alpha / 100);
 };
 
+const fillStyle = (fill: RenderFillStyle): CSSProperties => {
+  if (fill.type === 'solid') return { backgroundColor: fillPaint(fill) };
+  return {
+    backgroundImage: fillPaint(fill),
+    backgroundSize: fill.type === 'image' ? 'cover' : undefined,
+    backgroundPosition: fill.type === 'image' ? 'center' : undefined,
+  };
+};
+
 const shadowPaint = (object: RenderEditableObject) => {
   const layers = object.shadows?.length ? object.shadows : [object.shadow];
   const value = layers
@@ -85,7 +94,7 @@ export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSPrope
     const stops = gradientStops
       .map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`)
       .join(', ');
-    return { background: `linear-gradient(${angle}deg, ${stops})` };
+    return { backgroundImage: `linear-gradient(${angle}deg, ${stops})` };
   }
   if (renderStyle.dialogBackgroundType === 'image' && renderStyle.dialogImageUrl) {
     return {
@@ -141,9 +150,7 @@ export const buildDialogueShellStyle = (
   return {
     ...(object.visible
       ? {
-          background: fillPaint(object.fill),
-          backgroundSize: object.fill.type === 'image' ? 'cover' : undefined,
-          backgroundPosition: object.fill.type === 'image' ? 'center' : undefined,
+          ...fillStyle(object.fill),
           border:
             object.stroke.enabled && object.stroke.type === 'solid'
               ? `${object.stroke.width}px solid ${withAlpha(object.stroke.color, object.stroke.alpha / 100)}`
@@ -151,7 +158,6 @@ export const buildDialogueShellStyle = (
           boxShadow: shadowPaint(object),
         }
       : {
-          background: 'transparent',
           backgroundColor: 'transparent',
           backgroundImage: 'none',
           borderColor: 'transparent',

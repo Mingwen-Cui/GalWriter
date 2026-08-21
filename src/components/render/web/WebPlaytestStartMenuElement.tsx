@@ -1,27 +1,25 @@
-import { formatWebText } from './i18n';
 import type { CSSProperties } from 'react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings } from '../video/shared/types';
-import { WebEditableElementFrame } from './WebEditableElementFrame';
 import { GradientCanvasControl } from './GradientCanvasControl';
-import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
+import { formatWebText } from './i18n';
+import { WebEditableElementFrame } from './WebEditableElementFrame';
 import {
   webColorWithAlpha,
   webElementBoxStyle,
   webElementShadowStyle,
   webElementTextPaintStyle,
+  webImageFillBackgroundColor,
 } from './webElementStyle';
+import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import type {
   StartMenuAction,
   StartMenuElement,
   StartMenuResizeHandle,
 } from './webPlaytestStartMenuTools';
-import {
-  protectedStartMenuElementRoles,
-  readStartMenuImageFile,
-} from './webPlaytestStartMenuTools';
+import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
 
 const textColorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
   return webColorWithAlpha(color, alpha, '#ffffff');
@@ -120,14 +118,11 @@ export function WebPlaytestStartMenuElement({
     height: 0,
   });
   if (!element.visible && previewMode !== 'edit') return null;
-  const isProtectedMainMenuButton =
-    element.kind === 'button' && protectedStartMenuElementRoles.has(element.role || '');
-
   const elementBackground =
     element.fillEnabled === false
       ? undefined
       : element.backgroundType === 'image'
-        ? element.backgroundImageBackgroundColor || undefined
+        ? webImageFillBackgroundColor(element)
         : element.backgroundType === 'gradient'
           ? gradientFromStops(
               element.backgroundGradientShape,
@@ -342,7 +337,7 @@ export function WebPlaytestStartMenuElement({
           type="button"
           onPointerDown={(event) => {
             if (
-              imageCropEditing ||
+              !imageCropEditing ||
               previewMode !== 'edit' ||
               !selected ||
               element.backgroundType !== 'image' ||
@@ -388,14 +383,13 @@ export function WebPlaytestStartMenuElement({
               : 'border-white/16 bg-white/10 text-white'
           } ${settings.startMenuTemplate === 'minimal' || element.backgroundType === 'gradient' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
           style={{
-            background:
+            backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
+            backgroundColor:
               element.backgroundType === 'gradient'
-                ? undefined
+                ? 'transparent'
                 : element.backgroundType === 'image'
                   ? elementBackground || 'transparent'
                   : elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
-            backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
-            backgroundColor: element.backgroundType === 'gradient' ? 'transparent' : undefined,
             color: textColorWithAlpha(
               element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
               element.textColorAlpha,
@@ -631,14 +625,10 @@ export function WebPlaytestStartMenuElement({
             event.stopPropagation();
             onUpdateElement(element.id, { visible: !element.visible });
           }}
-          onDelete={
-            isProtectedMainMenuButton
-              ? undefined
-              : (event) => {
-                  event.stopPropagation();
-                  onDeleteElement?.(element.id);
-                }
-          }
+          onDelete={(event) => {
+            event.stopPropagation();
+            onDeleteElement?.(element.id);
+          }}
           onResizePointerDown={(event, handle) => onBeginDrag(event, element, 'resize', handle)}
         />
       )}

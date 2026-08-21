@@ -53,6 +53,7 @@ const styleKeys = new Set<keyof PptManualElementWebStyle>([
   'backgroundGradientEndY',
   'backgroundGradientStops',
   'backgroundImageUrl',
+  'backgroundImageBackgroundColor',
   'backgroundImageFit',
   'backgroundImageAlpha',
   'backgroundImageRotation',

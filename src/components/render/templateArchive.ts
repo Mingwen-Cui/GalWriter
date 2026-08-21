@@ -71,13 +71,11 @@ export const downloadTemplateArchive = async ({
     }
     if (!value || typeof value !== 'object') return value;
 
-    const entries = await Promise.all(
-      Object.entries(value as Record<string, unknown>).map(async ([entryKey, entryValue]) => [
-        entryKey,
-        await copyWithPackagedImages(entryValue, entryKey),
-      ]),
-    );
-    return Object.fromEntries(entries);
+    const copied: Record<string, unknown> = {};
+    for (const [entryKey, entryValue] of Object.entries(value as Record<string, unknown>)) {
+      copied[entryKey] = await copyWithPackagedImages(entryValue, entryKey);
+    }
+    return copied;
   };
 
   const portableTemplate = await copyWithPackagedImages(template);

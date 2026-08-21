@@ -900,22 +900,30 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           button.disabled = Boolean(element.disabled || action?.disabled);
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
-          } else if (element.backgroundType === "image" && element.backgroundImageUrl) {
-            button.style.background = element.backgroundImageBackgroundColor || "transparent";
+          } else if (element.backgroundType === "image") {
+            const imageBase = String(element.backgroundImageBackgroundColor || "").trim();
+            const legacyBase = String(element.backgroundColor || "").trim();
+            const imageBaseTransparent = imageBase === "transparent" || /^#[0-9a-f]{6}00$/i.test(imageBase) || /^rgba\\([^,]+,[^,]+,[^,]+,\\s*0(?:\\.0+)?\\)$/i.test(imageBase);
+            const legacyBaseTransparent = legacyBase === "transparent" || /^#[0-9a-f]{6}00$/i.test(legacyBase) || /^rgba\\([^,]+,[^,]+,[^,]+,\\s*0(?:\\.0+)?\\)$/i.test(legacyBase);
+            button.style.background = imageBase && !(imageBaseTransparent && !legacyBaseTransparent)
+              ? imageBase
+              : legacyBase || imageBase || "transparent";
             button.style.position = "relative";
             button.style.overflow = "hidden";
-            const fillImage = document.createElement("span");
-            fillImage.style.position = "absolute";
-            fillImage.style.inset = "0";
-            fillImage.style.pointerEvents = "none";
-            fillImage.style.backgroundImage = "url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
-            fillImage.style.backgroundRepeat = "no-repeat";
-            fillImage.style.backgroundSize = element.backgroundImageFit === "fit" ? "contain" : element.backgroundImageFit === "max" ? "cover" : String(Number(element.backgroundImageScale) || 100) + "%";
-            fillImage.style.backgroundPosition = "calc(50% + " + (Number(element.backgroundImageOffsetX) || 0) + "px) calc(50% + " + (Number(element.backgroundImageOffsetY) || 0) + "px)";
-            fillImage.style.transform = "rotate(" + (Number(element.backgroundImageRotation) || 0) + "deg)";
-            fillImage.style.transformOrigin = "center";
-            fillImage.style.opacity = String(clamp(element.backgroundImageAlpha, 0, 100, 100) / 100);
-            button.appendChild(fillImage);
+            if (element.backgroundImageUrl) {
+              const fillImage = document.createElement("span");
+              fillImage.style.position = "absolute";
+              fillImage.style.inset = "0";
+              fillImage.style.pointerEvents = "none";
+              fillImage.style.backgroundImage = "url(\\"" + String(element.backgroundImageUrl).replace(/"/g, "\\\\\\"") + "\\")";
+              fillImage.style.backgroundRepeat = "no-repeat";
+              fillImage.style.backgroundSize = element.backgroundImageFit === "fit" ? "contain" : element.backgroundImageFit === "max" ? "cover" : String(Number(element.backgroundImageScale) || 100) + "%";
+              fillImage.style.backgroundPosition = "calc(50% + " + (Number(element.backgroundImageOffsetX) || 0) + "px) calc(50% + " + (Number(element.backgroundImageOffsetY) || 0) + "px)";
+              fillImage.style.transform = "rotate(" + (Number(element.backgroundImageRotation) || 0) + "deg)";
+              fillImage.style.transformOrigin = "center";
+              fillImage.style.opacity = String(clamp(element.backgroundImageAlpha, 0, 100, 100) / 100);
+              button.appendChild(fillImage);
+            }
           } else if (element.backgroundType === "gradient") {
             button.style.background = gradientFromStops(element.backgroundGradientShape, Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || style.choiceColor || "#0ea5e9", element.backgroundGradientEnd || "#0f172a"), { startX: element.backgroundGradientStartX, startY: element.backgroundGradientStartY, endX: element.backgroundGradientEndX, endY: element.backgroundGradientEndY });
             button.style.backgroundColor = "transparent";

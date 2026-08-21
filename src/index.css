@@ -2918,6 +2918,14 @@ input[type='range']::-moz-range-track {
   --vr-audio-clip-border: rgba(168, 85, 247, 0.44);
   --vr-danger-soft: rgba(244, 63, 94, 0.1);
   --vr-shadow: 0 18px 54px rgba(15, 23, 42, 0.12);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Avoid browser selection highlights while operating the render workspace. */
+.video-render-workspace :is(input, textarea, button, [contenteditable='true']) {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .render-settings-overlay-in {

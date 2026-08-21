@@ -11,8 +11,8 @@ import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
 } from '../web/WebEditableElementFrame';
-import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH } from './pptWorkspaceModel';
 import { gradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
+import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH } from './pptWorkspaceModel';
 
 const buttonClass = (variant: 'primary' | 'secondary' | 'link') =>
   variant === 'primary'
@@ -47,7 +47,7 @@ const paintBackground = (style: PptManualElementWebStyle) => {
   if (style.fillEnabled === false) return 'transparent';
   if (style.backgroundType === 'gradient') return gradientPaint(style);
   if (style.backgroundType === 'image' && style.backgroundImageUrl)
-    return `url("${style.backgroundImageUrl.replace(/"/g, '\\"')}") center / cover`;
+    return `${style.backgroundImageBackgroundColor ?? style.backgroundColor ?? 'transparent'} url("${style.backgroundImageUrl.replace(/"/g, '\\"')}") center / cover no-repeat`;
   return style.backgroundColor;
 };
 
@@ -89,7 +89,7 @@ const slideBackgroundPaint = (background?: PptSlideBackgroundStyle): React.CSSPr
   if (!background) return {};
   if (background.type === 'gradient') {
     return {
-      background: gradientFromStops(
+      backgroundImage: gradientFromStops(
         background.gradientShape,
         background.gradientAngle,
         normalizeGradientStops(

@@ -19,6 +19,26 @@ export const webColorWithAlpha = (
   return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
 };
 
+const isFullyTransparentColor = (color: string | undefined) => {
+  const value = color?.trim().toLowerCase();
+  if (!value || value === 'transparent') return true;
+  if (/^#[0-9a-f]{8}$/i.test(value)) return value.slice(-2) === '00';
+  const rgba = value.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/);
+  return rgba ? Number(rgba[1]) <= 0 : false;
+};
+
+/**
+ * Image-fill base colors used to live in `backgroundColor`. Newer documents
+ * also have a dedicated field. Prefer the dedicated value, except when an
+ * old transparent placeholder would hide a real legacy color after remount.
+ */
+export const webImageFillBackgroundColor = (element: WebMenuElement) => {
+  const dedicated = element.backgroundImageBackgroundColor;
+  const legacy = element.backgroundColor;
+  if (isFullyTransparentColor(dedicated) && !isFullyTransparentColor(legacy)) return legacy;
+  return dedicated ?? legacy ?? 'transparent';
+};
+
 export const webElementShadowStyle = (
   element: WebMenuElement,
   target: 'box' | 'text',

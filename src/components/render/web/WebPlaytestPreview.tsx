@@ -1,4 +1,3 @@
-import { formatWebText } from './i18n';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { Eye, EyeOff, House, ListMusic, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
@@ -30,9 +29,9 @@ import {
   getSceneExitDelay,
   normalizeStoryPresentation,
 } from '../../../lib/presentation';
+import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { useSceneAmbientSound } from '../../../lib/useSceneAmbientSound';
-import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getSceneBackgroundStyle, mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { getNameplateItems } from '../video/shared/nameplateRenderer';
@@ -49,6 +48,7 @@ import type {
   WebExportSettings,
   WebMenuElement,
 } from '../video/shared/types';
+import { formatWebText } from './i18n';
 import { getSurfaceBackground } from './StartMenuBackgroundInspector';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
@@ -1600,7 +1600,7 @@ export function WebPlaytestPreview({
   ): React.CSSProperties | undefined => {
     const background = getSurfaceBackground(settings, surface);
     return background.type === 'video' && !background.videoUrl
-      ? { background: '#000000' }
+      ? { backgroundColor: '#000000' }
       : background.type === 'image' && background.imageUrl
         ? {
             backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${background.imageUrl.replace(/"/g, '\\"')}")`,
@@ -1609,7 +1609,7 @@ export function WebPlaytestPreview({
           }
         : background.type === 'gradient'
           ? {
-              background: gradientFromStops(
+              backgroundImage: gradientFromStops(
                 background.gradientShape,
                 background.gradientAngle,
                 normalizeGradientStops(
@@ -1635,7 +1635,7 @@ export function WebPlaytestPreview({
               ),
             }
           : background.type === 'solid'
-            ? { background: background.color }
+            ? { backgroundColor: background.color }
             : undefined;
   };
   const startMenuBackgroundStyle = buildSurfaceBackgroundStyle('start');

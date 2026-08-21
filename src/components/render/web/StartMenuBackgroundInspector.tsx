@@ -115,7 +115,7 @@ export function StartMenuBackgroundInspector({
             labels={text.option}
             onChange={(type) => {
               setBackgroundType(type);
-              setOpenEditor(type);
+              setOpenEditor(type === 'image' ? null : type);
             }}
           />
         }

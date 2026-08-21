@@ -67,7 +67,7 @@ export function WebPlaytestNameplates({
       renderStyle.selectedRenderObject === 'nameplate');
   const baseStyle: React.CSSProperties = {
     ...(renderStyle.nameplateInside
-      ? { background: 'transparent' }
+      ? { backgroundColor: 'transparent', backgroundImage: 'none' }
       : getNameplateCssBackground(renderStyle)),
     color: withAlpha(
       colorInputValue(renderStyle.nameplateTextColor),
