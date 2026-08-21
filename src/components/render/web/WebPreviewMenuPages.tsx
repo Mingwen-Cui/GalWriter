@@ -744,8 +744,8 @@ function MenuPageElementLayer({
                         endY: element.backgroundGradientEndY,
                       },
                     )
-                  : element.backgroundType === 'image' && element.backgroundImageUrl
-                    ? undefined
+                  : element.backgroundType === 'image'
+                    ? element.backgroundImageBackgroundColor || 'transparent'
                     : element.backgroundColor || (element.primary ? choiceColor : '#ffffff1a');
 
             return (

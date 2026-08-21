@@ -788,6 +788,8 @@ export function ImageFillPopover({
   supportsCrop = true,
   supportsRotation = true,
   supportsOpacity = true,
+  imageBackgroundColor,
+  onImageBackgroundColorChange,
 }: {
   tone: PopoverTone;
   text: Text;
@@ -806,7 +808,13 @@ export function ImageFillPopover({
   supportsCrop?: boolean;
   supportsRotation?: boolean;
   supportsOpacity?: boolean;
+  /** Optional solid base rendered beneath an image fill. */
+  imageBackgroundColor?: string;
+  onImageBackgroundColorChange?: (value: string) => void;
 }) {
+  const [imageBackgroundColorPickerOpen, setImageBackgroundColorPickerOpen] = useState(false);
+  const imageBackgroundColorValue = imageBackgroundColor || '#00000000';
+  const imageBackgroundColorParsed = parseColorValue(imageBackgroundColorValue);
   const fitOptions = [
     ...(supportsFit ? [{ value: 'fit' as const, label: text.fit }] : []),
     ...(supportsFit ? [{ value: 'max' as const, label: text.max }] : []),
@@ -924,6 +932,75 @@ export function ImageFillPopover({
           }}
         />
       </label>
+      {onImageBackgroundColorChange ? (
+        <div className="relative mt-3">
+          <div className="grid h-10 min-w-0 grid-cols-[44px_minmax(0,1fr)_72px] overflow-hidden rounded-xl bg-white text-slate-950">
+            <button
+              type="button"
+              onClick={() => setImageBackgroundColorPickerOpen((open) => !open)}
+              className="relative block h-full cursor-pointer"
+              aria-label={text.solidTitle}
+              title={text.solidTitle}
+            >
+              <span
+                className="absolute inset-0"
+                style={{ backgroundColor: imageBackgroundColorParsed.hex }}
+              />
+            </button>
+            <input
+              value={toHex8(imageBackgroundColorValue, imageBackgroundColorParsed.alpha)}
+              onChange={(event) => {
+                const next = event.target.value.trim();
+                if (!/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(next)) return;
+                const parsed = parseColorValue(next);
+                onImageBackgroundColorChange(toHex8(parsed.hex, parsed.alpha));
+              }}
+              className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium outline-none"
+              aria-label={text.hex}
+            />
+            <label className="flex h-full items-center justify-center border-l border-slate-100">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={imageBackgroundColorParsed.alpha}
+                onChange={(event) =>
+                  onImageBackgroundColorChange(
+                    toHex8(
+                      imageBackgroundColorValue,
+                      Math.max(0, Math.min(100, Number(event.target.value) || 0)),
+                    ),
+                  )
+                }
+                className="w-12 border-0 bg-transparent text-right text-sm outline-none"
+                aria-label={text.opacity}
+              />
+              <span className="ml-1 text-xs text-slate-400">%</span>
+            </label>
+          </div>
+          {imageBackgroundColorPickerOpen && (
+            <div className="absolute left-0 top-[calc(100%+8px)] z-30 w-full">
+              <SolidColorPopover
+                tone={tone}
+                text={text}
+                color={imageBackgroundColorParsed.hex}
+                alpha={imageBackgroundColorParsed.alpha}
+                onColorChange={(color) =>
+                  onImageBackgroundColorChange(
+                    toHex8(color, imageBackgroundColorParsed.alpha),
+                  )
+                }
+                onAlphaChange={(alpha) =>
+                  onImageBackgroundColorChange(toHex8(imageBackgroundColorValue, alpha))
+                }
+                onColorAndAlphaChange={({ color, alpha }) =>
+                  onImageBackgroundColorChange(toHex8(color, alpha))
+                }
+              />
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

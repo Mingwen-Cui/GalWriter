@@ -329,6 +329,8 @@ export type WebMenuElement = {
   backgroundGradientEndY?: number;
   backgroundGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
   backgroundImageUrl?: string;
+  /** Solid color rendered below an image fill, including transparent PNG areas and contain gaps. */
+  backgroundImageBackgroundColor?: string;
   backgroundImageFit?: 'fit' | 'max' | 'crop';
   backgroundImageAlpha?: number;
   backgroundImageRotation?: number;

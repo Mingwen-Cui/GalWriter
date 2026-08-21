@@ -100,6 +100,7 @@ export const webText = {
   componentsrenderwebWebPlaytestPreviewControlsText1014: 'タイトルサイズ',
   componentsrenderwebWebPlaytestPreviewControlsText1021: '本文サイズ',
   componentsrenderwebWebPlaytestStartMenuElementText218: '編集',
+  componentsrenderwebWebPlaytestStartMenuElementText230: 'ゲームを続ける',
   componentsrenderwebWebPlaytestStartMenuElementText232: 'セーブ画面',
   componentsrenderwebWebPlaytestStartMenuElementText234: '新規ゲーム',
   componentsrenderwebWebPlaytestStartMenuElementText236: '設定画面',

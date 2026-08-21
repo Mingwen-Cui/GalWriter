@@ -900,7 +900,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
           } else if (element.backgroundType === "image" && element.backgroundImageUrl) {
-            button.style.background = "transparent";
+            button.style.background = element.backgroundImageBackgroundColor || "transparent";
             button.style.position = "relative";
             button.style.overflow = "hidden";
             const fillImage = document.createElement("span");

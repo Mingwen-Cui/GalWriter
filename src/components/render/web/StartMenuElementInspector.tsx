@@ -1183,7 +1183,7 @@ export function StartMenuElementInspector({
               />
             </PortaledGradientPopover>
           )}
-          {popover?.group === 'fill' && backgroundType === 'image' && (
+          {popover?.group === 'fill' && popover.type === 'image' && backgroundType === 'image' && (
             <FloatingPopover popoverKey="image">
               <ImageFillPopover
                 tone="fill"
@@ -1223,6 +1223,10 @@ export function StartMenuElementInspector({
                       : {}),
                   });
                 }}
+                imageBackgroundColor={element.backgroundImageBackgroundColor || '#00000000'}
+                onImageBackgroundColorChange={(backgroundImageBackgroundColor) =>
+                  onUpdate({ backgroundImageBackgroundColor })
+                }
               />
             </FloatingPopover>
           )}

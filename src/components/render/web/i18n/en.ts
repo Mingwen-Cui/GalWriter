@@ -100,6 +100,7 @@ export const webText = {
   componentsrenderwebWebPlaytestPreviewControlsText1014: 'Title Size',
   componentsrenderwebWebPlaytestPreviewControlsText1021: 'Body Size',
   componentsrenderwebWebPlaytestStartMenuElementText218: 'Edit',
+  componentsrenderwebWebPlaytestStartMenuElementText230: 'Continue game',
   componentsrenderwebWebPlaytestStartMenuElementText232: 'Open saves',
   componentsrenderwebWebPlaytestStartMenuElementText234: 'New game',
   componentsrenderwebWebPlaytestStartMenuElementText236: 'Open settings',

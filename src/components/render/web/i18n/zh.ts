@@ -99,6 +99,7 @@ export const webText = {
   componentsrenderwebWebPlaytestPreviewControlsText1014: '标题字号',
   componentsrenderwebWebPlaytestPreviewControlsText1021: '正文字号',
   componentsrenderwebWebPlaytestStartMenuElementText218: '双击编辑',
+  componentsrenderwebWebPlaytestStartMenuElementText230: '继续游戏',
   componentsrenderwebWebPlaytestStartMenuElementText232: '打开存档页',
   componentsrenderwebWebPlaytestStartMenuElementText234: '新游戏',
   componentsrenderwebWebPlaytestStartMenuElementText236: '打开设置页',

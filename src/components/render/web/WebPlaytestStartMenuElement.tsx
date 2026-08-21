@@ -126,8 +126,8 @@ export function WebPlaytestStartMenuElement({
   const elementBackground =
     element.fillEnabled === false
       ? undefined
-      : element.backgroundType === 'image' && element.backgroundImageUrl
-        ? undefined
+      : element.backgroundType === 'image'
+        ? element.backgroundImageBackgroundColor || undefined
         : element.backgroundType === 'gradient'
           ? gradientFromStops(
               element.backgroundGradientShape,
@@ -243,7 +243,9 @@ export function WebPlaytestStartMenuElement({
     onSetEditingElement(element.id);
   };
   const functionLabel =
-    element.role === 'save'
+    element.role === 'continue'
+      ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText230')
+      : element.role === 'save'
       ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText232')
       : element.role === 'new'
         ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText234')
@@ -386,14 +388,13 @@ export function WebPlaytestStartMenuElement({
           } ${settings.startMenuTemplate === 'minimal' || element.backgroundType === 'gradient' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
           style={{
             background:
-              element.backgroundType === 'gradient' || element.backgroundType === 'image'
+              element.backgroundType === 'gradient'
                 ? undefined
-                : elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
+                : element.backgroundType === 'image'
+                  ? elementBackground || 'transparent'
+                  : elementBackground || (element.primary ? `${choiceColor}e6` : undefined),
             backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
-            backgroundColor:
-              element.backgroundType === 'gradient' || element.backgroundType === 'image'
-                ? 'transparent'
-                : undefined,
+            backgroundColor: element.backgroundType === 'gradient' ? 'transparent' : undefined,
             color: textColorWithAlpha(
               element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
               element.textColorAlpha,
