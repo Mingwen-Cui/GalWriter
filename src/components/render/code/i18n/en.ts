@@ -80,6 +80,18 @@ export const codeEn = {
   'Export project': 'Export project',
   'Phase three: shared IR and multi-engine export':
     'Phase three: shared IR and multi-engine export',
+  'Code export beta notice':
+    'Code export is still under construction and is not ready for normal use.',
+  'Join the build': 'Join the build',
+  'Join the code export build': 'Help build code export',
+  'Code export community description':
+    'This beta feature is actively being built. Join the QQ group to share feedback and help us improve it.',
+  'QQ group': 'QQ group',
+  'QQ group copied': 'QQ group copied',
+  'Click to copy': 'Click to copy',
+  'Project website': 'Project website',
+  'Visit website': 'Visit website',
+  Close: 'Close',
   'Auto-fix code names': 'Auto-fix code names',
   'Interval rules': 'Interval rules',
   'Add interval': 'Add interval',

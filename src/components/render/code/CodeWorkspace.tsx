@@ -4,9 +4,13 @@ import {
   Check,
   CheckCircle2,
   Copy,
+  ExternalLink,
   FileCode2,
   Info,
+  MessageCircle,
   Plus,
+  UsersRound,
+  X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -49,6 +53,8 @@ export function CodeWorkspace({
   );
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [copiedFilePath, setCopiedFilePath] = useState('');
+  const [isCommunityOpen, setIsCommunityOpen] = useState(false);
+  const [isQqCopied, setIsQqCopied] = useState(false);
   const preview = useMemo(
     () => buildCodeProjectPreview(nodes, edges, projectName, settings, target),
     [nodes, edges, projectName, settings, target],
@@ -82,6 +88,11 @@ export function CodeWorkspace({
       () => setCopiedFilePath((current) => (current === selected.path ? '' : current)),
       1_600,
     );
+  };
+  const copyQqGroup = async () => {
+    await navigator.clipboard.writeText('721397187');
+    setIsQqCopied(true);
+    window.setTimeout(() => setIsQqCopied(false), 1_600);
   };
   const fileTree = (
     <aside className="w-64 shrink-0 overflow-y-auto border-r border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3">
@@ -423,13 +434,96 @@ export function CodeWorkspace({
         </aside>
       </div>
       <div className="flex shrink-0 items-center justify-between border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)] px-4 py-2 text-[11px] text-[var(--vr-text-muted)]">
-        <span>{getCodeText(language, 'Phase three: shared IR and multi-engine export')}</span>
-        <span className={errors.length ? 'text-red-400' : 'text-emerald-400'}>
-          {errors.length
-            ? getCodeText(language, 'Fix blocking errors')
-            : getCodeText(language, 'Ready to export')}
-        </span>
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsCommunityOpen(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-amber-500 px-2.5 py-1.5 text-[11px] font-black text-white shadow-sm transition hover:bg-amber-600"
+          >
+            <UsersRound className="h-3.5 w-3.5" />
+            {getCodeText(language, 'Join the build')}
+          </button>
+          <span className="flex min-w-0 items-center gap-1.5 text-amber-500 dark:text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{getCodeText(language, 'Code export beta notice')}</span>
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className={`hidden sm:inline ${errors.length ? 'text-red-400' : 'text-emerald-400'}`}>
+            {errors.length
+              ? getCodeText(language, 'Fix blocking errors')
+              : getCodeText(language, 'Ready to export')}
+          </span>
+        </div>
       </div>
+      {isCommunityOpen && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={() => setIsCommunityOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="code-community-title"
+            className="w-full max-w-md rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface-strong)] p-6 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+                  <UsersRound className="h-5 w-5" />
+                </div>
+                <h2 id="code-community-title" className="text-lg font-black">
+                  {getCodeText(language, 'Join the code export build')}
+                </h2>
+              </div>
+              <button
+                type="button"
+                aria-label={getCodeText(language, 'Close')}
+                onClick={() => setIsCommunityOpen(false)}
+                className="rounded-lg p-2 text-[var(--vr-text-muted)] transition hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-text)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-[var(--vr-text-muted)]">
+              {getCodeText(language, 'Code export community description')}
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={copyQqGroup}
+                className="group rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-4 text-left transition hover:border-[var(--vr-accent)] hover:bg-[var(--vr-accent-soft)]"
+              >
+                <MessageCircle className="mb-3 h-5 w-5 text-[var(--vr-accent-strong)]" />
+                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--vr-text-muted)]">
+                  {getCodeText(language, 'QQ group')}
+                </div>
+                <div className="mt-1 font-mono text-base font-black">721397187</div>
+                <div className="mt-2 text-[11px] font-bold text-[var(--vr-accent-strong)]">
+                  {getCodeText(language, isQqCopied ? 'QQ group copied' : 'Click to copy')}
+                </div>
+              </button>
+              <a
+                href={`https://mingwencui.com/AIwriter/?lang=${language}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-4 text-left transition hover:border-[var(--vr-accent)] hover:bg-[var(--vr-accent-soft)]"
+              >
+                <ExternalLink className="mb-3 h-5 w-5 text-[var(--vr-accent-strong)]" />
+                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--vr-text-muted)]">
+                  {getCodeText(language, 'Project website')}
+                </div>
+                <div className="mt-1 text-base font-black">GalWriter</div>
+                <div className="mt-2 text-[11px] font-bold text-[var(--vr-accent-strong)]">
+                  {getCodeText(language, 'Visit website')}
+                </div>
+              </a>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
