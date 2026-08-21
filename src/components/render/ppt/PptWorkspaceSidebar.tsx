@@ -16,6 +16,7 @@ import { useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import type { HomepageCoverTemplate } from '../homepageCoverTemplates';
+import { downloadTemplateArchive } from '../templateArchive';
 import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
 import type {
   PptAnimationDirection,
@@ -398,10 +399,14 @@ export function PptSidebar({
                       <button
                         type="button"
                         onClick={() =>
-                          downloadJson('galwriter-ppt-cover-export.json', {
-                            version: 1,
-                            kind: 'ppt-cover-template',
-                            background: currentSlideBackground,
+                          void downloadTemplateArchive({
+                            filename: 'galwriter-ppt-cover-export.zip',
+                            template: {
+                              version: 1,
+                              kind: 'ppt-cover-template',
+                              settings: pptSettings,
+                              background: currentSlideBackground,
+                            },
                           })
                         }
                         className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--vr-surface-soft)] px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:bg-white/5 hover:text-[var(--vr-text)]"

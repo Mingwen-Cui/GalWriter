@@ -885,6 +885,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           image.className = "start-element-image";
           image.src = element.imageUrl;
           image.alt = "";
+          image.style.backgroundColor = element.imageBackgroundColor || "transparent";
           applyElementRadius(image, element, 12);
           applyCustomBoxEffects(image, element);
           if (element.blendMode) image.style.mixBlendMode = element.blendMode;

@@ -143,6 +143,8 @@ export const webText = {
   componentsrenderwebWebWorkspaceText1228: '存档',
   componentsrenderwebWebWorkspaceText1249: '新游戏',
   componentsrenderwebWebWorkspaceText1270: '设置',
+  componentsrenderwebWebWorkspaceText1543: '复制',
+  componentsrenderwebWebWorkspaceText1546: '粘贴',
   componentsrenderwebWebWorkspaceText1549: '添加文字',
   componentsrenderwebWebWorkspaceText1555: '添加图片',
   componentsrenderwebWebWorkspaceText1561: '添加按钮',

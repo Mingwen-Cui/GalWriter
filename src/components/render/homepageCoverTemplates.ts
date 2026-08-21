@@ -14,6 +14,10 @@ export type HomepageCoverTemplate = {
   previewUrl: string;
   backgroundUrl: string;
   backgroundColor: string;
+  /** Optional exported Web template. When present it replaces the full editable design. */
+  templateUrl?: string;
+  /** Maps asset paths inside an exported template to the preset's checked-in artwork. */
+  templateAssetUrls?: Record<string, string>;
   aiPrompt: string;
 };
 
@@ -28,6 +32,12 @@ export const homepageCoverTemplates: HomepageCoverTemplate[] = [
     previewUrl: '/web-homepage/page1/效果.png',
     backgroundUrl: '/web-homepage/page1/效果.png',
     backgroundColor: '#d89093',
+    templateUrl: '/web-homepage/page1/template.json',
+    templateAssetUrls: {
+      'assets/image-1.png': '/web-homepage/page1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_48_02%20(1).png',
+      'assets/image-2.png': '/web-homepage/page1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_47_41%20(2).png',
+      'assets/image-3.png': '/web-homepage/page1/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_47_41%20(1).png',
+    },
     aiPrompt:
       'Create a polished 16:9 visual-novel game cover layout in a warm Japanese anime illustration style. Build it as separable compositing layers, not a flattened poster. Reserve the left 42% as a quiet high-contrast title and menu safe area. Keep the main subject on the right half. Use soft spring daylight, pale pink blossoms, gentle depth of field, and elegant light particles. No text, letters, logo, watermark, UI buttons, or readable signage. Deliver a clean cinematic background with room for editable typography and controls.' +
       userContentSuffix,

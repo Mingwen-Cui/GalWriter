@@ -1,4 +1,4 @@
-import { CopyPlus, ImagePlus, PlusSquare, Type, Webhook } from 'lucide-react';
+import { ClipboardPaste, Copy, CopyPlus, ImagePlus, PlusSquare, Type, Webhook } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 
 import type { PptCopy } from './i18n';
@@ -18,13 +18,20 @@ function InsertAction({
   label,
   icon: Icon,
   onClick,
+  disabled = false,
 }: {
   label: string;
   icon: typeof PlusSquare;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <button type="button" onClick={onClick} className="ppt-ribbon-action min-w-[66px]">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="ppt-ribbon-action min-w-[66px] disabled:cursor-not-allowed disabled:opacity-40"
+    >
       <Icon className="h-5 w-5" />
       <span>{label}</span>
     </button>
@@ -38,6 +45,10 @@ export function PptInsertRibbon({
   onInsertText,
   onInsertButton,
   onInsertImage,
+  onCopyElement,
+  onPasteElement,
+  canCopyElement,
+  canPasteElement,
   exportRules,
 }: {
   copy: PptCopy;
@@ -46,6 +57,10 @@ export function PptInsertRibbon({
   onInsertText: () => void;
   onInsertButton: () => void;
   onInsertImage: (dataUrl: string, name: string) => void;
+  onCopyElement: () => void;
+  onPasteElement: () => void;
+  canCopyElement: boolean;
+  canPasteElement: boolean;
   exportRules?: ReactNode;
 }) {
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +93,18 @@ export function PptInsertRibbon({
           <InsertAction label={copy.insertImage} icon={ImagePlus} onClick={() => imageInputRef.current?.click()} />
         </InsertGroup>
         <InsertGroup label={copy.text}>
+          <InsertAction
+            label={copy.copyElement}
+            icon={Copy}
+            onClick={onCopyElement}
+            disabled={!canCopyElement}
+          />
+          <InsertAction
+            label={copy.pasteElement}
+            icon={ClipboardPaste}
+            onClick={onPasteElement}
+            disabled={!canPasteElement}
+          />
           <InsertAction label={copy.insertTitle} icon={Type} onClick={onInsertText} />
         </InsertGroup>
         <InsertGroup label={copy.button}>

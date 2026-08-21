@@ -145,6 +145,8 @@ export const webText = {
   componentsrenderwebWebWorkspaceText1228: 'Save',
   componentsrenderwebWebWorkspaceText1249: 'New Game',
   componentsrenderwebWebWorkspaceText1270: 'Settings',
+  componentsrenderwebWebWorkspaceText1543: 'Copy',
+  componentsrenderwebWebWorkspaceText1546: 'Paste',
   componentsrenderwebWebWorkspaceText1549: 'Add text',
   componentsrenderwebWebWorkspaceText1555: 'Add image',
   componentsrenderwebWebWorkspaceText1561: 'Add button',

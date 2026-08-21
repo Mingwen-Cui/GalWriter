@@ -333,6 +333,7 @@ export function PptWorkspace({
   const [previewRunId, setPreviewRunId] = useState(0);
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
   const [slideClipboard, setSlideClipboard] = useState<PptManualSlide>();
+  const [manualElementClipboard, setManualElementClipboard] = useState<PptManualElement>();
   const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
   const stageViewportRef = useRef<HTMLElement>(null);
@@ -360,6 +361,9 @@ export function PptWorkspace({
   const slideBackgroundColors: PptSlideBackgroundColors = pptSettings.slideBackgroundColors || {};
   const slideBackgroundStyles: PptSlideBackgroundStyles = pptSettings.slideBackgroundStyles || {};
   const activeSlideElements = slideElements[selectedId] || [];
+  const selectedManualElement = (manualSlide?.elements || activeSlideElements).find(
+    (element) => element.id === selectedManualElementId,
+  );
   const defaultSlideBackground =
     selectedId === 'cover'
       ? toPptBackgroundStyle(webSettings)
@@ -687,6 +691,19 @@ export function PptWorkspace({
     });
     setSelectedManualElementId(element.id);
     setSidebarTab('style');
+  };
+  const copySelectedManualElement = () => {
+    if (!selectedManualElement) return;
+    setManualElementClipboard({ ...selectedManualElement });
+  };
+  const pasteManualElement = () => {
+    if (!manualElementClipboard) return;
+    appendManualElement({
+      ...manualElementClipboard,
+      id: `manual-${manualElementClipboard.kind}-${crypto.randomUUID()}`,
+      x: Math.min(PPT_CONTENT_WIDTH - manualElementClipboard.width, manualElementClipboard.x + 40),
+      y: Math.min(PPT_CONTENT_HEIGHT - manualElementClipboard.height, manualElementClipboard.y + 40),
+    });
   };
   const updateActiveManualElement = (elementId: string, patch: Partial<PptManualElement>) => {
     if (manualSlide) {
@@ -1085,6 +1102,10 @@ export function PptWorkspace({
               onInsertText={() => appendManualElement(createManualText(copy.text))}
               onInsertButton={() => appendManualElement(createManualButton(copy.button))}
               onInsertImage={(src, name) => appendManualElement(createManualImage(src, name))}
+              onCopyElement={copySelectedManualElement}
+              onPasteElement={pasteManualElement}
+              canCopyElement={Boolean(selectedManualElement)}
+              canPasteElement={Boolean(manualElementClipboard)}
               exportRules={
                 <PptExportRulesRibbon
                   scene={scene}

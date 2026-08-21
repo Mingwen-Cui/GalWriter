@@ -175,9 +175,21 @@ export function StartMenuBackgroundInspector({
                 }
               />
             )}
-            {(background.type === 'image' || background.type === 'video') && (
-              <BackgroundPreview settings={settings} surface={surface} />
+            {background.type === 'image' && (
+              <button
+                type="button"
+                onClick={() => setOpenEditor('image')}
+                className="grid h-10 w-full min-w-0 grid-cols-[82px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950"
+                title={text.popover.upload}
+                aria-label={text.popover.upload}
+              >
+                <span className="grid h-full place-items-center bg-sky-50 text-slate-500">
+                  <ImageIcon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 truncate px-5 leading-10">{text.popover.upload}</span>
+              </button>
             )}
+            {background.type === 'video' && <BackgroundPreview settings={settings} surface={surface} />}
           </div>
           <div className="h-10 w-11" aria-hidden="true" />
         </div>

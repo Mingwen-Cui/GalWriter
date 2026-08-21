@@ -1,6 +1,7 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { LucideIcon } from 'lucide-react';
 import {
+  ClipboardPaste,
   Copy,
   Download,
   Eye,
@@ -28,7 +29,8 @@ import { createElement, isValidElement, useCallback, useEffect, useState } from 
 import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
-import { homepageCoverTemplates } from '../homepageCoverTemplates';
+import { homepageCoverTemplates, type HomepageCoverTemplate } from '../homepageCoverTemplates';
+import { downloadTemplateArchive } from '../templateArchive';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
@@ -48,6 +50,46 @@ import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
 const webSmallTabClass =
   'h-8 rounded-lg px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:text-[var(--vr-text)]';
 const webSmallTabActiveClass = `${webSmallTabClass} bg-indigo-600 text-white`;
+
+const templateImageUrlField = /image(?:url)?$/i;
+
+const resolveHomepageTemplateAssetUrl = (template: HomepageCoverTemplate, value: string) => {
+  if (
+    value.startsWith('data:') ||
+    value.startsWith('blob:') ||
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('/')
+  ) {
+    return value;
+  }
+  const mappedAsset = template.templateAssetUrls?.[value];
+  if (mappedAsset) return mappedAsset;
+  const folder = template.templateUrl?.replace(/[^/]+$/, '') || '';
+  return `${folder}${value.replace(/^\.\//, '')}`;
+};
+
+const resolveHomepageTemplateAssetUrls = <T,>(
+  template: HomepageCoverTemplate,
+  value: T,
+  key = '',
+): T => {
+  if (typeof value === 'string') {
+    return (templateImageUrlField.test(key)
+      ? resolveHomepageTemplateAssetUrl(template, value)
+      : value) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveHomepageTemplateAssetUrls(template, item)) as T;
+  }
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([entryKey, entryValue]) => [
+      entryKey,
+      resolveHomepageTemplateAssetUrls(template, entryValue, entryKey),
+    ]),
+  ) as T;
+};
 
 function TemplateMiniPreview({
   settings,
@@ -291,6 +333,7 @@ export function WebWorkspace({
   const [aiStartMenuDesignError, setAiStartMenuDesignError] = useState('');
   const [savedTemplateLibrary, setSavedTemplateLibrary] = useState(readWebTemplateLibrary);
   const [selectedSavedTemplateId, setSelectedSavedTemplateId] = useState<string | null>(null);
+  const [elementClipboard, setElementClipboard] = useState<WebMenuElement | null>(null);
   const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState(false);
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
   const [isTemplateEditing, setIsTemplateEditing] = useState(false);
@@ -749,17 +792,34 @@ export function WebWorkspace({
     },
     [selectedStartMenuElementId],
   );
-  const applyHomepageCoverPreset = (templateId: string) => {
+  const applyHomepageCoverPreset = async (templateId: string) => {
     const template = homepageCoverTemplates.find((item) => item.id === templateId);
     if (!template) return;
-    // Only replace the artwork. Existing buttons retain their protected roles
-    // and therefore remain functional in preview and exported websites.
-    updateWebSettingsBulk({
-      showStartMenu: true,
-      startMenuBackgroundType: 'image',
-      startMenuBackgroundColor: template.backgroundColor,
-      startMenuBackgroundImageUrl: template.backgroundUrl,
-    });
+    try {
+      if (!template.templateUrl) throw new Error('No exported template');
+      const response = await fetch(template.templateUrl);
+      if (!response.ok) throw new Error(`Unable to load template: ${response.status}`);
+      const snapshot = resolveHomepageTemplateAssetUrls(
+        template,
+        (await response.json()) as WebExperienceSnapshot,
+      );
+      if (snapshot.settings) updateWebSettingsBulk(snapshot.settings);
+      if (snapshot.renderStyle) {
+        Object.entries(snapshot.renderStyle).forEach(([key, value]) => {
+          updateWebRenderStyle(key as keyof RenderStyle, value as never);
+        });
+      }
+      if (snapshot.choiceColor) updateWebChoiceColor(snapshot.choiceColor);
+      if (snapshot.choiceTextColor) updateWebChoiceTextColor(snapshot.choiceTextColor);
+    } catch {
+      // A card can still be used when its optional editable template is absent.
+      updateWebSettingsBulk({
+        showStartMenu: true,
+        startMenuBackgroundType: 'image',
+        startMenuBackgroundColor: template.backgroundColor,
+        startMenuBackgroundImageUrl: template.backgroundUrl,
+      });
+    }
     setSelectedStartMenuElementId(null);
     setPreviewRefreshKey((key) => key + 1);
   };
@@ -783,8 +843,16 @@ export function WebWorkspace({
     link.click();
     URL.revokeObjectURL(url);
   };
-  const exportCurrentTemplate = () => {
-    downloadTemplateSnapshot(createStartMenuDesignSnapshot('all', true), 'export');
+  const exportCurrentTemplate = async () => {
+    const safeProjectName = (webProjectName || 'galwriter-web')
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+    await downloadTemplateArchive({
+      filename: `${safeProjectName || 'galwriter-web'}-export.zip`,
+      template: createStartMenuDesignSnapshot('all'),
+    });
   };
   const downloadTemplate = () => {
     const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
@@ -1165,6 +1233,40 @@ export function WebWorkspace({
     }
     setSelectedStartMenuElementId(id);
   };
+  const copySelectedSurfaceElement = () => {
+    if (!selectedStartMenuElement) return;
+    setElementClipboard({ ...selectedStartMenuElement });
+  };
+  const pasteSurfaceElement = () => {
+    if (!elementClipboard) return;
+    const id = `${currentPreviewSurface}-${elementClipboard.kind}-${Date.now()}`;
+    const pasted: WebMenuElement = {
+      ...elementClipboard,
+      id,
+      role:
+        elementClipboard.kind === 'button' &&
+        protectedStartMenuElementRoles.has(elementClipboard.role || '')
+          ? 'custom'
+          : elementClipboard.role,
+      x: Math.min(94, Math.max(0, elementClipboard.x + 2)),
+      y: Math.min(94, Math.max(0, elementClipboard.y + 2)),
+      visible: true,
+    };
+    if (currentPreviewSurface === 'start') {
+      updateWebSettings('startMenuElements', [...(webSettings.startMenuElements || []), pasted]);
+    } else if (currentPreviewSurface === 'game') {
+      const dialogueElements = webSettings.dialogueOverlayElements || [];
+      const sourceKey = dialogueElements.some((element) => element.id === elementClipboard.id)
+        ? 'dialogueOverlayElements'
+        : 'previewToolbarElements';
+      updateWebSettings(sourceKey, [...(webSettings[sourceKey] || []), pasted]);
+    } else {
+      const sourceKey =
+        currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
+      updateWebSettings(sourceKey, [...(webSettings[sourceKey] || []), pasted]);
+    }
+    setSelectedStartMenuElementId(id);
+  };
   const generateStartMenuDesignWithAI = async () => {
     if (!callAIForTextResult || aiStartMenuDesigning) return;
     setAiStartMenuDesigning(true);
@@ -1531,6 +1633,20 @@ JSON schema:
             {startMenuPreviewMode === 'edit' && (
               <>
                 <AddElementButton
+                  icon={Copy}
+                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1543')}
+                  onClick={copySelectedSurfaceElement}
+                  tone="slate"
+                  disabled={!selectedStartMenuElement}
+                />
+                <AddElementButton
+                  icon={ClipboardPaste}
+                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1546')}
+                  onClick={pasteSurfaceElement}
+                  tone="slate"
+                  disabled={!elementClipboard}
+                />
+                <AddElementButton
                   icon={Type}
                   label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1549')}
                   onClick={addCurrentSurfaceText}
@@ -1895,7 +2011,7 @@ JSON schema:
                             <button
                               key={template.id}
                               type="button"
-                              onClick={() => applyHomepageCoverPreset(template.id)}
+                              onClick={() => void applyHomepageCoverPreset(template.id)}
                               className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
                             >
                               <img
@@ -2313,6 +2429,11 @@ const addElementButtonToneClasses = {
       'border-amber-500/30 bg-amber-500/10 text-amber-700 hover:border-amber-500/50 hover:bg-amber-500/15 dark:text-amber-200',
     icon: 'bg-amber-500 text-slate-950 ring-amber-500/30',
   },
+  slate: {
+    button:
+      'border-slate-300/80 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10',
+    icon: 'bg-slate-700 text-white ring-slate-500/30',
+  },
 } as const;
 
 function AddElementButton({
@@ -2320,11 +2441,13 @@ function AddElementButton({
   label,
   onClick,
   tone,
+  disabled = false,
 }: {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
   tone: keyof typeof addElementButtonToneClasses;
+  disabled?: boolean;
 }) {
   const toneClasses = addElementButtonToneClasses[tone];
 
@@ -2332,7 +2455,8 @@ function AddElementButton({
     <button
       type="button"
       onClick={onClick}
-      className={`group flex h-9 min-w-0 items-center gap-2 rounded-xl border py-1 pl-1 pr-2.5 text-[11px] font-bold transition-[transform,background-color,border-color,box-shadow] hover:-translate-y-px hover:shadow-sm active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vr-surface-soft)] ${toneClasses.button}`}
+      disabled={disabled}
+      className={`group flex h-9 min-w-0 items-center gap-2 rounded-xl border py-1 pl-1 pr-2.5 text-[11px] font-bold transition-[transform,background-color,border-color,box-shadow] hover:-translate-y-px hover:shadow-sm active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vr-surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${toneClasses.button}`}
       title={label}
       aria-label={label}
     >

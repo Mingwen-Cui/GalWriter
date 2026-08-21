@@ -290,6 +290,7 @@ export function WebPlaytestStartMenuElement({
               style={{
                 ...radiusStyle(element, 12),
                 ...webElementBoxStyle(element),
+                backgroundColor: element.imageBackgroundColor || 'transparent',
                 mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
               }}
               draggable={false}

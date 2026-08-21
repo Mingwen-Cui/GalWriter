@@ -370,6 +370,8 @@ export type WebMenuElement = {
   opacity?: number;
   blendMode?: string;
   imageUrl?: string;
+  /** Solid color rendered below a standalone image, including transparent PNG areas. */
+  imageBackgroundColor?: string;
   linkUrl?: string;
   linkTarget?: '_blank' | '_self';
   actionValue?: number;

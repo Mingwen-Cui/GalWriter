@@ -145,6 +145,8 @@ export const webText = {
   componentsrenderwebWebWorkspaceText1228: 'セーブ',
   componentsrenderwebWebWorkspaceText1249: '新規ゲーム',
   componentsrenderwebWebWorkspaceText1270: '設定',
+  componentsrenderwebWebWorkspaceText1543: 'コピー',
+  componentsrenderwebWebWorkspaceText1546: '貼り付け',
   componentsrenderwebWebWorkspaceText1549: 'テキスト追加',
   componentsrenderwebWebWorkspaceText1555: '画像追加',
   componentsrenderwebWebWorkspaceText1561: 'ボタン追加',

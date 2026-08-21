@@ -923,10 +923,16 @@ function MenuPageElementLayer({
                   style={{
                     ...elementRadiusStyle(element, 12),
                     ...webElementBoxStyle(element),
+                    backgroundColor: element.imageBackgroundColor || 'transparent',
                   }}
                 >
                   {element.imageUrl ? (
-                    <img src={element.imageUrl} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={element.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      style={{ backgroundColor: element.imageBackgroundColor || 'transparent' }}
+                    />
                   ) : (
                     <span className="grid h-full w-full place-items-center rounded-xl border border-white/16 bg-white/10 text-xs font-black text-white/60">
                       Image

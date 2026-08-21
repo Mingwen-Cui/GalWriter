@@ -358,6 +358,10 @@ export function StartMenuElementInspector({
     return () => document.removeEventListener('pointerdown', dismissPopover);
   }, [popover]);
   const backgroundType = element.backgroundType || 'solid';
+  const openImageFillPopover = () => {
+    onUpdate({ backgroundType: 'image' });
+    setPopover({ group: 'fill', type: 'image' });
+  };
   const imageCropEditing =
     popover?.group === 'fill' &&
     backgroundType === 'image' &&
@@ -1050,6 +1054,10 @@ export function StartMenuElementInspector({
                 value={backgroundType}
                 labels={text.option}
                 onChange={(type) => {
+                  if (type === 'image') {
+                    openImageFillPopover();
+                    return;
+                  }
                   onUpdate({ backgroundType: type });
                   setPopover({ group: 'fill', type });
                 }}
@@ -1093,12 +1101,18 @@ export function StartMenuElementInspector({
                 />
               )}
               {backgroundType === 'image' && (
-                <InlineImageControl
-                  label={element.backgroundImageUrl ? text.popover.replace : text.popover.upload}
-                  imageUrl={element.backgroundImageUrl || ''}
-                  onImageChange={() => {}}
-                  onOpen={() => setPopover({ group: 'fill', type: 'image' })}
-                />
+                <button
+                  type="button"
+                  onClick={openImageFillPopover}
+                  className="grid h-10 w-full min-w-0 grid-cols-[82px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950"
+                  title={text.popover.upload}
+                  aria-label={text.popover.upload}
+                >
+                  <span className="grid h-full place-items-center bg-sky-50 text-slate-500">
+                    <ImageIcon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 truncate px-5 leading-10">{text.popover.upload}</span>
+                </button>
               )}
             </SettingDescription>
             <SettingDescription show={showDescriptions} label={descriptionCopy.blendMode}>
@@ -1183,7 +1197,7 @@ export function StartMenuElementInspector({
               />
             </PortaledGradientPopover>
           )}
-          {popover?.group === 'fill' && popover.type === 'image' && backgroundType === 'image' && (
+          {popover?.group === 'fill' && popover.type === 'image' && (
             <FloatingPopover popoverKey="image">
               <ImageFillPopover
                 tone="fill"
@@ -1288,6 +1302,10 @@ export function StartMenuElementInspector({
                     ...(updates.imageAngle !== undefined ? { rotation: updates.imageAngle } : {}),
                     ...(updates.imageAlpha !== undefined ? { opacity: updates.imageAlpha } : {}),
                   })
+                }
+                imageBackgroundColor={element.imageBackgroundColor || '#00000000'}
+                onImageBackgroundColorChange={(imageBackgroundColor) =>
+                  onUpdate({ imageBackgroundColor })
                 }
                 supportsFit={false}
                 supportsCrop={false}
