@@ -1,7 +1,8 @@
-import { formatWebText } from './i18n';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { LucideIcon } from 'lucide-react';
 import {
+  Copy,
+  Download,
   Eye,
   EyeOff,
   Gamepad2,
@@ -9,7 +10,6 @@ import {
   ImagePlus,
   Info,
   LayoutTemplate,
-  Copy,
   MousePointerClick,
   Palette,
   Play,
@@ -17,33 +17,33 @@ import {
   Save,
   Settings,
   Sparkles,
-  Type,
   Trash2,
+  Type,
   Upload,
   Video,
 } from 'lucide-react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { createElement, isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { createElement, isValidElement, useCallback, useEffect, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
+import { homepageCoverTemplates } from '../homepageCoverTemplates';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { formatWebText } from './i18n';
+import { getWebSettingsCopy } from './i18n';
 import { StartMenuBackgroundInspector } from './StartMenuBackgroundInspector';
 import { StartMenuElementInspector } from './StartMenuElementInspector';
-import { buildWebExperiencePresets } from './webExperiencePresets';
-import { buildRehearsalTemplate } from './webExperienceTemplates';
 import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
-import { getWebSettingsCopy } from './i18n';
-import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
 import type {
   WebPlaytestTestAction,
   WebPlaytestTestState,
   WebPreviewSurface,
 } from './WebPlaytestPreview';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
+import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
 
 const webSmallTabClass =
   'h-8 rounded-lg px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:text-[var(--vr-text)]';
@@ -714,30 +714,6 @@ export function WebWorkspace({
       updateWebSettings('settingsPageElements', compacted);
     }
   }, [defaultSettingsPageElements, language, updateWebSettings, webSettings.settingsPageElements]);
-  const webExperiencePresets = useMemo(
-    () =>
-      buildWebExperiencePresets({
-        language,
-        title: webProjectName || formatWebText(language, 'componentsrenderwebWebWorkspaceText722'),
-        subtitle: formatWebText(language, 'componentsrenderwebWebWorkspaceText723'),
-        save: formatWebText(language, 'componentsrenderwebWebWorkspaceText724'),
-        newGame: formatWebText(language, 'componentsrenderwebWebWorkspaceText725'),
-        settings: formatWebText(language, 'componentsrenderwebWebWorkspaceText726'),
-        archiveTitle: formatWebText(language, 'componentsrenderwebWebWorkspaceText727'),
-        archiveBack: formatWebText(language, 'componentsrenderwebWebWorkspaceText728'),
-        archiveSlot: formatWebText(language, 'componentsrenderwebWebWorkspaceText729'),
-        archiveNew: formatWebText(language, 'componentsrenderwebWebWorkspaceText734'),
-        settingsTitle: formatWebText(language, 'componentsrenderwebWebWorkspaceText735'),
-        settingsBack: getWebSettingsCopy(language).backToMainMenu,
-        settingsAuto: formatWebText(language, 'componentsrenderwebWebWorkspaceText737'),
-        settingsSpeed: formatWebText(language, 'componentsrenderwebWebWorkspaceText738'),
-        settingsControls: formatWebText(language, 'componentsrenderwebWebWorkspaceText739'),
-        settingsTextSize: getWebSettingsCopy(language).textSize,
-        settingsAnimationSpeed: getWebSettingsCopy(language).animationSpeed,
-        settingsSound: getWebSettingsCopy(language).sound,
-      }),
-    [language, webProjectName, webChoiceColor, webChoiceTextColor],
-  );
   const activeElementSettingsKey:
     | 'startMenuElements'
     | 'archivePageElements'
@@ -773,36 +749,49 @@ export function WebWorkspace({
     },
     [selectedStartMenuElementId],
   );
-  const applyWebExperiencePreset = (presetId: string) => {
-    const preset = webExperiencePresets.find((item) => item.id === presetId);
-    if (!preset) return;
-    // A preset is a complete web experience. Applying it from Archive, Settings,
-    // or Dialogue must update the same shared settings as applying it from Start.
-    updateWebSettingsBulk(preset.settings);
-    if (preset.renderStyle) {
-      Object.entries(preset.renderStyle).forEach(([key, value]) => {
-        updateWebRenderStyle(key as keyof RenderStyle, value as never);
-      });
-    }
-    if (preset.choiceColor) updateWebChoiceColor(preset.choiceColor);
-    if (preset.choiceTextColor) updateWebChoiceTextColor(preset.choiceTextColor);
+  const applyHomepageCoverPreset = (templateId: string) => {
+    const template = homepageCoverTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    // Only replace the artwork. Existing buttons retain their protected roles
+    // and therefore remain functional in preview and exported websites.
+    updateWebSettingsBulk({
+      showStartMenu: true,
+      startMenuBackgroundType: 'image',
+      startMenuBackgroundColor: template.backgroundColor,
+      startMenuBackgroundImageUrl: template.backgroundUrl,
+    });
     setSelectedStartMenuElementId(null);
-    setDesignPanelMode('background');
     setPreviewRefreshKey((key) => key + 1);
   };
-  const applyRehearsalTemplate = () => {
-    const template = buildRehearsalTemplate(
-      language,
-      webProjectName || formatWebText(language, 'componentsrenderwebWebWorkspaceText801'),
-    );
-    updateWebSettingsBulk(template.settings);
-    Object.entries(template.renderStyle).forEach(([key, value]) => {
-      updateWebRenderStyle(key as keyof RenderStyle, value as never);
+  const downloadTemplateSnapshot = (
+    snapshot: WebExperienceSnapshot,
+    suffix: 'export' | 'template',
+  ) => {
+    if (typeof document === 'undefined') return;
+    const safeProjectName = (webProjectName || 'galwriter-web')
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+      type: 'application/json;charset=utf-8',
     });
-    updateWebChoiceColor(template.choiceColor);
-    updateWebChoiceTextColor(template.choiceTextColor);
-    setSelectedStartMenuElementId(null);
-    setPreviewRefreshKey((key) => key + 1);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeProjectName || 'galwriter-web'}-${suffix}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCurrentTemplate = () => {
+    downloadTemplateSnapshot(createStartMenuDesignSnapshot('all', true), 'export');
+  };
+  const downloadTemplate = () => {
+    const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
+    downloadTemplateSnapshot(
+      selected || createStartMenuDesignSnapshot('current', true),
+      'template',
+    );
   };
   const updateActivePageElement = (id: string, patch: Partial<WebMenuElement>) => {
     if (currentPreviewSurface === 'game') {
@@ -1900,41 +1889,34 @@ JSON schema:
                 {designPanelMode === 'preset' && (
                   <>
                     <WebAuxiliaryPanel>
-                      <div className="grid gap-2 rounded-xl bg-indigo-500/5 p-2">
-                        {false && (
-                          <IconToolButton
-                            icon={LayoutTemplate}
-                            label={formatWebText(
-                              language,
-                              'componentsrenderwebWebWorkspaceText1886',
-                            )}
-                            onClick={applyRehearsalTemplate}
-                          />
-                        )}
-                        <div className="grid gap-2">
-                          {webExperiencePresets.map((preset) => (
+                      <div className="grid gap-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          {homepageCoverTemplates.map((template) => (
                             <button
-                              key={preset.id}
+                              key={template.id}
                               type="button"
-                              onClick={() => applyWebExperiencePreset(preset.id)}
-                              className="grid gap-1 rounded-lg border border-transparent bg-[var(--vr-surface-soft)] p-2 text-left transition-colors hover:border-indigo-500/25 hover:bg-white/5"
+                              onClick={() => applyHomepageCoverPreset(template.id)}
+                              className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
                             >
-                              <span className="flex items-center justify-between gap-2">
-                                <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">
-                                  {preset.name}
+                              <img
+                                src={template.previewUrl}
+                                alt=""
+                                className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                              />
+                              <span className="block p-2">
+                                <span className="block truncate text-[11px] font-black text-[var(--vr-text)]">
+                                  {template.name}
                                 </span>
-                                <TemplateMiniPreview
-                                  settings={preset.settings}
-                                  accent={preset.accent}
-                                  surface={currentPreviewSurface}
-                                />
-                              </span>
-                              <span className="line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
-                                {preset.description}
+                                <span className="mt-0.5 block line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                                  {template.description}
+                                </span>
                               </span>
                             </button>
                           ))}
-                          {savedTemplateLibrary.map((template) =>
+                        </div>
+                        {isTemplateEditing && (
+                          <div className="grid gap-2">
+                            {savedTemplateLibrary.map((template) =>
                             isTemplateEditing ? (
                               <label
                                 key={template.id}
@@ -2008,8 +1990,9 @@ JSON schema:
                                 </span>
                               </button>
                             ),
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        )}
                         {isTemplateEditing && (
                           <div className="grid grid-cols-2 gap-2">
                             <IconToolButton
@@ -2034,6 +2017,22 @@ JSON schema:
                         )}
                         <div className="grid grid-cols-2 gap-2">
                           <IconToolButton
+                            icon={Upload}
+                            label={formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText2014',
+                            )}
+                            onClick={exportCurrentTemplate}
+                          />
+                          <IconToolButton
+                            icon={Download}
+                            label={formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText2015',
+                            )}
+                            onClick={downloadTemplate}
+                          />
+                          <IconToolButton
                             icon={Save}
                             label={formatWebText(
                               language,
@@ -2050,11 +2049,10 @@ JSON schema:
                           />
                           <IconToolButton
                             icon={Settings}
-                            label={
-                              isTemplateEditing
-                                ? formatWebText(language, 'componentsrenderwebWebWorkspaceText2027')
-                                : formatWebText(language, 'componentsrenderwebWebWorkspaceText2028')
-                            }
+                            label={formatWebText(
+                              language,
+                              'componentsrenderwebWebWorkspaceText2028',
+                            )}
                             onClick={() => {
                               setIsTemplateEditing((editing) => !editing);
                               setSelectedTemplateEditIds([]);

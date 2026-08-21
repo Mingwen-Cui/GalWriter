@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
-import { buildDefaultWebExperiencePreset } from '../../web/webExperiencePresets';
+import { buildRehearsalTemplate } from '../../web/webExperienceTemplates';
 import { buildDefaultRenderObjects } from '../shared/renderObjects';
 import type { RenderStyle, WebExportSettings, WebHistoryState } from '../shared/types';
 
@@ -163,7 +163,7 @@ export const useWebExportSettings = (
   workspaceKey: string,
   initial?: InitialWebExportState,
 ) => {
-  const defaultPreset = buildDefaultWebExperiencePreset(language, defaultProjectName);
+  const defaultPreset = buildRehearsalTemplate(language, defaultProjectName);
   const sharedCanvas = useSharedCanvasSettings(
     workspaceKey,
     canvasPatchFromWebSettings(initial?.settings || {}),

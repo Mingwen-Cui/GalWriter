@@ -9,22 +9,6 @@ export const webSettingsCopy = {
 
 export const webText = {
   webExportAuthorWebsite: 'Author website',
-  componentsrenderwebwebExperiencePresetsText152: 'Continue Game',
-  componentsrenderwebwebExperiencePresetsText383: 'Continue',
-  componentsrenderwebwebExperiencePresetsText396: 'Delete',
-  componentsrenderwebwebExperiencePresetsText717: 'Begin reading your story here.',
-  componentsrenderwebwebExperiencePresetsText718: 'Archive',
-  componentsrenderwebwebExperiencePresetsText719: 'Begin story',
-  componentsrenderwebwebExperiencePresetsText720: 'Preferences',
-  componentsrenderwebwebExperiencePresetsText721: 'Archive',
-  componentsrenderwebwebExperiencePresetsText722: 'Back',
-  componentsrenderwebwebExperiencePresetsText723:
-    'No saves yet\nExported web builds record progress here.',
-  componentsrenderwebwebExperiencePresetsText724: 'New game',
-  componentsrenderwebwebExperiencePresetsText725: 'Settings',
-  componentsrenderwebwebExperiencePresetsText727: 'Auto play',
-  componentsrenderwebwebExperiencePresetsText728: 'Text speed',
-  componentsrenderwebwebExperiencePresetsText729: 'Show controls',
   componentsrenderwebwebExperienceTemplatesText92: 'Save',
   componentsrenderwebwebExperienceTemplatesText107:
     'No save\nExported web builds show the last progress here.',
@@ -201,6 +185,8 @@ export const webText = {
   componentsrenderwebWebWorkspaceText1998: 'Save to selected',
   componentsrenderwebWebWorkspaceText2004: 'Delete selected',
   componentsrenderwebWebWorkspaceText2013: 'Save template',
+  componentsrenderwebWebWorkspaceText2014: 'Export template',
+  componentsrenderwebWebWorkspaceText2015: 'Download template',
   componentsrenderwebWebWorkspaceText2017: 'My template',
   componentsrenderwebWebWorkspaceText2027: 'Done editing',
   componentsrenderwebWebWorkspaceText2028: 'Edit templates',

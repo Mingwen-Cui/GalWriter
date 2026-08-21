@@ -1,15 +1,21 @@
 import {
   Clock3,
+  Download,
   Info,
   ListOrdered,
   Pause,
   Play,
+  Save,
+  Settings,
   Settings2,
   Sparkles,
+  Trash2,
+  Upload,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
+import type { HomepageCoverTemplate } from '../homepageCoverTemplates';
 import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
 import type {
   PptAnimationDirection,
@@ -34,6 +40,25 @@ import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
 import type { PptWorkspaceSidebarTab } from './pptWorkspaceModel';
 
 type SidebarTab = PptWorkspaceSidebarTab;
+
+type SavedPptCoverTemplate = {
+  id: string;
+  name: string;
+  savedAt: number;
+  settings: PptExportSettings;
+};
+
+const pptCoverTemplateLibraryStorageKey = 'galwriter-ppt-cover-templates:v1';
+
+const readPptCoverTemplateLibrary = (): SavedPptCoverTemplate[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(pptCoverTemplateLibraryStorageKey) || '[]');
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+};
 
 export function PptSidebar({
   language,
@@ -62,6 +87,9 @@ export function PptSidebar({
   coverTextBox,
   slides,
   backgroundSelected,
+  coverSelected,
+  homepageCoverTemplates,
+  onApplyHomepageCoverPreset,
   currentSlideBackground,
   webSettings,
   onUpdateSlideBackground,
@@ -102,6 +130,9 @@ export function PptSidebar({
   };
   slides: Array<{ id: string; title: string }>;
   backgroundSelected: boolean;
+  coverSelected: boolean;
+  homepageCoverTemplates: HomepageCoverTemplate[];
+  onApplyHomepageCoverPreset: (templateId: HomepageCoverTemplate['id']) => void;
   currentSlideBackground: PptSlideBackgroundStyle;
   webSettings: WebExportSettings;
   onUpdateSlideBackground: (patch: Partial<PptSlideBackgroundStyle>) => void;
@@ -120,8 +151,72 @@ export function PptSidebar({
   const copy = usePptCopy();
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
   const [showParameterDescriptions, setShowParameterDescriptions] = useState(false);
+  const [coverDesignMode, setCoverDesignMode] = useState<'background' | 'preset'>('background');
+  const [savedPptCoverTemplates, setSavedPptCoverTemplates] = useState(readPptCoverTemplateLibrary);
+  const [selectedPptCoverTemplateId, setSelectedPptCoverTemplateId] = useState<string | null>(null);
+  const [isPptTemplateEditing, setIsPptTemplateEditing] = useState(false);
+  const coverDesignCopy =
+    language === 'zh'
+      ? { background: '背景样式', preset: '预设' }
+      : language === 'ja'
+        ? { background: '背景スタイル', preset: 'プリセット' }
+        : { background: 'Background', preset: 'Presets' };
+  const coverTemplateActionCopy =
+    language === 'zh'
+      ? { export: '导出模板', download: '下载模板', save: '保存模板', edit: '编辑模板' }
+      : language === 'ja'
+        ? {
+            export: 'テンプレートを書き出す',
+            download: 'テンプレートをダウンロード',
+            save: 'テンプレートを保存',
+            edit: 'テンプレートを編集',
+          }
+        : {
+            export: 'Export template',
+            download: 'Download template',
+            save: 'Save template',
+            edit: 'Edit templates',
+          };
   const selectAnimation = (item: PptObjectAnimation) => {
     onSelectAnimation(item);
+  };
+  const downloadJson = (filename: string, content: unknown) => {
+    if (typeof document === 'undefined') return;
+    const blob = new Blob([JSON.stringify(content, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const savePptCoverTemplate = () => {
+    const entry: SavedPptCoverTemplate = {
+      id: `ppt-cover-${Date.now()}`,
+      name: language === 'zh' ? '我的封面模板' : language === 'ja' ? 'マイ表紙テンプレート' : 'My cover template',
+      savedAt: Date.now(),
+      settings: pptSettings,
+    };
+    const next = [entry, ...savedPptCoverTemplates].slice(0, 24);
+    try {
+      window.localStorage.setItem(pptCoverTemplateLibraryStorageKey, JSON.stringify(next));
+    } catch {
+      // Keep the newly saved template available for this session when storage is full.
+    }
+    setSavedPptCoverTemplates(next);
+    setSelectedPptCoverTemplateId(entry.id);
+  };
+  const deletePptCoverTemplate = (templateId: string) => {
+    const next = savedPptCoverTemplates.filter((template) => template.id !== templateId);
+    try {
+      window.localStorage.setItem(pptCoverTemplateLibraryStorageKey, JSON.stringify(next));
+    } catch {
+      // State is still updated so the editor immediately reflects the deletion.
+    }
+    setSavedPptCoverTemplates(next);
+    if (selectedPptCoverTemplateId === templateId) setSelectedPptCoverTemplateId(null);
   };
   const tabs = [
     { id: 'timeline', label: copy.animation, icon: ListOrdered },
@@ -184,11 +279,17 @@ export function PptSidebar({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === 'timeline' ? (
           <>
-            <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
+            <div className="relative -mt-1 h-10">
+              <span
+                aria-hidden="true"
+                className="absolute left-[75%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+              />
+              <div className="relative flex justify-end">
+                <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
               <button
                 type="button"
                 onClick={() => setAnimationPage('timeline')}
-                className={`relative z-10 h-8 min-w-0 flex-1 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'timeline' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'timeline' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                 aria-pressed={animationPage === 'timeline'}
               >
                 时间轴
@@ -196,11 +297,13 @@ export function PptSidebar({
               <button
                 type="button"
                 onClick={() => setAnimationPage('details')}
-                className={`relative z-10 h-8 min-w-0 flex-1 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'details' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'details' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                 aria-pressed={animationPage === 'details'}
               >
                 动画详情
               </button>
+                </div>
+              </div>
             </div>
             <div className="mt-3">
               {animationPage === 'timeline' ? (
@@ -238,7 +341,184 @@ export function PptSidebar({
           </>
         ) : null}
         {activeTab === 'style' ? (
-          backgroundSelected ? (
+          coverSelected ? (
+            <>
+              <div className="relative -mt-1 h-10">
+                <span
+                  aria-hidden="true"
+                  className="absolute left-[87.5%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                />
+                <div className="relative flex justify-end">
+                  <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setCoverDesignMode('background')}
+                  className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                >
+                  {coverDesignCopy.background}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCoverDesignMode('preset')}
+                  className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                >
+                  {coverDesignCopy.preset}
+                </button>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2">
+                {coverDesignMode === 'preset' ? (
+                  <div className="grid gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {homepageCoverTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => onApplyHomepageCoverPreset(template.id)}
+                      className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
+                    >
+                      <img
+                        src={template.previewUrl}
+                        alt=""
+                        className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                      />
+                      <span className="block p-2">
+                        <span className="block truncate text-[11px] font-black text-[var(--vr-text)]">
+                          {template.name}
+                        </span>
+                        <span className="mt-0.5 block line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                          {template.description}
+                        </span>
+                      </span>
+                    </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadJson('galwriter-ppt-cover-export.json', {
+                            version: 1,
+                            kind: 'ppt-cover-template',
+                            background: currentSlideBackground,
+                          })
+                        }
+                        className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--vr-surface-soft)] px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:bg-white/5 hover:text-[var(--vr-text)]"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {coverTemplateActionCopy.export}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const selected = savedPptCoverTemplates.find(
+                            (template) => template.id === selectedPptCoverTemplateId,
+                          );
+                          downloadJson(
+                            'galwriter-ppt-template.json',
+                            selected || { version: 1, kind: 'ppt-template', settings: pptSettings },
+                          );
+                        }}
+                        className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--vr-surface-soft)] px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:bg-white/5 hover:text-[var(--vr-text)]"
+                      >
+                        <Download className="h-4 w-4" />
+                        {coverTemplateActionCopy.download}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={savePptCoverTemplate}
+                        className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--vr-surface-soft)] px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:bg-white/5 hover:text-[var(--vr-text)]"
+                      >
+                        <Save className="h-4 w-4" />
+                        {coverTemplateActionCopy.save}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsPptTemplateEditing((editing) => !editing)}
+                        className={`flex h-10 items-center justify-center gap-2 rounded-xl px-2 text-[11px] font-black transition-colors ${isPptTemplateEditing ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      >
+                        <Settings className="h-4 w-4" />
+                        {coverTemplateActionCopy.edit}
+                      </button>
+                    </div>
+                    {isPptTemplateEditing && (
+                      <div className="grid gap-2">
+                        {savedPptCoverTemplates.map((template) => (
+                          <div
+                            key={template.id}
+                            className={`flex items-center gap-2 rounded-xl border p-2 ${selectedPptCoverTemplateId === template.id ? 'border-indigo-500/45 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPptCoverTemplateId(template.id);
+                                updatePptSettings(template.settings);
+                              }}
+                              className="min-w-0 flex-1 truncate text-left text-[11px] font-black text-[var(--vr-text)]"
+                            >
+                              {template.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deletePptCoverTemplate(template.id)}
+                              className="grid h-7 w-7 place-items-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-rose-500/10 hover:text-rose-500"
+                              title="删除模板"
+                              aria-label="删除模板"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : manualSlide ? (
+                  <PptManualInspector
+                  copy={copy}
+                  language={language}
+                  slide={manualSlide}
+                  selectedElementId={selectedManualElementId}
+                  slides={slides}
+                  showDescriptions={showParameterDescriptions}
+                  onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
+                  onUpdateElement={onUpdateManualElement}
+                  onDeleteElement={onDeleteManualElement}
+                  />
+                ) : backgroundSelected ? (
+                  <PptSlideBackgroundInspector
+                  language={language}
+                  webSettings={webSettings}
+                  pptSettings={pptSettings}
+                  background={currentSlideBackground}
+                  showDescriptions={showParameterDescriptions}
+                  onUpdateBackground={onUpdateSlideBackground}
+                  onUpdatePptSettings={updatePptSettings}
+                  />
+                ) : coverTextBox ? (
+                  <PptCoverTextInspector
+                  target={coverTextBox.target}
+                  text={coverTextBox.text}
+                  layout={coverTextBox.layout}
+                  language={language}
+                  showDescriptions={showParameterDescriptions}
+                  onUpdateText={onUpdateCoverText}
+                  onUpdateLayout={onUpdateCoverTextBoxLayout}
+                  />
+                ) : (
+                  <PptSlideBackgroundInspector
+                  language={language}
+                  webSettings={webSettings}
+                  pptSettings={pptSettings}
+                  background={currentSlideBackground}
+                  showDescriptions={showParameterDescriptions}
+                  onUpdateBackground={onUpdateSlideBackground}
+                  onUpdatePptSettings={updatePptSettings}
+                  />
+                )}
+              </div>
+            </>
+          ) : backgroundSelected ? (
             <PptSlideBackgroundInspector
               language={language}
               webSettings={webSettings}

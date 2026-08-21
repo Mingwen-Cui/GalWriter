@@ -4,6 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { Language } from '../../../lib/i18n';
 import { getCharacterStageBounds } from '../../../lib/presentation';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import { homepageCoverTemplates } from '../homepageCoverTemplates';
 import {
   resolvePresentationDialogueLayout,
   resolvePresentationTextScale,
@@ -735,6 +736,25 @@ export function PptWorkspace({
       gradientStart: color,
       gradientEnd: color,
     });
+  const applyHomepageCoverPreset = (templateId: string) => {
+    const template = homepageCoverTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+    const coverBackground: PptSlideBackgroundStyle = {
+      type: 'image',
+      color: template.backgroundColor,
+      gradientStart: template.backgroundColor,
+      gradientEnd: template.backgroundColor,
+      gradientAngle: 135,
+      imageUrl: template.backgroundUrl,
+    };
+    updatePptSettings({
+      slideBackgroundColors: { ...slideBackgroundColors, cover: template.backgroundColor },
+      slideBackgroundStyles: { ...slideBackgroundStyles, cover: coverBackground },
+    });
+    setSelectedManualElementId(undefined);
+    setSelectedObject({ target: 'background', label: copy.background });
+    setSidebarTab('style');
+  };
   const selectBackground = () => {
     setSelectedManualElementId(undefined);
     setSelectedObject({ target: 'background', label: copy.background });
@@ -1273,6 +1293,9 @@ export function PptWorkspace({
               coverTextBox={selectedCoverTextBox}
               slides={slides}
               backgroundSelected={selectedObject?.target === 'background'}
+              coverSelected={selectedId === 'cover'}
+              homepageCoverTemplates={homepageCoverTemplates}
+              onApplyHomepageCoverPreset={applyHomepageCoverPreset}
               currentSlideBackground={activeSlideBackground}
               webSettings={webSettings}
               onUpdateSlideBackground={updateActiveSlideBackground}

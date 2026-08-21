@@ -9,22 +9,6 @@ export const webSettingsCopy = {
 
 export const webText = {
   webExportAuthorWebsite: '作者サイト',
-  componentsrenderwebwebExperiencePresetsText152: '続ける',
-  componentsrenderwebwebExperiencePresetsText383: '続ける',
-  componentsrenderwebwebExperiencePresetsText396: '削除',
-  componentsrenderwebwebExperiencePresetsText717: 'ここから物語を読み始めましょう。',
-  componentsrenderwebwebExperiencePresetsText718: 'セーブ',
-  componentsrenderwebwebExperiencePresetsText719: '新しく始める',
-  componentsrenderwebwebExperiencePresetsText720: '環境設定',
-  componentsrenderwebwebExperiencePresetsText721: 'セーブ',
-  componentsrenderwebwebExperiencePresetsText722: '戻る',
-  componentsrenderwebwebExperiencePresetsText723:
-    'セーブデータはありません\n書き出し後のWeb版では進行状況がここに表示されます。',
-  componentsrenderwebwebExperiencePresetsText724: '新しく始める',
-  componentsrenderwebwebExperiencePresetsText725: '設定',
-  componentsrenderwebwebExperiencePresetsText727: '自動再生',
-  componentsrenderwebwebExperiencePresetsText728: 'テキスト速度',
-  componentsrenderwebwebExperiencePresetsText729: '操作表示',
   componentsrenderwebwebExperienceTemplatesText92: 'セーブ',
   componentsrenderwebwebExperienceTemplatesText107:
     'セーブなし\n書き出し後のWebでは前回の進行がここに表示されます。',
@@ -201,6 +185,8 @@ export const webText = {
   componentsrenderwebWebWorkspaceText1998: '選択へ保存',
   componentsrenderwebWebWorkspaceText2004: '選択を削除',
   componentsrenderwebWebWorkspaceText2013: 'テンプレートを保存',
+  componentsrenderwebWebWorkspaceText2014: 'テンプレートを書き出す',
+  componentsrenderwebWebWorkspaceText2015: 'テンプレートをダウンロード',
   componentsrenderwebWebWorkspaceText2017: 'マイテンプレート',
   componentsrenderwebWebWorkspaceText2027: '編集を完了',
   componentsrenderwebWebWorkspaceText2028: 'テンプレートを編集',

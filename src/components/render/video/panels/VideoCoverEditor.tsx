@@ -23,6 +23,7 @@ import {
   normalizeSharedCanvasSettings,
   type SharedCanvasSettings,
 } from '../../canvas/canvasSettings';
+import { defaultVideoCoverAiPrompt } from '../../homepageCoverTemplates';
 import { StartMenuBackgroundInspector } from '../../web/StartMenuBackgroundInspector';
 import { StartMenuElementInspector } from '../../web/StartMenuElementInspector';
 import {
@@ -244,6 +245,7 @@ export function VideoCoverEditor({
   const copiedElementRef = useRef<VideoCoverElement | null>(null);
   const [hasCopiedElement, setHasCopiedElement] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [aiPromptCopied, setAiPromptCopied] = useState(false);
   const videoNodes = useMemo(
     () => nodes.filter((node) => typeof node.data?.videoUrl === 'string' && node.data.videoUrl),
     [nodes],
@@ -441,6 +443,15 @@ export function VideoCoverEditor({
     history.future = [cloneCoverSettings(cover), ...history.future].slice(0, 50);
     setHistoryVersion((version) => version + 1);
     onChange(previous);
+  };
+  const copyAiPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(defaultVideoCoverAiPrompt);
+      setAiPromptCopied(true);
+      window.setTimeout(() => setAiPromptCopied(false), 1800);
+    } catch {
+      setAiPromptCopied(false);
+    }
   };
   const redoCover = () => {
     const history = coverHistoryRef.current;
@@ -1089,6 +1100,15 @@ export function VideoCoverEditor({
                 aria-label="重做"
               >
                 <Redo2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => void copyAiPrompt()}
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-violet-200 bg-violet-50 px-2.5 text-[11px] font-black text-violet-700 transition-colors hover:bg-violet-100"
+                title="复制 AI 封面图片生成提示词"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {aiPromptCopied ? '已复制' : '复制 AI 提示词'}
               </button>
             </div>
           </div>
