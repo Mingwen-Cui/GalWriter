@@ -106,6 +106,7 @@ export function SolidColorPopover({
   alpha,
   onColorChange,
   onAlphaChange,
+  onColorAndAlphaChange,
 }: {
   tone: PopoverTone;
   text: Text;
@@ -113,6 +114,7 @@ export function SolidColorPopover({
   alpha: number;
   onColorChange: (value: string) => void;
   onAlphaChange: (value: number) => void;
+  onColorAndAlphaChange?: (value: { color: string; alpha: number }) => void;
 }) {
   const parsed = parseColorValue(color);
   const displayValue = toHex8(color, alpha);
@@ -127,6 +129,10 @@ export function SolidColorPopover({
   const commitTextColor = (value: string) => {
     const next = parseFormattedColor(value);
     if (!next) return;
+    if (onColorAndAlphaChange) {
+      onColorAndAlphaChange({ color: next.hex, alpha: next.alpha });
+      return;
+    }
     onColorChange(next.hex);
     onAlphaChange(next.alpha);
   };
@@ -308,8 +314,9 @@ export function SolidColorPopover({
           onChange={(event) => {
             const next = event.target.value;
             setDraft(next);
-            if (format === 'HEX' && /^#[0-9a-f]{8}$/i.test(next)) commitTextColor(next);
-            if ((format === 'RGB' || format === 'CSS') && /^rgba?\(/i.test(next))
+            if (format === 'HEX' && /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(next))
+              commitTextColor(next);
+            if ((format === 'RGB' || format === 'CSS') && parseFormattedColor(next))
               commitTextColor(next);
           }}
           onBlur={() => {

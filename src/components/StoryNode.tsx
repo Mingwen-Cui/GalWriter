@@ -2610,6 +2610,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 : toHex8(parsedCardColor.hex, nextAlpha),
                           })
                         }
+                        onColorAndAlphaChange={({ color, alpha }) =>
+                          updateNodeData({
+                            color: alpha === 100 ? color : toHex8(color, alpha),
+                          })
+                        }
                       />
                     </FloatingPopover>
                   )}

@@ -149,6 +149,14 @@ export function StartMenuBackgroundInspector({
                     toHex8(background.color, alpha),
                   )
                 }
+                onColorAndAlphaChange={({ color, alpha }) =>
+                  updateBackgroundSetting(
+                    updateWebSettings,
+                    surface,
+                    'color',
+                    toHex8(color, alpha),
+                  )
+                }
                 onOpen={() => setOpenEditor(openEditor === 'solid' ? null : 'solid')}
               />
             )}
@@ -198,6 +206,14 @@ export function StartMenuBackgroundInspector({
                   surface,
                   'color',
                   toHex8(background.color, alpha),
+                )
+              }
+              onColorAndAlphaChange={({ color, alpha }) =>
+                updateBackgroundSetting(
+                  updateWebSettings,
+                  surface,
+                  'color',
+                  toHex8(color, alpha),
                 )
               }
             />

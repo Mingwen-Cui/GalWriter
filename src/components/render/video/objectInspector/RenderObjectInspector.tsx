@@ -454,6 +454,7 @@ export function RenderObjectInspector({
                 hexLabel={text.popover.hex}
                 onColorChange={(color) => setFill({ color })}
                 onAlphaChange={(alpha) => setFill({ alpha })}
+                onColorAndAlphaChange={({ color, alpha }) => setFill({ color, alpha })}
                 onOpen={() => setPopover({ group: 'fill', type: 'solid' })}
               />
             ) : selected.fill.type === 'gradient' ? (
@@ -496,6 +497,7 @@ export function RenderObjectInspector({
                 alpha={selected.fill.alpha}
                 onColorChange={(color) => setFill({ color })}
                 onAlphaChange={(alpha) => setFill({ alpha })}
+                onColorAndAlphaChange={({ color, alpha }) => setFill({ color, alpha })}
               />
             </FloatingPopover>
           )}
@@ -604,6 +606,9 @@ export function RenderObjectInspector({
                     hexLabel={text.popover.hex}
                     onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
                     onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
+                    onColorAndAlphaChange={({ color, alpha }) =>
+                      setObject({ stroke: { ...selected.stroke, color, alpha } })
+                    }
                     onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
                   />
                 )}
@@ -641,6 +646,9 @@ export function RenderObjectInspector({
                     alpha={selected.stroke.alpha}
                     onColorChange={(color) => setObject({ stroke: { ...selected.stroke, color } })}
                     onAlphaChange={(alpha) => setObject({ stroke: { ...selected.stroke, alpha } })}
+                    onColorAndAlphaChange={({ color, alpha }) =>
+                      setObject({ stroke: { ...selected.stroke, color, alpha } })
+                    }
                   />
                 )}
               </FloatingPopover>
@@ -737,6 +745,9 @@ export function RenderObjectInspector({
                     hexLabel={text.popover.hex}
                     onColorChange={(color) => setShadowLayer(index, { color })}
                     onAlphaChange={(alpha) => setShadowLayer(index, { alpha })}
+                    onColorAndAlphaChange={({ color, alpha }) =>
+                      setShadowLayer(index, { color, alpha })
+                    }
                     onOpen={() => setPopover({ group: 'shadow', type: 'solid' })}
                   />
                 </SettingDescription>
@@ -763,6 +774,9 @@ export function RenderObjectInspector({
                     alpha={shadow.alpha}
                     onColorChange={(color) => setShadowLayer(index, { color })}
                     onAlphaChange={(alpha) => setShadowLayer(index, { alpha })}
+                    onColorAndAlphaChange={({ color, alpha }) =>
+                      setShadowLayer(index, { color, alpha })
+                    }
                   />
                 </FloatingPopover>
               )}

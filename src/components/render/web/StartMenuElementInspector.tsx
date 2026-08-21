@@ -824,6 +824,9 @@ export function StartMenuElementInspector({
                   hexLabel={text.popover.hex}
                   onColorChange={(textColor) => onUpdate({ textColor })}
                   onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
+                  onColorAndAlphaChange={({ color, alpha }) =>
+                    onUpdate({ textColor: color, textColorAlpha: alpha })
+                  }
                   onOpen={() => setPopover({ group: 'text', type: 'solid' })}
                 />
               ) : (
@@ -881,6 +884,9 @@ export function StartMenuElementInspector({
                 alpha={element.textColorAlpha ?? 100}
                 onColorChange={(textColor) => onUpdate({ textColor })}
                 onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
+                onColorAndAlphaChange={({ color, alpha }) =>
+                  onUpdate({ textColor: color, textColorAlpha: alpha })
+                }
               />
             </FloatingPopover>
           )}
@@ -1068,6 +1074,9 @@ export function StartMenuElementInspector({
                     onUpdate({ backgroundColor, backgroundType: 'solid' })
                   }
                   onAlphaChange={(opacity) => onUpdate({ opacity })}
+                  onColorAndAlphaChange={({ color, alpha }) =>
+                    onUpdate({ backgroundColor: color, backgroundType: 'solid', opacity: alpha })
+                  }
                   onOpen={() => setPopover({ group: 'fill', type: 'solid' })}
                 />
               )}
@@ -1141,6 +1150,9 @@ export function StartMenuElementInspector({
                   onUpdate({ backgroundColor, backgroundType: 'solid' })
                 }
                 onAlphaChange={(opacity) => onUpdate({ opacity })}
+                onColorAndAlphaChange={({ color, alpha }) =>
+                  onUpdate({ backgroundColor: color, backgroundType: 'solid', opacity: alpha })
+                }
               />
             </FloatingPopover>
           )}
@@ -1417,6 +1429,13 @@ export function StartMenuElementInspector({
                   onUpdate(strokeIsText ? { textStrokeColor: value } : { borderColor: value })
                 }
                 onAlphaChange={(opacity) => onUpdate({ opacity })}
+                onColorAndAlphaChange={({ color, alpha }) =>
+                  onUpdate(
+                    strokeIsText
+                      ? { textStrokeColor: color, opacity: alpha }
+                      : { borderColor: color, opacity: alpha },
+                  )
+                }
                 onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
               />
             )}
@@ -1434,6 +1453,13 @@ export function StartMenuElementInspector({
                 onUpdate(strokeIsText ? { textStrokeColor: value } : { borderColor: value })
               }
               onAlphaChange={(opacity) => onUpdate({ opacity })}
+              onColorAndAlphaChange={({ color, alpha }) =>
+                onUpdate(
+                  strokeIsText
+                    ? { textStrokeColor: color, opacity: alpha }
+                    : { borderColor: color, opacity: alpha },
+                )
+              }
             />
           </FloatingPopover>
         )}
@@ -1582,6 +1608,9 @@ export function StartMenuElementInspector({
                   hexLabel={text.popover.hex}
                   onColorChange={(color) => updateShadow(index, { color })}
                   onAlphaChange={(opacity) => updateShadow(index, { opacity })}
+                  onColorAndAlphaChange={({ color, alpha }) =>
+                    updateShadow(index, { color, opacity: alpha })
+                  }
                   onOpen={() => setPopover({ group: 'shadow', type: 'solid', shadowIndex: index })}
                 />
               </SettingDescription>
@@ -1596,6 +1625,9 @@ export function StartMenuElementInspector({
                   alpha={shadow.opacity}
                   onColorChange={(color) => updateShadow(index, { color })}
                   onAlphaChange={(opacity) => updateShadow(index, { opacity })}
+                  onColorAndAlphaChange={({ color, alpha }) =>
+                    updateShadow(index, { color, opacity: alpha })
+                  }
                 />
               </FloatingPopover>
             )}
@@ -1781,6 +1813,7 @@ export function InlineColorControl({
   hexLabel,
   onColorChange,
   onAlphaChange,
+  onColorAndAlphaChange,
   onOpen,
 }: {
   label: string;
@@ -1790,6 +1823,7 @@ export function InlineColorControl({
   hexLabel: string;
   onColorChange: (value: string) => void;
   onAlphaChange?: (value: number) => void;
+  onColorAndAlphaChange?: (value: { color: string; alpha: number }) => void;
   onOpen?: () => void;
 }) {
   const parsed = parseColorValue(color);
@@ -1813,6 +1847,10 @@ export function InlineColorControl({
         aria-label={hexLabel}
         onChange={(event) => {
           const next = parseColorValue(event.target.value, toHex8(color, safeAlpha));
+          if (onColorAndAlphaChange) {
+            onColorAndAlphaChange({ color: next.hex, alpha: next.alpha });
+            return;
+          }
           onColorChange(next.hex);
           onAlphaChange?.(next.alpha);
         }}
@@ -2367,6 +2405,9 @@ export function GradientEditorPopover({
             alpha={colorPopoverStop.alpha}
             onColorChange={(color) => updateStop(colorPopoverStop.id, { color })}
             onAlphaChange={(alpha) => updateStop(colorPopoverStop.id, { alpha })}
+            onColorAndAlphaChange={({ color, alpha }) =>
+              updateStop(colorPopoverStop.id, { color, alpha })
+            }
           />
         </div>
       )}

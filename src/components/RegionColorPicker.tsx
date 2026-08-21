@@ -41,6 +41,7 @@ export function RegionColorPicker({ color, language, onChange }: RegionColorPick
             alpha={100}
             onColorChange={onChange}
             onAlphaChange={() => undefined}
+            onColorAndAlphaChange={({ color }) => onChange(color)}
           />
         </FloatingPopover>
       )}
