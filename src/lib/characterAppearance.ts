@@ -1,3 +1,5 @@
+import { getAppAssetUrl } from './appAssets';
+
 export const CHARACTER_APPEARANCE_CANVAS = {
   // The modular preset PNGs are authored on this exact transparent canvas.
   // Rendering at the native size prevents a 2:3 resize from cutting off the
@@ -337,7 +339,7 @@ export const getCharacterAppearanceAssetUrl = (assetPath: string) => {
   if (!assetPath) return '';
   // Custom uploads (and any absolute URL) bypass the public/ versioned path.
   if (/^(?:blob:|data:|https?:)/i.test(assetPath)) return assetPath;
-  return `${import.meta.env.BASE_URL}${assetPath.replace(/^\/+/, '')}?v=${CHARACTER_APPEARANCE_ASSET_VERSION}`;
+  return `${getAppAssetUrl(assetPath)}?v=${CHARACTER_APPEARANCE_ASSET_VERSION}`;
 };
 
 /**

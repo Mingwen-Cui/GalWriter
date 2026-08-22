@@ -37,6 +37,46 @@ release/
 
 > 全平台命令会先构建 Web 和 Windows。如果找不到 Android SDK 或 NDK，脚本会显示警告并跳过 Android。因此构建结束后一定要检查最终文件列表。
 
+## 完整包、极速包与官网资源
+
+完整包保留所有预设图片、音乐、视频封面模板和首页模板；极速包不携带这些大资源，运行时从官网读取。两者使用同一套功能代码；极速资源**只部署到自己的官网**，不依赖 GitHub Releases 或 GitHub CDN。
+
+先生成需要上传的网站资源目录：
+
+```powershell
+npm run tauri:prepare:online-assets
+```
+
+将输出目录 `release\GalWriter-AI-v<version>-online-assets\` 的**内容**上传到：
+
+```text
+/online/galwriter-assets/v<version>/
+```
+
+目录内会包含 `manifest.json`（每个文件的 SHA-256）和 `UPLOAD-TO-WEBSITE.txt`。网站必须允许 App 通过 HTTPS 发起 `GET`/`HEAD` 和跨域读取请求；版本目录一旦发布不要覆盖，更新时新建版本目录。
+
+分别构建两个前端版本：
+
+```powershell
+npm run build:full
+npm run build:lite
+```
+
+分别构建 Windows 或 Android 版本：
+
+```powershell
+npm run tauri:build:windows:full
+npm run tauri:prepare:release:full
+
+npm run tauri:build:windows:lite
+npm run tauri:prepare:release:lite
+
+npm run tauri:build:android:full
+npm run tauri:build:android:lite
+```
+
+Windows 发布文件会带 `-full` 或 `-lite` 后缀。Android 同包名的完整 APK 和极速 APK 不能作为两个可共存应用发布；官网主推极速 APK，完整 APK 仅供离线安装。两者若互相升级，必须使用相同签名且 Android `versionCode` 递增。
+
 ## 1. 安装构建工具
 
 ### 所有构建都需要

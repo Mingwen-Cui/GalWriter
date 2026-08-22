@@ -18,12 +18,14 @@ import {
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { getAppAssetUrl, isRapidAssetEdition } from '../../../../lib/appAssets';
 import { getTauriInvoke, isTauriRuntime } from '../../../../lib/tauriRuntime';
 import {
   normalizeSharedCanvasSettings,
   type SharedCanvasSettings,
 } from '../../canvas/canvasSettings';
 import { defaultVideoCoverAiPrompt } from '../../homepageCoverTemplates';
+import { RapidEditionTemplateNotice } from '../../RapidEditionTemplateNotice';
 import { StartMenuBackgroundInspector } from '../../web/StartMenuBackgroundInspector';
 import { StartMenuElementInspector } from '../../web/StartMenuElementInspector';
 import {
@@ -260,7 +262,7 @@ export function VideoCoverEditor({
         template.assets.map((asset) => ({
           id: `${template.id}:${asset}`,
           label: `${template.id} · ${asset}`,
-          url: encodeURI(`/cover-templates/${template.id}/${asset}`),
+          url: encodeURI(getAppAssetUrl(`/cover-templates/${template.id}/${asset}`)),
         })),
       ),
     [templateLibrary],
@@ -324,19 +326,19 @@ export function VideoCoverEditor({
   }, [coverCanvasSettings.canvasHeight, coverCanvasSettings.canvasWidth, cropGuide]);
 
   useEffect(() => {
+    if (isRapidAssetEdition()) {
+      setTemplateLibrary([]);
+      setIsTemplateLibraryLoading(false);
+      return;
+    }
     let cancelled = false;
     const loadTemplateLibrary = async () => {
       try {
         let templates: CoverTemplateInfo[] = [];
-        if (isTauriRuntime()) {
-          const invoke = await getTauriInvoke();
-          templates = invoke ? ((await invoke('list_cover_templates')) as CoverTemplateInfo[]) : [];
-        } else {
-          const response = await fetch(encodeURI('/cover-templates/manifest.json'));
-          if (response.ok) {
-            templates =
-              ((await response.json()) as { templates?: CoverTemplateInfo[] }).templates || [];
-          }
+        const response = await fetch(encodeURI(getAppAssetUrl('/cover-templates/manifest.json')));
+        if (response.ok) {
+          templates =
+            ((await response.json()) as { templates?: CoverTemplateInfo[] }).templates || [];
         }
         if (!cancelled) setTemplateLibrary(templates);
       } catch {
@@ -668,12 +670,14 @@ export function VideoCoverEditor({
   const applyTemplate = async (template: CoverTemplateInfo) => {
     const isPortrait = coverCanvasSettings.canvasHeight > coverCanvasSettings.canvasWidth;
     const assetUrls = template.assets.map((asset) =>
-      encodeURI(`/cover-templates/${template.id}/${asset}`),
+      encodeURI(getAppAssetUrl(`/cover-templates/${template.id}/${asset}`)),
     );
     let savedSettings = template.settings;
     if (!savedSettings) {
       try {
-        const response = await fetch(encodeURI(`/cover-templates/${template.id}/template.json`));
+        const response = await fetch(
+          encodeURI(getAppAssetUrl(`/cover-templates/${template.id}/template.json`)),
+        );
         if (response.ok) savedSettings = (await response.json()) as VideoCoverSettings;
       } catch {
         // A new template has no saved layout yet; its image assets are loaded below.
@@ -750,7 +754,8 @@ export function VideoCoverEditor({
     return blob;
   };
   const saveActiveTemplate = async () => {
-    if (!activeTemplateId || !previewRef.current || !isTauriRuntime()) return;
+    if (!activeTemplateId || !previewRef.current || !isTauriRuntime() || isRapidAssetEdition())
+      return;
     setTemplateSaveState('saving');
     try {
       const blob = await createCoverPng();
@@ -779,7 +784,7 @@ export function VideoCoverEditor({
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
   const closeEditor = async () => {
-    if (activeTemplateId && isTauriRuntime()) await saveActiveTemplate();
+    if (activeTemplateId && isTauriRuntime() && !isRapidAssetEdition()) await saveActiveTemplate();
     onClose();
   };
   const exportActiveTemplate = async () => {
@@ -794,7 +799,9 @@ export function VideoCoverEditor({
       archive.file('preview.png', await createCoverPng());
       await Promise.all(
         template.assets.map(async (asset) => {
-          const response = await fetch(encodeURI(`/cover-templates/${template.id}/${asset}`));
+          const response = await fetch(
+            encodeURI(getAppAssetUrl(`/cover-templates/${template.id}/${asset}`)),
+          );
           if (!response.ok) throw new Error(`Could not read ${asset}`);
           archive.file(asset, await response.blob());
         }),
@@ -974,7 +981,7 @@ export function VideoCoverEditor({
                     <Download className="h-4 w-4" />
                     {isTemplateExporting ? '导出中' : '导出模板'}
                   </button>
-                  {isTauriRuntime() ? (
+                  {isTauriRuntime() && !isRapidAssetEdition() ? (
                     <button
                       type="button"
                       onClick={() => void saveActiveTemplate()}
@@ -1336,10 +1343,12 @@ export function VideoCoverEditor({
               <div className="grid grid-cols-4 gap-3">
                 {templateLibrary.slice(0, 4).map((template) => {
                   const previewUrl = encodeURI(
-                    `/cover-templates/${template.id}/preview.png?${templatePreviewVersion}`,
+                    `${getAppAssetUrl(`/cover-templates/${template.id}/preview.png`)}?${templatePreviewVersion}`,
                   );
                   const firstAssetUrl = template.assets[0]
-                    ? encodeURI(`/cover-templates/${template.id}/${template.assets[0]}`)
+                    ? encodeURI(
+                        getAppAssetUrl(`/cover-templates/${template.id}/${template.assets[0]}`),
+                      )
                     : '';
                   return (
                     <button
@@ -1370,7 +1379,10 @@ export function VideoCoverEditor({
                     读取模板素材…
                   </span>
                 )}
-                {!isTemplateLibraryLoading && !templateLibrary.length && (
+                {!isTemplateLibraryLoading && isRapidAssetEdition() && (
+                  <RapidEditionTemplateNotice language={language} kind="cover" />
+                )}
+                {!isTemplateLibraryLoading && !isRapidAssetEdition() && !templateLibrary.length && (
                   <span className="col-span-4 py-4 text-center text-xs font-bold text-[var(--vr-text-muted)]">
                     暂无可用封面模板。
                   </span>

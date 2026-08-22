@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { RegionBackgroundMusic } from '../domain/project';
+import { getAppAssetUrl } from '../lib/appAssets';
 import { registerBlobAsset } from '../lib/blobAssetRegistry';
 import {
   deleteMusicLibraryItem,
@@ -48,15 +49,15 @@ type SavedMusicTrack = MusicLibraryItem & {
   url: string;
 };
 
-const PRESET_MUSIC_MANIFEST_URL = '/presets/music/manifest.json';
+const PRESET_MUSIC_MANIFEST_URL = getAppAssetUrl('/presets/music/manifest.json');
 const musicLibraryUrls = new Map<string, string>();
 
 function getPresetMusicUrl(file: string) {
-  return `/presets/music/${file
+  return getAppAssetUrl(`/presets/music/${file
     .split('/')
     .filter(Boolean)
     .map((part) => encodeURIComponent(part))
-    .join('/')}`;
+    .join('/')}`);
 }
 
 function getMusicLibraryUrl(item: MusicLibraryItem) {

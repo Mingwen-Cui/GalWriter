@@ -163,6 +163,11 @@ const volcengineTtsProxy = (): Plugin => ({
 
 export default defineConfig(() => {
   return {
+    // Rapid builds point Vite at a generated public directory that omits the
+    // large online resource packs. Full builds continue to use public/.
+    publicDir: process.env.GALWRITER_PUBLIC_DIR
+      ? path.resolve(process.env.GALWRITER_PUBLIC_DIR)
+      : path.resolve(__dirname, 'public'),
     // NOTE: 使用相对路径，确保应用加载本地文件时资源引用正确
     base: './',
     assetsInclude: ['**/*.lottie'],

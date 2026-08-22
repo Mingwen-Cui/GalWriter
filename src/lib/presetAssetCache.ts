@@ -1,5 +1,6 @@
 import { openDB } from 'idb';
 
+import { isRapidAssetEdition } from './appAssets';
 import { isTauriRuntime } from './tauriRuntime';
 
 /**
@@ -33,7 +34,12 @@ const getDatabase = () => {
   return database;
 };
 
-export const requiresPresetDownload = () => !isTauriRuntime();
+/**
+ * Browser builds have always downloaded selected presets. Rapid desktop and
+ * Android builds use that same cache contract, while a full Tauri build reads
+ * its bundled files directly.
+ */
+export const requiresPresetDownload = () => isRapidAssetEdition() || !isTauriRuntime();
 
 export const hasCachedPresetAssets = async (urls: readonly string[]) => {
   if (!requiresPresetDownload() || urls.length === 0) return true;

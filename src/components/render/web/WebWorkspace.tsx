@@ -26,10 +26,12 @@ import {
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { createElement, isValidElement, useCallback, useEffect, useState } from 'react';
 
+import { isRapidAssetEdition } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
-import { homepageCoverTemplates, type HomepageCoverTemplate } from '../homepageCoverTemplates';
+import { type HomepageCoverTemplate, homepageCoverTemplates } from '../homepageCoverTemplates';
+import { RapidEditionTemplateNotice } from '../RapidEditionTemplateNotice';
 import { downloadTemplateArchive } from '../templateArchive';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
@@ -76,9 +78,9 @@ const resolveHomepageTemplateAssetUrls = <T,>(
   key = '',
 ): T => {
   if (typeof value === 'string') {
-    return (templateImageUrlField.test(key)
-      ? resolveHomepageTemplateAssetUrl(template, value)
-      : value) as T;
+    return (
+      templateImageUrlField.test(key) ? resolveHomepageTemplateAssetUrl(template, value) : value
+    ) as T;
   }
   if (Array.isArray(value)) {
     return value.map((item) => resolveHomepageTemplateAssetUrls(template, item)) as T;
@@ -873,7 +875,8 @@ export function WebWorkspace({
       const target = event.target;
       if (
         target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))
+        (target.isContentEditable ||
+          target.closest('input, textarea, select, [contenteditable="true"]'))
       )
         return;
       event.preventDefault();
@@ -885,7 +888,12 @@ export function WebWorkspace({
     };
     window.addEventListener('keydown', deleteSelectedButton);
     return () => window.removeEventListener('keydown', deleteSelectedButton);
-  }, [currentPreviewSurface, deleteStartMenuElement, selectedStartMenuElement, startMenuPreviewMode]);
+  }, [
+    currentPreviewSurface,
+    deleteStartMenuElement,
+    selectedStartMenuElement,
+    startMenuPreviewMode,
+  ]);
   const updateSelectedPageElement = (patch: Partial<WebMenuElement>) => {
     if (!selectedStartMenuElement) return;
     updateActivePageElement(selectedStartMenuElement.id, patch);
@@ -1981,48 +1989,89 @@ JSON schema:
                   <>
                     <WebAuxiliaryPanel>
                       <div className="grid gap-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          {homepageCoverTemplates.map((template) => (
-                            <button
-                              key={template.id}
-                              type="button"
-                              onClick={() => void applyHomepageCoverPreset(template.id)}
-                              className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
-                            >
-                              <img
-                                src={template.previewUrl}
-                                alt=""
-                                className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                              />
-                              <span className="block p-2">
-                                <span className="block truncate text-[11px] font-black text-[var(--vr-text)]">
-                                  {template.name}
+                        {isRapidAssetEdition() ? (
+                          <RapidEditionTemplateNotice language={language} kind="preset" />
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2">
+                            {homepageCoverTemplates.map((template) => (
+                              <button
+                                key={template.id}
+                                type="button"
+                                onClick={() => void applyHomepageCoverPreset(template.id)}
+                                className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
+                              >
+                                <img
+                                  src={template.previewUrl}
+                                  alt=""
+                                  className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                                />
+                                <span className="block p-2">
+                                  <span className="block truncate text-[11px] font-black text-[var(--vr-text)]">
+                                    {template.name}
+                                  </span>
+                                  <span className="mt-0.5 block line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                                    {template.description}
+                                  </span>
                                 </span>
-                                <span className="mt-0.5 block line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
-                                  {template.description}
-                                </span>
-                              </span>
-                            </button>
-                          ))}
-                        </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         {isTemplateEditing && (
                           <div className="grid gap-2">
                             {savedTemplateLibrary.map((template) =>
-                            isTemplateEditing ? (
-                              <label
-                                key={template.id}
-                                className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-colors ${selectedTemplateEditIds.includes(template.id) ? 'border-indigo-500 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selectedTemplateEditIds.includes(template.id)}
-                                  onChange={() => toggleTemplateEditSelection(template.id)}
-                                  className="h-3.5 w-3.5 accent-[var(--vr-accent)]"
-                                  aria-label={template.name}
-                                />
-                                <span className="min-w-0 flex-1">
+                              isTemplateEditing ? (
+                                <label
+                                  key={template.id}
+                                  className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-colors ${selectedTemplateEditIds.includes(template.id) ? 'border-indigo-500 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedTemplateEditIds.includes(template.id)}
+                                    onChange={() => toggleTemplateEditSelection(template.id)}
+                                    className="h-3.5 w-3.5 accent-[var(--vr-accent)]"
+                                    aria-label={template.name}
+                                  />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="flex items-center justify-between gap-2">
+                                      <span className="truncate text-[11px] font-black text-[var(--vr-text)]">
+                                        {template.name}
+                                      </span>
+                                      <TemplateMiniPreview
+                                        settings={template.settings || {}}
+                                        accent={template.choiceColor || 'var(--vr-accent)'}
+                                        surface={currentPreviewSurface}
+                                      />
+                                    </span>
+                                    <span className="block text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                                      {template.scope === 'current'
+                                        ? formatWebText(
+                                            language,
+                                            'componentsrenderwebWebWorkspaceText1939',
+                                          )
+                                        : formatWebText(
+                                            language,
+                                            'componentsrenderwebWebWorkspaceText1944',
+                                          )}
+                                    </span>
+                                  </span>
+                                </label>
+                              ) : (
+                                <button
+                                  key={template.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSavedTemplateId(template.id);
+                                    loadStartMenuDesign(template.id);
+                                  }}
+                                  className={`grid gap-1 rounded-lg border p-2 text-left transition-colors hover:border-indigo-500/35 hover:bg-white/5 ${selectedSavedTemplateId === template.id ? 'border-indigo-500/45 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
+                                  title={formatWebText(
+                                    language,
+                                    'componentsrenderwebWebWorkspaceText1961',
+                                  )}
+                                >
                                   <span className="flex items-center justify-between gap-2">
-                                    <span className="truncate text-[11px] font-black text-[var(--vr-text)]">
+                                    <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">
                                       {template.name}
                                     </span>
                                     <TemplateMiniPreview
@@ -2031,56 +2080,19 @@ JSON schema:
                                       surface={currentPreviewSurface}
                                     />
                                   </span>
-                                  <span className="block text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                                  <span className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
                                     {template.scope === 'current'
                                       ? formatWebText(
                                           language,
-                                          'componentsrenderwebWebWorkspaceText1939',
+                                          'componentsrenderwebWebWorkspaceText1979',
                                         )
                                       : formatWebText(
                                           language,
-                                          'componentsrenderwebWebWorkspaceText1944',
+                                          'componentsrenderwebWebWorkspaceText1984',
                                         )}
                                   </span>
-                                </span>
-                              </label>
-                            ) : (
-                              <button
-                                key={template.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedSavedTemplateId(template.id);
-                                  loadStartMenuDesign(template.id);
-                                }}
-                                className={`grid gap-1 rounded-lg border p-2 text-left transition-colors hover:border-indigo-500/35 hover:bg-white/5 ${selectedSavedTemplateId === template.id ? 'border-indigo-500/45 bg-indigo-500/10' : 'border-indigo-500/15 bg-[var(--vr-surface-soft)]'}`}
-                                title={formatWebText(
-                                  language,
-                                  'componentsrenderwebWebWorkspaceText1961',
-                                )}
-                              >
-                                <span className="flex items-center justify-between gap-2">
-                                  <span className="min-w-0 truncate text-[11px] font-black text-[var(--vr-text)]">
-                                    {template.name}
-                                  </span>
-                                  <TemplateMiniPreview
-                                    settings={template.settings || {}}
-                                    accent={template.choiceColor || 'var(--vr-accent)'}
-                                    surface={currentPreviewSurface}
-                                  />
-                                </span>
-                                <span className="text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
-                                  {template.scope === 'current'
-                                    ? formatWebText(
-                                        language,
-                                        'componentsrenderwebWebWorkspaceText1979',
-                                      )
-                                    : formatWebText(
-                                        language,
-                                        'componentsrenderwebWebWorkspaceText1984',
-                                      )}
-                                </span>
-                              </button>
-                            ),
+                                </button>
+                              ),
                             )}
                           </div>
                         )}

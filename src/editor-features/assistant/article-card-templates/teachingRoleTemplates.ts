@@ -1,3 +1,5 @@
+import { getAppAssetUrl } from '../../../lib/appAssets';
+
 import type { ArticleTeachingRoleTemplate } from './types';
 
 export const ARTICLE_TEACHING_ROLE_TEMPLATES: ArticleTeachingRoleTemplate[] = [
@@ -18,9 +20,9 @@ export const ARTICLE_TEACHING_ROLE_TEMPLATES: ArticleTeachingRoleTemplate[] = [
       experience: '熟悉城市里不愿被记住的小路。',
       relationships: '把读者当作需要一起走完全程的同行者。',
       notes: '教学方式：分步解释、即时确认、逐段反馈。',
-      avatarUrl: '/presets/characters/gu-yao.png',
-      threeViewUrl: '/presets/characters/gu-yao-three-view.png',
-      tagSpriteUrl: '/presets/characters/gu-yao-tag-sprite.png',
+      avatarUrl: getAppAssetUrl('/presets/characters/gu-yao.png'),
+      threeViewUrl: getAppAssetUrl('/presets/characters/gu-yao-three-view.png'),
+      tagSpriteUrl: getAppAssetUrl('/presets/characters/gu-yao-tag-sprite.png'),
     },
   },
   {
@@ -40,9 +42,9 @@ export const ARTICLE_TEACHING_ROLE_TEMPLATES: ArticleTeachingRoleTemplate[] = [
       experience: '记得每本旧书从哪一排离开。',
       relationships: '把读者当成来书店避雨的熟客。',
       notes: '教学方式：提问、观察、解释、小结。',
-      avatarUrl: '/presets/characters/wen-lan.png',
-      threeViewUrl: '/presets/characters/wen-lan-three-view.png',
-      tagSpriteUrl: '/presets/characters/wen-lan-tag-sprite.png',
+      avatarUrl: getAppAssetUrl('/presets/characters/wen-lan.png'),
+      threeViewUrl: getAppAssetUrl('/presets/characters/wen-lan-three-view.png'),
+      tagSpriteUrl: getAppAssetUrl('/presets/characters/wen-lan-tag-sprite.png'),
     },
   },
   {
@@ -62,9 +64,9 @@ export const ARTICLE_TEACHING_ROLE_TEMPLATES: ArticleTeachingRoleTemplate[] = [
       experience: '习惯把整个战场当作需要亲自调整的棋盘。',
       relationships: '对读者既是讲解者，也是不断追加命令的总指挥。',
       notes: '教学方式：全局概览、具体部署、逐项复盘；知识解释优先于梗。',
-      avatarUrl: '/presets/characters/jiang-jieshi.png',
-      threeViewUrl: '/presets/characters/jiang-jieshi-three-view.png',
-      tagSpriteUrl: '/presets/characters/jiang-jieshi-tag-sprite.png',
+      avatarUrl: getAppAssetUrl('/presets/characters/jiang-jieshi.png'),
+      threeViewUrl: getAppAssetUrl('/presets/characters/jiang-jieshi-three-view.png'),
+      tagSpriteUrl: getAppAssetUrl('/presets/characters/jiang-jieshi-tag-sprite.png'),
     },
   },
   {
@@ -84,9 +86,9 @@ export const ARTICLE_TEACHING_ROLE_TEMPLATES: ArticleTeachingRoleTemplate[] = [
       experience: '传说是极低概率刷出的稀有大笑变体。',
       relationships: '把读者当作一起刷到稀有变体的同伙。',
       notes: '教学方式：大笑破冰、抓一个重点、提一个问题、给出小结；每段笑点后必须落回知识内容。',
-      avatarUrl: '/presets/characters/nai-long.png',
-      threeViewUrl: '/presets/characters/nai-long-three-view.png',
-      tagSpriteUrl: '/presets/characters/nai-long-tag-sprite.png',
+      avatarUrl: getAppAssetUrl('/presets/characters/nai-long.png'),
+      threeViewUrl: getAppAssetUrl('/presets/characters/nai-long-three-view.png'),
+      tagSpriteUrl: getAppAssetUrl('/presets/characters/nai-long-tag-sprite.png'),
     },
   },
 ];

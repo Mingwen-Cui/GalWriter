@@ -10,7 +10,7 @@ import {
   hasCachedPresetAssets,
   requiresPresetDownload,
 } from '../lib/presetAssetCache';
-import { isTauriRuntime } from '../lib/tauriRuntime';
+import { getAppAssetUrl } from '../lib/appAssets';
 
 export type CharacterSettingLibraryData = Pick<
   CharacterNodeData,
@@ -78,11 +78,7 @@ export interface SettingLibraryPresetManifestItem {
  * script rather than the site root: the web app may be hosted under a
  * subdirectory, while the desktop bundle keeps the same assets beside it.
  */
-const presetAssetBaseUrl = import.meta.env.DEV || isTauriRuntime()
-  ? '/presets/'
-  : (import.meta.env.VITE_PRESET_ASSET_BASE_URL || 'https://mingwencui.com/online/presets/').replace(/\/?$/, '/');
-
-const getPresetAssetUrl = (relativePath: string) => `${presetAssetBaseUrl}${relativePath}`;
+const getPresetAssetUrl = (relativePath: string) => getAppAssetUrl(`/presets/${relativePath}`);
 
 const collectPresetMediaUrls = (value: unknown): string[] => {
   if (typeof value === 'string') {

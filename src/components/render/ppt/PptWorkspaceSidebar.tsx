@@ -14,8 +14,10 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import { isRapidAssetEdition } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import type { HomepageCoverTemplate } from '../homepageCoverTemplates';
+import { RapidEditionTemplateNotice } from '../RapidEditionTemplateNotice';
 import { downloadTemplateArchive } from '../templateArchive';
 import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
 import type {
@@ -54,7 +56,9 @@ const pptCoverTemplateLibraryStorageKey = 'galwriter-ppt-cover-templates:v1';
 const readPptCoverTemplateLibrary = (): SavedPptCoverTemplate[] => {
   if (typeof window === 'undefined') return [];
   try {
-    const saved = JSON.parse(window.localStorage.getItem(pptCoverTemplateLibraryStorageKey) || '[]');
+    const saved = JSON.parse(
+      window.localStorage.getItem(pptCoverTemplateLibraryStorageKey) || '[]',
+    );
     return Array.isArray(saved) ? saved : [];
   } catch {
     return [];
@@ -196,7 +200,12 @@ export function PptSidebar({
   const savePptCoverTemplate = () => {
     const entry: SavedPptCoverTemplate = {
       id: `ppt-cover-${Date.now()}`,
-      name: language === 'zh' ? '我的封面模板' : language === 'ja' ? 'マイ表紙テンプレート' : 'My cover template',
+      name:
+        language === 'zh'
+          ? '我的封面模板'
+          : language === 'ja'
+            ? 'マイ表紙テンプレート'
+            : 'My cover template',
       savedAt: Date.now(),
       settings: pptSettings,
     };
@@ -287,22 +296,22 @@ export function PptSidebar({
               />
               <div className="relative flex justify-end">
                 <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setAnimationPage('timeline')}
-                className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'timeline' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                aria-pressed={animationPage === 'timeline'}
-              >
-                时间轴
-              </button>
-              <button
-                type="button"
-                onClick={() => setAnimationPage('details')}
-                className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'details' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                aria-pressed={animationPage === 'details'}
-              >
-                动画详情
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnimationPage('timeline')}
+                    className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'timeline' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                    aria-pressed={animationPage === 'timeline'}
+                  >
+                    时间轴
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnimationPage('details')}
+                    className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'details' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                    aria-pressed={animationPage === 'details'}
+                  >
+                    动画详情
+                  </button>
                 </div>
               </div>
             </div>
@@ -351,50 +360,54 @@ export function PptSidebar({
                 />
                 <div className="relative flex justify-end">
                   <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setCoverDesignMode('background')}
-                  className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                >
-                  {coverDesignCopy.background}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCoverDesignMode('preset')}
-                  className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                >
-                  {coverDesignCopy.preset}
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setCoverDesignMode('background')}
+                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                    >
+                      {coverDesignCopy.background}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCoverDesignMode('preset')}
+                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                    >
+                      {coverDesignCopy.preset}
+                    </button>
                   </div>
                 </div>
               </div>
               <div className="mt-2">
                 {coverDesignMode === 'preset' ? (
                   <div className="grid gap-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {homepageCoverTemplates.map((template) => (
-                    <button
-                      key={template.id}
-                      type="button"
-                      onClick={() => onApplyHomepageCoverPreset(template.id)}
-                      className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
-                    >
-                      <img
-                        src={template.previewUrl}
-                        alt=""
-                        className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                      />
-                      <span className="block p-2">
-                        <span className="block truncate text-[11px] font-black text-[var(--vr-text)]">
-                          {template.name}
-                        </span>
-                        <span className="mt-0.5 block line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
-                          {template.description}
-                        </span>
-                      </span>
-                    </button>
-                      ))}
-                    </div>
+                    {isRapidAssetEdition() ? (
+                      <RapidEditionTemplateNotice language={language} kind="preset" />
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {homepageCoverTemplates.map((template) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => onApplyHomepageCoverPreset(template.id)}
+                            className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
+                          >
+                            <img
+                              src={template.previewUrl}
+                              alt=""
+                              className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                            />
+                            <span className="block p-2">
+                              <span className="block truncate text-[11px] font-black text-[var(--vr-text)]">
+                                {template.name}
+                              </span>
+                              <span className="mt-0.5 block line-clamp-2 text-[10px] font-bold leading-4 text-[var(--vr-text-muted)]">
+                                {template.description}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -480,45 +493,45 @@ export function PptSidebar({
                   </div>
                 ) : manualSlide ? (
                   <PptManualInspector
-                  copy={copy}
-                  language={language}
-                  slide={manualSlide}
-                  selectedElementId={selectedManualElementId}
-                  slides={slides}
-                  showDescriptions={showParameterDescriptions}
-                  onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
-                  onUpdateElement={onUpdateManualElement}
-                  onDeleteElement={onDeleteManualElement}
+                    copy={copy}
+                    language={language}
+                    slide={manualSlide}
+                    selectedElementId={selectedManualElementId}
+                    slides={slides}
+                    showDescriptions={showParameterDescriptions}
+                    onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
+                    onUpdateElement={onUpdateManualElement}
+                    onDeleteElement={onDeleteManualElement}
                   />
                 ) : backgroundSelected ? (
                   <PptSlideBackgroundInspector
-                  language={language}
-                  webSettings={webSettings}
-                  pptSettings={pptSettings}
-                  background={currentSlideBackground}
-                  showDescriptions={showParameterDescriptions}
-                  onUpdateBackground={onUpdateSlideBackground}
-                  onUpdatePptSettings={updatePptSettings}
+                    language={language}
+                    webSettings={webSettings}
+                    pptSettings={pptSettings}
+                    background={currentSlideBackground}
+                    showDescriptions={showParameterDescriptions}
+                    onUpdateBackground={onUpdateSlideBackground}
+                    onUpdatePptSettings={updatePptSettings}
                   />
                 ) : coverTextBox ? (
                   <PptCoverTextInspector
-                  target={coverTextBox.target}
-                  text={coverTextBox.text}
-                  layout={coverTextBox.layout}
-                  language={language}
-                  showDescriptions={showParameterDescriptions}
-                  onUpdateText={onUpdateCoverText}
-                  onUpdateLayout={onUpdateCoverTextBoxLayout}
+                    target={coverTextBox.target}
+                    text={coverTextBox.text}
+                    layout={coverTextBox.layout}
+                    language={language}
+                    showDescriptions={showParameterDescriptions}
+                    onUpdateText={onUpdateCoverText}
+                    onUpdateLayout={onUpdateCoverTextBoxLayout}
                   />
                 ) : (
                   <PptSlideBackgroundInspector
-                  language={language}
-                  webSettings={webSettings}
-                  pptSettings={pptSettings}
-                  background={currentSlideBackground}
-                  showDescriptions={showParameterDescriptions}
-                  onUpdateBackground={onUpdateSlideBackground}
-                  onUpdatePptSettings={updatePptSettings}
+                    language={language}
+                    webSettings={webSettings}
+                    pptSettings={pptSettings}
+                    background={currentSlideBackground}
+                    showDescriptions={showParameterDescriptions}
+                    onUpdateBackground={onUpdateSlideBackground}
+                    onUpdatePptSettings={updatePptSettings}
                   />
                 )}
               </div>

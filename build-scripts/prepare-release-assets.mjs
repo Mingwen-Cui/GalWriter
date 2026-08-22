@@ -16,13 +16,16 @@ const tauriConfig = JSON.parse(readFileSync(resolve('src-tauri', 'tauri.conf.jso
 
 const version = packageJson.version;
 const productName = tauriConfig.productName ?? 'GalWriter AI';
+const requestedEdition = process.env.GALWRITER_ASSET_EDITION;
+const assetEdition = requestedEdition === 'lite' || requestedEdition === 'full' ? requestedEdition : null;
+const editionSuffix = assetEdition ? `-${assetEdition}` : '';
 const releaseDir = resolve('release');
 const distDir = resolve('dist');
 const targetReleaseDir = resolve('src-tauri', 'target', 'release');
 const bundleDir = resolve(targetReleaseDir, 'bundle');
-const windowsAssetPrefix = `GalWriter-AI-v${version}-windows-x64`;
-const webAssetPrefix = `GalWriter-AI-v${version}-web`;
-const androidAssetPrefix = `GalWriter-AI-v${version}-android`;
+const windowsAssetPrefix = `GalWriter-AI-v${version}-windows-x64${editionSuffix}`;
+const webAssetPrefix = `GalWriter-AI-v${version}-web${editionSuffix}`;
+const androidAssetPrefix = `GalWriter-AI-v${version}-android${editionSuffix}`;
 const portableDirName = `${windowsAssetPrefix}-portable`;
 const portableDir = resolve(releaseDir, portableDirName);
 const portableZipPath = resolve(releaseDir, `${portableDirName}.zip`);
@@ -35,11 +38,15 @@ const bundledFfmpeg = resolve(targetReleaseDir, 'binaries', runtimeSidecarName);
 const androidOutputsRoot = resolve('src-tauri', 'gen', 'android', 'app', 'build', 'outputs');
 
 const releaseArtifactsToRemove = [
-  'GalWriter-Setup.exe',
-  'GalWriter-Setup-Lite.exe',
-  `GalWriter-AI-v${version}-windows-x64.exe`,
-  `GalWriter-AI-v${version}-windows-x64-portable-full.zip`,
-  `GalWriter-AI-v${version}-windows-x64-portable-full`,
+  ...(assetEdition
+    ? []
+    : [
+        'GalWriter-Setup.exe',
+        'GalWriter-Setup-Lite.exe',
+        `GalWriter-AI-v${version}-windows-x64.exe`,
+        `GalWriter-AI-v${version}-windows-x64-portable-full.zip`,
+        `GalWriter-AI-v${version}-windows-x64-portable-full`,
+      ]),
   portableDirName,
   `${webAssetPrefix}-dist`,
   `${webAssetPrefix}.zip`,
@@ -255,7 +262,7 @@ const main = async () => {
   outputs.push(...(await prepareWebAssets()));
   outputs.push(...prepareAndroidAssets());
 
-  console.log(`Prepared release assets for v${version}:`);
+  console.log(`Prepared ${assetEdition || 'default'} release assets for v${version}:`);
   for (const output of outputs.map((outputPath) => basename(outputPath))) {
     console.log(`- ${output}`);
   }
