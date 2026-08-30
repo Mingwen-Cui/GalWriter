@@ -1,4 +1,13 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative, resolve } from 'node:path';
 
@@ -18,7 +27,8 @@ const walkFiles = (directory) => {
   return files;
 };
 
-if (!existsSync(sourcePublicDir)) throw new Error(`Public directory was not found: ${sourcePublicDir}`);
+if (!existsSync(sourcePublicDir))
+  throw new Error(`Public directory was not found: ${sourcePublicDir}`);
 
 rmSync(releaseDirectory, { recursive: true, force: true });
 mkdirSync(releaseDirectory, { recursive: true });
@@ -46,7 +56,11 @@ const manifest = {
   files,
 };
 
-writeFileSync(join(releaseDirectory, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+writeFileSync(
+  join(releaseDirectory, 'manifest.json'),
+  `${JSON.stringify(manifest, null, 2)}\n`,
+  'utf8',
+);
 writeFileSync(
   join(releaseDirectory, 'UPLOAD-TO-WEBSITE.txt'),
   [
@@ -61,4 +75,3 @@ writeFileSync(
 );
 
 console.log(`Prepared ${files.length} online asset files in ${releaseDirectory}`);
-

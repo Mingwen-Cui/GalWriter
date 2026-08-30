@@ -7,16 +7,18 @@
  */
 export type AssetEdition = 'full' | 'lite';
 
-export const FULL_BUILD_DOWNLOAD_URL = 'https://www.mingwencui.com/galwriter/download.php';
+export const FULL_BUILD_DOWNLOAD_URL = 'https://mingwencui.com/galwriter/download.php';
 
 const edition = import.meta.env.VITE_ASSET_EDITION === 'lite' ? 'lite' : 'full';
 const configuredBaseUrl = String(import.meta.env.VITE_ASSET_BASE_URL || '').trim();
-const defaultRemoteBaseUrl = 'https://www.mingwencui.com/online/galwriter-assets/';
+const defaultRemoteBaseUrl = 'https://mingwencui.com/online/galwriter-assets/';
+const assistantOnlineBaseUrl = 'https://mingwencui.com/online/';
 
 const normalizeBaseUrl = (value: string) => `${value.replace(/\/+$/, '')}/`;
 const remoteBaseUrl = normalizeBaseUrl(configuredBaseUrl || defaultRemoteBaseUrl);
 
 const remoteAssetRoots = ['presets/', 'cover-templates/', 'web-homepage/'] as const;
+const assistantAssetRoots = ['assistant/'] as const;
 
 export const getAssetEdition = (): AssetEdition => edition;
 
@@ -33,6 +35,9 @@ export const getAppAssetUrl = (path: string) => {
   if (!path || /^(?:blob:|data:|https?:)/i.test(path)) return path;
 
   const relativePath = path.replace(/^\/+/, '');
+  if (isRapidAssetEdition() && assistantAssetRoots.some((root) => relativePath.startsWith(root))) {
+    return `${assistantOnlineBaseUrl}${relativePath}`;
+  }
   if (isRapidAssetEdition() && isRemoteAssetPath(relativePath)) {
     return `${remoteBaseUrl}${relativePath}`;
   }

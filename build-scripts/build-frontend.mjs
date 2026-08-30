@@ -7,7 +7,7 @@ const edition = requestedEdition === 'lite' ? 'lite' : 'full';
 const rootDir = resolve('.');
 const sourcePublicDir = resolve('public');
 const litePublicDir = resolve('.build', 'asset-editions', 'lite-public');
-const omittedResourcePacks = new Set(['presets', 'cover-templates', 'web-homepage']);
+const omittedResourcePacks = new Set(['assistant', 'presets', 'cover-templates', 'web-homepage']);
 const viteEntry = resolve('node_modules', 'vite', 'bin', 'vite.js');
 
 const prepareLitePublicDirectory = () => {
@@ -41,9 +41,7 @@ if (edition === 'lite') {
     env.VITE_ASSET_BASE_URL || `https://mingwencui.com/online/galwriter-assets/v${version}/`;
 }
 
-console.log(
-  `Building ${edition} frontend using ${env.GALWRITER_PUBLIC_DIR || sourcePublicDir}`,
-);
+console.log(`Building ${edition} frontend using ${env.GALWRITER_PUBLIC_DIR || sourcePublicDir}`);
 
 const result = spawnSync(process.execPath, [viteEntry, 'build'], {
   cwd: rootDir,

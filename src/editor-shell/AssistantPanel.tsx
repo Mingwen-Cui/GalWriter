@@ -40,6 +40,7 @@ import type {
   AssistantInputContext,
 } from '../editor-features/assistant/useAssistantPanel';
 import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
+import { getAppAssetUrl } from '../lib/appAssets';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 import { assistantPanelCopy } from './i18n/assistant';
@@ -350,7 +351,9 @@ const CreativeCharacterTraitAxis = ({
   const interactionRef = useRef<HTMLDivElement>(null);
   const previewValue = hoveredValue ?? value;
   const previewLevel =
-    control.levels.find((level) => level.value === previewValue) || control.levels[2] || control.levels[0];
+    control.levels.find((level) => level.value === previewValue) ||
+    control.levels[2] ||
+    control.levels[0];
   const progress = ((value - 1) / 4) * 100;
 
   if (!previewLevel) return null;
@@ -376,7 +379,7 @@ const CreativeCharacterTraitAxis = ({
     const horizontalPadding = 12;
     const trackLeft = bounds.left + 16;
     const trackWidth = Math.max(1, bounds.width - 32);
-    const desiredLeft = trackLeft + (((nextValue - 1) / 4) * trackWidth);
+    const desiredLeft = trackLeft + ((nextValue - 1) / 4) * trackWidth;
     const left = Math.min(
       window.innerWidth - tooltipWidth / 2 - horizontalPadding,
       Math.max(tooltipWidth / 2 + horizontalPadding, desiredLeft),
@@ -391,7 +394,9 @@ const CreativeCharacterTraitAxis = ({
 
   return (
     <section className="rounded-xl border border-indigo-100 bg-white px-3 py-3 dark:border-indigo-900 dark:bg-slate-950">
-      <h4 className="text-xs font-black leading-5 text-slate-800 dark:text-slate-100">{control.title}</h4>
+      <h4 className="text-xs font-black leading-5 text-slate-800 dark:text-slate-100">
+        {control.title}
+      </h4>
       <div className="mt-2 flex items-center justify-between px-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
         <span>{control.lowerLabel}</span>
         <span>{control.upperLabel}</span>
@@ -488,11 +493,13 @@ const CreativeCharacterTraitControls = ({
   onConfirm,
   onSkip,
 }: CreativeCharacterTraitControlsProps) => {
-  const [values, setValues] = useState<Partial<Record<CreativeCharacterTraitKey, number>>>(
-    () =>
-      Object.fromEntries(
-        controls.controls.map((control) => [control.trait, controls.selectedValues?.[control.trait] || 3]),
-      ),
+  const [values, setValues] = useState<Partial<Record<CreativeCharacterTraitKey, number>>>(() =>
+    Object.fromEntries(
+      controls.controls.map((control) => [
+        control.trait,
+        controls.selectedValues?.[control.trait] || 3,
+      ]),
+    ),
   );
   const completed = controls.skipped || controls.selectedValues !== undefined;
 
@@ -529,7 +536,9 @@ const CreativeCharacterTraitControls = ({
           <button
             type="button"
             disabled={disabled}
-            onClick={() => onConfirm(controls.controls.map((control) => values[control.trait] || 3))}
+            onClick={() =>
+              onConfirm(controls.controls.map((control) => values[control.trait] || 3))
+            }
             className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
           >
             {controls.confirmLabel}
@@ -825,19 +834,19 @@ export function AssistantPanel({
 
   const welcomePrompts = [
     {
-      icon: '/assistant/welcome/profile-preferences.png',
+      icon: getAppAssetUrl('/assistant/welcome/profile-preferences.png'),
       action: 'profile' as const,
       stickerTone: 'profile',
       ...ui.profileFlow.welcome,
     },
     {
-      icon: '/assistant/welcome/interactive-story.png',
+      icon: getAppAssetUrl('/assistant/welcome/interactive-story.png'),
       action: 'creative' as const,
       stickerTone: 'creative',
       ...ui.welcomePrompts.continue,
     },
     {
-      icon: '/assistant/welcome/article-to-galgame.png',
+      icon: getAppAssetUrl('/assistant/welcome/article-to-galgame.png'),
       action: 'article' as const,
       stickerTone: 'article',
       ...ui.welcomePrompts.article,
@@ -1435,7 +1444,7 @@ export function AssistantPanel({
                 <h2>{ui.heroTitle}</h2>
               </div>
               <img
-                src="/assistant/welcome/story-partner-logo.png"
+                src={getAppAssetUrl('/assistant/welcome/story-partner-logo.png')}
                 alt=""
                 className="assistant-welcome-logo"
               />
@@ -1571,9 +1580,7 @@ export function AssistantPanel({
                       controls={message.characterTraitControls}
                       disabled={assistantLoading}
                       onConfirm={(levels) =>
-                        void handleAssistantOptionSelect(
-                          `__creative_traits__:${levels.join(',')}`,
-                        )
+                        void handleAssistantOptionSelect(`__creative_traits__:${levels.join(',')}`)
                       }
                       onSkip={() => void handleAssistantOptionSelect('__creative_traits__:skip')}
                     />
