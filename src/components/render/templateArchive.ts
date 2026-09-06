@@ -1,3 +1,5 @@
+import { resolveKnownAppAssetUrl } from '../../lib/appAssets';
+
 const imageUrlKey = /image(?:url)?$/i;
 const supportedImageExtension = /\.(avif|bmp|gif|jpe?g|png|svg|webp)(?:[?#].*)?$/i;
 
@@ -178,16 +180,17 @@ export const downloadTemplateArchive = async ({
   let imageIndex = 0;
 
   const packageImage = async (url: string, relativePrefix = '') => {
-    const existing = packagedImages.get(url);
+    const resolvedUrl = resolveKnownAppAssetUrl(url);
+    const existing = packagedImages.get(resolvedUrl);
     if (existing) return `${relativePrefix}${existing}`;
     try {
-      const response = await fetch(url);
+      const response = await fetch(resolvedUrl);
       if (!response.ok) return url;
       const image = await response.blob();
       if (!image.type.startsWith('image/')) return url;
-      const assetPath = `assets/image-${++imageIndex}.${fileExtensionForImage(url, image.type)}`;
+      const assetPath = `assets/image-${++imageIndex}.${fileExtensionForImage(resolvedUrl, image.type)}`;
       zip.file(assetPath, image);
-      packagedImages.set(url, assetPath);
+      packagedImages.set(resolvedUrl, assetPath);
       return `${relativePrefix}${assetPath}`;
     } catch {
       // A cross-origin image may not allow downloading. Keep its source URL so

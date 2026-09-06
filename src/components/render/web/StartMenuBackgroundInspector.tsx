@@ -1,14 +1,15 @@
-import { formatWebText } from './i18n';
 import { Image as ImageIcon, Palette, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
-import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
 import { normalizeSharedCanvasSettings, type SharedCanvasSettings } from '../canvas/canvasSettings';
+import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
 import { ImageFillPopover, SolidColorPopover } from '../video/objectInspector/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import { parseColorValue, toHex8 } from '../video/shared/colorValue';
 import type { WebExportSettings } from '../video/shared/types';
+import { formatWebText } from './i18n';
 import {
   GradientEditorPopover,
   InlineColorControl,
@@ -17,12 +18,12 @@ import {
 } from './StartMenuElementInspector';
 import { normalizeGradientStops } from './webGradientStops';
 import { gradientFromStops } from './webGradientStops';
+import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 import {
   FloatingPopover,
   GradientIcon,
   InspectorGroup as Group,
 } from './webStyleInspectorControls';
-import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 
 type StartMenuBackgroundInspectorProps = {
   settings: WebExportSettings;
@@ -150,12 +151,7 @@ export function StartMenuBackgroundInspector({
                   )
                 }
                 onColorAndAlphaChange={({ color, alpha }) =>
-                  updateBackgroundSetting(
-                    updateWebSettings,
-                    surface,
-                    'color',
-                    toHex8(color, alpha),
-                  )
+                  updateBackgroundSetting(updateWebSettings, surface, 'color', toHex8(color, alpha))
                 }
                 onOpen={() => setOpenEditor(openEditor === 'solid' ? null : 'solid')}
               />
@@ -189,7 +185,9 @@ export function StartMenuBackgroundInspector({
                 <span className="min-w-0 truncate px-5 leading-10">{text.popover.upload}</span>
               </button>
             )}
-            {background.type === 'video' && <BackgroundPreview settings={settings} surface={surface} />}
+            {background.type === 'video' && (
+              <BackgroundPreview settings={settings} surface={surface} />
+            )}
           </div>
           <div className="h-10 w-11" aria-hidden="true" />
         </div>
@@ -221,12 +219,7 @@ export function StartMenuBackgroundInspector({
                 )
               }
               onColorAndAlphaChange={({ color, alpha }) =>
-                updateBackgroundSetting(
-                  updateWebSettings,
-                  surface,
-                  'color',
-                  toHex8(color, alpha),
-                )
+                updateBackgroundSetting(updateWebSettings, surface, 'color', toHex8(color, alpha))
               }
             />
           </FloatingPopover>
@@ -473,7 +466,7 @@ function BackgroundPreview({
             ),
           )
         : backgroundSettings.type === 'image'
-          ? `center / cover url("${backgroundSettings.imageUrl}")`
+          ? `center / cover url("${resolveKnownAppAssetUrl(backgroundSettings.imageUrl)}")`
           : backgroundSettings.color;
   return (
     <div className="h-10 rounded-xl border border-white/60 bg-white p-1">

@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type React from 'react';
 import { useRef, useState } from 'react';
 
+import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { GradientCanvasControl } from './GradientCanvasControl';
@@ -744,7 +745,7 @@ function MenuPageElementLayer({
                         endX: element.backgroundGradientEndX,
                         endY: element.backgroundGradientEndY,
                       },
-                  )
+                    )
                   : element.backgroundType === 'image'
                     ? webImageFillBackgroundColor(element)
                     : element.backgroundColor || (element.primary ? choiceColor : '#ffffff1a');
@@ -789,7 +790,7 @@ function MenuPageElementLayer({
                     <span
                       className="pointer-events-none absolute inset-0 bg-no-repeat"
                       style={{
-                        backgroundImage: `url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`,
+                        backgroundImage: `url("${resolveKnownAppAssetUrl(element.backgroundImageUrl).replace(/"/g, '\\"')}")`,
                         backgroundSize:
                           element.backgroundImageFit === 'fit'
                             ? 'contain'
@@ -928,7 +929,7 @@ function MenuPageElementLayer({
                 >
                   {element.imageUrl ? (
                     <img
-                      src={element.imageUrl}
+                      src={resolveKnownAppAssetUrl(element.imageUrl)}
                       alt=""
                       className="h-full w-full object-cover"
                       style={{ backgroundColor: element.imageBackgroundColor || 'transparent' }}

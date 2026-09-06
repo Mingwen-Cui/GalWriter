@@ -1,4 +1,3 @@
-import { formatWebText } from './i18n';
 import {
   Eye,
   EyeOff,
@@ -13,9 +12,11 @@ import {
 import type { ReactNode, RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { formatWebText } from './i18n';
 import { WebEditableElementFrame, type WebEditableResizeHandle } from './WebEditableElementFrame';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
@@ -802,7 +803,11 @@ function ToolbarElement({
       >
         {element.kind === 'image' ? (
           element.imageUrl ? (
-            <img src={element.imageUrl} alt="" className="h-full w-full object-cover" />
+            <img
+              src={resolveKnownAppAssetUrl(element.imageUrl)}
+              alt=""
+              className="h-full w-full object-cover"
+            />
           ) : (
             <span className="grid h-full w-full place-items-center rounded-xl border border-white/20 bg-white/10 text-[10px] text-white/60">
               Image

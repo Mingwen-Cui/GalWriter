@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useRef, useState } from 'react';
 
+import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings } from '../video/shared/types';
 import { GradientCanvasControl } from './GradientCanvasControl';
@@ -241,16 +242,16 @@ export function WebPlaytestStartMenuElement({
     element.role === 'continue'
       ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText230')
       : element.role === 'save'
-      ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText232')
-      : element.role === 'new'
-        ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText234')
-        : element.role === 'settings'
-          ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText236')
-          : element.role === 'link'
-            ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText238')
-            : element.role === 'volume'
-              ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText240')
-              : formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText241');
+        ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText232')
+        : element.role === 'new'
+          ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText234')
+          : element.role === 'settings'
+            ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText236')
+            : element.role === 'link'
+              ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText238')
+              : element.role === 'volume'
+                ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText240')
+                : formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText241');
 
   return (
     <div
@@ -279,7 +280,7 @@ export function WebPlaytestStartMenuElement({
         element.imageUrl ? (
           <>
             <img
-              src={element.imageUrl}
+              src={resolveKnownAppAssetUrl(element.imageUrl)}
               alt=""
               className="h-full w-full object-cover"
               style={{
@@ -414,7 +415,7 @@ export function WebPlaytestStartMenuElement({
             <span
               className={`absolute inset-0 z-0 bg-no-repeat ${previewMode === 'edit' && selected && (element.backgroundImageFit || 'crop') === 'crop' ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
               style={{
-                backgroundImage: `url("${element.backgroundImageUrl.replace(/"/g, '\\"')}")`,
+                backgroundImage: `url("${resolveKnownAppAssetUrl(element.backgroundImageUrl).replace(/"/g, '\\"')}")`,
                 backgroundSize:
                   element.backgroundImageFit === 'fit'
                     ? 'contain'
@@ -542,7 +543,7 @@ export function WebPlaytestStartMenuElement({
             }}
           >
             <img
-              src={element.backgroundImageUrl}
+              src={resolveKnownAppAssetUrl(element.backgroundImageUrl)}
               alt=""
               draggable={false}
               className="h-full w-full select-none object-fill opacity-50"
@@ -597,7 +598,7 @@ export function WebPlaytestStartMenuElement({
           </div>
           <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
             <img
-              src={element.backgroundImageUrl}
+              src={resolveKnownAppAssetUrl(element.backgroundImageUrl)}
               alt=""
               draggable={false}
               className="absolute select-none"

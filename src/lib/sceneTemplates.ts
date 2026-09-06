@@ -5,6 +5,7 @@ import type {
   SceneLightingPreset,
   SceneVisualStyle,
 } from '../domain/project';
+import { getAppAssetUrl } from './appAssets';
 
 export type SceneVisualTemplate = {
   id: string;
@@ -52,7 +53,7 @@ export const getScenePresetAssetUrl = (assetPath: string) => {
     .filter(Boolean)
     .map((part) => encodeURIComponent(part))
     .join('/');
-  return `${import.meta.env.BASE_URL}${encoded}`;
+  return getAppAssetUrl(encoded);
 };
 
 /** @deprecated Prefer getScenePresetAssetUrl — kept for existing call sites. */
@@ -72,7 +73,9 @@ const outdoorLightFiles = [
   'ChatGPT Image 2026年8月16日 18_16_31 (8).png',
 ] as const;
 
-const indoorLightStyles: Array<Omit<SceneVisualStyle, 'templateId'> & { name: string; description: string }> = [
+const indoorLightStyles: Array<
+  Omit<SceneVisualStyle, 'templateId'> & { name: string; description: string }
+> = [
   {
     name: '打光 1',
     description: '清透自然光。',
@@ -107,7 +110,9 @@ const indoorLightStyles: Array<Omit<SceneVisualStyle, 'templateId'> & { name: st
   },
 ];
 
-const outdoorLightStyles: Array<Omit<SceneVisualStyle, 'templateId'> & { name: string; description: string }> = [
+const outdoorLightStyles: Array<
+  Omit<SceneVisualStyle, 'templateId'> & { name: string; description: string }
+> = [
   {
     name: '打光 5',
     description: '明亮日光。',
@@ -317,7 +322,9 @@ export const listSceneAmbientPresets = async (environment: SceneEnvironment) =>
   getSceneAmbientPresets(environment);
 
 export const sceneAmbientPresetUrl = (track: Pick<PresetAmbientTrack, 'assetPath'> | string) =>
-  typeof track === 'string' ? getScenePresetAssetUrl(track) : getScenePresetAssetUrl(track.assetPath);
+  typeof track === 'string'
+    ? getScenePresetAssetUrl(track)
+    : getScenePresetAssetUrl(track.assetPath);
 
 export const isSceneAmbientPresetDownloaded = async (presetId: string) =>
   SCENE_AMBIENT_PRESETS.some((track) => track.id === presetId);

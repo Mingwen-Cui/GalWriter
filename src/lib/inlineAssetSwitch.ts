@@ -5,6 +5,7 @@ import type {
   SceneNodeData,
   ScenePresentation,
 } from '../domain/project';
+import { resolveKnownAppAssetUrl } from './appAssets';
 import { createCharacterAppearance, getCharacterAppearanceAssetUrl } from './characterAppearance';
 
 export type SwitchableAssetOption = {
@@ -111,21 +112,18 @@ export const resolveCharacterImageUrl = (
   const selectedOutfit = targetAssetId
     ? data.outfits?.find((item) => item.id === targetAssetId)
     : undefined;
-  if (selectedOutfit?.imageUrl) return selectedOutfit.imageUrl;
+  if (selectedOutfit?.imageUrl) return resolveKnownAppAssetUrl(selectedOutfit.imageUrl);
 
   const userImageUrl =
-    data.tagSpriteUrl ||
-    data.outfits?.find((item) => item.imageUrl)?.imageUrl ||
-    data.avatarUrl;
-  if (userImageUrl) return userImageUrl;
+    data.tagSpriteUrl || data.outfits?.find((item) => item.imageUrl)?.imageUrl || data.avatarUrl;
+  if (userImageUrl) return resolveKnownAppAssetUrl(userImageUrl);
   if (data.appearancePresetEnabled === false) return undefined;
 
   const templateGender = data.appearanceTemplate?.gender === 'male' ? 'male' : 'female';
   const templateAppearance = createCharacterAppearance(templateGender, data.appearanceTemplate);
 
   return (
-    data.appearanceSpriteUrl ||
-    getCharacterAppearanceAssetUrl(templateAppearance.outfitAssetPath)
+    data.appearanceSpriteUrl || getCharacterAppearanceAssetUrl(templateAppearance.outfitAssetPath)
   );
 };
 
@@ -152,7 +150,10 @@ export const resolveSceneMedia = ({
   }
 
   return {
-    imageUrl: selected?.imageUrl || fallbackImageUrl || data?.coverImageUrl,
+    imageUrl:
+      resolveKnownAppAssetUrl(
+        selected?.imageUrl || fallbackImageUrl || data?.coverImageUrl || '',
+      ) || undefined,
     videoUrl: selected?.imageUrl ? undefined : fallbackVideoUrl,
   };
 };

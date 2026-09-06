@@ -9,6 +9,7 @@ import type {
   SceneNodeData,
   StoryPresentation,
 } from '../../../domain/project';
+import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import {
   getInlineSwitchAction,
@@ -1603,7 +1604,7 @@ export function WebPlaytestPreview({
       ? { backgroundColor: '#000000' }
       : background.type === 'image' && background.imageUrl
         ? {
-            backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${background.imageUrl.replace(/"/g, '\\"')}")`,
+            backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${resolveKnownAppAssetUrl(background.imageUrl).replace(/"/g, '\\"')}")`,
             backgroundPosition: 'center',
             backgroundSize: 'cover',
           }
@@ -2435,7 +2436,10 @@ function GradientCanvasControl({
       <div className="absolute inset-0">
         {shape === 'radial' ? (
           <>
-            <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+              aria-hidden="true"
+            >
               <line
                 x1={`${safeStartX}%`}
                 y1={`${safeStartY}%`}

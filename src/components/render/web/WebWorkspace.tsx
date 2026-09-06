@@ -26,7 +26,7 @@ import {
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { createElement, isValidElement, useCallback, useEffect, useState } from 'react';
 
-import { isRapidAssetEdition } from '../../../lib/appAssets';
+import { isRapidAssetEdition, resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
@@ -57,6 +57,8 @@ const templateImageUrlField = /image(?:url)?$/i;
 
 const resolveHomepageTemplateAssetUrl = (template: HomepageCoverTemplate, value: string) => {
   if (!value.trim()) return value;
+  const knownAssetUrl = resolveKnownAppAssetUrl(value);
+  if (knownAssetUrl !== value) return knownAssetUrl;
   if (
     value.startsWith('data:') ||
     value.startsWith('blob:') ||
@@ -67,7 +69,7 @@ const resolveHomepageTemplateAssetUrl = (template: HomepageCoverTemplate, value:
     return value;
   }
   const mappedAsset = template.templateAssetUrls?.[value];
-  if (mappedAsset) return mappedAsset;
+  if (mappedAsset) return resolveKnownAppAssetUrl(mappedAsset);
   const folder = template.templateUrl?.replace(/[^/]+$/, '') || '';
   return `${folder}${value.replace(/^\.\//, '')}`;
 };

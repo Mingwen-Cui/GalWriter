@@ -1,6 +1,7 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
+import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
 import { resolveCharacterImageUrl } from '../../../../lib/inlineAssetSwitch';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { resolveSceneAmbientPresetUrl } from '../../../../lib/sceneTemplates';
@@ -67,29 +68,30 @@ const addVideoAsset = async (
   assetMap: Map<string, string>,
 ) => {
   if (typeof url !== 'string' || !url.trim()) return url;
-  if (assetMap.has(url)) return assetMap.get(url);
+  const resolvedUrl = resolveKnownAppAssetUrl(url);
+  if (assetMap.has(resolvedUrl)) return assetMap.get(resolvedUrl);
   if (
-    !url.startsWith('blob:') &&
-    !url.startsWith('data:video/') &&
-    !/^https?:\/\//i.test(url) &&
-    !/^\.?\//.test(url)
+    !resolvedUrl.startsWith('blob:') &&
+    !resolvedUrl.startsWith('data:video/') &&
+    !/^https?:\/\//i.test(resolvedUrl) &&
+    !/^\.?\//.test(resolvedUrl)
   ) {
     return url;
   }
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(resolvedUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
-    const extension = getImageExtension(url, VIDEO_EXTENSION_BY_MIME[blob.type] || 'mp4');
+    const extension = getImageExtension(resolvedUrl, VIDEO_EXTENSION_BY_MIME[blob.type] || 'mp4');
     const fileName = `videos/${safeFilePart(hint)}-${assetMap.size + 1}.${extension}`;
     zip.file(fileName, blob);
     const relativePath = `./${fileName}`;
-    assetMap.set(url, relativePath);
+    assetMap.set(resolvedUrl, relativePath);
     return relativePath;
   } catch (error) {
     console.warn('Could not pack web export video:', error);
-    return url;
+    return resolvedUrl;
   }
 };
 
@@ -100,21 +102,24 @@ const addAudioAsset = async (
   assetMap: Map<string, string>,
 ) => {
   if (typeof url !== 'string' || !url.trim()) return url;
-  if (assetMap.has(url)) return assetMap.get(url);
+  const resolvedUrl = resolveKnownAppAssetUrl(url);
+  if (assetMap.has(resolvedUrl)) return assetMap.get(resolvedUrl);
   try {
-    const response = await fetch(url);
+    const response = await fetch(resolvedUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
     const extension =
-      blob.type === 'audio/mpeg' ? 'mp3' : getImageExtension(url, blob.type.split('/')[1] || 'bin');
+      blob.type === 'audio/mpeg'
+        ? 'mp3'
+        : getImageExtension(resolvedUrl, blob.type.split('/')[1] || 'bin');
     const fileName = `audio/${safeFilePart(hint)}-${assetMap.size + 1}.${extension}`;
     zip.file(fileName, blob);
     const relativePath = `./${fileName}`;
-    assetMap.set(url, relativePath);
+    assetMap.set(resolvedUrl, relativePath);
     return relativePath;
   } catch (error) {
     console.warn('Could not pack web export audio:', error);
-    return url;
+    return resolvedUrl;
   }
 };
 
@@ -124,22 +129,23 @@ const addImageAsset = async (
   hint: string,
   assetMap: Map<string, string>,
 ) => {
-  if (!isPackableImage(url)) return url;
-  if (assetMap.has(url)) return assetMap.get(url);
+  const resolvedUrl = typeof url === 'string' ? resolveKnownAppAssetUrl(url) : url;
+  if (!isPackableImage(resolvedUrl)) return url;
+  if (assetMap.has(resolvedUrl)) return assetMap.get(resolvedUrl);
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(resolvedUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
-    const extension = getImageExtension(url, IMAGE_EXTENSION_BY_MIME[blob.type] || 'png');
+    const extension = getImageExtension(resolvedUrl, IMAGE_EXTENSION_BY_MIME[blob.type] || 'png');
     const fileName = `images/${safeFilePart(hint)}-${assetMap.size + 1}.${extension}`;
     zip.file(fileName, blob);
     const relativePath = `./${fileName}`;
-    assetMap.set(url, relativePath);
+    assetMap.set(resolvedUrl, relativePath);
     return relativePath;
   } catch (error) {
     console.warn('Could not pack web export image:', error);
-    return url;
+    return resolvedUrl;
   }
 };
 

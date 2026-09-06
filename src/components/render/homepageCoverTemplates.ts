@@ -31,8 +31,8 @@ export const homepageCoverTemplates: HomepageCoverTemplate[] = [
     name: '樱花校园',
     description: '暖春校园、左侧标题安全区、右侧人物构图。',
     accent: '#fb7185',
-    previewUrl: getAppAssetUrl('/web-homepage/page1/pages/home/background.png'),
-    backgroundUrl: getAppAssetUrl('/web-homepage/page1/pages/home/background.png'),
+    previewUrl: getAppAssetUrl('/web-homepage/page1/assets/background.png'),
+    backgroundUrl: getAppAssetUrl('/web-homepage/page1/assets/background.png'),
     backgroundColor: '#d89093',
     templateUrl: getAppAssetUrl('/web-homepage/page1/template.json'),
     aiPrompt:
@@ -56,8 +56,12 @@ export const homepageCoverTemplates: HomepageCoverTemplate[] = [
     name: '哥特月夜',
     description: '暗黑哥特、中心右侧标题与菜单安全区。',
     accent: '#a78bfa',
-    previewUrl: getAppAssetUrl('/web-homepage/page3/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(3).png'),
-    backgroundUrl: getAppAssetUrl('/web-homepage/page3/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(3).png'),
+    previewUrl: getAppAssetUrl(
+      '/web-homepage/page3/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(3).png',
+    ),
+    backgroundUrl: getAppAssetUrl(
+      '/web-homepage/page3/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(3).png',
+    ),
     backgroundColor: '#0b0713',
     aiPrompt:
       'Create a polished 16:9 visual-novel game cover layout in a refined dark gothic anime illustration style. Build it as separable compositing layers, not a flattened poster. Reserve the center-right 40% as a clean title and vertical menu safe area framed by elegant non-text decorative borders. Place the main subject on the left third with a moonlit cathedral or palace interior. Use deep navy, black, wine-red accents, silver moonlight, roses, candlelight, velvet curtains, and ornate metallic framing. No text, letters, logo, watermark, UI buttons, or readable symbols.' +
@@ -68,8 +72,12 @@ export const homepageCoverTemplates: HomepageCoverTemplate[] = [
     name: '深海科幻',
     description: '深海舷窗、左侧标题与底部横向菜单安全区。',
     accent: '#60a5fa',
-    previewUrl: getAppAssetUrl('/web-homepage/page4/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(4).png'),
-    backgroundUrl: getAppAssetUrl('/web-homepage/page4/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(4).png'),
+    previewUrl: getAppAssetUrl(
+      '/web-homepage/page4/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(4).png',
+    ),
+    backgroundUrl: getAppAssetUrl(
+      '/web-homepage/page4/ChatGPT%20Image%202026%E5%B9%B48%E6%9C%8816%E6%97%A5%2022_50_23%20(4).png',
+    ),
     backgroundColor: '#061639',
     aiPrompt:
       'Create a polished 16:9 visual-novel game cover layout in a luminous underwater science-fiction anime illustration style. Build it as separable compositing layers, not a flattened poster. Reserve the lower 24% as a clean horizontal menu safe area and the left 28% as a high-contrast vertical title safe area. Place the main subject on the right third inside a futuristic underwater observation room, with deep-sea city lights, jellyfish, distant machinery, and blue-violet luminous water outside the window. No text, letters, logo, watermark, UI buttons, or readable interface.' +
