@@ -1955,7 +1955,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           : settings.sceneBackgroundType === 'image' && settings.sceneBackgroundImageUrl
             ? 'center / cover no-repeat url("' + settings.sceneBackgroundImageUrl.replace(/"/g, '\\"') + '")'
             : settings.sceneBackgroundType === 'gradient'
-              ? 'linear-gradient(' + settings.sceneBackgroundGradientAngle + 'deg, ' + settings.sceneBackgroundGradientStart + ', ' + settings.sceneBackgroundGradientEnd + ')'
+              ? 'linear-gradient(' + settings.sceneBackgroundGradientAngle + 'deg, ' + (settings.sceneBackgroundGradientStops && settings.sceneBackgroundGradientStops.length >= 2 ? settings.sceneBackgroundGradientStops.map(function(stop) { var hex = String(stop.color || '#000000').slice(0, 7); var alpha = Math.round(Math.max(0, Math.min(100, Number(stop.alpha))) * 255 / 100).toString(16).padStart(2, '0'); return hex + alpha + ' ' + stop.position + '%'; }).join(', ') : settings.sceneBackgroundGradientStart + ', ' + settings.sceneBackgroundGradientEnd) + ')'
               : settings.sceneBackgroundColor;
       }
       stageEl.innerHTML =

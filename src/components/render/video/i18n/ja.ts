@@ -294,7 +294,7 @@ export const videoJa = {
   componentsrendervideopanelsVideoExportSettingsPanelText701: '右',
   componentsrendervideopanelsVideoExportSettingsPanelText709: '文字間隔を調整',
   componentsrendervideopanelsVideoExportSettingsPanelText720: '行間を調整',
-  componentsrendervideopanelsVideoExportSettingsPanelText742: '書き出し設定',
+  componentsrendervideopanelsVideoExportSettingsPanelText742: 'プロパティ',
   componentsrendervideopanelsVideoExportSettingsPanelText753: '説明を非表示',
   componentsrendervideopanelsVideoExportSettingsPanelText754: '説明を表示',
   componentsrendervideopanelsVideoExportSettingsPanelText758: '説明を非表示',

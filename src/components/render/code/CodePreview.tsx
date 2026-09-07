@@ -24,6 +24,13 @@ const commonPatterns: TokenPattern[] = [
 ];
 
 const patternsFor = (target: CodeExportTarget, path: string): TokenPattern[] => {
+  if (target === 'dialogic' && path.endsWith('.gd'))
+    return [
+      { kind: 'comment', pattern: /#.*$/g },
+      ...commonPatterns,
+      { kind: 'keyword', pattern: /\b(?:extends|const|var|func|return|if|elif|else|for|in|while|match|await|not|and|or|true|false|null|is|as|pass|break|continue)\b/g },
+      { kind: 'label', pattern: /\b[A-Za-z_]\w*(?=\()/g },
+    ];
   if (path.endsWith('.json'))
     return [
       { kind: 'comment', pattern: /\/\/.*$/g },

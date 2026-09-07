@@ -397,6 +397,7 @@ export type WebExportSettings = {
   sceneBackgroundGradientStart: string;
   sceneBackgroundGradientEnd: string;
   sceneBackgroundGradientAngle: number;
+  sceneBackgroundGradientStops?: RenderColorStop[];
   sceneBackgroundImageUrl: string;
   choicesPosition: 'center' | 'aboveText' | 'belowText';
   showStartMenu: boolean;

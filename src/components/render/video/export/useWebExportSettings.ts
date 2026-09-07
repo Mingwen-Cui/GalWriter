@@ -200,6 +200,7 @@ export const useWebExportSettings = (
   isLocked: boolean,
   workspaceKey: string,
   initial?: InitialWebExportState,
+  styleBinding?: { value: RenderStyle; update: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void },
 ) => {
   const defaultPreset = buildRehearsalTemplate(language, defaultProjectName);
   const sharedCanvas = useSharedCanvasSettings(
@@ -229,24 +230,31 @@ export const useWebExportSettings = (
   useEffect(() => {
     setWebSettings((previous) => normalizeWebImageFillBaseColors(previous));
   }, [webSettings]);
-  const [webRenderStyle, setWebRenderStyle] = useState<RenderStyle>(() => ({
+  const [localRenderStyle, setWebRenderStyle] = useState<RenderStyle>(() => ({
     ...DEFAULT_WEB_RENDER_STYLE,
     ...defaultPreset.renderStyle,
     ...initial?.renderStyle,
   }));
+  const webRenderStyle = styleBinding?.value || localRenderStyle;
+  const applyRenderStyle = (style: RenderStyle) => {
+    if (styleBinding) {
+      (Object.keys(style) as Array<keyof RenderStyle>).forEach(key => styleBinding.update(key, style[key]));
+    } else setWebRenderStyle(style);
+  };
   const [webPast, setWebPast] = useState<WebHistoryState[]>(() => initial?.past || []);
   const [webFuture, setWebFuture] = useState<WebHistoryState[]>(() => initial?.future || []);
 
   const captureWebState = (): WebHistoryState => ({
     settings: normalizeWebImageFillBaseColors(webSettings),
-    renderStyle: { ...webRenderStyle },
+    renderStyle: structuredClone(webRenderStyle),
     choiceColor: webChoiceColor,
     choiceTextColor: webChoiceTextColor,
   });
 
   const restoreWebState = (snapshot: WebHistoryState) => {
     setWebSettings(normalizeWebImageFillBaseColors(snapshot.settings));
-    setWebRenderStyle(snapshot.renderStyle);
+    sharedCanvas.update(canvasPatchFromWebSettings(snapshot.settings));
+    applyRenderStyle(snapshot.renderStyle);
     setWebChoiceColor(snapshot.choiceColor);
     setWebChoiceTextColor(snapshot.choiceTextColor);
   };
@@ -275,7 +283,8 @@ export const useWebExportSettings = (
   const updateWebRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => {
     if (webRenderStyle[key] === value) return;
     pushWebHistory();
-    setWebRenderStyle((prev) => ({ ...prev, [key]: value }));
+    if (styleBinding) styleBinding.update(key, value);
+    else setWebRenderStyle((prev) => ({ ...prev, [key]: value }));
   };
 
   const updateWebSettings = <K extends keyof WebExportSettings>(

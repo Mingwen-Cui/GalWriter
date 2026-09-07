@@ -1,6 +1,7 @@
 import type { codeEn } from './en';
 
 export const codeJa: { [Key in keyof typeof codeEn]: string } = {
+  'Interface design': '画面デザイン',
   'Project tree': 'プロジェクトツリー',
   'Code project': 'コードプロジェクト',
   'User file (preserved on regeneration)': 'ユーザーファイル（再生成時も保持）',
@@ -96,7 +97,8 @@ export const codeJa: { [Key in keyof typeof codeEn]: string } = {
   'Target engine': '対象エンジン',
   RenPy: 'Ren’Py',
   TyranoScript: 'TyranoScript',
-  'Godot Dialogic 2': 'Godot Dialogic 2',
+  'Godot Dialogic 2': 'Godot 4',
+  'Godot project notice': 'Godot プロジェクトを解凍し、project.godot をインポートして F5 で実行。プラグイン不要。',
   'GalWriter IR JSON': 'GalWriter IR JSON',
   'Generating engine project': '{engine} プロジェクトを生成中…',
   'Engine project exported': '{engine} プロジェクトを書き出しました',
@@ -124,11 +126,11 @@ export const codeJa: { [Key in keyof typeof codeEn]: string } = {
   'Tyrano media detail': 'BGM、音声、効果音、動画タグを標準素材フォルダーへ生成します。',
   'Tyrano animation detail': '基本的な遷移時間を変換し、複雑な動作は手動タグが必要です。',
   'Dialogic flow detail':
-    '標準のタイムラインラベル、ジャンプ、選択肢、変数、インデント条件を生成します。',
+    'Godot の実行スクリプトを同梱し、台詞・分岐・条件・変数・セーブに対応します。',
   'Dialogic characters detail':
-    'join、update、leave 構文に対応しますが、.dch リソースと立ち絵プリセットは Dialogic で作成します。',
-  'Dialogic background detail': '背景イベントには Godot の res:// 素材パスを使用します。',
-  'Dialogic media detail': '固有の音声・動画イベントは明確な TODO コメントとレポート項目にします。',
+    '立ち絵・位置・拡大率・反転・レイヤーを自動設定します。',
+  'Dialogic background detail': '背景素材・表示範囲・拡大率・位置をオフラインで再現します。',
+  'Dialogic media detail': '音声は PCM、動画は最大幅 1280・24 fps のフレームと同期音声に変換。元の素材も保持します。',
   'Dialogic animation detail':
-    '基本的なフェードと位置を保持し、複雑な動作は手動イベントが必要です。',
+    '登退場とインライン変形を生成します。ブラウザー固有の表現は異なる場合があります。',
 };

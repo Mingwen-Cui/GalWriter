@@ -22,6 +22,7 @@ export type SharedCanvasSettings = Pick<
   | 'sceneBackgroundGradientStart'
   | 'sceneBackgroundGradientEnd'
   | 'sceneBackgroundGradientAngle'
+  | 'sceneBackgroundGradientStops'
   | 'sceneBackgroundImageUrl'
   | 'choicesPosition'
   | 'skipSingleChoicePopup'
@@ -106,8 +107,8 @@ export function normalizeSharedCanvasSettings(
     skipSingleChoicePopup: value?.skipSingleChoicePopup !== false,
     autoAdvance: value?.autoAdvance === true,
     videoAutoPlay: value?.videoAutoPlay === true,
-    hideCharacterTags: true,
-    hideSceneTags: true,
+    hideCharacterTags: value?.hideCharacterTags !== false,
+    hideSceneTags: value?.hideSceneTags !== false,
   };
 }
 
@@ -152,7 +153,7 @@ export function useSharedCanvasSettings(
       return () => workspaceListeners.delete(listener);
     },
     () => readSnapshot(workspaceKey, initial),
-    () => normalizeSharedCanvasSettings(initial),
+    () => readSnapshot(workspaceKey, initial),
   );
   return {
     settings,
@@ -183,6 +184,7 @@ export function canvasPatchFromWebSettings(
     'sceneBackgroundGradientStart',
     'sceneBackgroundGradientEnd',
     'sceneBackgroundGradientAngle',
+    'sceneBackgroundGradientStops',
     'sceneBackgroundImageUrl',
     'choicesPosition',
     'skipSingleChoicePopup',

@@ -1,6 +1,7 @@
 import type { codeEn } from './en';
 
 export const codeZh: { [Key in keyof typeof codeEn]: string } = {
+  'Interface design': '界面设计',
   'Project tree': '工程树',
   'Code project': '代码工程',
   'User file (preserved on regeneration)': '用户文件（重新生成时保留）',
@@ -96,7 +97,8 @@ export const codeZh: { [Key in keyof typeof codeEn]: string } = {
   'Target engine': '目标引擎',
   RenPy: 'Ren’Py',
   TyranoScript: 'TyranoScript',
-  'Godot Dialogic 2': 'Godot Dialogic 2',
+  'Godot Dialogic 2': 'Godot 4',
+  'Godot project notice': '完整 Godot 工程：解压后导入 project.godot，按 F5 运行；无需安装插件。',
   'GalWriter IR JSON': 'GalWriter IR JSON',
   'Generating engine project': '正在生成 {engine} 工程…',
   'Engine project exported': '{engine} 工程已导出',
@@ -121,10 +123,10 @@ export const codeZh: { [Key in keyof typeof codeEn]: string } = {
   'Tyrano characters detail': '支持生成静态立绘；精确左中右定位会保留为清晰的 TODO 注释。',
   'Tyrano media detail': 'BGM、语音、音效与视频标签会生成到标准素材目录。',
   'Tyrano animation detail': '基础转场时间可映射；复杂内联动作需要手工补充标签。',
-  'Dialogic flow detail': '生成原生时间线标签、跳转、选项、变量与缩进条件。',
+  'Dialogic flow detail': '自带原生 Godot 运行脚本，支持对白、分支、数值判断、变量和存读档。',
   'Dialogic characters detail':
-    '支持 join、update、leave 语法，但需要在 Dialogic 中创建 .dch 角色资源和立绘预设。',
-  'Dialogic background detail': '背景事件使用 Godot res:// 素材路径。',
-  'Dialogic media detail': 'Dialogic 工程专属音视频事件会生成明确的 TODO 注释和报告条目。',
-  'Dialogic animation detail': '保留基础淡入淡出与位置；复杂动作需要手工配置 Dialogic 事件。',
+    '自动配置立绘、位置、缩放、翻转和图层，无需手工创建角色资源。',
+  'Dialogic background detail': '背景素材与裁剪、缩放和位置一起导出，支持离线显示。',
+  'Dialogic media detail': '音频转为 PCM；视频转为 24 帧/秒、最大宽度 1280 的帧序列与同步音轨，原始文件同时保留。',
+  'Dialogic animation detail': '生成出入场动画及行内变换；浏览器专属视觉效果可能存在差异。',
 };

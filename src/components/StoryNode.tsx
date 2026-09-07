@@ -91,10 +91,10 @@ import {
 import { DraggableNumberInput } from './DraggableNumberInput';
 import { DurationInput } from './DurationInput';
 import { InlineActionEditor } from './InlineActionEditor';
-import { SolidColorPopover } from './render/video/objectInspector/ColorPopovers';
+import { SolidColorPopover } from './render/shared/paint/ColorPopovers';
 import { renderObjectText } from './render/video/objectInspector/i18n';
-import { parseColorValue, toHex8 } from './render/video/shared/colorValue';
-import { FloatingPopover } from './render/web/webStyleInspectorControls';
+import { parseColorValue, toHex8 } from './render/shared/paint/colorValue';
+import { FloatingPopover } from './render/shared/inspectors/InspectorControls';
 import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 import { ZenSelect } from './zen-editor/ZenSelect';

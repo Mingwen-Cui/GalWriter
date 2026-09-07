@@ -31,6 +31,8 @@ import { formatVideoText } from '../i18n';
 import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
 
 type RenderHeaderProps = {
+  appearanceScope?: 'shared' | 'independent';
+  onAppearanceScopeChange?: (scope: 'shared' | 'independent') => void;
   language: Language;
   workspaceMode: RenderWorkspaceMode;
   videoWorkspaceMode: 'timeline' | 'interactive';
@@ -75,6 +77,7 @@ type RenderHeaderProps = {
 };
 
 export function RenderHeader({
+  appearanceScope, onAppearanceScopeChange,
   language,
   workspaceMode,
   videoWorkspaceMode,
@@ -399,6 +402,10 @@ export function RenderHeader({
       </div>
 
       <div className="flex items-center gap-2">
+        {appearanceScope && <select aria-label={language === 'zh' ? '外观作用范围' : 'Appearance scope'} title={language === 'zh' ? '公共外观同步到继承它的模式；独立外观仅修改当前模式' : 'Shared appearance is inherited; independent appearance applies only to this mode'} className="h-8 max-w-32 rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-[11px]" value={appearanceScope} onChange={event => onAppearanceScopeChange?.(event.target.value as 'shared' | 'independent')}>
+          <option value="shared">{language === 'zh' ? '公共外观' : language === 'ja' ? '共有の外観' : 'Shared appearance'}</option>
+          <option value="independent">{language === 'zh' ? '仅此模式' : language === 'ja' ? 'このモードのみ' : 'This mode only'}</option>
+        </select>}
         {workspaceMode === 'video' && (
           <div className="mr-1 flex items-center gap-1 border-r border-[var(--vr-border)] pr-2">
             <button

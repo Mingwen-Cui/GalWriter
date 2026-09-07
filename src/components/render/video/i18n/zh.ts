@@ -279,7 +279,7 @@ export const videoZh = {
   componentsrendervideopanelsVideoExportSettingsPanelText701: '右',
   componentsrendervideopanelsVideoExportSettingsPanelText709: '拖动调整字间距',
   componentsrendervideopanelsVideoExportSettingsPanelText720: '拖动调整行距',
-  componentsrendervideopanelsVideoExportSettingsPanelText742: '导出设置',
+  componentsrendervideopanelsVideoExportSettingsPanelText742: '属性',
   componentsrendervideopanelsVideoExportSettingsPanelText753: '隐藏参数说明',
   componentsrendervideopanelsVideoExportSettingsPanelText754: '显示参数说明',
   componentsrendervideopanelsVideoExportSettingsPanelText758: '隐藏参数说明',

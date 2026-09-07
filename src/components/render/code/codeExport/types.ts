@@ -1,3 +1,4 @@
+import type { GameInterfaceProfiles } from '../design/gameInterface';
 export type RenpyVariableType = 'number' | 'boolean' | 'string';
 export type RenpySplitMode = 'single' | 'group' | 'background';
 
@@ -37,6 +38,7 @@ export type RenpyConditionConfig = {
 };
 
 export type RenpyExportSettings = {
+  interfaceDesigns?: GameInterfaceProfiles;
   version: 2;
   splitMode: RenpySplitMode;
   characters: RenpyCharacterConfig[];

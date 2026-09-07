@@ -291,7 +291,7 @@ export const videoEn = {
   componentsrendervideopanelsVideoExportSettingsPanelText701: 'R',
   componentsrendervideopanelsVideoExportSettingsPanelText709: 'Adjust spacing',
   componentsrendervideopanelsVideoExportSettingsPanelText720: 'Adjust line height',
-  componentsrendervideopanelsVideoExportSettingsPanelText742: 'Export Settings',
+  componentsrendervideopanelsVideoExportSettingsPanelText742: 'Properties',
   componentsrendervideopanelsVideoExportSettingsPanelText753: 'Hide descriptions',
   componentsrendervideopanelsVideoExportSettingsPanelText754: 'Show descriptions',
   componentsrendervideopanelsVideoExportSettingsPanelText758: 'Hide descriptions',

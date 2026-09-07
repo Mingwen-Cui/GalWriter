@@ -3,10 +3,10 @@ import { useState } from 'react';
 
 import type { Language } from '../lib/i18n';
 import { regionMusicCopy } from './i18n/region-music';
-import { SolidColorPopover } from './render/video/objectInspector/ColorPopovers';
+import { SolidColorPopover } from './render/shared/paint/ColorPopovers';
 import { renderObjectText } from './render/video/objectInspector/i18n';
-import { parseColorValue } from './render/video/shared/colorValue';
-import { FloatingPopover } from './render/web/webStyleInspectorControls';
+import { parseColorValue } from './render/shared/paint/colorValue';
+import { FloatingPopover } from './render/shared/inspectors/InspectorControls';
 
 type RegionColorPickerProps = {
   color: string;

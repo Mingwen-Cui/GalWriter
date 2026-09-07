@@ -1,4 +1,5 @@
 export const codeEn = {
+  'Interface design': 'Interface design',
   'Project tree': 'Project tree',
   'Code project': 'Code project',
   'User file (preserved on regeneration)': 'User file (preserved on regeneration)',
@@ -98,7 +99,8 @@ export const codeEn = {
   'Target engine': 'Target engine',
   RenPy: 'Ren’Py',
   TyranoScript: 'TyranoScript',
-  'Godot Dialogic 2': 'Godot Dialogic 2',
+  'Godot Dialogic 2': 'Godot 4',
+  'Godot project notice': 'Complete Godot project: extract, import project.godot and press F5. No plugins required.',
   'GalWriter IR JSON': 'GalWriter IR JSON',
   'Generating engine project': 'Generating {engine} project…',
   'Engine project exported': '{engine} project exported',
@@ -130,12 +132,12 @@ export const codeEn = {
   'Tyrano animation detail':
     'Basic transition times are mapped; complex inline actions require manual tags.',
   'Dialogic flow detail':
-    'Native timeline labels, jumps, choices, variables and indentation-based conditions are generated.',
+    'A native Godot runtime provides dialogue, choices, conditions, variables and save/load.',
   'Dialogic characters detail':
-    'Join/update/leave syntax is supported, but .dch character resources and portrait presets must be created in Dialogic.',
-  'Dialogic background detail': 'Background events use Godot res:// asset paths.',
+    'Portraits, position, scale, flip and layers are configured automatically.',
+  'Dialogic background detail': 'Background assets, framing, scale and position work offline.',
   'Dialogic media detail':
-    'Dialogic project-specific audio/video events are emitted as explicit TODO comments and report items.',
+    'Audio uses PCM. Video uses 24 fps frames, up to 1280 pixels wide, with synchronized audio. Original assets are retained.',
   'Dialogic animation detail':
-    'Basic fade and positions are kept; complex inline actions require manual Dialogic events.',
+    'Entry/exit animations and inline transformations are generated; browser-specific styling may differ.',
 } as const;

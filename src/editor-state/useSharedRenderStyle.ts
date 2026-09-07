@@ -1,3 +1,4 @@
+import { applyStylePatch } from '../components/render/shared/inspectors/styleState';
 import { useEffect, useState } from 'react';
 
 import type { RenderStyle } from '../components/render/video/shared/types';
@@ -51,7 +52,7 @@ export const useSharedRenderStyle = () => {
     key: K,
     value: RenderStyle[K],
   ) => {
-    setSharedRenderStyle((previous) => ({ ...previous, [key]: value }));
+    setSharedRenderStyle((previous) => applyStylePatch(previous, key, value));
   };
 
   return {

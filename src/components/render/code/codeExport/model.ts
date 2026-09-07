@@ -157,6 +157,7 @@ export const normalizeRenpyExportSettings = (
     variables.unshift(createDefaultVariable());
   return {
     version: 2,
+    interfaceDesigns: input?.interfaceDesigns,
     splitMode:
       input?.splitMode === 'group' || input?.splitMode === 'background'
         ? input.splitMode

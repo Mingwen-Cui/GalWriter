@@ -1,3 +1,5 @@
+import { normalizeGradientStops } from '../../web/webGradientStops';
+import { toHex8 } from '../../shared/paint/colorValue';
 import type { Node as FlowNode } from '@xyflow/react';
 
 import type {
@@ -298,16 +300,16 @@ export const drawPresentationVisuals = async ({
 
   if (canvasSettings?.sceneBackgroundVisible && canvasSettings.sceneBackgroundType === 'gradient') {
     const angle = (canvasSettings.sceneBackgroundGradientAngle * Math.PI) / 180;
-    const dx = (Math.cos(angle) * width) / 2;
-    const dy = (Math.sin(angle) * height) / 2;
+    const length = Math.abs(width * Math.sin(angle)) + Math.abs(height * Math.cos(angle));
+    const dx = Math.sin(angle) * length / 2;
+    const dy = -Math.cos(angle) * length / 2;
     const gradient = ctx.createLinearGradient(
       width / 2 - dx,
       height / 2 - dy,
       width / 2 + dx,
       height / 2 + dy,
     );
-    gradient.addColorStop(0, canvasSettings.sceneBackgroundGradientStart);
-    gradient.addColorStop(1, canvasSettings.sceneBackgroundGradientEnd);
+    normalizeGradientStops(canvasSettings.sceneBackgroundGradientStops, canvasSettings.sceneBackgroundGradientStart, canvasSettings.sceneBackgroundGradientEnd).forEach(stop => gradient.addColorStop(stop.position / 100, toHex8(stop.color, stop.alpha)));
     ctx.fillStyle = gradient;
   } else {
     ctx.fillStyle = canvasSettings?.sceneBackgroundVisible

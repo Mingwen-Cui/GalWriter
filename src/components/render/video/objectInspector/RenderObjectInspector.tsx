@@ -31,7 +31,7 @@ import {
   InlineColorControl,
   InlineGradientControl,
   ShadowModeIcon,
-} from '../../web/StartMenuElementInspector';
+} from '../../shared/paint/InlinePaintControls';
 import {
   AlignButtons,
   ControlRow,
@@ -40,7 +40,7 @@ import {
   HeaderSelect,
   InspectorGroup,
   NumberField,
-} from '../../web/webStyleInspectorControls';
+} from '../../shared/inspectors/InspectorControls';
 import {
   getRenderObjects,
   getVideoRenderObjects,
@@ -57,7 +57,7 @@ import type {
   TextAnimation,
   TypewriterMode,
 } from '../shared/types';
-import { GradientPopover, ImageFillPopover, SolidColorPopover } from './ColorPopovers';
+import { GradientPopover, ImageFillPopover, SolidColorPopover } from '../../shared/paint/ColorPopovers';
 import { renderObjectText } from './i18n';
 
 type Surface = 'video' | 'web' | 'playtest';
@@ -84,7 +84,7 @@ export function RenderObjectInspector({
   renderStyle,
   updateRenderStyle,
   surface = 'web',
-  showDescriptions = false,
+  showDescriptions = true,
   hideObjectSelector = false,
   singleColumn = false,
   visibleGroups,
@@ -158,11 +158,7 @@ export function RenderObjectInspector({
     }
     const nextObjects = updateRenderObject(renderStyle, selectedKind, updates);
     updateRenderStyle('renderObjects', nextObjects);
-    const geometryKeys = ['x', 'y', 'width', 'height'] as const;
-    const isGeometryUpdate = geometryKeys.some((key) => key in updates);
-    if (surface === 'video' || !isGeometryUpdate) {
-      syncLegacyFields(selectedKind, nextObjects[selectedKind], updateRenderStyle);
-    }
+
   };
 
   const setFill = (updates: Partial<RenderFillStyle>) => {
@@ -404,7 +400,7 @@ export function RenderObjectInspector({
               value={textObject.textAlign}
               onChange={(value) => setObject({ textAlign: value, horizontalAlign: value })}
             />
-            <div className="grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white">
+            <div className="grid h-8 grid-cols-2 overflow-hidden rounded-md bg-white">
               <ToggleButton
                 active={textObject.underline}
                 label={text.field.underline}
@@ -472,7 +468,7 @@ export function RenderObjectInspector({
               <button
                 type="button"
                 onClick={() => setPopover({ group: 'fill', type: 'image' })}
-                className="grid h-10 min-w-0 grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950"
+                className="grid h-8 min-w-0 grid-cols-[56px_minmax(0,1fr)] overflow-hidden rounded-md bg-white text-left text-sm font-medium text-slate-950"
                 title={text.popover.imageTitle}
               >
                 <span
@@ -483,10 +479,10 @@ export function RenderObjectInspector({
                       : undefined
                   }
                 />
-                <span className="min-w-0 truncate px-3 leading-10">{text.popover.imageTitle}</span>
+                <span className="min-w-0 truncate px-3 leading-8">{text.popover.imageTitle}</span>
               </button>
             )}
-            <div className="h-10 w-11" aria-hidden="true" />
+            <div className="h-8 w-11" aria-hidden="true" />
           </div>
           {popover?.group === 'fill' && selected.fill.type === 'solid' && (
             <FloatingPopover onClose={() => setPopover(null)} closeLabel={closeLabel}>
@@ -613,7 +609,7 @@ export function RenderObjectInspector({
                   />
                 )}
               </SettingDescription>
-              <div className="h-10 w-11" aria-hidden="true" />
+              <div className="h-8 w-11" aria-hidden="true" />
             </div>
             {popover?.group === 'stroke' && (
               <FloatingPopover
@@ -703,7 +699,7 @@ export function RenderObjectInspector({
                     type="button"
                     onClick={addShadowLayer}
                     disabled={shadowLayers.length >= 6}
-                    className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 hover:bg-fuchsia-100 disabled:opacity-35"
+                    className="grid h-8 w-11 place-items-center rounded-md bg-white text-slate-700 hover:bg-fuchsia-100 disabled:opacity-35"
                     title={shadowLabels.add}
                     aria-label={shadowLabels.add}
                   >
@@ -755,7 +751,7 @@ export function RenderObjectInspector({
                   <button
                     type="button"
                     onClick={() => removeShadowLayer(index)}
-                    className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 hover:bg-rose-50"
+                    className="grid h-8 w-11 place-items-center rounded-md bg-white text-rose-600 hover:bg-rose-50"
                     title="Remove shadow"
                     aria-label="Remove shadow"
                   >
@@ -861,75 +857,6 @@ export function RenderObjectInspector({
   );
 }
 
-function syncLegacyFields(
-  kind: RenderEditableObjectKind,
-  object: RenderEditableObject | RenderEditableTextObject,
-  updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void,
-) {
-  if (kind === 'dialogBox') {
-    updateRenderStyle('dialogVisible', object.visible);
-    updateRenderStyle('dialogOffsetX', object.x);
-    updateRenderStyle('dialogOffsetY', object.y);
-    updateRenderStyle('dialogWidth', object.width);
-    updateRenderStyle('dialogHeight', object.height);
-    updateRenderStyle('dialogRadius', object.radius);
-    updateRenderStyle('dialogBackgroundType', object.fill.type);
-    updateRenderStyle('panelColor', object.fill.color);
-    updateRenderStyle('panelColorAlpha', object.fill.alpha);
-    updateRenderStyle('dialogGradientAngle', object.fill.gradientAngle);
-    updateRenderStyle('dialogGradientStops', object.fill.gradientStops);
-    updateRenderStyle('dialogImageUrl', object.fill.imageUrl);
-  }
-  if (kind === 'title' || kind === 'body') {
-    const textObject = object as RenderEditableTextObject;
-    const prefix = kind;
-    if (kind === 'title') updateRenderStyle('titleVisible', textObject.visible);
-    updateRenderStyle(`${prefix}FontFamily` as keyof RenderStyle, textObject.fontFamily as never);
-    updateRenderStyle(`${prefix}FontSize` as keyof RenderStyle, textObject.fontSize as never);
-    updateRenderStyle(`${prefix}Color` as keyof RenderStyle, textObject.fill.color as never);
-    updateRenderStyle(`${prefix}ColorAlpha` as keyof RenderStyle, textObject.fill.alpha as never);
-    updateRenderStyle(
-      `${prefix}StrokeColor` as keyof RenderStyle,
-      textObject.stroke.color as never,
-    );
-    updateRenderStyle(
-      `${prefix}StrokeWidth` as keyof RenderStyle,
-      textObject.stroke.width as never,
-    );
-    updateRenderStyle(`${prefix}Align` as keyof RenderStyle, textObject.textAlign as never);
-    updateRenderStyle(
-      `${prefix}LetterSpacing` as keyof RenderStyle,
-      textObject.letterSpacing as never,
-    );
-    updateRenderStyle(`${prefix}LineHeight` as keyof RenderStyle, textObject.lineHeight as never);
-    updateRenderStyle(
-      `${prefix}Animation` as keyof RenderStyle,
-      textObject.animation.animation as never,
-    );
-    updateRenderStyle(
-      `${prefix}TypewriterMode` as keyof RenderStyle,
-      textObject.animation.typewriterMode as never,
-    );
-  }
-  if (kind === 'nameplate') {
-    const textObject = object as RenderEditableTextObject;
-    updateRenderStyle('nameplateVisible', textObject.visible);
-    updateRenderStyle('nameplateOffsetX', textObject.x);
-    updateRenderStyle('nameplateOffsetY', textObject.y);
-    updateRenderStyle('nameplateScale', textObject.width);
-    updateRenderStyle('nameplateRadius', textObject.radius);
-    updateRenderStyle('nameplateFontFamily', textObject.fontFamily);
-    updateRenderStyle('nameplateFontSize', textObject.fontSize);
-    updateRenderStyle('nameplateTextColor', textObject.fill.color);
-    updateRenderStyle('nameplateTextColorAlpha', textObject.fill.alpha);
-    updateRenderStyle('nameplateBackgroundType', textObject.fill.type);
-    updateRenderStyle('nameplateColor', textObject.fill.color);
-    updateRenderStyle('nameplateColorAlpha', textObject.fill.alpha);
-    updateRenderStyle('nameplateGradientAngle', textObject.fill.gradientAngle);
-    updateRenderStyle('nameplateGradientStops', textObject.fill.gradientStops);
-    updateRenderStyle('nameplateImageUrl', textObject.fill.imageUrl);
-  }
-}
 
 function PositionVisibilityIcon({ visible }: { visible: boolean }) {
   if (visible) return <Box className="h-3.5 w-3.5" />;
@@ -954,7 +881,7 @@ function SelectField({
 }) {
   return (
     <label
-      className="relative grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_18px] items-center rounded-xl bg-white px-3 text-sm font-normal text-slate-900"
+      className="relative grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_18px] items-center rounded-md bg-white px-3 text-sm font-normal text-slate-900"
       title={label}
     >
       <span className="min-w-0 truncate">
@@ -996,7 +923,7 @@ function ToggleButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-10 min-w-0 items-center justify-center gap-2 px-3 text-sm font-bold ${active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+      className={`flex h-8 min-w-0 items-center justify-center gap-2 px-3 text-sm font-bold ${active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
       title={label}
       aria-label={label}
       aria-pressed={active}
@@ -1023,11 +950,11 @@ function IconChoicePair({
   rightLabel: string;
 }) {
   const optionClass = (active: boolean) =>
-    `grid h-10 place-items-center transition-colors ${
+    `grid h-8 place-items-center transition-colors ${
       active ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'
     }`;
   return (
-    <div className="grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
+    <div className="grid h-8 grid-cols-2 overflow-hidden rounded-md bg-white ring-1 ring-slate-200">
       <button
         type="button"
         className={optionClass(value)}
@@ -1064,7 +991,7 @@ function TwoOptionTabs({
   gradientLabel: string;
 }) {
   return (
-    <div className="grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-white">
+    <div className="grid h-8 grid-cols-2 overflow-hidden rounded-md bg-white">
       {(
         [
           ['solid', solidLabel],
@@ -1101,7 +1028,7 @@ function ThreeOptionTabs({
   onChange: (value: 'inside' | 'center' | 'outside') => void;
 }) {
   return (
-    <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
+    <div className="grid h-8 grid-cols-3 overflow-hidden rounded-md bg-white">
       {(['inside', 'center', 'outside'] as const).map((option) => (
         <button
           key={option}
@@ -1147,7 +1074,7 @@ function ShadowModeTabs({
   if (outerOnly) {
     return (
       <div
-        className="grid h-10 min-w-16 place-items-center rounded-xl bg-indigo-600 px-3 text-white"
+        className="grid h-8 min-w-16 place-items-center rounded-md bg-indigo-600 px-3 text-white"
         aria-label={labels.outer}
         title={labels.outer}
       >
@@ -1156,7 +1083,7 @@ function ShadowModeTabs({
     );
   }
   return (
-    <div className="grid h-10 grid-cols-3 overflow-hidden rounded-xl bg-white">
+    <div className="grid h-8 grid-cols-3 overflow-hidden rounded-md bg-white">
       {(['outer', 'inner', 'innerBlur'] as const).map((option) => (
         <button
           key={option}

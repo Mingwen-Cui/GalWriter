@@ -5,6 +5,7 @@ import type { RenpySplitMode } from './codeExport/types';
 import { type CodeTextKey, getCodeText } from './i18n';
 
 export type CodeWorkspaceTab =
+  | 'design'
   | 'project'
   | 'flow'
   | 'characters'
@@ -13,6 +14,7 @@ export type CodeWorkspaceTab =
   | 'diagnostics';
 
 const workspaceTabs = [
+  ['design', Settings2, 'Interface design'],
   ['project', FolderTree, 'Project'],
   ['flow', GitBranch, 'Flow mapping'],
   ['characters', Users, 'Characters'],

@@ -1,3 +1,4 @@
+import { GameInterfaceDesigner } from './design/GameInterfaceDesigner';
 import {
   AlertCircle,
   AlertTriangle,
@@ -43,7 +44,7 @@ export function CodeWorkspace({
   settings,
   onSettingsChange,
 }: CodeWorkspaceProps) {
-  const [tab, setTab] = useState<CodeWorkspaceTab>('project');
+  const [tab, setTab] = useState<CodeWorkspaceTab>('design');
   const [selectedFile, setSelectedFile] = useState('game/script.rpy');
   const [selectedCharacterId, setSelectedCharacterId] = useState(
     settings.characters[0]?.sourceNodeId || '',
@@ -129,7 +130,7 @@ export function CodeWorkspace({
         onSplitMode={(splitMode) => setSettings({ ...settings, splitMode })}
         onRepairCodes={() => setSettings(repairRenpyCodeNames(settings))}
       />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      {tab === 'design' ? <GameInterfaceDesigner key={target} language={language} target={target} settings={settings} onChange={onSettingsChange} nodes={nodes}/> : <div className="flex min-h-0 flex-1 overflow-hidden">
         {fileTree}
         <section className="min-w-0 flex-1 overflow-auto">
           {tab === 'project' && (
@@ -432,7 +433,7 @@ export function CodeWorkspace({
             </div>
           )}
         </aside>
-      </div>
+      </div>}
       <div className="flex shrink-0 items-center justify-between border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)] px-4 py-2 text-[11px] text-[var(--vr-text-muted)]">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -445,7 +446,7 @@ export function CodeWorkspace({
           </button>
           <span className="flex min-w-0 items-center gap-1.5 text-amber-500 dark:text-amber-300">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{getCodeText(language, 'Code export beta notice')}</span>
+            <span className="truncate">{getCodeText(language, target === 'dialogic' ? 'Godot project notice' : 'Code export beta notice')}</span>
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-3">

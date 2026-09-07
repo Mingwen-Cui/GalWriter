@@ -3,7 +3,7 @@ import { Link2, Palette, Trash2 } from 'lucide-react';
 import type { Language } from '../../../lib/i18n';
 import type { PptManualElement, PptManualSlide } from '../video/shared/types';
 import { StartMenuElementInspector } from '../web/StartMenuElementInspector';
-import { InspectorGroup } from '../web/webStyleInspectorControls';
+import { InspectorGroup } from '../shared/inspectors/InspectorControls';
 import type { PptCopy } from './i18n';
 import { toPptManualElementPatch, toPptWebInspectorElement } from './pptWebInspectorAdapter';
 
