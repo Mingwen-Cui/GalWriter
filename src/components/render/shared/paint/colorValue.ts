@@ -10,17 +10,26 @@ export const parseColorValue = (
   const source = String(value || '').trim();
   const hex = source.match(/^#([0-9a-f]{3,8})$/i)?.[1];
   if (hex) {
-    const expanded = hex.length === 3 || hex.length === 4
-      ? hex.split('').map((part) => part + part).join('')
-      : hex;
+    const expanded =
+      hex.length === 3 || hex.length === 4
+        ? hex
+            .split('')
+            .map((part) => part + part)
+            .join('')
+        : hex;
     if (expanded.length === 6 || expanded.length === 8) {
       return {
         hex: `#${expanded.slice(0, 6).toLowerCase()}`,
-        alpha: expanded.length === 8 ? Math.round((Number.parseInt(expanded.slice(6), 16) / 255) * 100) : 100,
+        alpha:
+          expanded.length === 8
+            ? Math.round((Number.parseInt(expanded.slice(6), 16) / 255) * 100)
+            : 100,
       };
     }
   }
-  const rgb = source.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*[,/]\s*([\d.]+)%?)?\s*\)$/i);
+  const rgb = source.match(
+    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*[,/]\s*([\d.]+)%?)?\s*\)$/i,
+  );
   if (rgb) {
     const rawAlpha = rgb[4] === undefined ? 1 : Number(rgb[4]);
     const alpha = source.includes('%') ? rawAlpha : rawAlpha <= 1 ? rawAlpha * 100 : rawAlpha;
@@ -29,7 +38,9 @@ export const parseColorValue = (
       alpha: Math.max(0, Math.min(100, Math.round(alpha))),
     };
   }
-  return source === fallback ? { hex: '#000000', alpha: 100 } : parseColorValue(fallback, '#000000ff');
+  return source === fallback
+    ? { hex: '#000000', alpha: 100 }
+    : parseColorValue(fallback, '#000000ff');
 };
 
 export const toHex8 = (color: string | undefined, alpha?: number, fallback = '#000000ff') => {
@@ -38,5 +49,4 @@ export const toHex8 = (color: string | undefined, alpha?: number, fallback = '#0
   return `${parsed.hex}${byteHex((safeAlpha / 100) * 255)}`;
 };
 
-export const colorWithAlpha = (color: string | undefined, alpha?: number) =>
-  toHex8(color, alpha);
+export const colorWithAlpha = (color: string | undefined, alpha?: number) => toHex8(color, alpha);

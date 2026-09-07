@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { DragSizeControl } from '../../video/controls/RenderControls';
-import { DraggableNumberInput } from '../../../DraggableNumberInput';
 import type { RenderColorStop } from '../../video/shared/types';
 import { parseColorValue, toHex8 } from './colorValue';
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
-const alphaColor = (color: string | undefined, alpha: number | undefined, fallback = '#000000') => toHex8(color, alpha, fallback);
+const alphaColor = (color: string | undefined, alpha: number | undefined, fallback = '#000000') =>
+  toHex8(color, alpha, fallback);
 export function ShadowModeIcon({ mode }: { mode: 'outer' | 'inner' | 'innerBlur' }) {
   return (
     <svg
@@ -77,13 +77,19 @@ export function InlineColorControl({
   const [draft, setDraft] = useState(safeColor);
   useEffect(() => setDraft(safeColor), [safeColor]);
   const commitColor = () => {
-    if (!/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(draft.trim())) { setDraft(safeColor); return; }
+    if (!/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(draft.trim())) {
+      setDraft(safeColor);
+      return;
+    }
     const next = parseColorValue(draft);
     const hasAlpha = [5, 9].includes(draft.trim().length);
     const nextAlpha = hasAlpha ? next.alpha : safeAlpha;
     setDraft(next.hex);
-    if (onColorAndAlphaChange) onColorAndAlphaChange({color: next.hex, alpha: nextAlpha});
-    else { onColorChange(next.hex); if (hasAlpha) onAlphaChange?.(nextAlpha); }
+    if (onColorAndAlphaChange) onColorAndAlphaChange({ color: next.hex, alpha: nextAlpha });
+    else {
+      onColorChange(next.hex);
+      if (hasAlpha) onAlphaChange?.(nextAlpha);
+    }
   };
   return (
     <div
@@ -105,7 +111,11 @@ export function InlineColorControl({
         onBlur={commitColor}
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.currentTarget.blur();
-          if (event.key === 'Escape') { setDraft(safeColor); event.currentTarget.value = safeColor; event.currentTarget.blur(); }
+          if (event.key === 'Escape') {
+            setDraft(safeColor);
+            event.currentTarget.value = safeColor;
+            event.currentTarget.blur();
+          }
         }}
         className="h-full min-w-0 border-0 bg-white px-3 text-sm font-medium text-slate-950 outline-none"
       />
@@ -185,4 +195,3 @@ export function InlineGradientControl({
     </div>
   );
 }
-

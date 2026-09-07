@@ -1,4 +1,3 @@
-import './inspector.css';
 import {
   AlignCenter,
   AlignLeft,
@@ -14,6 +13,7 @@ import {
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import './inspector.css';
 
 import { DragSizeControl } from '../../video/controls/RenderControls';
 import type { RenderFillType, TextAlign } from '../../video/shared/types';
@@ -89,27 +89,54 @@ export function InspectorGroup({
   secondaryHasDescription?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(titleActive);
   return (
     <section className="property-section" data-inspector-group={tone}>
       <div className="property-section-header">
-        <button type="button" className="property-section-title" onClick={() => setOpen(value => !value)} aria-expanded={open}>
+        <button
+          type="button"
+          className="property-section-title"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+        >
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? '' : '-rotate-90'}`} />
-          <span aria-hidden="true" className="property-section-icon">{icon}</span>
+          <span aria-hidden="true" className="property-section-icon">
+            {icon}
+          </span>
           <span>{title}</span>
         </button>
-        {onTitleClick && <button type="button" className="property-enable" onClick={onTitleClick} aria-label={title} aria-pressed={titlePressed ?? titleActive} title={title}>
-          {titleActive ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-        </button>}
+        {onTitleClick && (
+          <button
+            type="button"
+            className="property-enable"
+            onClick={() => {
+              onTitleClick();
+              setOpen(!titleActive);
+            }}
+            aria-label={title}
+            aria-pressed={titlePressed ?? titleActive}
+            title={title}
+          >
+            {titleActive ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+        )}
       </div>
-      {open && <div className="property-section-body">
-        {showDescriptions && titleDescription && <p className="property-help">{titleDescription}</p>}
-        {secondary && <div className="property-section-secondary">
-          {showDescriptions && secondaryDescription && !secondaryHasDescription && <div className="property-help">{secondaryDescription}</div>}
-          {secondary}
-        </div>}
-        {children}
-      </div>}
+      {open && (
+        <div className="property-section-body">
+          {showDescriptions && titleDescription && (
+            <p className="property-help">{titleDescription}</p>
+          )}
+          {secondary && (
+            <div className="property-section-secondary">
+              {showDescriptions && secondaryDescription && !secondaryHasDescription && (
+                <div className="property-help">{secondaryDescription}</div>
+              )}
+              {secondary}
+            </div>
+          )}
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -121,12 +148,7 @@ export function ControlRow({
   className?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <div className={`property-control-row ${className}`}>
-      {children}
-
-    </div>
-  );
+  return <div className={`property-control-row ${className}`}>{children}</div>;
 }
 
 export function HeaderAction({
@@ -455,7 +477,7 @@ export function FillTabs<T extends RenderFillType>({
           key={type}
           type="button"
           onClick={() => onChange(type)}
-          className={`flex h-8 min-w-0 items-center justify-center px-2 text-xs font-bold ${
+          className={`flex h-8 min-w-0 items-center justify-center gap-1 px-2 text-xs font-bold ${
             value === type ? 'bg-indigo-600 text-white' : 'text-slate-700'
           }`}
           title={label}
@@ -463,6 +485,7 @@ export function FillTabs<T extends RenderFillType>({
           aria-pressed={value === type}
         >
           {icon}
+          <span className="truncate">{label}</span>
         </button>
       ))}
     </div>

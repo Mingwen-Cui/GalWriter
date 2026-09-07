@@ -1,4 +1,9 @@
-import type { RenderStyle, RenderEditableObjectKind, RenderEditableObject, RenderEditableTextObject } from '../../video/shared/types';
+import type {
+  RenderEditableObject,
+  RenderEditableObjectKind,
+  RenderEditableTextObject,
+  RenderStyle,
+} from '../../video/shared/types';
 function syncLegacyFields(
   kind: RenderEditableObjectKind,
   object: RenderEditableObject | RenderEditableTextObject,
@@ -70,11 +75,17 @@ function syncLegacyFields(
 }
 
 /** Legacy scalar fields are derived for older renderers, never independently edited by inspectors. */
-export function applyStylePatch<K extends keyof RenderStyle>(previous: RenderStyle, key: K, value: RenderStyle[K]): RenderStyle {
-  const next = {...previous, [key]: value};
+export function applyStylePatch<K extends keyof RenderStyle>(
+  previous: RenderStyle,
+  key: K,
+  value: RenderStyle[K],
+): RenderStyle {
+  const next = { ...previous, [key]: value };
   if (key === 'renderObjects' && next.renderObjects) {
-    for (const kind of ['dialogBox','title','body','nameplate'] as const) {
-      syncLegacyFields(kind, next.renderObjects[kind], (field, fieldValue) => { Object.assign(next, {[field]: fieldValue}); });
+    for (const kind of ['dialogBox', 'title', 'body', 'nameplate'] as const) {
+      syncLegacyFields(kind, next.renderObjects[kind], (field, fieldValue) => {
+        Object.assign(next, { [field]: fieldValue });
+      });
     }
   }
   return next;

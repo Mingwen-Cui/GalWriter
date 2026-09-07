@@ -1,63 +1,12 @@
-import { formatVideoText, getVideoTextAnimationOptions } from '../i18n';
-import type { LucideIcon } from 'lucide-react';
-import {
-  ALargeSmall,
-  Baseline,
-  BetweenHorizontalStart,
-  BetweenVerticalStart,
-  Blend,
-  CaseSensitive,
-  ChevronDown,
-  Eye,
-  EyeOff,
-  FileVideo,
-  Film,
-  FolderOpen,
-  Gauge,
-  ImagePlus,
-  Info,
-  Loader2,
-  Mic,
-  Monitor,
-  MousePointerClick,
-  MoveHorizontal,
-  MoveVertical,
-  Music,
-  Palette,
-  PanelLeftRightDashed,
-  PencilLine,
-  Radius,
-  RectangleHorizontal,
-  RectangleVertical,
-  Settings,
-  Sparkles,
-  Timer,
-  Trash2,
-  Type,
-  Video,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { FolderOpen, Info, Loader2, Mic, Music, Settings, Sparkles, Video } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { formatVideoText } from '../i18n';
 
 import type { Language } from '../../../../lib/i18n';
-import {
-  normalizeSharedCanvasSettings,
-  type SharedCanvasSettings,
-} from '../../canvas/canvasSettings';
+import { type SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { CanvasSettingsSection } from '../../canvas/CanvasSettingsSection';
-import { DragSizeControl, RangeControl } from '../controls/RenderControls';
-import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS } from '../shared/constants';
-import { getVideoRenderObjects, updateVideoTextAnimations } from '../shared/renderObjects';
-import type {
-  ExportFormat,
-  ExportSettingsMode,
-  RenderStatus,
-  RenderStyle,
-  TextAlign,
-  TextAnimation,
-  TypewriterMode,
-  VideoTextScaleMode,
-} from '../shared/types';
+import { RangeControl } from '../controls/RenderControls';
+import type { ExportSettingsMode, RenderStyle } from '../shared/types';
 import { RenderObjectSettingsSection } from './render-object-settings-section';
 
 type VideoExportSettingsPanelProps = {
@@ -65,28 +14,8 @@ type VideoExportSettingsPanelProps = {
   exportPanelWidth: number;
   exportSettingsMode: ExportSettingsMode;
   setExportSettingsMode: (value: ExportSettingsMode) => void;
-  status: RenderStatus;
-  exportFormat: ExportFormat;
-  setExportFormat: (value: ExportFormat) => void;
-  resolutionIndex: number;
-  setResolutionIndex: (value: number) => void;
-  resolutionWidth: number;
-  setResolutionWidth: (value: number) => void;
-  resolutionHeight: number;
-  setResolutionHeight: (value: number) => void;
-  frameRate: number;
-  setFrameRate: (value: number) => void;
-  outputDir: string;
-  setOutputDir: (value: string) => void;
-  outputDirError: string;
-  setOutputDirError: (value: string) => void;
-  chooseOutputDir: () => void;
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
-  videoTextScaleMode: VideoTextScaleMode;
-  setVideoTextScaleMode: (value: VideoTextScaleMode) => void;
-  speed: number;
-  setSpeed: (value: number) => void;
   selectedSpeechNodeCount: number;
   selectedAudioClipCount: number;
   selectedAudioVolume?: number;
@@ -104,10 +33,6 @@ type VideoExportSettingsPanelProps = {
   error: string;
   progressValue: number;
   savedPath: string;
-  hideCharacterTags: boolean;
-  setHideCharacterTags: (value: boolean) => void;
-  hideSceneTags: boolean;
-  setHideSceneTags: (value: boolean) => void;
   canvasSettings: SharedCanvasSettings;
   onCanvasSettingsChange: (patch: Partial<SharedCanvasSettings>) => void;
   showCanvasSettings: boolean;
@@ -118,28 +43,8 @@ export function VideoExportSettingsPanel({
   exportPanelWidth,
   exportSettingsMode,
   setExportSettingsMode,
-  status,
-  exportFormat,
-  setExportFormat,
-  resolutionIndex,
-  setResolutionIndex,
-  resolutionWidth,
-  setResolutionWidth,
-  resolutionHeight,
-  setResolutionHeight,
-  frameRate,
-  setFrameRate,
-  outputDir,
-  setOutputDir,
-  outputDirError,
-  setOutputDirError,
-  chooseOutputDir,
   renderStyle,
   updateRenderStyle,
-  videoTextScaleMode,
-  setVideoTextScaleMode,
-  speed,
-  setSpeed,
   selectedSpeechNodeCount,
   selectedAudioClipCount,
   selectedAudioVolume = 0,
@@ -157,18 +62,14 @@ export function VideoExportSettingsPanel({
   error,
   progressValue,
   savedPath,
-  hideCharacterTags,
-  setHideCharacterTags,
-  hideSceneTags,
-  setHideSceneTags,
   canvasSettings,
   onCanvasSettingsChange,
   showCanvasSettings,
 }: VideoExportSettingsPanelProps) {
   const [showSettingDescriptions, setShowSettingDescriptions] = useState(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     const stored = window.localStorage.getItem('galwriter-video-export-setting-descriptions');
-    return stored === null ? true : stored === 'true';
+    return stored === 'true';
   });
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -474,4 +375,3 @@ export function VideoExportSettingsPanel({
     </aside>
   );
 }
-

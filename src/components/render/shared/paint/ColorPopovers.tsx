@@ -12,8 +12,12 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 import { DraggableNumberInput } from '../../../DraggableNumberInput';
+import type {
+  RenderColorStop,
+  RenderFillStyle,
+  RenderGradientType,
+} from '../../video/shared/types';
 import { parseColorValue, toHex8 } from './colorValue';
-import type { RenderColorStop, RenderFillStyle, RenderGradientType } from '../../video/shared/types';
 
 type PopoverTone = 'fill' | 'stroke' | 'shadow';
 
@@ -117,7 +121,7 @@ export function SolidColorPopover({
   onColorAndAlphaChange?: (value: { color: string; alpha: number }) => void;
 }) {
   const parsed = parseColorValue(color);
-  const displayValue = toHex8(color, alpha);
+  const displayValue = parsed.hex;
   const hsv = hexToHsv(parsed.hex);
   const saturationRef = useRef<HTMLDivElement>(null);
   const hueRef = useRef<HTMLDivElement>(null);
@@ -127,7 +131,7 @@ export function SolidColorPopover({
   const [formatOpen, setFormatOpen] = useState(false);
   useEffect(() => setDraft(formatColor(parsed.hex, alpha, format)), [alpha, format, parsed.hex]);
   const commitTextColor = (value: string) => {
-    const next = parseFormattedColor(value);
+    const next = parseFormattedColor(value, alpha);
     if (!next) return;
     if (onColorAndAlphaChange) {
       onColorAndAlphaChange({ color: next.hex, alpha: next.alpha });
@@ -351,6 +355,7 @@ const GRADIENT_TYPES: Array<{ value: RenderGradientType; label: string }> = [
   { value: 'linear', label: '线性' },
   { value: 'radial', label: '径向' },
   { value: 'angular', label: '角向' },
+  { value: 'diamond', label: '菱形' },
 ];
 
 function formatColor(hex: string, alpha: number, format: ColorFormat) {
@@ -358,7 +363,7 @@ function formatColor(hex: string, alpha: number, format: ColorFormat) {
   const red = Number.parseInt(source.slice(0, 2), 16);
   const green = Number.parseInt(source.slice(2, 4), 16);
   const blue = Number.parseInt(source.slice(4, 6), 16);
-  if (format === 'HEX') return toHex8(hex, alpha);
+  if (format === 'HEX') return parseColorValue(hex).hex;
   if (format === 'RGB') return `rgba(${red}, ${green}, ${blue}, ${(alpha / 100).toFixed(2)})`;
   if (format === 'CSS') return `rgb(${red} ${green} ${blue} / ${alpha}%)`;
   const hsv = hexToHsv(hex);
@@ -372,9 +377,15 @@ function formatColor(hex: string, alpha: number, format: ColorFormat) {
   return `hsl(${Math.round(hsv.h)} ${Math.round(hslSaturation * 100)}% ${Math.round(lightness * 100)}% / ${alpha}%)`;
 }
 
-function parseFormattedColor(value: string) {
+function parseFormattedColor(value: string, currentAlpha = 100) {
   const source = value.trim();
-  if (/^#[0-9a-f]{3,8}$/i.test(source)) return parseColorValue(source);
+  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(source)) {
+    const parsed = parseColorValue(source);
+    return {
+      ...parsed,
+      alpha: source.length === 4 || source.length === 7 ? currentAlpha : parsed.alpha,
+    };
+  }
 
   const rgb = source.match(
     /^rgba?\(\s*([+-]?[\d.]+)(?:\s*,\s*|\s+)([+-]?[\d.]+)(?:\s*,\s*|\s+)([+-]?[\d.]+)(?:\s*(?:,|\/)\s*([\d.]+%?))?\s*\)$/i,
@@ -501,7 +512,7 @@ function gradientPreview(type: RenderGradientType, angle: number, stops: RenderC
     .join(', ');
   if (type === 'radial') return `radial-gradient(circle at center, ${cssStops})`;
   if (type === 'angular') return `conic-gradient(from ${angle}deg at center, ${cssStops})`;
-  if (type === 'diamond') return `conic-gradient(from ${angle + 45}deg at center, ${cssStops})`;
+  if (type === 'diamond') return `conic-gradient(from ${angle}deg at center, ${cssStops})`;
   return `linear-gradient(${angle}deg, ${cssStops})`;
 }
 
@@ -532,7 +543,7 @@ export function GradientPopover({
   const gradientBarRef = useRef<HTMLDivElement>(null);
   const gradientDragRef = useRef<{ id: string; pointerId: number } | null>(null);
   const orderedStops = [...stops].sort((a, b) => a.position - b.position);
-  const gradientTypes = GRADIENT_TYPES.filter(item => allowedTypes.includes(item.value));
+  const gradientTypes = GRADIENT_TYPES.filter((item) => allowedTypes.includes(item.value));
   const selectedGradientType = GRADIENT_TYPES.some((item) => item.value === gradientType)
     ? gradientType
     : 'linear';
@@ -558,7 +569,14 @@ export function GradientPopover({
   return (
     <div className={`rounded-xl border p-3 shadow-xl ${toneClass[tone]}`}>
       <div className="mb-3 flex items-center justify-between gap-2 text-xs font-black">
-        <span className="flex items-center gap-2"><span className="h-6 w-6 rounded border border-slate-200" style={{background: gradientPreview(selectedGradientType, angle, orderedStops)}} aria-hidden="true" />{text.gradientTitle}</span>
+        <span className="flex items-center gap-2">
+          <span
+            className="h-6 w-6 rounded border border-slate-200"
+            style={{ background: gradientPreview(selectedGradientType, angle, orderedStops) }}
+            aria-hidden="true"
+          />
+          {text.gradientTitle}
+        </span>
         <button
           type="button"
           onClick={() =>
@@ -568,7 +586,9 @@ export function GradientPopover({
                 .map((stop) => ({ ...stop, position: 100 - stop.position })),
             )
           }
-          className="rounded-lg bg-white px-2 py-1" title={text.reverse} aria-label={text.reverse}
+          className="rounded-lg bg-white px-2 py-1"
+          title={text.reverse}
+          aria-label={text.reverse}
         >
           <RotateCcw className="h-3.5 w-3.5" />
         </button>
@@ -589,7 +609,16 @@ export function GradientPopover({
             onKeyDown={(event) => {
               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
               event.preventDefault();
-              updateStop(stop.id, {position: Math.max(0, Math.min(100, stop.position + (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 10 : 1)))});
+              updateStop(stop.id, {
+                position: Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    stop.position +
+                      (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 10 : 1),
+                  ),
+                ),
+              });
             }}
             onPointerDown={(event) => {
               if (event.button !== 0) return;
@@ -728,9 +757,9 @@ export function GradientPopover({
                     type="text"
                     defaultValue={colorText}
                     onBlur={(event) => {
-                      const next = parseFormattedColor(event.currentTarget.value);
+                      const next = parseFormattedColor(event.currentTarget.value, stop.alpha);
                       if (next) {
-                        updateStop(stop.id, next);
+                        updateStop(stop.id, { color: next.hex, alpha: next.alpha });
                       } else {
                         event.currentTarget.value = colorText;
                       }
@@ -995,9 +1024,7 @@ export function ImageFillPopover({
                 color={imageBackgroundColorParsed.hex}
                 alpha={imageBackgroundColorParsed.alpha}
                 onColorChange={(color) =>
-                  onImageBackgroundColorChange(
-                    toHex8(color, imageBackgroundColorParsed.alpha),
-                  )
+                  onImageBackgroundColorChange(toHex8(color, imageBackgroundColorParsed.alpha))
                 }
                 onAlphaChange={(alpha) =>
                   onImageBackgroundColorChange(toHex8(imageBackgroundColorValue, alpha))

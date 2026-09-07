@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
 import { buildRehearsalTemplate } from '../../web/webExperienceTemplates';
 import { buildDefaultRenderObjects } from '../shared/renderObjects';
-import type { RenderStyle, WebExportSettings, WebHistoryState, WebMenuElement } from '../shared/types';
+import type {
+  RenderStyle,
+  WebExportSettings,
+  WebHistoryState,
+  WebMenuElement,
+} from '../shared/types';
 
 const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   canvasWidth: 1920,
@@ -200,7 +205,10 @@ export const useWebExportSettings = (
   isLocked: boolean,
   workspaceKey: string,
   initial?: InitialWebExportState,
-  styleBinding?: { value: RenderStyle; update: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void },
+  styleBinding?: {
+    value: RenderStyle;
+    update: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
+  },
 ) => {
   const defaultPreset = buildRehearsalTemplate(language, defaultProjectName);
   const sharedCanvas = useSharedCanvasSettings(
@@ -238,7 +246,9 @@ export const useWebExportSettings = (
   const webRenderStyle = styleBinding?.value || localRenderStyle;
   const applyRenderStyle = (style: RenderStyle) => {
     if (styleBinding) {
-      (Object.keys(style) as Array<keyof RenderStyle>).forEach(key => styleBinding.update(key, style[key]));
+      (Object.keys(style) as Array<keyof RenderStyle>).forEach((key) =>
+        styleBinding.update(key, style[key]),
+      );
     } else setWebRenderStyle(style);
   };
   const [webPast, setWebPast] = useState<WebHistoryState[]>(() => initial?.past || []);
@@ -259,8 +269,14 @@ export const useWebExportSettings = (
     setWebChoiceTextColor(snapshot.choiceTextColor);
   };
 
+  const historyQueued = useRef(false);
   const pushWebHistory = () => {
-    setWebPast((prev) => [...prev, captureWebState()]);
+    if (historyQueued.current) return;
+    historyQueued.current = true;
+    queueMicrotask(() => {
+      historyQueued.current = false;
+    });
+    setWebPast((prev) => [...prev.slice(-49), captureWebState()]);
     setWebFuture([]);
   };
 

@@ -1,63 +1,62 @@
-import { getVideoStructuredText } from '../i18n';
-import { formatVideoText } from '../i18n';
 import {
-  Baseline,
-  Blend,
-  Box,
-  CaseSensitive,
-  ChevronDown,
-  Crosshair,
-  Expand,
-  Minus,
-  MoveHorizontal,
-  MoveVertical,
-  PaintBucket,
-  Palette,
-  Pin,
-  Plus,
-  Radius,
-  RotateCw,
-  Ruler,
-  Sparkles,
-  Strikethrough,
-  Type,
-  Underline,
+Baseline,
+Blend,
+Box,
+CaseSensitive,
+ChevronDown,
+Crosshair,
+Expand,
+Minus,
+MoveHorizontal,
+MoveVertical,
+PaintBucket,
+Palette,
+Pin,
+Plus,
+Radius,
+RotateCw,
+Ruler,
+Sparkles,
+Strikethrough,
+Type,
+Underline,
 } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { formatVideoText,getVideoStructuredText } from '../i18n';
 
 import type { Language } from '../../../../lib/i18n';
 import {
-  InlineColorControl,
-  InlineGradientControl,
-  ShadowModeIcon,
+AlignButtons,
+ControlRow,
+FillTabs,
+FloatingPopover,
+HeaderSelect,
+InspectorGroup,
+NumberField,
+} from '../../shared/inspectors/InspectorControls';
+import { GradientPopover,ImageFillPopover,SolidColorPopover } from '../../shared/paint/ColorPopovers';
+import {
+InlineColorControl,
+InlineGradientControl,
+ShadowModeIcon,
 } from '../../shared/paint/InlinePaintControls';
 import {
-  AlignButtons,
-  ControlRow,
-  FillTabs,
-  FloatingPopover,
-  HeaderSelect,
-  InspectorGroup,
-  NumberField,
-} from '../../shared/inspectors/InspectorControls';
-import {
-  getRenderObjects,
-  getVideoRenderObjects,
-  isTextRenderObject,
-  updateRenderObject,
-  updateVideoTextAnimations,
+getRenderObjects,
+getVideoRenderObjects,
+isTextRenderObject,
+updateRenderObject,
+updateVideoTextAnimations,
 } from '../shared/renderObjects';
 import type {
-  RenderEditableObject,
-  RenderEditableObjectKind,
-  RenderEditableTextObject,
-  RenderFillStyle,
-  RenderStyle,
-  TextAnimation,
-  TypewriterMode,
+RenderEditableObject,
+RenderEditableObjectKind,
+RenderEditableTextObject,
+RenderFillStyle,
+RenderStyle,
+TextAnimation,
+TypewriterMode,
 } from '../shared/types';
-import { GradientPopover, ImageFillPopover, SolidColorPopover } from '../../shared/paint/ColorPopovers';
 import { renderObjectText } from './i18n';
 
 type Surface = 'video' | 'web' | 'playtest';
@@ -84,7 +83,7 @@ export function RenderObjectInspector({
   renderStyle,
   updateRenderStyle,
   surface = 'web',
-  showDescriptions = true,
+  showDescriptions = false,
   hideObjectSelector = false,
   singleColumn = false,
   visibleGroups,
@@ -247,7 +246,7 @@ export function RenderObjectInspector({
           secondary={
             <NumberField
               icon={<Radius className="h-4 w-4" />}
-              label={text.field.radius}
+              label={`${text.field.radius} · px`}
               description={showDescriptions ? text.help.radius : undefined}
               value={selected.radius}
               min={0}
@@ -259,7 +258,7 @@ export function RenderObjectInspector({
           <ControlRow>
             <NumberField
               icon={<MoveHorizontal className="h-4 w-4" />}
-              label={text.field.x}
+              label={`${text.field.x} · %`}
               description={showDescriptions ? text.help.x : undefined}
               value={selected.x}
               min={-200}
@@ -268,7 +267,7 @@ export function RenderObjectInspector({
             />
             <NumberField
               icon={<MoveVertical className="h-4 w-4" />}
-              label={text.field.y}
+              label={`${text.field.y} · %`}
               description={showDescriptions ? text.help.y : undefined}
               value={selected.y}
               min={-200}
@@ -279,7 +278,7 @@ export function RenderObjectInspector({
           <ControlRow className="mt-2">
             <NumberField
               icon={<Ruler className="h-4 w-4" />}
-              label={text.field.width}
+              label={`${text.field.width} · %`}
               description={showDescriptions ? text.help.width : undefined}
               value={selected.width}
               min={0}
@@ -288,7 +287,7 @@ export function RenderObjectInspector({
             />
             <NumberField
               icon={<Box className="h-4 w-4" />}
-              label={text.field.height}
+              label={`${text.field.height} · %`}
               description={showDescriptions ? text.help.height : undefined}
               value={selected.height}
               min={0}
@@ -710,7 +709,7 @@ export function RenderObjectInspector({
               <ControlRow className="mt-2">
                 <NumberField
                   icon={<MoveHorizontal className="h-4 w-4" />}
-                  label={text.field.x}
+                  label={`${text.field.x} · %`}
                   description={showDescriptions ? text.field.x : undefined}
                   value={shadow.x}
                   min={-120}
@@ -719,7 +718,7 @@ export function RenderObjectInspector({
                 />
                 <NumberField
                   icon={<MoveVertical className="h-4 w-4" />}
-                  label={text.field.y}
+                  label={`${text.field.y} · %`}
                   description={showDescriptions ? text.field.y : undefined}
                   value={shadow.y}
                   min={-120}

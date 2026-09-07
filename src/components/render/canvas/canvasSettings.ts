@@ -82,9 +82,7 @@ export function normalizeSharedCanvasSettings(
     canvasRatioLocked: value?.canvasRatioLocked !== false,
     layoutMode: value?.layoutMode === 'classic' ? 'classic' : 'immersive',
     sceneFit:
-      value?.sceneFit === 'contain' || value?.sceneFit === 'stretch'
-        ? value.sceneFit
-        : 'cover',
+      value?.sceneFit === 'contain' || value?.sceneFit === 'stretch' ? value.sceneFit : 'cover',
     sceneScale: clampInteger(value?.sceneScale, 50, 25, 400),
     sceneScaleX: clampInteger(value?.sceneScaleX ?? value?.sceneScale, 50, 25, 400),
     sceneScaleY: clampInteger(value?.sceneScaleY ?? value?.sceneScale, 50, 25, 400),

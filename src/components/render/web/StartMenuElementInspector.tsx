@@ -1,56 +1,49 @@
-import { InlineColorControl, InlineGradientControl, ShadowModeIcon } from '../shared/paint/InlinePaintControls';
-import { GradientEditorPopover } from '../shared/paint/GradientEditorPopover';
-export { InlineColorControl, InlineGradientControl, ShadowModeIcon } from '../shared/paint/InlinePaintControls';
 import {
-  Baseline,
-  Blend,
-  Box,
-  CaseSensitive,
-  Check,
-  ChevronDown,
-  Circle,
-  Diamond,
-  Image as ImageIcon,
-  Layers,
-  Link2,
-  MousePointerClick,
-  MoveHorizontal,
-  MoveVertical,
-  Palette,
-  Plus,
-  Radius,
-  RotateCw,
-  Ruler,
-  Trash2,
-  Type,
-  Volume2,
+Baseline,
+Blend,
+Box,
+CaseSensitive,
+Check,
+Image as ImageIcon,
+Layers,
+Link2,
+MousePointerClick,
+MoveHorizontal,
+MoveVertical,
+Palette,
+Plus,
+Radius,
+RotateCw,
+Ruler,
+Type,
+Volume2
 } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect,useState } from 'react';
+import { GradientEditorPopover } from '../shared/paint/GradientEditorPopover';
+import { InlineColorControl,InlineGradientControl,ShadowModeIcon } from '../shared/paint/InlinePaintControls';
+export { InlineColorControl,InlineGradientControl,ShadowModeIcon } from '../shared/paint/InlinePaintControls';
 
 import type { Language } from '../../../lib/i18n';
 import { DraggableNumberInput } from '../../DraggableNumberInput';
-import { DragSizeControl } from '../video/controls/RenderControls';
-import { ImageFillPopover, SolidColorPopover } from '../shared/paint/ColorPopovers';
+import {
+AlignButtons,
+ControlRow,
+FillTabs,
+FloatingPopover,
+GradientIcon,
+InspectorGroup as Group,
+HeaderAction,
+HeaderSelect,
+NumberField,
+PositionAlignButtons,
+} from '../shared/inspectors/InspectorControls';
+import { ImageFillPopover,SolidColorPopover } from '../shared/paint/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
-import { parseColorValue, toHex8 } from '../shared/paint/colorValue';
-import type { RenderColorStop, RenderFillType, WebMenuElement } from '../video/shared/types';
-import { getWebStructuredText } from './i18n';
-import { formatWebText, getWebShadowOrdinal } from './i18n';
+import type { RenderFillType,WebMenuElement } from '../video/shared/types';
+import { formatWebText,getWebShadowOrdinal,getWebStructuredText } from './i18n';
 import { webImageFillBackgroundColor } from './webElementStyle';
 import { normalizeGradientStops } from './webGradientStops';
-import {
-  AlignButtons,
-  ControlRow,
-  FillTabs,
-  FloatingPopover,
-  GradientIcon,
-  HeaderAction,
-  HeaderSelect,
-  InspectorGroup as Group,
-  NumberField,
-  PositionAlignButtons,
-} from '../shared/inspectors/InspectorControls';
 
 type InspectorProps = {
   element: WebMenuElement;
@@ -1999,4 +1992,4 @@ export function PortaledGradientPopover({
   );
 }
 
-export { GradientEditorPopover, type GradientShape } from '../shared/paint/GradientEditorPopover';
+export { GradientEditorPopover,type GradientShape } from '../shared/paint/GradientEditorPopover';

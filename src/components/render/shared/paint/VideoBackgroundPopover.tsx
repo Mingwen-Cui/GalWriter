@@ -1,5 +1,5 @@
-import type { Language } from '../../../../lib/i18n';
 import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
+import type { Language } from '../../../../lib/i18n';
 export function VideoBackgroundPopover({
   language,
   videoUrl,
@@ -88,4 +88,3 @@ export function VideoBackgroundPopover({
     </div>
   );
 }
-

@@ -1,34 +1,34 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import {
-  ChevronDown,
-  ChevronUp,
-  Download,
-  FileCode2,
-  FileText,
-  Film,
-  Gamepad2,
-  Maximize2,
-  Minimize2,
-  PanelLeftClose,
-  PanelRightClose,
-  PanelsTopLeft,
-  Play,
-  PlusSquare,
-  Presentation,
-  Redo2,
-  Sparkles,
-  Undo2,
-  X,
+ChevronDown,
+ChevronUp,
+Download,
+FileCode2,
+FileText,
+Film,
+Gamepad2,
+Maximize2,
+Minimize2,
+PanelLeftClose,
+PanelRightClose,
+PanelsTopLeft,
+Play,
+PlusSquare,
+Presentation,
+Redo2,
+Sparkles,
+Undo2,
+X,
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect,useRef } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { LoadingAnimation } from '../../../LoadingAnimation';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
-import { type CodeTextKey, getCodeText } from '../../code/i18n';
+import { type CodeTextKey,getCodeText } from '../../code/i18n';
 import { getPptCopy } from '../../ppt/i18n';
 import { formatVideoText } from '../i18n';
-import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
+import type { RenderStatus,RenderWorkspaceMode } from '../shared/types';
 
 type RenderHeaderProps = {
   appearanceScope?: 'shared' | 'independent';

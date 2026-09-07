@@ -6,25 +6,70 @@ import { BackgroundFillInspector } from '../shared/paint/BackgroundFillInspector
 import type { WebExportSettings } from '../video/shared/types';
 import { WebMenuMusicPanel } from './WebMenuMusicPanel';
 type StartMenuBackgroundInspectorProps = {
- settings: WebExportSettings; language: Language; showDescriptions: boolean;
- surface?: 'start' | 'archive' | 'settings' | 'game';
- updateWebSettings: <K extends keyof WebExportSettings>(key: K, value: WebExportSettings[K]) => void;
- onCanvasSettingsChange?: (patch: Partial<SharedCanvasSettings>) => void;
- hideMusic?: boolean; onGradientEditingChange?: (surface: BackgroundSurface | null) => void;
+  settings: WebExportSettings;
+  language: Language;
+  showDescriptions: boolean;
+  surface?: 'start' | 'archive' | 'settings' | 'game';
+  updateWebSettings: <K extends keyof WebExportSettings>(
+    key: K,
+    value: WebExportSettings[K],
+  ) => void;
+  onCanvasSettingsChange?: (patch: Partial<SharedCanvasSettings>) => void;
+  hideMusic?: boolean;
+  onGradientEditingChange?: (surface: BackgroundSurface | null) => void;
 };
 type BackgroundType = WebExportSettings['startMenuBackgroundType'];
 type BackgroundSurface = NonNullable<StartMenuBackgroundInspectorProps['surface']>;
-export function StartMenuBackgroundInspector({settings, language, showDescriptions, surface = 'start', updateWebSettings, onCanvasSettingsChange, hideMusic, onGradientEditingChange}: StartMenuBackgroundInspectorProps) {
- return <div className="property-inspector space-y-1">
-  <CanvasSettingsSection language={language} value={normalizeSharedCanvasSettings(settings)} showDescriptions={showDescriptions} onChange={patch => {
-    if (onCanvasSettingsChange) onCanvasSettingsChange(patch);
-    else Object.entries(patch).forEach(([key,value]) => updateWebSettings(key as keyof WebExportSettings, value));
-  }}/>
-  <BackgroundFillInspector language={language} value={getSurfaceBackground(settings, surface)} onGradientEditingChange={editing => onGradientEditingChange?.(editing ? surface : null)} onChange={patch => {
-    Object.entries(patch).forEach(([key,value]) => updateBackgroundSetting(updateWebSettings, surface, key as Parameters<typeof updateBackgroundSetting>[2], value as Parameters<typeof updateBackgroundSetting>[3]));
-  }}/>
-  {!hideMusic && surface !== 'game' && <WebMenuMusicPanel language={language} settings={settings} surface={surface} updateWebSettings={updateWebSettings} showDescriptions={showDescriptions}/>}
- </div>;
+export function StartMenuBackgroundInspector({
+  settings,
+  language,
+  showDescriptions,
+  surface = 'start',
+  updateWebSettings,
+  onCanvasSettingsChange,
+  hideMusic,
+  onGradientEditingChange,
+}: StartMenuBackgroundInspectorProps) {
+  return (
+    <div className="property-inspector space-y-1">
+      <CanvasSettingsSection
+        language={language}
+        value={normalizeSharedCanvasSettings(settings)}
+        showDescriptions={showDescriptions}
+        onChange={(patch) => {
+          if (onCanvasSettingsChange) onCanvasSettingsChange(patch);
+          else
+            Object.entries(patch).forEach(([key, value]) =>
+              updateWebSettings(key as keyof WebExportSettings, value),
+            );
+        }}
+      />
+      <BackgroundFillInspector
+        language={language}
+        value={getSurfaceBackground(settings, surface)}
+        onGradientEditingChange={(editing) => onGradientEditingChange?.(editing ? surface : null)}
+        onChange={(patch) => {
+          Object.entries(patch).forEach(([key, value]) =>
+            updateBackgroundSetting(
+              updateWebSettings,
+              surface,
+              key as Parameters<typeof updateBackgroundSetting>[2],
+              value as Parameters<typeof updateBackgroundSetting>[3],
+            ),
+          );
+        }}
+      />
+      {!hideMusic && surface !== 'game' && (
+        <WebMenuMusicPanel
+          language={language}
+          settings={settings}
+          surface={surface}
+          updateWebSettings={updateWebSettings}
+          showDescriptions={showDescriptions}
+        />
+      )}
+    </div>
+  );
 }
 export function getSurfaceBackground(settings: WebExportSettings, surface: BackgroundSurface) {
   const prefix =

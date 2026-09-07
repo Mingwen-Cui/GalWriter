@@ -1,34 +1,34 @@
-import { useWorkspaceAppearance } from '../../shared/inspectors/useWorkspaceAppearance';
-import { normalizeSharedCanvasSettings, type SharedCanvasSettings } from '../../canvas/canvasSettings';
-import { migrateVideoCanvasSettings } from '../../canvas/canvasDimensions';
+import type { RenderStyle } from '../shared/types';
 import type { Node as FlowNode } from '@xyflow/react';
-import React, { Suspense, useMemo, useRef, useState } from 'react';
+import React,{ Suspense,useMemo,useRef,useState } from 'react';
 import { flushSync } from 'react-dom';
+import { canvasRatio,migrateVideoCanvasSettings } from '../../canvas/canvasDimensions';
+import { normalizeSharedCanvasSettings,type SharedCanvasSettings } from '../../canvas/canvasSettings';
+import { useWorkspaceAppearance } from '../../shared/inspectors/useWorkspaceAppearance';
 
 import { normalizeRenpyExportSettings } from '../../code/codeExport/model';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import type { RenpyExportSettings } from '../../code/codeExport/types';
-import { formatCodeText, getCodeText } from '../../code/i18n';
-import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegions';
-import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
+import { formatCodeText,getCodeText } from '../../code/i18n';
+import { getAssetRegionOptions,getStoryNodeRegion } from '../assets/assetRegions';
+import { makeTrackId,ResizeHandle } from '../controls/RenderControls';
 import {
-  chooseRenderOutputDir,
-  getDefaultRenderDir,
-  saveRenderedPptx,
+chooseRenderOutputDir,
+getDefaultRenderDir,
+saveRenderedPptx,
 } from '../export/tauriRenderAdapter';
 import { useWebExportSettings } from '../export/useWebExportSettings';
 import { DEFAULT_VIDEO_COVER } from '../export/videoCover';
-import { getVideoTextForChinesePreference } from '../i18n';
-import { formatVideoText } from '../i18n';
+import { formatVideoText,getVideoTextForChinesePreference } from '../i18n';
 import {
-  DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
-  type InteractivePreviewBounds,
-  isInteractivePreviewBounds,
+DEFAULT_INTERACTIVE_PREVIEW_BOUNDS,
+type InteractivePreviewBounds,
+isInteractivePreviewBounds,
 } from '../interactive/interactivePreviewWindow';
 import { InteractiveSegmentExportWorkspace } from '../interactive/InteractiveSegmentExportWorkspace';
 import {
-  buildInteractiveSegments,
-  type InteractiveSegmentDraft,
+buildInteractiveSegments,
+type InteractiveSegmentDraft,
 } from '../interactive/interactiveSegments';
 import { exportInteractiveSegmentZip } from '../interactive/interactiveSegmentZipExport';
 import { ExportDialog } from '../panels/ExportDialog';
@@ -43,71 +43,70 @@ import { VideoPreviewPanel } from '../panels/VideoPreviewPanel';
 import { VideoTimelinePanel } from '../panels/VideoTimelinePanel';
 import { RenderWorkspaceContentSkeleton } from '../RenderWorkspaceSkeleton';
 import {
-  ASSET_CARD_MAX_SCALE,
-  ASSET_CARD_MIN_SCALE,
-  FRAME_RATE_OPTIONS,
-  HEADER_HEIGHT,
-  MIN_MAIN_HEIGHT,
-  MIN_PREVIEW_WIDTH,
-  PANEL_SIZE_LIMITS,
-  RESOLUTION_OPTIONS,
-  TIMELINE_MAX_PIXELS_PER_SECOND,
-  TIMELINE_MIN_PIXELS_PER_SECOND,
-  TIMELINE_PIXELS_PER_SECOND,
+ASSET_CARD_MAX_SCALE,
+ASSET_CARD_MIN_SCALE,
+FRAME_RATE_OPTIONS,
+HEADER_HEIGHT,
+MIN_MAIN_HEIGHT,
+MIN_PREVIEW_WIDTH,
+PANEL_SIZE_LIMITS,
+RESOLUTION_OPTIONS,
+TIMELINE_MAX_PIXELS_PER_SECOND,
+TIMELINE_MIN_PIXELS_PER_SECOND,
+TIMELINE_PIXELS_PER_SECOND,
 } from '../shared/constants';
-import { clamp, isTauriRuntime } from '../shared/mediaUtils';
+import { clamp,isTauriRuntime } from '../shared/mediaUtils';
 import { getVideoRenderObjects } from '../shared/renderObjects';
-import { stripHtml } from '../shared/storyNodes';
-import { getNodeDisplayTitle, getOrderedStoryNodes } from '../shared/storyNodes';
+import { getNodeDisplayTitle,getOrderedStoryNodes,stripHtml } from '../shared/storyNodes';
 import type {
-  AssetCardLayout,
-  ExportFormat,
-  ExportSettingsMode,
-  PptExportSettings,
-  PptHistoryState,
-  RenderContextMenuState,
-  RenderContextMenuTarget,
-  RenderStatus,
-  RenderWorkspaceMode,
-  TimelineHistoryState,
-  TimelineScaleMode,
-  TimelineWheelMode,
-  VideoCoverSettings,
-  VideoRenderModalProps,
-  VideoTextScaleMode,
-  VideoWorkspaceMode,
+AssetCardLayout,
+ExportFormat,
+ExportSettingsMode,
+PptExportSettings,
+PptHistoryState,
+RenderContextMenuState,
+RenderContextMenuTarget,
+RenderStatus,
+RenderWorkspaceMode,
+TimelineHistoryState,
+TimelineScaleMode,
+TimelineWheelMode,
+VideoCoverSettings,
+VideoRenderModalProps,
+VideoTextScaleMode,
+VideoWorkspaceMode,
 } from '../shared/types';
 import {
-  captureTimelineHistoryState,
-  restoreTimelineHistoryState,
+captureTimelineHistoryState,
+restoreTimelineHistoryState,
 } from '../timeline/timelineHistory';
 import { getTimelineTickSettings } from '../timeline/timelineUtils';
 import { createContextMenuSectionBuilder } from './contextMenuSections';
 import {
-  LazyCodeWorkspace,
-  LazyPptWorkspace,
-  LazyWebWorkspace,
-  preloadRenderWorkspace,
+LazyCodeWorkspace,
+LazyPptWorkspace,
+LazyWebWorkspace,
+preloadRenderWorkspace,
 } from './lazyWorkspaces';
 import {
-  mediaIcon as getMediaIcon,
-  mediaKind as getMediaKind,
-  segmentDurationLabel as getSegmentDurationLabel,
-  segmentText as getSegmentText,
-  segmentTitle as getSegmentTitle,
+mediaIcon as getMediaIcon,
+mediaKind as getMediaKind,
+segmentDurationLabel as getSegmentDurationLabel,
+segmentText as getSegmentText,
+segmentTitle as getSegmentTitle,
 } from './segmentHelpers';
-import { getSpeechTagNames, getSpeechTextForNode as buildSpeechTextForNode } from './speechText';
+import { getSpeechTextForNode as buildSpeechTextForNode,getSpeechTagNames } from './speechText';
 import { calculateTimelineMetrics } from './timelineMetrics';
 import {
-  findNonOverlappingTrackStart as calculateNonOverlappingTrackStart,
-  hasTrackSpace,
-  snapTimelineTime as calculateSnappedTimelineTime,
-  snapToTimelineClipEdges as calculateTimelineClipEdgeSnap,
+findNonOverlappingTrackStart as calculateNonOverlappingTrackStart,
+snapTimelineTime as calculateSnappedTimelineTime,
+snapToTimelineClipEdges as calculateTimelineClipEdgeSnap,
+hasTrackSpace,
 } from './timelinePlacement';
 import {
-  calculateVideoTrackLayout,
-  isAudioOnlyNode,
-  isVisualTimelineNode,
+calculateVideoTrackLayout,
+isAudioOnlyNode,
+isVisualTimelineNode,
 } from './timelineTrackLayout';
 import { useAssetAudioTools } from './useAssetAudioTools';
 import { useAssetMenuActions } from './useAssetMenuActions';
@@ -120,18 +119,18 @@ import { useTimelineEditingActions } from './useTimelineEditingActions';
 import { useVideoExport } from './useVideoExport';
 import { useWebProjectExport } from './useWebProjectExport';
 import { useWorkspaceInteractions } from './useWorkspaceInteractions';
-import { type RenderNoticeModalState, VideoNoticeModal } from './VideoNoticeModal';
+import { type RenderNoticeModalState,VideoNoticeModal } from './VideoNoticeModal';
 import {
-  clampPersistedNumber,
-  isAssetCardLayout,
-  isExportFormat,
-  isExportSettingsMode,
-  isTimelineScaleMode,
-  isTimelineWheelMode,
-  isVideoTextScaleMode,
-  type PersistedRenderWorkspaceState,
-  readRenderWorkspaceState,
-  writeRenderWorkspaceState,
+clampPersistedNumber,
+isAssetCardLayout,
+isExportFormat,
+isExportSettingsMode,
+isTimelineScaleMode,
+isTimelineWheelMode,
+isVideoTextScaleMode,
+type PersistedRenderWorkspaceState,
+readRenderWorkspaceState,
+writeRenderWorkspaceState,
 } from './workspaceStorage';
 
 const WORKSPACE_MODE_ORDER: RenderWorkspaceMode[] = ['video', 'web', 'ppt', 'code'];
@@ -312,7 +311,11 @@ export function VideoRenderModal({
   );
   const [videoCanvasSettings, setVideoCanvasSettings] = useState(() => migrateVideoCanvasSettings(persistedWorkspace));
   const updateVideoCanvasSettings = (patch: Partial<SharedCanvasSettings>) => {
-    setVideoCanvasSettings(previous => normalizeSharedCanvasSettings({...previous, ...patch}));
+    setVideoCanvasSettings(previous => {
+      const next = normalizeSharedCanvasSettings({...previous, ...patch});
+      if ((patch.canvasWidth !== undefined || patch.canvasHeight !== undefined) && patch.canvasRatioWidth === undefined && patch.canvasRatioHeight === undefined) Object.assign(next, canvasRatio(next.canvasWidth, next.canvasHeight));
+      return next;
+    });
   };
   const resolutionWidth = videoCanvasSettings.canvasWidth;
   const resolutionHeight = videoCanvasSettings.canvasHeight;
@@ -2557,28 +2560,8 @@ export function VideoRenderModal({
                     exportPanelWidth={exportPanelCollapsed ? 0 : exportPanelWidth}
                     exportSettingsMode={exportSettingsMode}
                     setExportSettingsMode={setExportSettingsMode}
-                    status={status}
-                    exportFormat={exportFormat}
-                    setExportFormat={setExportFormat}
-                    resolutionIndex={resolutionIndex}
-                    setResolutionIndex={setResolutionIndex}
-                    resolutionWidth={resolutionWidth}
-                    setResolutionWidth={setResolutionWidth}
-                    resolutionHeight={resolutionHeight}
-                    setResolutionHeight={setResolutionHeight}
-                    frameRate={frameRate}
-                    setFrameRate={setFrameRate}
-                    outputDir={outputDir}
-                    setOutputDir={setOutputDir}
-                    outputDirError={outputDirError}
-                    setOutputDirError={setOutputDirError}
-                    chooseOutputDir={chooseOutputDir}
                     renderStyle={renderStyle}
                     updateRenderStyle={updateRenderStyle}
-                    videoTextScaleMode={videoTextScaleMode}
-                    setVideoTextScaleMode={setVideoTextScaleMode}
-                    speed={speed}
-                    setSpeed={setSpeed}
                     selectedSpeechNodeCount={selectedSpeechNodes.length}
                     selectedAudioClipCount={selectedAudioNodes.length}
                     selectedAudioVolume={selectedAudioVolume}
@@ -2596,10 +2579,6 @@ export function VideoRenderModal({
                     error={error}
                     progressValue={progressValue}
                     savedPath={savedPath}
-                    hideCharacterTags={hideCharacterTags}
-                    setHideCharacterTags={setHideCharacterTags}
-                    hideSceneTags={hideSceneTags}
-                    setHideSceneTags={setHideSceneTags}
                     canvasSettings={videoCanvasSettings}
                     onCanvasSettingsChange={updateVideoCanvasSettings}
                     showCanvasSettings={videoCanvasSelected}

@@ -1,16 +1,27 @@
-import { normalizeGradientStops, linearGradientFromStops } from '../web/webGradientStops';
-import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { CSSProperties } from 'react';
+import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
+import { linearGradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
 
 import type { SharedCanvasSettings } from './canvasSettings';
 
 export const getSceneBackgroundStyle = (settings: SharedCanvasSettings): CSSProperties => {
   if (!settings.sceneBackgroundVisible) return { background: 'transparent' };
   if (settings.sceneBackgroundType === 'image' && settings.sceneBackgroundImageUrl) {
-    return { background: `center / cover no-repeat url("${resolveKnownAppAssetUrl(settings.sceneBackgroundImageUrl).replace(/"/g, '\\"')}")` };
+    return {
+      background: `center / cover no-repeat url("${resolveKnownAppAssetUrl(settings.sceneBackgroundImageUrl).replace(/"/g, '\\"')}")`,
+    };
   }
   if (settings.sceneBackgroundType === 'gradient') {
-    return { background: linearGradientFromStops(settings.sceneBackgroundGradientAngle, normalizeGradientStops(settings.sceneBackgroundGradientStops, settings.sceneBackgroundGradientStart, settings.sceneBackgroundGradientEnd)) };
+    return {
+      background: linearGradientFromStops(
+        settings.sceneBackgroundGradientAngle,
+        normalizeGradientStops(
+          settings.sceneBackgroundGradientStops,
+          settings.sceneBackgroundGradientStart,
+          settings.sceneBackgroundGradientEnd,
+        ),
+      ),
+    };
   }
   return { background: settings.sceneBackgroundColor };
 };
