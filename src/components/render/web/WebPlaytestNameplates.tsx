@@ -1,4 +1,5 @@
 import type React from 'react';
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import {
   getNameplateCharacterCenterX,
@@ -93,6 +94,8 @@ export function WebPlaytestNameplates({
     maxWidth: 'none',
     overflow: isNameplateSelected ? 'visible' : 'hidden',
     textOverflow: 'ellipsis',
+    zIndex: nameplateObject.zIndex,
+    ...(nameplateObject.appearance ? { background: 'transparent', boxShadow: 'none' } : {}),
   };
   const editClass = isNameplateSelected ? 'ring-2 ring-indigo-500' : '';
   const selectNameplate = (event: React.MouseEvent) => {
@@ -243,7 +246,13 @@ export function WebPlaytestNameplates({
               onClick={selectNameplate}
               onPointerDown={startNameplateDrag}
             >
-              {item.name}
+              <SurfaceLayers
+                value={nameplateObject.appearance}
+                radius={
+                  nameplateObject.corners?.map((v) => `${v}px`).join(' ') || nameplateObject.radius
+                }
+              />
+              <span className="relative z-[1]">{item.name}</span>
               {renderSelectedFrame()}
             </div>
           ))}
@@ -267,7 +276,13 @@ export function WebPlaytestNameplates({
             onClick={selectNameplate}
             onPointerDown={startNameplateDrag}
           >
-            {item.name}
+            <SurfaceLayers
+              value={nameplateObject.appearance}
+              radius={
+                nameplateObject.corners?.map((v) => `${v}px`).join(' ') || nameplateObject.radius
+              }
+            />
+            <span className="relative z-[1]">{item.name}</span>
             {renderSelectedFrame()}
           </div>
         ))}
@@ -302,7 +317,13 @@ export function WebPlaytestNameplates({
               onClick={selectNameplate}
               onPointerDown={startNameplateDrag}
             >
-              {item.name}
+              <SurfaceLayers
+                value={nameplateObject.appearance}
+                radius={
+                  nameplateObject.corners?.map((v) => `${v}px`).join(' ') || nameplateObject.radius
+                }
+              />
+              <span className="relative z-[1]">{item.name}</span>
               {renderSelectedFrame()}
             </div>
           );
@@ -332,7 +353,13 @@ export function WebPlaytestNameplates({
             onClick={selectNameplate}
             onPointerDown={startNameplateDrag}
           >
-            {item.name}
+            <SurfaceLayers
+              value={nameplateObject.appearance}
+              radius={
+                nameplateObject.corners?.map((v) => `${v}px`).join(' ') || nameplateObject.radius
+              }
+            />
+            <span className="relative z-[1]">{item.name}</span>
             {renderSelectedFrame()}
           </div>
         );

@@ -1,9 +1,11 @@
-import { getVideoTextForChinesePreference } from '../i18n';
-import { htmlToSpeechText } from '../../../../lib/tts';
+import type { StoryPresentation } from '../../../../domain/project';
 import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
 import { normalizeStoryPresentation } from '../../../../lib/presentation';
-import type { StoryPresentation } from '../../../../domain/project';
+import { htmlToSpeechText } from '../../../../lib/tts';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { animatedTextState, objectAnimationState, revealCharacters } from '../canvas/textAnimation';
+import { getVideoTextForChinesePreference } from '../i18n';
+import { drawVideoTextLine } from '../shared/canvasTextEffects';
 import { drawDialogueBox, getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
 import {
   drawNameplates,
@@ -11,12 +13,10 @@ import {
   getNameplateReservedHeight,
 } from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
-import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import { getVideoRenderObjects } from '../shared/renderObjects';
+import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type { RenderStyle, VideoTextScaleMode } from '../shared/types';
-import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { getVideoTextRenderStyle } from '../shared/videoTextScale';
-import { drawVideoTextLine } from '../shared/canvasTextEffects';
 
 type DrawRenderFrameInput = {
   ctx: CanvasRenderingContext2D;
@@ -181,7 +181,7 @@ export const drawRenderFrame = async ({
     width,
     height,
     videoRenderStyle,
-    { topExtension: nameplateReservedHeight },
+    { topExtension: nameplateReservedHeight, elapsed },
     objectAnimationState(
       renderObjects.dialogBox.animation.animation,
       renderObjects.dialogBox.animation.durationMs,
@@ -229,7 +229,7 @@ export const drawRenderFrame = async ({
         fillColor: colorWithAlpha(videoRenderStyle.titleColor, videoRenderStyle.titleColorAlpha),
         letterSpacing: videoRenderStyle.titleLetterSpacing,
         object: titleObject,
-        appearanceText:true,
+        appearanceText: true,
       },
     );
     y += titleLineHeight;
@@ -255,7 +255,7 @@ export const drawRenderFrame = async ({
         fillColor: colorWithAlpha(videoRenderStyle.bodyColor, videoRenderStyle.bodyColorAlpha),
         letterSpacing: videoRenderStyle.bodyLetterSpacing,
         object: bodyObject,
-        appearanceText:true,
+        appearanceText: true,
       },
     );
     y += bodyLineHeight;

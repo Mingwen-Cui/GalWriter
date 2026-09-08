@@ -1,3 +1,4 @@
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import { themeRenderPatch } from '../experienceThemes';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
@@ -1453,7 +1454,9 @@ export function SlideCanvas({
   const canvasBackgroundColor =
     backgroundColor ||
     (selectedId === 'cover' ? webSettings.startMenuBackgroundColor : colors.background);
-  const backgroundPaint = pptBackgroundCss(backgroundStyle);
+  const backgroundPaint = backgroundStyle?.appearance
+    ? { background: 'transparent' }
+    : pptBackgroundCss(backgroundStyle);
   const shouldFitContent = layout === 'LAYOUT_STANDARD' && layoutContentMode === 'fit';
   return (
     <div
@@ -1473,7 +1476,10 @@ export function SlideCanvas({
         className="pointer-events-none absolute inset-0"
         style={{ backgroundColor: canvasBackgroundColor, ...backgroundPaint }}
       />
-      {backgroundStyle?.type === 'video' && backgroundStyle.videoUrl ? (
+      <SurfaceLayers value={backgroundStyle?.appearance} />
+      {!backgroundStyle?.appearance &&
+      backgroundStyle?.type === 'video' &&
+      backgroundStyle.videoUrl ? (
         <video
           className="pointer-events-none absolute inset-0 h-full w-full"
           src={backgroundStyle.videoUrl}

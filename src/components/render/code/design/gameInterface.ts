@@ -45,8 +45,8 @@ export const DEFAULT_GAME_INTERFACE: GameInterfaceSettings = {
 };
 export const GAME_INTERFACE_CAPABILITIES = {
   dialogic: { canvas: true, background: true, nameColor: true, accent: true, radius: true },
-  renpy: { canvas: true, background: true, nameColor: true, accent: true, radius: false },
-  tyrano: { canvas: false, background: false, nameColor: false, accent: false, radius: false },
+  renpy: { canvas: true, background: true, nameColor: true, accent: true, radius: true },
+  tyrano: { canvas: false, background: true, nameColor: false, accent: true, radius: true },
   'ir-json': { canvas: true, background: true, nameColor: true, accent: true, radius: true },
 } as const;
 export const GAME_TARGET_NAMES = {

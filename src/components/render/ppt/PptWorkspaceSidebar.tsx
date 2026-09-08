@@ -233,14 +233,13 @@ export function PptSidebar({
     { id: 'style', label: copy.design, icon: Settings2 },
   ] as const;
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) || tabs[0];
-  const showDescriptionToggle = activeTab === 'style';
+
   return (
     <aside className="flex w-[380px] shrink-0 flex-col border-l border-[var(--vr-border)] bg-[var(--vr-surface-strong)]">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--vr-border)] px-4 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
         <div className="flex min-w-0 items-center gap-2">
           <activeTabConfig.icon className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
           <span className="truncate">{activeTabConfig.label}</span>
-          
         </div>
         <div className="flex h-8 shrink-0 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
           {tabs.map((tab) => (

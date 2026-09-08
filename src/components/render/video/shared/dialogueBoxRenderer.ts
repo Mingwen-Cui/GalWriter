@@ -1,12 +1,13 @@
 import { drawAppearance } from '../../shared/paint/appearanceCanvas';
 import { loadCachedImage } from './mediaUtils';
+import { resolvePresentationDialogueLayout } from './presentationLayout';
 import { getRenderObjects } from './renderObjects';
 import type { RenderStyle } from './types';
-import { resolvePresentationDialogueLayout } from './presentationLayout';
 
 type DialogueBoxLayoutOptions = {
   contentHeight?: number;
   topExtension?: number;
+  elapsed?: number;
 };
 
 type ObjectAnimationState = { alpha: number; offsetY: number; reveal: number };
@@ -77,6 +78,7 @@ export const drawDialogueBox = async (
         height: layout.height,
       },
       dialogObject.corners || style.dialogRadius,
+      options.elapsed || 0,
     );
     ctx.restore();
     return layout;

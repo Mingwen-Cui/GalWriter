@@ -1,4 +1,5 @@
 import { drawAppearance } from '../../shared/paint/appearanceCanvas';
+import { appearanceStyle } from '../../shared/paint/appearanceStyle';
 import type { Node as FlowNode } from '@xyflow/react';
 import type { CSSProperties } from 'react';
 
@@ -77,6 +78,9 @@ const getGradientStops = (style: RenderStyle) =>
       ];
 
 export const getNameplateCssBackground = (style: RenderStyle): CSSProperties => {
+  const object = getRenderObjects(style).nameplate;
+  if (object.appearance) return appearanceStyle(object.appearance);
+
   if (style.nameplateBackgroundType === 'gradient') {
     const angle = Number.isFinite(style.nameplateGradientAngle) ? style.nameplateGradientAngle : 90;
     const stops = getGradientStops(style)
@@ -84,8 +88,6 @@ export const getNameplateCssBackground = (style: RenderStyle): CSSProperties => 
       .join(', ');
     return { backgroundImage: `linear-gradient(${angle}deg, ${stops})` };
   }
-  const object=getRenderObjects(style).nameplate;
-  if(object.appearance){await drawAppearance(ctx,object.appearance,layout,object.corners || object.radius);return;}
   if (style.nameplateBackgroundType === 'image' && style.nameplateImageUrl) {
     return {
       backgroundImage: `url("${style.nameplateImageUrl.replace(/"/g, '\\"')}")`,
@@ -202,6 +204,12 @@ const fillNameplateBackground = async (
   layout: NameplateLayout,
   style: RenderStyle,
 ) => {
+  const object = getRenderObjects(style).nameplate;
+  if (object.appearance) {
+    await drawAppearance(ctx, object.appearance, layout, object.corners || object.radius);
+    return;
+  }
+
   if (style.nameplateBackgroundType === 'image' && style.nameplateImageUrl) {
     try {
       const image = await loadCachedImage(style.nameplateImageUrl);

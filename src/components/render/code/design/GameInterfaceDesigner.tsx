@@ -61,6 +61,8 @@ export function GameInterfaceDesigner({
   const save = (next: GameInterfaceSettings) =>
     onChange({ ...settings, interfaceDesigns: { ...settings.interfaceDesigns, [target]: next } });
   const update = (patch: Partial<GameInterfaceSettings>) => {
+    if (patch.radius !== undefined && !patch.corners)
+      patch = { ...patch, corners: [patch.radius, patch.radius, patch.radius, patch.radius] };
     const next = normalizeGameInterface({ ...value, ...patch });
     if (JSON.stringify(next) === JSON.stringify(value)) return;
     setPast((history) => [...history.slice(-49), value]);
@@ -406,7 +408,7 @@ export function GameInterfaceDesigner({
               {t('圆角 · 四角设置', 'Corner radius')}
             </button>
             {cornersOpen && (
-              <FloatingPopover onClose={() => setCornersOpen(false)}>
+              <FloatingPopover popoverKey="corners" onClose={() => setCornersOpen(false)}>
                 <CornerEditor
                   language={language}
                   value={value.corners || [value.radius, value.radius, value.radius, value.radius]}

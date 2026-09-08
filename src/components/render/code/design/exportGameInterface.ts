@@ -164,6 +164,11 @@ export function applyGameInterface(
   return applyLegacyGameInterface(files, settings, target).map((file) => {
     let content = file.content;
     if (target === 'dialogic' && file.path === 'game/GalWriter.gd') {
+      if (d.templateId)
+        content = content.replaceAll(
+          '_panel(Color("18243a"))',
+          `_panel(Color("${toHex8(d.panelColor, d.panelAlpha)}"))`,
+        );
       if (d.panelAppearance)
         content = content.replace(
           `_panel(Color("${toHex8(d.panelColor, d.panelAlpha)}"))`,
@@ -194,6 +199,9 @@ export function applyGameInterface(
     }
     if (target === 'renpy') {
       if (file.path === 'game/galwriter_interface.rpy') {
+        if (d.templateId)
+          content += `\n# Shared template palette for main menu, preferences and save/load screens.\ndefine gui.accent_color = "${d.accentColor}"\ndefine gui.text_color = "${d.textColor}"\ndefine gui.interface_text_color = "${d.textColor}"\ndefine gui.idle_color = "${d.textColor}"\ndefine gui.hover_color = "${d.nameColor}"\n${d.canvasAppearance ? 'define gui.main_menu_background = "galwriter-ui/canvas.png"\ndefine gui.game_menu_background = "galwriter-ui/canvas.png"\n' : ''}`;
+
         if (d.panelAppearance)
           content = content.replace(
             `background Solid("${toHex8(d.panelColor, d.panelAlpha)}")`,
@@ -226,6 +234,13 @@ export function applyGameInterface(
         );
     }
     if (target === 'tyrano' && file.path === 'data/scenario/first.ks') {
+      if (d.canvasAppearance)
+        content = '[bg storage="galwriter-ui/canvas.png" time="0"]\n' + content;
+      if (d.choiceAppearance)
+        content =
+          '[iscript]\nvar gwSkin = document.createElement("style");\ngwSkin.textContent = ".glink_button { background-image: url(./data/image/galwriter-ui/choices.png) !important; background-size: 100% 100% !important; background-color: transparent !important; border: 0 !important; }";\ndocument.head.appendChild(gwSkin);\n[endscript]\n' +
+          content;
+
       if (d.panelAppearance)
         content = content.replace(
           '[position layer="message0"',

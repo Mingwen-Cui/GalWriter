@@ -1,9 +1,10 @@
-import type { BackgroundPaint } from './BackgroundFillInspector';
 import type { RenderEditableObject, WebMenuElement } from '../../video/shared/types';
+import type { BackgroundPaint } from './BackgroundFillInspector';
 import { toHex8 } from './colorValue';
 
 export type PaintLayer = BackgroundPaint & { id: string; enabled: boolean; opacity: number };
 export type OutlineLayer = {
+  paint?: PaintLayer;
   id: string;
   enabled: boolean;
   color: string;
@@ -67,13 +68,18 @@ export function webAppearance(e: WebMenuElement): SurfaceAppearance {
         id: 'legacy-fill',
         enabled: e.fillEnabled !== false,
         type: e.backgroundType || 'solid',
-        color: e.backgroundColor || '#11182700',
+        color: e.backgroundColor || (e.primary ? '#4f46e5' : '#11182700'),
         gradientStart: e.backgroundGradientStart || '#6366f1',
         gradientEnd: e.backgroundGradientEnd || '#ec4899',
         gradientAngle: e.backgroundGradientAngle ?? 135,
         gradientShape: e.backgroundGradientShape,
         gradientStops: e.backgroundGradientStops,
         imageUrl: e.backgroundImageUrl || '',
+        imageFit: e.backgroundImageFit,
+        imageAngle: e.backgroundImageRotation,
+        imageScale: e.backgroundImageScale,
+        imageOffsetX: e.backgroundImageOffsetX,
+        imageOffsetY: e.backgroundImageOffsetY,
         opacity: e.backgroundType === 'image' ? (e.backgroundImageAlpha ?? 100) : 100,
       },
     ],
@@ -86,6 +92,18 @@ export function webAppearance(e: WebMenuElement): SurfaceAppearance {
               color: e.borderColor || '#ffffff',
               width: e.borderWidth || 1,
               position: e.borderPosition || 'center',
+              paint:
+                e.borderType === 'gradient'
+                  ? {
+                      ...newPaint(),
+                      id: 'legacy-stroke-paint',
+                      type: 'gradient',
+                      gradientStart: e.borderGradientStart || e.borderColor || '#ffffff',
+                      gradientEnd: e.borderGradientEnd || '#4f46e5',
+                      gradientAngle: e.borderGradientAngle ?? 135,
+                      gradientStops: e.borderGradientStops,
+                    }
+                  : undefined,
             },
           ]
         : [],
@@ -101,6 +119,7 @@ export function webAppearance(e: WebMenuElement): SurfaceAppearance {
               offsetY: e.shadowOffsetY || 0,
               blur: e.shadowBlur || 0,
               type: e.shadowType,
+              enabled: true,
             },
           ]
         : [])
@@ -129,9 +148,14 @@ export function objectAppearance(e: RenderEditableObject): SurfaceAppearance {
         gradientStart: e.fill.gradientStops[0]?.color || '#6366f1',
         gradientEnd: e.fill.gradientStops.at(-1)?.color || '#ec4899',
         gradientAngle: e.fill.gradientAngle,
-        gradientShape: e.fill.gradientType === 'angular' ? 'linear' : e.fill.gradientType,
+        gradientShape: e.fill.gradientType === 'angular' ? 'diamond' : e.fill.gradientType,
         gradientStops: e.fill.gradientStops,
         imageUrl: e.fill.imageUrl,
+        imageFit: e.fill.imageFit,
+        imageAngle: e.fill.imageAngle,
+        imageScale: e.fill.imageScale,
+        imageOffsetX: e.fill.imageOffsetX,
+        imageOffsetY: e.fill.imageOffsetY,
         opacity: e.fill.type === 'image' ? e.fill.imageAlpha : 100,
       },
     ],
@@ -143,6 +167,17 @@ export function objectAppearance(e: RenderEditableObject): SurfaceAppearance {
             color: toHex8(e.stroke.color, e.stroke.alpha),
             width: e.stroke.width,
             position: e.stroke.position,
+            paint:
+              e.stroke.type !== 'solid'
+                ? {
+                    ...newPaint(),
+                    id: 'legacy-stroke-paint',
+                    type: e.stroke.type,
+                    gradientAngle: e.stroke.gradientAngle,
+                    gradientStops: e.stroke.gradientStops,
+                    imageUrl: e.stroke.imageUrl,
+                  }
+                : undefined,
           },
         ]
       : [],

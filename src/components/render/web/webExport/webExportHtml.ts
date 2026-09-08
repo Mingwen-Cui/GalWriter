@@ -1046,6 +1046,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       writeSave();
       restartPlaybackSession();
       gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
+      gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
       const nodeVideo = document.getElementById("nodeVideo");
@@ -1374,6 +1375,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
 
     function togglePlaylistAudio(item) {
       gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
+      gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
       if (nodeAudio) nodeAudio.pause();
@@ -2010,6 +2012,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         }
       }, 50);
       gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
+      gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
       if (nodeAudio) {

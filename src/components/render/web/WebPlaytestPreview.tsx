@@ -1,8 +1,8 @@
-import { appearanceStyle } from '../shared/paint/appearanceStyle';
-import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { Eye, EyeOff, House, ListMusic, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
+import { appearanceStyle } from '../shared/paint/appearanceStyle';
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import type {
   CharacterNodeData,
@@ -1602,7 +1602,9 @@ export function WebPlaytestPreview({
     surface: 'start' | 'archive' | 'settings' | 'game',
   ): React.CSSProperties | undefined => {
     if (settings.surfaceAppearances?.[surface])
-      return appearanceStyle(settings.surfaceAppearances[surface]!);
+      return surface === 'start' || surface === 'game'
+        ? { background: 'transparent' }
+        : appearanceStyle(settings.surfaceAppearances[surface]!);
     const background = getSurfaceBackground(settings, surface);
     return background.type === 'video' && !background.videoUrl
       ? { backgroundColor: '#000000' }
@@ -2203,6 +2205,7 @@ export function WebPlaytestPreview({
         }
       }}
     >
+      <SurfaceLayers value={settings.surfaceAppearances?.game} />
       <style>
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}

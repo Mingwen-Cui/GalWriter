@@ -33,6 +33,8 @@ export async function packageGameInterface(
       false,
     );
     zip.file(`${root}/${name}.png`, image.data.split(',')[1], { base64: true });
+    if (target === 'tyrano' && name === 'canvas')
+      zip.file('data/bgimage/galwriter-ui/canvas.png', image.data.split(',')[1], { base64: true });
   }
   zip.file(
     'GAME_INTERFACE.md',

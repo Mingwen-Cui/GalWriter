@@ -1,12 +1,12 @@
 import { ArrowDown, ArrowUp, Layers, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
-import { BackgroundFillInspector } from '../paint/BackgroundFillInspector';
-import { newOutline, newPaint, newShadow, type SurfaceAppearance } from '../paint/appearance';
-import { InlineColorControl } from '../paint/InlinePaintControls';
-import { parseColorValue, toHex8 } from '../paint/colorValue';
-import { SolidColorPopover } from '../paint/ColorPopovers';
 import { renderObjectText } from '../../video/objectInspector/i18n';
+import { BackgroundFillInspector } from '../paint/BackgroundFillInspector';
+import { SolidColorPopover } from '../paint/ColorPopovers';
+import { InlineColorControl } from '../paint/InlinePaintControls';
+import { newOutline, newPaint, newShadow, type SurfaceAppearance } from '../paint/appearance';
+import { parseColorValue, toHex8 } from '../paint/colorValue';
 import { FloatingPopover, InspectorGroup, NumberField } from './InspectorControls';
 
 export function AppearanceStackInspector({
@@ -168,13 +168,18 @@ export function AppearanceStackInspector({
         </InspectorGroup>
       ))}
       {editing && selected && (
-        <FloatingPopover onClose={close} closeLabel={t('关闭', 'Close')}>
+        <FloatingPopover
+          popoverKey={editing.group === 'fills' && 'type' in selected ? selected.type : 'style'}
+          onClose={close}
+          closeLabel={t('关闭', 'Close')}
+        >
           <div className="property-editor-popover">
             <div className="property-popover-heading">{names[editing.group]}</div>
             {editing.group === 'fills' && 'type' in selected && (
               <>
                 <BackgroundFillInspector
                   language={language}
+                  inlineEditor
                   value={selected}
                   onChange={(patch) => update('fills', selected.id, patch)}
                 />
@@ -189,7 +194,21 @@ export function AppearanceStackInspector({
             )}
             {editing.group === 'strokes' && 'width' in selected && (
               <div className="space-y-3">
-                {color(selected.color, (c) => update('strokes', selected.id, { color: c }))}
+                <BackgroundFillInspector
+                  language={language}
+                  inlineEditor
+                  allowedTypes={['solid', 'gradient', 'image']}
+                  value={selected.paint || { ...newPaint(), color: selected.color }}
+                  onChange={(patch) =>
+                    update('strokes', selected.id, {
+                      paint: {
+                        ...(selected.paint || { ...newPaint(), color: selected.color }),
+                        ...patch,
+                      },
+                      ...(patch.color ? { color: patch.color } : {}),
+                    })
+                  }
+                />
                 <NumberField
                   label={t('宽度 · px', 'Width · px')}
                   value={selected.width}

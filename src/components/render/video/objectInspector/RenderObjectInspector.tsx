@@ -267,7 +267,7 @@ export function RenderObjectInspector({
         {language === 'zh' ? '圆角 · 四角设置' : 'Corner radius'}
       </button>
       {cornersOpen && (
-        <FloatingPopover onClose={() => setCornersOpen(false)}>
+        <FloatingPopover popoverKey="corners" onClose={() => setCornersOpen(false)}>
           <CornerEditor
             language={language}
             value={
@@ -299,7 +299,9 @@ export function RenderObjectInspector({
               value={selected.radius}
               min={0}
               max={200}
-              onChange={(value) => setObject({ radius: value })}
+              onChange={(value) =>
+                setObject({ radius: value, corners: [value, value, value, value] })
+              }
             />
           }
         >
@@ -476,8 +478,6 @@ export function RenderObjectInspector({
           onChange={(appearance) => setObject({ appearance })}
         />
       )}
-
-
 
       {showsGroup('animation') && (selectedKind === 'title' || selectedKind === 'body') && (
         <div

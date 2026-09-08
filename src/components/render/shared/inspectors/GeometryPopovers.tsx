@@ -42,7 +42,7 @@ export function LayerOrderMenu({
         <span className="ml-auto">{items.length}</span>
       </button>
       {open && (
-        <FloatingPopover onClose={() => setOpen(false)}>
+        <FloatingPopover popoverKey="layers" onClose={() => setOpen(false)}>
           <div className="property-editor-popover">
             <div className="property-popover-heading">{t('图层顺序', 'Layer order')}</div>
             <p className="mb-3 text-xs opacity-50">

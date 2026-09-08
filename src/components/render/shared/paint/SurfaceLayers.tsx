@@ -1,6 +1,6 @@
+import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
 import type { SurfaceAppearance } from './appearance';
 import { paintLayerBackground } from './appearanceStyle';
-import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
 
 /** Absolute visual layers; the host owns positioning and content. No project state here. */
 export function SurfaceLayers({
@@ -65,8 +65,15 @@ export function SurfaceLayers({
                   position: 'absolute',
                   inset: 0,
                   background: paintLayerBackground(f),
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
+                  backgroundSize:
+                    f.imageFit === 'fit'
+                      ? 'contain'
+                      : f.imageFit === 'crop'
+                        ? `${f.imageScale ?? 100}%`
+                        : 'cover',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: `calc(50% + ${f.imageOffsetX ?? 0}px) calc(50% + ${f.imageOffsetY ?? 0}px)`,
+                  transform: f.type === 'image' ? `rotate(${f.imageAngle || 0}deg)` : undefined,
                   opacity: f.opacity / 100,
                 }}
               />
@@ -84,7 +91,15 @@ export function SurfaceLayers({
               inset:
                 s.position === 'outside' ? -s.width : s.position === 'center' ? -s.width / 2 : 0,
               borderRadius: radius,
-              border: `${s.width}px solid ${s.color}`,
+              border: s.paint ? undefined : `${s.width}px solid ${s.color}`,
+              ...(s.paint
+                ? {
+                    padding: s.width,
+                    background: paintLayerBackground(s.paint),
+                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    maskComposite: 'exclude',
+                  }
+                : {}),
               boxSizing: 'border-box',
             }}
           />

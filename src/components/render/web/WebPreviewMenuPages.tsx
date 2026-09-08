@@ -1,7 +1,7 @@
-import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
-import type { CSSProperties } from 'react';
 import type React from 'react';
+import type { CSSProperties } from 'react';
 import { useRef, useState } from 'react';
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
@@ -459,7 +459,11 @@ export function WebPreviewMenuPages({
         <div
           ref={archiveRootRef}
           className={`absolute inset-0 z-50 text-white ${backgroundClass}`}
-          style={archiveBackgroundStyle}
+          style={
+            settings.surfaceAppearances?.archive
+              ? { background: 'transparent' }
+              : archiveBackgroundStyle
+          }
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}
@@ -534,7 +538,11 @@ export function WebPreviewMenuPages({
         <div
           ref={settingsRootRef}
           className={`absolute inset-0 z-50 text-white ${backgroundClass}`}
-          style={settingsBackgroundStyle}
+          style={
+            settings.surfaceAppearances?.settings
+              ? { background: 'transparent' }
+              : settingsBackgroundStyle
+          }
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}

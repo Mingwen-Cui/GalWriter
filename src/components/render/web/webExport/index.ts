@@ -1,6 +1,6 @@
-import type { SurfaceAppearance } from '../../shared/paint/appearance';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
+import type { SurfaceAppearance } from '../../shared/paint/appearance';
 
 import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
 import { resolveCharacterImageUrl } from '../../../../lib/inlineAssetSwitch';
@@ -422,6 +422,22 @@ export async function buildInteractiveWebZipBlob(
     appearance
       ? {
           ...appearance,
+          strokes: await Promise.all(
+            appearance.strokes.map(async (stroke, i) => ({
+              ...stroke,
+              paint: stroke.paint
+                ? {
+                    ...stroke.paint,
+                    imageUrl: await addImageAsset(
+                      zip,
+                      stroke.paint.imageUrl,
+                      `${label}-stroke-${i}`,
+                      assetMap,
+                    ),
+                  }
+                : undefined,
+            })),
+          ),
           fills: await Promise.all(
             appearance.fills.map(async (fill, i) => ({
               ...fill,

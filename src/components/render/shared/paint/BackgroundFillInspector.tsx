@@ -4,13 +4,13 @@ import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
 import type { Language } from '../../../../lib/i18n';
 import { renderObjectText } from '../../video/objectInspector/i18n';
 import type { RenderColorStop } from '../../video/shared/types';
-import { normalizeGradientStops } from './gradient';
 import { FloatingPopover, InspectorGroup } from '../inspectors/InspectorControls';
-import { SolidColorPopover } from './ColorPopovers';
+import { ImageFillPopover, SolidColorPopover } from './ColorPopovers';
 import { GradientEditorPopover, type GradientShape } from './GradientEditorPopover';
 import { InlineColorControl, InlineGradientControl } from './InlinePaintControls';
 import { VideoBackgroundPopover } from './VideoBackgroundPopover';
 import { parseColorValue, toHex8 } from './colorValue';
+import { normalizeGradientStops } from './gradient';
 
 export type BackgroundPaint = {
   type: 'solid' | 'gradient' | 'image' | 'video';
@@ -21,6 +21,12 @@ export type BackgroundPaint = {
   gradientShape?: GradientShape;
   gradientStops?: RenderColorStop[];
   imageUrl: string;
+  imageFit?: 'fit' | 'max' | 'crop';
+  imageScale?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
+  imageAngle?: number;
+  imageAlpha?: number;
   videoUrl?: string;
   videoLoop?: boolean;
   videoMuted?: boolean;
@@ -30,6 +36,7 @@ export type BackgroundPaint = {
 /** A controlled editor. Web and PPT adapters own field names and persistence. */
 export function BackgroundFillInspector({
   language,
+  inlineEditor = false,
   value,
   onChange,
   onGradientEditingChange,
@@ -39,6 +46,7 @@ export function BackgroundFillInspector({
   onEnabledChange,
 }: {
   language: Language;
+  inlineEditor?: boolean;
   value: BackgroundPaint;
   onChange: (patch: Partial<BackgroundPaint>) => void;
   gradientShapes?: boolean;
@@ -61,6 +69,74 @@ export function BackgroundFillInspector({
   const parsed = parseColorValue(value.color);
   const stops = normalizeGradientStops(value.gradientStops, value.gradientStart, value.gradientEnd);
   const changeColor = (color: string, alpha: number) => onChange({ color: toHex8(color, alpha) });
+  if (inlineEditor)
+    return (
+      <div className="space-y-3">
+        <div className="paint-mode-tabs" role="group" aria-label={text.group.fill}>
+          {allowedTypes.map((type) => (
+            <button
+              type="button"
+              key={type}
+              aria-pressed={value.type === type}
+              onClick={() => onChange({ type })}
+            >
+              {labels[type]}
+            </button>
+          ))}
+        </div>
+        {value.type === 'solid' && (
+          <SolidColorPopover
+            tone="fill"
+            text={text.popover}
+            color={parsed.hex}
+            alpha={parsed.alpha}
+            onColorChange={(color) => changeColor(color, parsed.alpha)}
+            onAlphaChange={(alpha) => changeColor(parsed.hex, alpha)}
+            onColorAndAlphaChange={({ color, alpha }) => changeColor(color, alpha)}
+          />
+        )}
+        {value.type === 'gradient' && (
+          <GradientEditorPopover
+            language={language}
+            angle={value.gradientAngle}
+            shape={value.gradientShape}
+            stops={stops}
+            onAngleChange={(gradientAngle) => onChange({ gradientAngle })}
+            onShapeChange={
+              gradientShapes ? (gradientShape) => onChange({ gradientShape }) : undefined
+            }
+            onStopsChange={(gradientStops) => onChange({ gradientStops })}
+          />
+        )}
+        {value.type === 'image' && (
+          <ImageFillPopover
+            supportsOpacity={false}
+            tone="fill"
+            text={text.popover}
+            value={{
+              imageUrl: value.imageUrl,
+              imageFit: value.imageFit || 'max',
+              imageAngle: value.imageAngle || 0,
+              imageAlpha: value.imageAlpha ?? 100,
+              imageScale: value.imageScale ?? 100,
+              imageOffsetX: value.imageOffsetX ?? 0,
+              imageOffsetY: value.imageOffsetY ?? 0,
+            }}
+            onChange={onChange}
+          />
+        )}
+        {value.type === 'video' && (
+          <VideoBackgroundPopover
+            language={language}
+            videoUrl={value.videoUrl || ''}
+            loop={value.videoLoop !== false}
+            muted={value.videoMuted !== false}
+            fit={value.videoFit || 'crop'}
+            onChange={onChange}
+          />
+        )}
+      </div>
+    );
   return (
     <InspectorGroup
       title={text.group.fill}

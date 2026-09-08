@@ -514,7 +514,7 @@ export function FloatingPopover({
 }: {
   children: React.ReactNode;
   className?: string;
-  popoverKey?: 'solid' | 'gradient' | 'image' | 'style';
+  popoverKey?: 'solid' | 'gradient' | 'image' | 'video' | 'layers' | 'corners' | 'style';
   onClose?: () => void;
   closeLabel?: string;
 }) {
@@ -583,10 +583,12 @@ export function FloatingPopover({
             ref={panelRef}
             className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : popoverKey === 'gradient' ? 'w-[min(392px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`}
             style={position}
+            role="dialog"
+            aria-label={popoverKey}
             data-web-style-popover
           >
             <div
-              className="relative flex h-7 cursor-grab touch-none items-center justify-center rounded-t-[22px] border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
+              className="relative flex h-7 cursor-grab touch-none items-center justify-center rounded-t-xl border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
               title="Drag"
               onPointerDown={(event) => {
                 if (event.button !== 0) return;

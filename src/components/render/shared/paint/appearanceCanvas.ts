@@ -1,8 +1,8 @@
-import type { SurfaceAppearance, PaintLayer } from './appearance';
-import { normalizeGradientStops } from './gradient';
-import { toHex8 } from './colorValue';
-import { loadCachedImage } from '../../video/shared/mediaUtils';
 import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
+import { loadCachedImage } from '../../video/shared/mediaUtils';
+import type { PaintLayer, SurfaceAppearance } from './appearance';
+import { toHex8 } from './colorValue';
+import { normalizeGradientStops } from './gradient';
 
 const videos = new Map<string, HTMLVideoElement>();
 async function videoFrame(url: string, time: number) {
@@ -125,16 +125,15 @@ export async function drawAppearance(
         const sh = source instanceof HTMLVideoElement ? source.videoHeight : source.naturalHeight;
         if (sw && sh) {
           const scale =
-            f.type === 'video' && f.videoFit === 'fit'
+            (f.type === 'video' && f.videoFit === 'fit') ||
+            (f.type === 'image' && f.imageFit === 'fit')
               ? Math.min(w / sw, h / sh)
-              : Math.max(w / sw, h / sh);
-          ctx.drawImage(
-            source,
-            x + (w - sw * scale) / 2,
-            y + (h - sh * scale) / 2,
-            sw * scale,
-            sh * scale,
-          );
+              : f.type === 'image' && f.imageFit === 'crop'
+                ? ((w / sw) * (f.imageScale ?? 100)) / 100
+                : Math.max(w / sw, h / sh);
+          ctx.translate(x + w / 2 + (f.imageOffsetX || 0), y + h / 2 + (f.imageOffsetY || 0));
+          if (f.type === 'image') ctx.rotate(((f.imageAngle || 0) * Math.PI) / 180);
+          ctx.drawImage(source, (-sw * scale) / 2, (-sh * scale) / 2, sw * scale, sh * scale);
         }
       }
     } else {
@@ -160,7 +159,11 @@ export async function drawAppearance(
   for (const s of [...value.strokes].reverse().filter((s) => s.enabled && s.width > 0)) {
     ctx.save();
     ctx.lineWidth = s.width;
-    ctx.strokeStyle = s.color;
+    ctx.strokeStyle = s.paint?.type === 'gradient' ? gradient(ctx, s.paint, x, y, w, h) : s.color;
+    if (s.paint?.type === 'image' && s.paint.imageUrl) {
+      const image = await loadCachedImage(resolveKnownAppAssetUrl(s.paint.imageUrl));
+      ctx.strokeStyle = ctx.createPattern(image, 'repeat') || s.color;
+    }
     path(s.position === 'inside' ? -s.width / 2 : s.position === 'outside' ? s.width / 2 : 0);
     ctx.stroke();
     ctx.restore();

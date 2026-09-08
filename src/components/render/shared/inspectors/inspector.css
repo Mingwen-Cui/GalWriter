@@ -253,3 +253,45 @@
   border: 0;
   box-shadow: none;
 }
+.paint-mode-tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--vr-surface-soft, #f1f5f9);
+}
+.paint-mode-tabs button {
+  padding: 6px 3px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--vr-text-muted, #64748b);
+}
+.paint-mode-tabs button[aria-pressed='true'] {
+  background: var(--vr-surface, #fff);
+  color: var(--vr-text, #0f172a);
+  box-shadow: 0 1px 4px #0002;
+}
+.property-editor-popover .property-paint-popover {
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: none;
+}
+.property-editor-popover:has(.gradient-stop-color-input) {
+  width: 360px;
+}
+.property-editor-popover input:focus-visible,
+.effect-row button:focus-visible {
+  outline: 2px solid var(--vr-accent, #4f46e5);
+  outline-offset: 2px;
+}
+
+.property-editor-popover {
+  width: 100%;
+  min-width: 280px;
+}
+.property-editor-popover:has(.gradient-stop-color-input) {
+  width: 100%;
+}
