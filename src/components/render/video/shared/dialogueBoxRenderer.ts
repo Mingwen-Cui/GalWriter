@@ -1,3 +1,4 @@
+import { drawAppearance } from '../../shared/paint/appearanceCanvas';
 import { loadCachedImage } from './mediaUtils';
 import { getRenderObjects } from './renderObjects';
 import type { RenderStyle } from './types';
@@ -63,6 +64,23 @@ export const drawDialogueBox = async (
   const layout = getDialogueBoxLayout(width, height, style, options);
   if (!style.dialogVisible || animation.reveal <= 0) return layout;
   const dialogObject = getRenderObjects(style).dialogBox;
+  if (dialogObject.appearance) {
+    ctx.save();
+    ctx.globalAlpha *= animation.alpha;
+    await drawAppearance(
+      ctx,
+      dialogObject.appearance,
+      {
+        x: layout.x,
+        y: layout.y + animation.offsetY,
+        width: layout.width * animation.reveal,
+        height: layout.height,
+      },
+      dialogObject.corners || style.dialogRadius,
+    );
+    ctx.restore();
+    return layout;
+  }
   const shadowLayers = dialogObject.shadows?.length ? dialogObject.shadows : [dialogObject.shadow];
 
   // Paint outer shadows before clipping the box fill. Each layer is independent so
@@ -70,7 +88,14 @@ export const drawDialogueBox = async (
   for (const shadow of shadowLayers) {
     if (!shadow.enabled || shadow.type !== 'outer' || shadow.alpha <= 0) continue;
     ctx.save();
-    roundedRect(ctx, layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height, style.dialogRadius);
+    roundedRect(
+      ctx,
+      layout.x,
+      layout.y + animation.offsetY,
+      layout.width * animation.reveal,
+      layout.height,
+      style.dialogRadius,
+    );
     ctx.shadowColor = colorWithAlpha(shadow.color, shadow.alpha);
     ctx.shadowBlur = shadow.blur;
     ctx.shadowOffsetX = shadow.x;
@@ -84,7 +109,14 @@ export const drawDialogueBox = async (
 
   ctx.save();
   ctx.globalAlpha = animation.alpha;
-  roundedRect(ctx, layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height, style.dialogRadius);
+  roundedRect(
+    ctx,
+    layout.x,
+    layout.y + animation.offsetY,
+    layout.width * animation.reveal,
+    layout.height,
+    style.dialogRadius,
+  );
   ctx.clip();
 
   if (style.dialogBackgroundType === 'image' && style.dialogImageUrl) {
@@ -106,11 +138,16 @@ export const drawDialogueBox = async (
       ctx.fillStyle = style.panelColor;
       const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
       ctx.globalAlpha = (alpha / 100) * animation.alpha;
-      ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
+      ctx.fillRect(
+        layout.x,
+        layout.y + animation.offsetY,
+        layout.width * animation.reveal,
+        layout.height,
+      );
     }
   } else if (style.dialogBackgroundType === 'gradient') {
     // NOTE: dialogGradientAngle 可能为 undefined（旧存档数据），需要 fallback 为 90 防止产生 NaN
-    const safeAngle = (Number.isFinite(style.dialogGradientAngle) ? style.dialogGradientAngle : 90);
+    const safeAngle = Number.isFinite(style.dialogGradientAngle) ? style.dialogGradientAngle : 90;
     const angle = ((safeAngle - 90) * Math.PI) / 180;
     // NOTE: 当 width/height 为 0 时 length 会为 0，createLinearGradient 起终点相同会抛出异常，故至少保证 length >= 1
     const length = Math.max(1, Math.hypot(layout.width, layout.height) / 2);
@@ -123,11 +160,21 @@ export const drawDialogueBox = async (
     const x1 = centerX + dx;
     const y1 = centerY + dy;
     // NOTE: 最终防线——若任何坐标仍非有限数（如极端浮点溢出），回退为单色填充
-    if (!Number.isFinite(x0) || !Number.isFinite(y0) || !Number.isFinite(x1) || !Number.isFinite(y1)) {
+    if (
+      !Number.isFinite(x0) ||
+      !Number.isFinite(y0) ||
+      !Number.isFinite(x1) ||
+      !Number.isFinite(y1)
+    ) {
       ctx.fillStyle = style.panelColor;
       const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
       ctx.globalAlpha = (alpha / 100) * animation.alpha;
-      ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
+      ctx.fillRect(
+        layout.x,
+        layout.y + animation.offsetY,
+        layout.width * animation.reveal,
+        layout.height,
+      );
       ctx.restore();
       return layout;
     }
@@ -139,12 +186,22 @@ export const drawDialogueBox = async (
       );
     });
     ctx.fillStyle = gradient;
-    ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
+    ctx.fillRect(
+      layout.x,
+      layout.y + animation.offsetY,
+      layout.width * animation.reveal,
+      layout.height,
+    );
   } else {
     ctx.fillStyle = style.panelColor;
     const alpha = style.panelColorAlpha !== undefined ? style.panelColorAlpha : 82;
     ctx.globalAlpha = (alpha / 100) * animation.alpha;
-    ctx.fillRect(layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height);
+    ctx.fillRect(
+      layout.x,
+      layout.y + animation.offsetY,
+      layout.width * animation.reveal,
+      layout.height,
+    );
   }
 
   ctx.restore();
@@ -152,14 +209,22 @@ export const drawDialogueBox = async (
   if (dialogObject.stroke.enabled && dialogObject.stroke.width > 0) {
     ctx.save();
     ctx.globalAlpha = animation.alpha;
-    roundedRect(ctx, layout.x, layout.y + animation.offsetY, layout.width * animation.reveal, layout.height, style.dialogRadius);
+    roundedRect(
+      ctx,
+      layout.x,
+      layout.y + animation.offsetY,
+      layout.width * animation.reveal,
+      layout.height,
+      style.dialogRadius,
+    );
     ctx.lineJoin = dialogObject.stroke.lineJoin;
     ctx.lineCap = dialogObject.stroke.lineCap;
     // Filling the background after an extra-wide stroke leaves the requested
     // outside outline visible without changing dialogue geometry.
-    ctx.lineWidth = dialogObject.stroke.position === 'outside'
-      ? dialogObject.stroke.width * 2
-      : dialogObject.stroke.width;
+    ctx.lineWidth =
+      dialogObject.stroke.position === 'outside'
+        ? dialogObject.stroke.width * 2
+        : dialogObject.stroke.width;
     ctx.strokeStyle = colorWithAlpha(dialogObject.stroke.color, dialogObject.stroke.alpha);
     ctx.stroke();
     ctx.restore();

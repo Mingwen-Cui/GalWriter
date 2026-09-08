@@ -1,3 +1,4 @@
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import {
   Eye,
   EyeOff,
@@ -769,6 +770,9 @@ function ToolbarElement({
         lineHeight: element.lineHeight,
         ...(element.kind === 'text' ? webElementShadowStyle(element, 'text') : {}),
         cursor: editable ? 'grab' : undefined,
+        ...(element.appearance
+          ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+          : {}),
       }}
       onPointerDown={(event) => beginDrag(event, 'move')}
       onClick={(event) => {
@@ -786,6 +790,9 @@ function ToolbarElement({
         if (!disabled) onAction();
       }}
     >
+      {element.appearance && (
+        <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
+      )}
       {editable && element.kind === 'button' && element.role && toolbarRoleLabels[element.role] && (
         <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
           {toolbarRoleLabels[element.role]}

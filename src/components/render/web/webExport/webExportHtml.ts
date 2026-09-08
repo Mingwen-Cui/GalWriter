@@ -1,3 +1,4 @@
+import { appearanceRuntimeScript } from '../../shared/paint/appearanceRuntime';
 import type { Language } from '../../../../lib/i18n';
 import { formatWebText, getWebSettingsCopy } from '../i18n';
 import { WEB_EXPORT_STYLES } from './webExportStyles';
@@ -297,7 +298,9 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     function borderGradient(element) {
       return linearGradientFromStops(Number(element.borderGradientAngle) || 135, normalizeGradientStops(element.borderGradientStops, element.borderGradientStart || element.borderColor || "#ffffff", element.borderGradientEnd || "#4f46e5"));
     }
+    ${appearanceRuntimeScript}
     function applyCustomBoxEffects(target, element) {
+      if(element.appearance){gwAppearance(target,element.appearance);return;}
       const width = element.strokeEnabled === false ? 0 : Math.max(0, Number(element.borderWidth) || 0);
       const shadows = [];
       target.style.border = "";
@@ -571,6 +574,10 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     const saveClose = document.getElementById("saveClose");
     const saveList = document.getElementById("saveList");
     const settingsBackdrop = document.getElementById("settingsBackdrop");
+    gwAppearance(startScreen,settings.surfaceAppearances?.start);
+    gwAppearance(saveBackdrop,settings.surfaceAppearances?.archive);
+    gwAppearance(settingsBackdrop,settings.surfaceAppearances?.settings);
+
     const settingsTitle = document.getElementById("settingsTitle");
     const settingsClose = document.getElementById("settingsClose");
     const settingAutoLabel = document.getElementById("settingAutoLabel");
@@ -1038,6 +1045,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       if (!settings.showStartMenu) return;
       writeSave();
       restartPlaybackSession();
+      gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
+      const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
       const nodeVideo = document.getElementById("nodeVideo");
       if (nodeAudio) nodeAudio.pause();
@@ -1364,6 +1373,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     }
 
     function togglePlaylistAudio(item) {
+      gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
+      const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
       if (nodeAudio) nodeAudio.pause();
       if (playlistAudio.getAttribute("src") === item.url) {
@@ -1998,6 +2009,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           });
         }
       }, 50);
+      gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
+      const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
       if (nodeAudio) {
         nodeAudio.addEventListener("play", () => recordAudio(node, data.audioUrl));

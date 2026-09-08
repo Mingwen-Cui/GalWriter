@@ -1,52 +1,66 @@
+import { CornerEditor, LayerOrderMenu } from '../shared/inspectors/GeometryPopovers';
+import { AppearanceStackInspector } from '../shared/inspectors/AppearanceStackInspector';
+import { webAppearance } from '../shared/paint/appearance';
 import {
-Baseline,
-Blend,
-Box,
-CaseSensitive,
-Check,
-Image as ImageIcon,
-Layers,
-Link2,
-MousePointerClick,
-MoveHorizontal,
-MoveVertical,
-Palette,
-Plus,
-Radius,
-RotateCw,
-Ruler,
-Type,
-Volume2
+  Baseline,
+  Blend,
+  Box,
+  CaseSensitive,
+  Check,
+  Image as ImageIcon,
+  Layers,
+  Link2,
+  MousePointerClick,
+  MoveHorizontal,
+  MoveVertical,
+  Palette,
+  Plus,
+  Radius,
+  RotateCw,
+  Ruler,
+  Type,
+  Volume2,
 } from 'lucide-react';
 import type React from 'react';
-import { useEffect,useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GradientEditorPopover } from '../shared/paint/GradientEditorPopover';
-import { InlineColorControl,InlineGradientControl,ShadowModeIcon } from '../shared/paint/InlinePaintControls';
-export { InlineColorControl,InlineGradientControl,ShadowModeIcon } from '../shared/paint/InlinePaintControls';
+import {
+  InlineColorControl,
+  InlineGradientControl,
+  ShadowModeIcon,
+} from '../shared/paint/InlinePaintControls';
+export {
+  InlineColorControl,
+  InlineGradientControl,
+  ShadowModeIcon,
+} from '../shared/paint/InlinePaintControls';
 
 import type { Language } from '../../../lib/i18n';
 import { DraggableNumberInput } from '../../DraggableNumberInput';
 import {
-AlignButtons,
-ControlRow,
-FillTabs,
-FloatingPopover,
-GradientIcon,
-InspectorGroup as Group,
-HeaderAction,
-HeaderSelect,
-NumberField,
-PositionAlignButtons,
+  AlignButtons,
+  ControlRow,
+  FillTabs,
+  FloatingPopover,
+  GradientIcon,
+  InspectorGroup as Group,
+  HeaderAction,
+  HeaderSelect,
+  NumberField,
+  PositionAlignButtons,
 } from '../shared/inspectors/InspectorControls';
-import { ImageFillPopover,SolidColorPopover } from '../shared/paint/ColorPopovers';
+import { ImageFillPopover, SolidColorPopover } from '../shared/paint/ColorPopovers';
 import { renderObjectText } from '../video/objectInspector/i18n';
-import type { RenderFillType,WebMenuElement } from '../video/shared/types';
-import { formatWebText,getWebShadowOrdinal,getWebStructuredText } from './i18n';
+import type { RenderFillType, WebMenuElement } from '../video/shared/types';
+import { formatWebText, getWebShadowOrdinal, getWebStructuredText } from './i18n';
 import { webImageFillBackgroundColor } from './webElementStyle';
 import { normalizeGradientStops } from './webGradientStops';
 
 type InspectorProps = {
   element: WebMenuElement;
+  layerElements?: WebMenuElement[];
+  onLayerUpdate?: (id: string, patch: Partial<WebMenuElement>) => void;
+  onLayerSelect?: (id: string) => void;
   language: Language;
   surface?: 'start' | 'archive' | 'settings' | 'game';
   /** Restricts button actions when the inspector is embedded by another workspace. */
@@ -326,6 +340,9 @@ const hexColor = (color: string | undefined, fallback = '#000000') => {
 
 export function StartMenuElementInspector({
   element,
+  layerElements,
+  onLayerUpdate,
+  onLayerSelect,
   language,
   surface = 'start',
   buttonFunctions,
@@ -582,6 +599,19 @@ export function StartMenuElementInspector({
 
   return (
     <div className="space-y-3 text-[12px] text-slate-900">
+      <LayerOrderMenu
+        language={language}
+        items={(layerElements || [element]).map((item) => ({
+          id: item.id,
+          name: item.text || item.kind,
+          z: item.zIndex ?? 0,
+        }))}
+        selectedId={element.id}
+        onSelect={onLayerSelect}
+        onChange={(id, zIndex) =>
+          onLayerUpdate ? onLayerUpdate(id, { zIndex }) : onUpdate({ zIndex })
+        }
+      />
       <Group
         title={elementHidden ? hiddenLabel : text.group.position}
         icon={
@@ -644,7 +674,12 @@ export function StartMenuElementInspector({
           </SettingDescription>
           {radiusPopoverOpen && (
             <div className="absolute left-0 right-[56px] top-[calc(100%+8px)] z-[10020]">
-              <RadiusPopover copy={inspectorCopy} element={element} onUpdate={onUpdate} />
+              <RadiusPopover
+                language={language}
+                copy={inspectorCopy}
+                element={element}
+                onUpdate={onUpdate}
+              />
             </div>
           )}
         </div>
@@ -1035,216 +1070,19 @@ export function StartMenuElementInspector({
       )}
 
       {hasFillControls && (
-        <Group
-          title={text.group.fill}
-          icon={<Palette className="h-3.5 w-3.5" />}
-          tone="fill"
-          onTitleClick={toggleFill}
-          titleActive={fillEnabled}
-          expandLabel={inspectorCopy.expand}
-          collapseLabel={inspectorCopy.collapse}
-          showDescriptions={showDescriptions}
-          secondaryHasDescription
-          secondary={
-            <SettingDescription show={showDescriptions} label={descriptionCopy.fillStyle}>
-              <FillTabs
-                value={backgroundType}
-                labels={text.option}
-                onChange={(type) => {
-                  if (type === 'image') {
-                    onUpdate({ backgroundType: 'image' });
-                    setPopover(null);
-                    return;
-                  }
-                  onUpdate({ backgroundType: type });
-                  setPopover({ group: 'fill', type });
-                }}
-              />
-            </SettingDescription>
+        <AppearanceStackInspector
+          language={language}
+          value={webAppearance(element)}
+          onChange={(appearance) =>
+            onUpdate({
+              appearance,
+              backgroundType: 'solid',
+              backgroundColor: 'transparent',
+              strokeEnabled: false,
+              shadowEnabled: false,
+            })
           }
-        >
-          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            <SettingDescription
-              className="min-w-0"
-              show={showDescriptions}
-              label={descriptionCopy.fillColor}
-            >
-              {backgroundType === 'solid' && (
-                <InlineColorControl
-                  label={text.popover.solidTitle}
-                  color={element.backgroundColor || '#0ea5e9'}
-                  alpha={100}
-                  alphaLabel={text.field.opacity}
-                  hexLabel={text.popover.hex}
-                  onColorChange={(backgroundColor) =>
-                    onUpdate({ backgroundColor, backgroundType: 'solid' })
-                  }
-                  onAlphaChange={(opacity) => onUpdate({ opacity })}
-                  onColorAndAlphaChange={({ color, alpha }) =>
-                    onUpdate({ backgroundColor: color, backgroundType: 'solid', opacity: alpha })
-                  }
-                  onOpen={() => setPopover({ group: 'fill', type: 'solid' })}
-                />
-              )}
-              {backgroundType === 'gradient' && (
-                <InlineGradientControl
-                  label={text.popover.gradientTitle}
-                  stops={gradientStops}
-                  onOpen={() => setPopover({ group: 'fill', type: 'gradient' })}
-                  onAlphaChange={(alpha) =>
-                    onUpdate({
-                      backgroundGradientStops: gradientStops.map((stop) => ({ ...stop, alpha })),
-                    })
-                  }
-                />
-              )}
-              {backgroundType === 'image' && (
-                <button
-                  type="button"
-                  onClick={openImageFillPopover}
-                  className="grid h-10 w-full min-w-0 grid-cols-[82px_minmax(0,1fr)] overflow-hidden rounded-xl bg-white text-left text-sm font-medium text-slate-950"
-                  title={text.popover.upload}
-                  aria-label={text.popover.upload}
-                >
-                  <span className="grid h-full place-items-center bg-sky-50 text-slate-500">
-                    <ImageIcon className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0 truncate px-5 leading-10">{text.popover.upload}</span>
-                </button>
-              )}
-            </SettingDescription>
-            <SettingDescription show={showDescriptions} label={descriptionCopy.blendMode}>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setFillBlendMenuOpen((open) => !open)}
-                  className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-sky-100 hover:text-slate-950"
-                  title={text.field.blendMode}
-                  aria-label={text.field.blendMode}
-                  aria-expanded={fillBlendMenuOpen}
-                >
-                  <Blend className="h-4 w-4" />
-                </button>
-                {fillBlendMenuOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-[10030] w-44 overflow-hidden rounded-xl border border-sky-100 bg-white py-1 shadow-xl shadow-slate-950/15">
-                    {BLEND_OPTIONS.map((blendMode) => {
-                      const selected = (element.blendMode || 'normal') === blendMode;
-                      return (
-                        <button
-                          key={blendMode}
-                          type="button"
-                          onClick={() => {
-                            onUpdate({ blendMode });
-                            setFillBlendMenuOpen(false);
-                          }}
-                          className={`flex h-8 w-full items-center justify-between px-3 text-left text-xs font-medium transition-colors ${
-                            selected ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span>{blendMode}</span>
-                          {selected && <Check className="h-4 w-4" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </SettingDescription>
-          </div>
-          {popover?.group === 'fill' && backgroundType === 'solid' && (
-            <FloatingPopover popoverKey="solid">
-              <SolidColorPopover
-                tone="fill"
-                text={text.popover}
-                color={element.backgroundColor || '#0ea5e9'}
-                alpha={element.opacity ?? 100}
-                onColorChange={(backgroundColor) =>
-                  onUpdate({ backgroundColor, backgroundType: 'solid' })
-                }
-                onAlphaChange={(opacity) => onUpdate({ opacity })}
-                onColorAndAlphaChange={({ color, alpha }) =>
-                  onUpdate({ backgroundColor: color, backgroundType: 'solid', opacity: alpha })
-                }
-              />
-            </FloatingPopover>
-          )}
-          {popover?.group === 'fill' && backgroundType === 'gradient' && (
-            <PortaledGradientPopover>
-              <GradientEditorPopover
-                language={language}
-                angle={element.backgroundGradientAngle ?? 135}
-                shape={element.backgroundGradientShape || 'linear'}
-                stops={gradientStops}
-                onAngleChange={(backgroundGradientAngle) =>
-                  onUpdate({ backgroundGradientAngle, backgroundType: 'gradient' })
-                }
-                onShapeChange={(backgroundGradientShape) =>
-                  onUpdate({ backgroundGradientShape, backgroundType: 'gradient' })
-                }
-                onStopsChange={(stops) => {
-                  const sorted = [...stops].sort((a, b) => a.position - b.position);
-                  const start = sorted[0];
-                  const end = sorted[sorted.length - 1];
-                  onUpdate({
-                    backgroundType: 'gradient',
-                    backgroundGradientStops: sorted,
-                    backgroundGradientStart: start?.color || '#0ea5e9',
-                    backgroundGradientEnd: end?.color || '#0f172a',
-                  });
-                }}
-              />
-            </PortaledGradientPopover>
-          )}
-          {popover?.group === 'fill' && popover.type === 'image' && (
-            <FloatingPopover popoverKey="image">
-              <ImageFillPopover
-                tone="fill"
-                text={text.popover}
-                value={{
-                  imageUrl: element.backgroundImageUrl || '',
-                  imageFit: element.backgroundImageFit || 'crop',
-                  imageAngle: element.backgroundImageRotation ?? 0,
-                  imageAlpha: element.backgroundImageAlpha ?? 100,
-                  imageScale: element.backgroundImageScale ?? 100,
-                  imageOffsetX: element.backgroundImageOffsetX ?? 0,
-                  imageOffsetY: element.backgroundImageOffsetY ?? 0,
-                }}
-                onChange={(updates) => {
-                  onUpdate({
-                    backgroundType: 'image',
-                    ...(updates.imageUrl !== undefined
-                      ? { backgroundImageUrl: updates.imageUrl }
-                      : {}),
-                    ...(updates.imageFit !== undefined
-                      ? { backgroundImageFit: updates.imageFit }
-                      : {}),
-                    ...(updates.imageAlpha !== undefined
-                      ? { backgroundImageAlpha: updates.imageAlpha }
-                      : {}),
-                    ...(updates.imageAngle !== undefined
-                      ? { backgroundImageRotation: updates.imageAngle }
-                      : {}),
-                    ...(updates.imageScale !== undefined
-                      ? { backgroundImageScale: updates.imageScale }
-                      : {}),
-                    ...(updates.imageOffsetX !== undefined
-                      ? { backgroundImageOffsetX: updates.imageOffsetX }
-                      : {}),
-                    ...(updates.imageOffsetY !== undefined
-                      ? { backgroundImageOffsetY: updates.imageOffsetY }
-                      : {}),
-                  });
-                }}
-                imageBackgroundColor={
-                  webImageFillBackgroundColor(element)
-                }
-                onImageBackgroundColorChange={(backgroundImageBackgroundColor) =>
-                  onUpdate({ backgroundImageBackgroundColor, backgroundColor: backgroundImageBackgroundColor })
-                }
-              />
-            </FloatingPopover>
-          )}
-        </Group>
+        />
       )}
 
       {element.kind === 'image' && (
@@ -1315,347 +1153,7 @@ export function StartMenuElementInspector({
         </Group>
       )}
 
-      <Group
-        title={text.group.stroke}
-        icon={<Baseline className="h-3.5 w-3.5" />}
-        tone="stroke"
-        onTitleClick={toggleStroke}
-        titleActive={strokeEnabled}
-        expandLabel={inspectorCopy.expand}
-        collapseLabel={inspectorCopy.collapse}
-        showDescriptions={showDescriptions}
-        secondaryHasDescription
-        secondary={
-          strokeIsText ? (
-            <SettingDescription show={showDescriptions} label={descriptionCopy.strokeColor}>
-              <HeaderAction
-                icon={<Palette className="h-4 w-4" />}
-                label={text.field.color}
-                onClick={() =>
-                  setPopover(
-                    popover?.group === 'stroke' ? null : { group: 'stroke', type: 'solid' },
-                  )
-                }
-              />
-            </SettingDescription>
-          ) : (
-            <SettingDescription show={showDescriptions} label={descriptionCopy.strokeStyle}>
-              <TwoSegmentControl
-                value={strokeType}
-                options={[
-                  {
-                    value: 'solid',
-                    label: inspectorCopy.solid,
-                    icon: <Palette className="h-4 w-4" />,
-                  },
-                  { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
-                ]}
-                onChange={(value) => {
-                  onUpdate({ borderType: value });
-                  setPopover({ group: 'stroke', type: value });
-                }}
-              />
-            </SettingDescription>
-          )
-        }
-      >
-        <ControlRow>
-          <NumberField
-            icon={<Baseline className="h-4 w-4" />}
-            label={text.field.strokeWidth}
-            description={showDescriptions ? text.field.strokeWidth : undefined}
-            value={strokeWidth}
-            min={0}
-            max={strokeWidthMax}
-            step={0.5}
-            onChange={(value) =>
-              onUpdate(strokeIsText ? { textStrokeWidth: value } : { borderWidth: value })
-            }
-          />
-          {element.kind === 'text' ? (
-            <TwoSegmentControl
-              value={textStrokeTarget}
-              options={[
-                {
-                  value: 'text',
-                  label: formatWebText(
-                    language,
-                    'componentsrenderwebStartMenuElementInspectorConditionalText1365',
-                  ),
-                  icon: <Type className="h-4 w-4" />,
-                },
-                {
-                  value: 'box',
-                  label: formatWebText(
-                    language,
-                    'componentsrenderwebStartMenuElementInspectorConditionalText1375',
-                  ),
-                  icon: <Box className="h-4 w-4" />,
-                },
-              ]}
-              onChange={(textStrokeTarget) =>
-                onUpdate({ textStrokeTarget: textStrokeTarget as 'text' | 'box' })
-              }
-            />
-          ) : (
-            <SettingDescription show={showDescriptions} label={descriptionCopy.strokePosition}>
-              <SegmentedIconControl
-                value={strokePosition}
-                options={[
-                  {
-                    value: 'inside',
-                    label: inspectorCopy.inside,
-                    icon: <StrokePositionIcon position="inside" />,
-                  },
-                  {
-                    value: 'center',
-                    label: inspectorCopy.center,
-                    icon: <StrokePositionIcon position="center" />,
-                  },
-                  {
-                    value: 'outside',
-                    label: inspectorCopy.outside,
-                    icon: <StrokePositionIcon position="outside" />,
-                  },
-                ]}
-                onChange={(borderPosition) => onUpdate({ borderPosition })}
-              />
-            </SettingDescription>
-          )}
-        </ControlRow>
-        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-          <SettingDescription
-            className="min-w-0"
-            show={showDescriptions}
-            label={descriptionCopy.strokeColor}
-          >
-            {strokeType === 'gradient' && !strokeIsText ? (
-              <InlineGradientControl
-                label={text.popover.gradientTitle}
-                stops={borderGradientStops}
-                onOpen={() => setPopover({ group: 'stroke', type: 'gradient' })}
-                onAlphaChange={(alpha) =>
-                  onUpdate({
-                    borderGradientStops: borderGradientStops.map((stop) => ({ ...stop, alpha })),
-                  })
-                }
-              />
-            ) : (
-              <InlineColorControl
-                label={text.field.color}
-                color={strokeColor}
-                alpha={100}
-                alphaLabel={text.field.opacity}
-                hexLabel={text.popover.hex}
-                onColorChange={(value) =>
-                  onUpdate(strokeIsText ? { textStrokeColor: value } : { borderColor: value })
-                }
-                onAlphaChange={(opacity) => onUpdate({ opacity })}
-                onColorAndAlphaChange={({ color, alpha }) =>
-                  onUpdate(
-                    strokeIsText
-                      ? { textStrokeColor: color, opacity: alpha }
-                      : { borderColor: color, opacity: alpha },
-                  )
-                }
-                onOpen={() => setPopover({ group: 'stroke', type: 'solid' })}
-              />
-            )}
-          </SettingDescription>
-          <div className="h-10 w-11" aria-hidden="true" />
-        </div>
-        {popover?.group === 'stroke' && popover.type === 'solid' && (
-          <FloatingPopover>
-            <SolidColorPopover
-              tone="stroke"
-              text={text.popover}
-              color={strokeColor}
-              alpha={element.opacity ?? 100}
-              onColorChange={(value) =>
-                onUpdate(strokeIsText ? { textStrokeColor: value } : { borderColor: value })
-              }
-              onAlphaChange={(opacity) => onUpdate({ opacity })}
-              onColorAndAlphaChange={({ color, alpha }) =>
-                onUpdate(
-                  strokeIsText
-                    ? { textStrokeColor: color, opacity: alpha }
-                    : { borderColor: color, opacity: alpha },
-                )
-              }
-            />
-          </FloatingPopover>
-        )}
-        {popover?.group === 'stroke' && popover.type === 'gradient' && !strokeIsText && (
-          <PortaledGradientPopover>
-            <GradientEditorPopover
-              language={language}
-              angle={element.borderGradientAngle ?? 135}
-              stops={borderGradientStops}
-              onAngleChange={(borderGradientAngle) =>
-                onUpdate({ borderGradientAngle, borderType: 'gradient' })
-              }
-              onStopsChange={(stops) => {
-                const sorted = [...stops].sort((a, b) => a.position - b.position);
-                const start = sorted[0];
-                const end = sorted[sorted.length - 1];
-                onUpdate({
-                  borderType: 'gradient',
-                  borderGradientStops: sorted,
-                  borderGradientStart: start?.color || strokeColor,
-                  borderGradientEnd: end?.color || '#4f46e5',
-                });
-              }}
-            />
-          </PortaledGradientPopover>
-        )}
-      </Group>
-
-      {shadows.map((shadow, index) => {
-        const title =
-          index === 0
-            ? text.group.shadow
-            : `${text.group.shadow}${getWebShadowOrdinal(language, index)}`;
-        return (
-          <Group
-            key={shadow.id}
-            title={title}
-            icon={<Blend className="h-3.5 w-3.5" />}
-            tone="shadow"
-            onTitleClick={index === 0 ? toggleShadow : undefined}
-            titleActive={shadowEnabled}
-            expandLabel={inspectorCopy.expand}
-            collapseLabel={inspectorCopy.collapse}
-            showDescriptions={showDescriptions}
-            secondaryHasDescription
-            secondary={
-              <SettingDescription show={showDescriptions} label={descriptionCopy.shadowType}>
-                <SegmentedIconControl
-                  value={shadow.type}
-                  options={[
-                    {
-                      value: 'outer',
-                      label: inspectorCopy.outerShadow,
-                      icon: <ShadowModeIcon mode="outer" />,
-                    },
-                    {
-                      value: 'inner',
-                      label: inspectorCopy.innerShadow,
-                      icon: <ShadowModeIcon mode="inner" />,
-                    },
-                    {
-                      value: 'innerBlur',
-                      label: inspectorCopy.innerBlur,
-                      icon: <ShadowModeIcon mode="innerBlur" />,
-                    },
-                  ]}
-                  onChange={(type) => updateShadow(index, { type })}
-                />
-              </SettingDescription>
-            }
-          >
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-              <NumberField
-                icon={<Blend className="h-4 w-4" />}
-                label={text.field.opacity}
-                description={showDescriptions ? text.field.opacity : undefined}
-                value={shadow.opacity}
-                min={0}
-                max={100}
-                onChange={(opacity) => updateShadow(index, { opacity })}
-              />
-              <NumberField
-                icon={<Radius className="h-4 w-4" />}
-                label={text.field.blur}
-                description={showDescriptions ? text.field.blur : undefined}
-                value={shadow.blur}
-                min={0}
-                max={80}
-                onChange={(blur) => updateShadow(index, { blur })}
-              />
-              <SettingDescription show={showDescriptions} label={descriptionCopy.addShadow}>
-                <button
-                  type="button"
-                  onClick={addShadow}
-                  disabled={shadows.length >= 6}
-                  className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-fuchsia-100 disabled:opacity-35"
-                  title={descriptionCopy.addShadow}
-                  aria-label={descriptionCopy.addShadow}
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-              </SettingDescription>
-            </div>
-            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-              <NumberField
-                icon={<MoveHorizontal className="h-4 w-4" />}
-                label={text.field.x}
-                description={showDescriptions ? text.field.x : undefined}
-                value={shadow.offsetX}
-                min={-80}
-                max={80}
-                onChange={(offsetX) => updateShadow(index, { offsetX })}
-              />
-              <NumberField
-                icon={<MoveVertical className="h-4 w-4" />}
-                label={text.field.y}
-                description={showDescriptions ? text.field.y : undefined}
-                value={shadow.offsetY}
-                min={-80}
-                max={80}
-                onChange={(offsetY) => updateShadow(index, { offsetY })}
-              />
-              {index > 0 ? (
-                <SettingDescription show={showDescriptions} label={descriptionCopy.removeShadow}>
-                  <button
-                    type="button"
-                    onClick={() => removeShadow(index)}
-                    className="grid h-10 w-11 place-items-center rounded-xl bg-white text-rose-600 transition-colors hover:bg-rose-50"
-                    title={descriptionCopy.removeShadow}
-                    aria-label={descriptionCopy.removeShadow}
-                  >
-                    <span className="text-xl leading-none">−</span>
-                  </button>
-                </SettingDescription>
-              ) : (
-                <div className="h-10 w-11" aria-hidden="true" />
-              )}
-            </div>
-            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-              <SettingDescription show={showDescriptions} label={descriptionCopy.shadowColor}>
-                <InlineColorControl
-                  label={text.field.color}
-                  color={shadow.color}
-                  alpha={shadow.opacity}
-                  alphaLabel={text.field.opacity}
-                  hexLabel={text.popover.hex}
-                  onColorChange={(color) => updateShadow(index, { color })}
-                  onAlphaChange={(opacity) => updateShadow(index, { opacity })}
-                  onColorAndAlphaChange={({ color, alpha }) =>
-                    updateShadow(index, { color, opacity: alpha })
-                  }
-                  onOpen={() => setPopover({ group: 'shadow', type: 'solid', shadowIndex: index })}
-                />
-              </SettingDescription>
-              <div className="h-10 w-11" aria-hidden="true" />
-            </div>
-            {popover?.group === 'shadow' && popover.shadowIndex === index && (
-              <FloatingPopover>
-                <SolidColorPopover
-                  tone="shadow"
-                  text={text.popover}
-                  color={shadow.color}
-                  alpha={shadow.opacity}
-                  onColorChange={(color) => updateShadow(index, { color })}
-                  onAlphaChange={(opacity) => updateShadow(index, { opacity })}
-                  onColorAndAlphaChange={({ color, alpha }) =>
-                    updateShadow(index, { color, opacity: alpha })
-                  }
-                />
-              </FloatingPopover>
-            )}
-          </Group>
-        );
-      })}
+      
     </div>
   );
 }
@@ -1855,89 +1353,35 @@ function InlineImageControl({
 }
 
 function RadiusPopover({
-  copy,
   element,
   onUpdate,
+  language,
 }: {
-  copy: {
-    radius: string;
-    allCorners: string;
-    topLeft: string;
-    topRight: string;
-    bottomRight: string;
-    bottomLeft: string;
-  };
   element: WebMenuElement;
   onUpdate: (patch: Partial<WebMenuElement>) => void;
+  language: Language;
+  copy?: unknown;
 }) {
-  const baseRadius = element.borderRadius ?? 12;
-  const topLeft = element.borderTopLeftRadius ?? baseRadius;
-  const topRight = element.borderTopRightRadius ?? baseRadius;
-  const bottomRight = element.borderBottomRightRadius ?? baseRadius;
-  const bottomLeft = element.borderBottomLeftRadius ?? baseRadius;
-  const setAllCorners = (borderRadius: number) =>
-    onUpdate({
-      borderRadius,
-      borderTopLeftRadius: borderRadius,
-      borderTopRightRadius: borderRadius,
-      borderBottomRightRadius: borderRadius,
-      borderBottomLeftRadius: borderRadius,
-    });
-
+  const base = element.borderRadius ?? 12;
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/98 p-3 text-slate-900 shadow-2xl shadow-black/15 backdrop-blur-xl">
-      <div className="grid grid-cols-2 gap-3">
-        <NumberField
-          icon={<CornerRadiusIcon corner="all" />}
-          label={copy.allCorners}
-          description={copy.allCorners}
-          value={baseRadius}
-          min={0}
-          max={120}
-          onChange={setAllCorners}
-        />
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-3">
-        <NumberField
-          icon={<CornerRadiusIcon corner="top-left" />}
-          label={copy.topLeft}
-          description={copy.topLeft}
-          value={topLeft}
-          min={0}
-          max={120}
-          onChange={(borderTopLeftRadius) => onUpdate({ borderTopLeftRadius })}
-        />
-        <NumberField
-          icon={<CornerRadiusIcon corner="top-right" />}
-          label={copy.topRight}
-          description={copy.topRight}
-          value={topRight}
-          min={0}
-          max={120}
-          onChange={(borderTopRightRadius) => onUpdate({ borderTopRightRadius })}
-        />
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-3">
-        <NumberField
-          icon={<CornerRadiusIcon corner="bottom-left" />}
-          label={copy.bottomLeft}
-          description={copy.bottomLeft}
-          value={bottomLeft}
-          min={0}
-          max={120}
-          onChange={(borderBottomLeftRadius) => onUpdate({ borderBottomLeftRadius })}
-        />
-        <NumberField
-          icon={<CornerRadiusIcon corner="bottom-right" />}
-          label={copy.bottomRight}
-          description={copy.bottomRight}
-          value={bottomRight}
-          min={0}
-          max={120}
-          onChange={(borderBottomRightRadius) => onUpdate({ borderBottomRightRadius })}
-        />
-      </div>
-    </div>
+    <CornerEditor
+      language={language}
+      value={[
+        element.borderTopLeftRadius ?? base,
+        element.borderTopRightRadius ?? base,
+        element.borderBottomRightRadius ?? base,
+        element.borderBottomLeftRadius ?? base,
+      ]}
+      onChange={([tl, tr, br, bl]) =>
+        onUpdate({
+          borderRadius: tl,
+          borderTopLeftRadius: tl,
+          borderTopRightRadius: tr,
+          borderBottomRightRadius: br,
+          borderBottomLeftRadius: bl,
+        })
+      }
+    />
   );
 }
 
@@ -1992,4 +1436,4 @@ export function PortaledGradientPopover({
   );
 }
 
-export { GradientEditorPopover,type GradientShape } from '../shared/paint/GradientEditorPopover';
+export { GradientEditorPopover, type GradientShape } from '../shared/paint/GradientEditorPopover';

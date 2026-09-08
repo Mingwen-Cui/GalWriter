@@ -18,6 +18,7 @@ const omitUndefined = <T extends Record<string, unknown>>(value: T) =>
   ) as Partial<T>;
 
 const styleKeys = new Set<keyof PptManualElementWebStyle>([
+  'appearance',
   'primary',
   'disabled',
   'fontSize',
@@ -177,7 +178,8 @@ export const toPptCoverWebInspectorElement = (
   scale: 1,
   rotation: layout.rotation,
   fontSize:
-    layout.webStyle?.fontSize || (target === 'cover-title' ? 52 : target === 'cover-subtitle' ? 22 : 24),
+    layout.webStyle?.fontSize ||
+    (target === 'cover-title' ? 52 : target === 'cover-subtitle' ? 22 : 24),
   fontWeight: layout.webStyle?.fontWeight || (target === 'cover-title' ? 800 : 400),
   textColor: layout.webStyle?.textColor || '#ffffff',
   textAlign: layout.webStyle?.textAlign || 'center',

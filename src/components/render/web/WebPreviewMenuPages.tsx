@@ -1,3 +1,4 @@
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type { CSSProperties } from 'react';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -467,6 +468,7 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
+          <SurfaceLayers value={settings.surfaceAppearances?.archive} />
           {previewMode === 'edit' &&
             gradientEditingSurface === 'archive' &&
             getSurfaceBackground(settings, 'archive').type === 'gradient' && (
@@ -541,6 +543,7 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
+          <SurfaceLayers value={settings.surfaceAppearances?.settings} />
           {previewMode === 'edit' &&
             gradientEditingSurface === 'settings' &&
             getSurfaceBackground(settings, 'settings').type === 'gradient' && (
@@ -767,6 +770,9 @@ function MenuPageElementLayer({
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     ...webElementBoxStyle(element),
+                    ...(element.appearance
+                      ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+                      : {}),
                   }}
                   disabled={!editable && element.disabled}
                   onPointerDown={(event) => {
@@ -786,25 +792,31 @@ function MenuPageElementLayer({
                     onAction(element);
                   }}
                 >
-                  {element.backgroundType === 'image' && element.backgroundImageUrl && (
-                    <span
-                      className="pointer-events-none absolute inset-0 bg-no-repeat"
-                      style={{
-                        backgroundImage: `url("${resolveKnownAppAssetUrl(element.backgroundImageUrl).replace(/"/g, '\\"')}")`,
-                        backgroundSize:
-                          element.backgroundImageFit === 'fit'
-                            ? 'contain'
-                            : element.backgroundImageFit === 'max'
-                              ? 'cover'
-                              : `${element.backgroundImageScale ?? 100}%`,
-                        backgroundPosition: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px) calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`,
-                        opacity:
-                          Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100,
-                        transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`,
-                        transformOrigin: 'center',
-                      }}
-                    />
+                  {element.appearance && (
+                    <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
                   )}
+
+                  {!element.appearance &&
+                    element.backgroundType === 'image' &&
+                    element.backgroundImageUrl && (
+                      <span
+                        className="pointer-events-none absolute inset-0 bg-no-repeat"
+                        style={{
+                          backgroundImage: `url("${resolveKnownAppAssetUrl(element.backgroundImageUrl).replace(/"/g, '\\"')}")`,
+                          backgroundSize:
+                            element.backgroundImageFit === 'fit'
+                              ? 'contain'
+                              : element.backgroundImageFit === 'max'
+                                ? 'cover'
+                                : `${element.backgroundImageScale ?? 100}%`,
+                          backgroundPosition: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px) calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`,
+                          opacity:
+                            Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100,
+                          transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`,
+                          transformOrigin: 'center',
+                        }}
+                      />
+                    )}
                   <span
                     className="relative flex h-full w-full items-center gap-2 overflow-hidden px-4"
                     style={{
@@ -925,8 +937,14 @@ function MenuPageElementLayer({
                     ...elementRadiusStyle(element, 12),
                     ...webElementBoxStyle(element),
                     backgroundColor: element.imageBackgroundColor || 'transparent',
+                    ...(element.appearance
+                      ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+                      : {}),
                   }}
                 >
+                  {element.appearance && (
+                    <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
+                  )}
                   {element.imageUrl ? (
                     <img
                       src={resolveKnownAppAssetUrl(element.imageUrl)}
@@ -983,6 +1001,9 @@ function MenuPageElementLayer({
                 textAlign: element.textAlign || 'left',
                 ...webElementShadowStyle(element, 'text'),
                 ...(element.textStrokeTarget === 'box' ? webElementBoxStyle(element) : {}),
+                ...(element.appearance
+                  ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+                  : {}),
               }}
               onPointerDown={(event) => {
                 if (editable) onBeginElementDrag(page, event, element, 'move');
@@ -998,6 +1019,9 @@ function MenuPageElementLayer({
                 onSelectElement?.(element.id);
               }}
             >
+              {element.appearance && (
+                <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
+              )}
               {element.textVisible !== false && (
                 <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>
                   {element.text}

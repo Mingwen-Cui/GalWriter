@@ -1,3 +1,4 @@
+import { themeRenderPatch, themeMenuPatch } from '../experienceThemes';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -646,15 +647,7 @@ export function WebWorkspace({
       // Ignore invalid local design presets.
     }
   };
-  const [showSettingDescriptions, setShowSettingDescriptions] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      const stored = window.localStorage.getItem('galwriter-web-export-setting-descriptions');
-      return stored === null ? true : stored === 'true';
-    } catch {
-      return true;
-    }
-  });
+  const showSettingDescriptions = false;
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [startMenuPreviewMode, setStartMenuPreviewMode] = useState<'edit' | 'test'>('edit');
   const [testToolsOpen, setTestToolsOpen] = useState(false);
@@ -776,6 +769,8 @@ export function WebWorkspace({
         startMenuBackgroundImageUrl: template.backgroundUrl,
       });
     }
+    updateWebSettingsBulk(themeMenuPatch(template.id,language));
+    Object.entries(themeRenderPatch(template.id,webRenderStyle)).forEach(([key,value])=>updateWebRenderStyle(key as keyof RenderStyle,value as never));
     setSelectedStartMenuElementId(null);
     setPreviewRefreshKey((key) => key + 1);
   };
@@ -986,6 +981,9 @@ export function WebWorkspace({
       {selectedStartMenuElement ? (
         <StartMenuElementInspector
           element={selectedStartMenuElement}
+          layerElements={activePageElements}
+          onLayerUpdate={updateActivePageElement}
+          onLayerSelect={setSelectedStartMenuElementId}
           language={language}
           surface={currentPreviewSurface}
           selectedElementIds={selectedPreviewElementIds}
@@ -1745,29 +1743,7 @@ JSON schema:
                   ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1656')
                   : formatWebText(language, 'componentsrenderwebWebWorkspaceText1656_2')}
               </span>
-              {startMenuPreviewMode === 'edit' && (
-                <button
-                  type="button"
-                  onClick={() => setShowSettingDescriptions((current) => !current)}
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                    showSettingDescriptions
-                      ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
-                      : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-                  }`}
-                  title={
-                    showSettingDescriptions
-                      ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1667')
-                      : formatWebText(language, 'componentsrenderwebWebWorkspaceText1668')
-                  }
-                  aria-label={
-                    showSettingDescriptions
-                      ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1672')
-                      : formatWebText(language, 'componentsrenderwebWebWorkspaceText1673')
-                  }
-                >
-                  <Info className="h-3.5 w-3.5" />
-                </button>
-              )}
+              
             </div>
             <div className="w-36 shrink-0">
               <WebPillToggleGroup

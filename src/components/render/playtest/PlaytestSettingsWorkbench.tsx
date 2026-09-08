@@ -49,7 +49,7 @@ export function PlaytestSettingsWorkbench({
       ? 'scene'
       : renderStyle.selectedRenderObject || 'dialogBox',
   );
-  const [showParameterDescriptions, setShowParameterDescriptions] = useState(true);
+  const showParameterDescriptions = false;
 
   useEffect(() => {
     const selectedObject = renderStyle.selectedRenderObject;
@@ -77,29 +77,6 @@ export function PlaytestSettingsWorkbench({
             : 'grid-cols-[28px_minmax(0,1fr)]'
         }`}
       >
-        <button
-          type="button"
-          onClick={() => setShowParameterDescriptions((visible) => !visible)}
-          aria-label={
-            showParameterDescriptions
-              ? text.hideParameterDescriptions
-              : text.showParameterDescriptions
-          }
-          title={
-            showParameterDescriptions
-              ? text.hideParameterDescriptions
-              : text.showParameterDescriptions
-          }
-          aria-pressed={showParameterDescriptions}
-          className={`inline-grid h-7 w-7 place-items-center rounded-lg border shadow-sm transition-colors ${
-            showParameterDescriptions
-              ? 'border-indigo-200/80 bg-indigo-50 text-indigo-600 dark:border-indigo-400/20 dark:bg-indigo-400/10 dark:text-indigo-300'
-              : 'border-slate-200/80 bg-white/80 text-slate-400 hover:text-indigo-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500 dark:hover:text-indigo-300'
-          }`}
-        >
-          <CircleAlert className="h-3.5 w-3.5" />
-        </button>
-
         <div className="grid min-w-0 grid-cols-4 gap-2 rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
           {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map(
             (kind) => (

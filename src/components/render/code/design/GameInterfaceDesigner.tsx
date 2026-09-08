@@ -1,3 +1,8 @@
+import { experienceThemes, themeAppearance } from '../../experienceThemes';
+import { newPaint } from '../../shared/paint/appearance';
+import { SurfaceLayers } from '../../shared/paint/SurfaceLayers';
+import { AppearanceStackInspector } from '../../shared/inspectors/AppearanceStackInspector';
+import { CornerEditor, LayerOrderMenu } from '../../shared/inspectors/GeometryPopovers';
 import type { Node } from '@xyflow/react';
 import { Box, Monitor, PaintBucket, Redo2, Type, Undo2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -40,6 +45,8 @@ export function GameInterfaceDesigner({
   const value = resolveGameInterface(settings.interfaceDesigns, target);
   const caps = GAME_INTERFACE_CAPABILITIES[target];
   const [selection, setSelection] = useState<Selection>('dialogue');
+  const [cornersOpen, setCornersOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [colorField, setColorField] = useState<keyof GameInterfaceSettings | null>(null);
   const [past, setPast] = useState<GameInterfaceSettings[]>([]);
   const [future, setFuture] = useState<GameInterfaceSettings[]>([]);
@@ -138,6 +145,62 @@ export function GameInterfaceDesigner({
         <div className="mb-3 text-xs font-semibold">
           {GAME_TARGET_NAMES[target]} · {t('界面设计', 'Interface design', '画面デザイン')}
         </div>
+        <button
+          type="button"
+          className="property-add w-full mb-3"
+          aria-expanded={templatesOpen}
+          onClick={() => setTemplatesOpen(!templatesOpen)}
+        >
+          {t('模板库', 'Templates')}
+        </button>
+        {templatesOpen && (
+          <div className="mb-3 space-y-2">
+            {experienceThemes.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className="w-full overflow-hidden rounded-lg border border-[var(--vr-border)] text-left"
+                onClick={() => {
+                  update({
+                    templateId: template.id,
+                    panelAppearance: themeAppearance(template.id),
+                    panelColor: template.panel.slice(0, 7),
+                    panelAlpha: 93,
+                    textColor: template.ink,
+                    nameColor: template.muted,
+                    accentColor: template.accent,
+                    radius: template.radius,
+                    corners: [template.radius, template.radius, template.radius, template.radius],
+                    canvasAppearance: {
+                      fills: [
+                        {
+                          ...newPaint(),
+                          id: 'template-cover',
+                          type: 'image',
+                          imageUrl: template.backgroundUrl,
+                        },
+                      ],
+                      strokes: [],
+                      shadows: [],
+                    },
+                    choiceAppearance: {
+                      ...themeAppearance(template.id),
+                      fills: [{ ...newPaint(), id: 'template-choice', color: template.accent }],
+                    },
+                  });
+                  setTemplatesOpen(false);
+                }}
+              >
+                <img
+                  src={template.previewUrl}
+                  alt=""
+                  className="aspect-video w-full object-cover"
+                />
+                <span className="block p-2 text-xs">{template.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {(Object.keys(labels) as Selection[]).map((key) => (
           <button
             key={key}
@@ -206,10 +269,11 @@ export function GameInterfaceDesigner({
                 width: value.width,
                 height: value.height,
                 transform: `scale(${scale})`,
-                background: value.background,
+                background: value.canvasAppearance ? 'transparent' : value.background,
               }}
               onClick={() => setSelection('canvas')}
             >
+              <SurfaceLayers value={value.canvasAppearance} />
               <div
                 className="absolute left-0 top-0 flex w-full items-center justify-between px-8 py-5 text-white/60"
                 style={{ fontSize: 16 }}
@@ -220,6 +284,7 @@ export function GameInterfaceDesigner({
                 </span>
               </div>
               <div
+                style={{ zIndex: value.layerOrder?.choices ?? 2 }}
                 className="absolute left-1/2 top-[24%] flex w-[50%] -translate-x-1/2 flex-col gap-3"
                 onClick={(event) => {
                   event.stopPropagation();
@@ -233,15 +298,20 @@ export function GameInterfaceDesigner({
                   <button
                     key={caption}
                     type="button"
-                    className="px-6 py-3 text-white"
+                    className="relative px-6 py-3 text-white"
                     style={{
-                      background: caps.accent ? value.accentColor : '#4f46e5',
+                      background: value.choiceAppearance
+                        ? 'transparent'
+                        : caps.accent
+                          ? value.accentColor
+                          : '#4f46e5',
                       fontSize: value.fontSize,
-                      borderRadius: value.radius,
+                      borderRadius: value.corners?.map((v) => `${v}px`).join(' ') || value.radius,
                       outline: selection === 'choices' ? '2px solid #818cf8' : undefined,
                     }}
                   >
-                    {caption}
+                    <SurfaceLayers value={value.choiceAppearance} radius={value.radius} />
+                    <span className="relative z-[1]">{caption}</span>
                   </button>
                 ))}
               </div>
@@ -252,8 +322,11 @@ export function GameInterfaceDesigner({
                   top: `${value.panelY}%`,
                   width: `${value.panelWidth}%`,
                   height: `${value.panelHeight}%`,
-                  background: toHex8(value.panelColor, value.panelAlpha),
-                  borderRadius: value.radius,
+                  background: value.panelAppearance
+                    ? 'transparent'
+                    : toHex8(value.panelColor, value.panelAlpha),
+                  zIndex: value.layerOrder?.dialogue ?? 1,
+                  borderRadius: value.corners?.map((v) => `${v}px`).join(' ') || value.radius,
                   padding: 24,
                   outline: selection === 'dialogue' ? '2px solid #818cf8' : undefined,
                   overflow: 'hidden',
@@ -263,7 +336,19 @@ export function GameInterfaceDesigner({
                   setSelection('dialogue');
                 }}
               >
-                <div style={{ fontSize: value.fontSize, color: value.nameColor, marginBottom: 10 }}>
+                <SurfaceLayers
+                  value={value.panelAppearance}
+                  radius={value.corners?.map((v) => `${v}px`).join(' ') || value.radius}
+                />
+                <div
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    fontSize: value.fontSize,
+                    color: value.nameColor,
+                    marginBottom: 10,
+                  }}
+                >
                   {sampleName}
                 </div>
                 <div
@@ -271,6 +356,8 @@ export function GameInterfaceDesigner({
                     fontSize: value.fontSize,
                     color: value.textColor,
                     lineHeight: 1.5,
+                    position: 'relative',
+                    zIndex: 1,
                     outline: selection === 'text' ? '1px dashed #818cf8' : undefined,
                   }}
                   onClick={(event) => {
@@ -286,12 +373,49 @@ export function GameInterfaceDesigner({
         </div>
       </div>
       <aside className="property-inspector w-80 shrink-0 overflow-auto border-l border-[var(--vr-border)] bg-[var(--vr-surface)] px-4 py-2">
+        <p className="mb-2 text-[11px] text-[var(--vr-text-muted)]">
+          {t(
+            '原生游戏皮肤中的视频填充导出为首帧。',
+            'Video fills use their first frame in native game skins.',
+          )}
+        </p>
         <div className="property-context">
           <span>
             {t('属性', 'Properties', 'プロパティ')} · {labels[selection]}
           </span>
           <span>{GAME_TARGET_NAMES[target]}</span>
         </div>
+        <LayerOrderMenu
+          language={language}
+          items={(['dialogue', 'choices'] as const).map((id, i) => ({
+            id,
+            name: labels[id],
+            z: value.layerOrder?.[id] ?? i + 1,
+          }))}
+          selectedId={selection}
+          onSelect={(id) => setSelection(id as Selection)}
+          onChange={(id, z) => update({ layerOrder: { ...value.layerOrder, [id]: z } })}
+        />
+        {selection === 'dialogue' && (
+          <>
+            <button
+              type="button"
+              className="property-add"
+              onClick={() => setCornersOpen(!cornersOpen)}
+            >
+              {t('圆角 · 四角设置', 'Corner radius')}
+            </button>
+            {cornersOpen && (
+              <FloatingPopover onClose={() => setCornersOpen(false)}>
+                <CornerEditor
+                  language={language}
+                  value={value.corners || [value.radius, value.radius, value.radius, value.radius]}
+                  onChange={(corners) => update({ corners, radius: corners[0] })}
+                />
+              </FloatingPopover>
+            )}
+          </>
+        )}
         {selection === 'canvas' && (
           <InspectorGroup
             title={labels.canvas}
@@ -313,7 +437,17 @@ export function GameInterfaceDesigner({
                 )}
               </p>
             )}
-            {caps.background && color('background', t('背景颜色', 'Background color', '背景色'))}
+            <AppearanceStackInspector
+              language={language}
+              value={
+                value.canvasAppearance || {
+                  fills: [{ ...newPaint(), id: 'canvas', color: value.background }],
+                  strokes: [],
+                  shadows: [],
+                }
+              }
+              onChange={(canvasAppearance) => update({ canvasAppearance })}
+            />
           </InspectorGroup>
         )}
         {selection === 'dialogue' && (
@@ -332,14 +466,23 @@ export function GameInterfaceDesigner({
                 {caps.radius && number('radius', t('圆角', 'Radius', '角丸'), 0, 48, 'px')}
               </div>
             </InspectorGroup>
-            <InspectorGroup
-              title={t('填充', 'Fill', '塗り')}
-              icon={<PaintBucket className="h-3.5 w-3.5" />}
-              tone="fill"
-              secondary={null}
-            >
-              {color('panelColor', t('纯色', 'Solid color', '単色'))}
-            </InspectorGroup>
+            <AppearanceStackInspector
+              language={language}
+              value={
+                value.panelAppearance || {
+                  fills: [
+                    {
+                      ...newPaint(),
+                      id: 'legacy',
+                      color: toHex8(value.panelColor, value.panelAlpha),
+                    },
+                  ],
+                  strokes: [],
+                  shadows: [],
+                }
+              }
+              onChange={(appearance) => update({ panelAppearance: appearance })}
+            />
           </>
         )}
         {selection === 'text' && (
@@ -364,24 +507,17 @@ export function GameInterfaceDesigner({
           </InspectorGroup>
         )}
         {selection === 'choices' && (
-          <InspectorGroup
-            title={labels.choices}
-            icon={<Box className="h-3.5 w-3.5" />}
-            tone="fill"
-            secondary={null}
-          >
-            {caps.accent ? (
-              color('accentColor', t('按钮颜色', 'Button color', 'ボタン色'))
-            ) : (
-              <p className="property-help">
-                {t(
-                  '选项样式继承 TyranoScript 宿主工程。',
-                  'Choice styling is inherited from the TyranoScript host project.',
-                  '選択肢の外観は TyranoScript プロジェクトから継承されます。',
-                )}
-              </p>
-            )}
-          </InspectorGroup>
+          <AppearanceStackInspector
+            language={language}
+            value={
+              value.choiceAppearance || {
+                fills: [{ ...newPaint(), id: 'legacy', color: value.accentColor }],
+                strokes: [],
+                shadows: [],
+              }
+            }
+            onChange={(appearance) => update({ choiceAppearance: appearance })}
+          />
         )}
         {colorField && (
           <FloatingPopover

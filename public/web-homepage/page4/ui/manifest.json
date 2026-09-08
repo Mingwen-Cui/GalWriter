@@ -1,0 +1,36 @@
+{
+  "template": "深海科幻",
+  "status": "awaiting-user-artwork",
+  "assets": [
+    {
+      "file": "dialogue-panel.png",
+      "size": "1600 × 320",
+      "purpose": "对话框底板"
+    },
+    {
+      "file": "nameplate.png",
+      "size": "640 × 112",
+      "purpose": "姓名牌底板"
+    },
+    {
+      "file": "choice-button.png",
+      "size": "960 × 144",
+      "purpose": "选项按钮底板"
+    },
+    {
+      "file": "settings-panel.png",
+      "size": "1440 × 880",
+      "purpose": "设置页面板底板"
+    },
+    {
+      "file": "save-card.png",
+      "size": "560 × 320",
+      "purpose": "存档卡片底板"
+    },
+    {
+      "file": "dialogue-scene.png",
+      "size": "1920 × 1080",
+      "purpose": "对话场景背景"
+    }
+  ]
+}

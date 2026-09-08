@@ -1,3 +1,4 @@
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type { CSSProperties } from 'react';
 import { useRef, useState } from 'react';
 
@@ -409,26 +410,35 @@ export function WebPlaytestStartMenuElement({
             ...radiusStyle(element, 12),
             ...webElementBoxStyle(element),
             mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
+            ...(element.appearance
+              ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+              : {}),
           }}
         >
-          {element.backgroundType === 'image' && element.backgroundImageUrl && (
-            <span
-              className={`absolute inset-0 z-0 bg-no-repeat ${previewMode === 'edit' && selected && (element.backgroundImageFit || 'crop') === 'crop' ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
-              style={{
-                backgroundImage: `url("${resolveKnownAppAssetUrl(element.backgroundImageUrl).replace(/"/g, '\\"')}")`,
-                backgroundSize:
-                  element.backgroundImageFit === 'fit'
-                    ? 'contain'
-                    : element.backgroundImageFit === 'max'
-                      ? 'cover'
-                      : `${element.backgroundImageScale ?? 100}%`,
-                backgroundPosition: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px) calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`,
-                opacity: Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100,
-                transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`,
-                transformOrigin: 'center',
-              }}
-            />
+          {element.appearance && (
+            <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
           )}
+
+          {!element.appearance &&
+            element.backgroundType === 'image' &&
+            element.backgroundImageUrl && (
+              <span
+                className={`absolute inset-0 z-0 bg-no-repeat ${previewMode === 'edit' && selected && (element.backgroundImageFit || 'crop') === 'crop' ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'}`}
+                style={{
+                  backgroundImage: `url("${resolveKnownAppAssetUrl(element.backgroundImageUrl).replace(/"/g, '\\"')}")`,
+                  backgroundSize:
+                    element.backgroundImageFit === 'fit'
+                      ? 'contain'
+                      : element.backgroundImageFit === 'max'
+                        ? 'cover'
+                        : `${element.backgroundImageScale ?? 100}%`,
+                  backgroundPosition: `calc(50% + ${element.backgroundImageOffsetX ?? 0}px) calc(50% + ${element.backgroundImageOffsetY ?? 0}px)`,
+                  opacity: Math.max(0, Math.min(100, element.backgroundImageAlpha ?? 100)) / 100,
+                  transform: `rotate(${element.backgroundImageRotation ?? 0}deg)`,
+                  transformOrigin: 'center',
+                }}
+              />
+            )}
           {previewMode === 'edit' &&
             selected &&
             gradientEditing === 'fill' &&

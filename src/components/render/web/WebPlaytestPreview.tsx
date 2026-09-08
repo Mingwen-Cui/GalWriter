@@ -1,3 +1,5 @@
+import { appearanceStyle } from '../shared/paint/appearanceStyle';
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { Eye, EyeOff, House, ListMusic, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
@@ -1599,6 +1601,8 @@ export function WebPlaytestPreview({
   const buildSurfaceBackgroundStyle = (
     surface: 'start' | 'archive' | 'settings' | 'game',
   ): React.CSSProperties | undefined => {
+    if (settings.surfaceAppearances?.[surface])
+      return appearanceStyle(settings.surfaceAppearances[surface]!);
     const background = getSurfaceBackground(settings, surface);
     return background.type === 'video' && !background.videoUrl
       ? { backgroundColor: '#000000' }
@@ -1688,7 +1692,11 @@ export function WebPlaytestPreview({
             className="hidden"
           />
         )}
-        {getSurfaceBackground(settings, 'start').type === 'video' &&
+        {settings.surfaceAppearances?.start && (
+          <SurfaceLayers value={settings.surfaceAppearances.start} />
+        )}
+        {!settings.surfaceAppearances?.start &&
+          getSurfaceBackground(settings, 'start').type === 'video' &&
           getSurfaceBackground(settings, 'start').videoUrl && (
             <video
               src={getSurfaceBackground(settings, 'start').videoUrl}

@@ -214,8 +214,8 @@ export const drawRenderFrame = async ({
   ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
   ctx.save();
   ctx.globalAlpha = titleState.alpha;
-  renderTitleLines.forEach((line) => {
-    drawVideoTextLine(
+  for (const line of renderTitleLines) {
+    await drawVideoTextLine(
       ctx,
       line,
       textX(
@@ -229,18 +229,19 @@ export const drawRenderFrame = async ({
         fillColor: colorWithAlpha(videoRenderStyle.titleColor, videoRenderStyle.titleColorAlpha),
         letterSpacing: videoRenderStyle.titleLetterSpacing,
         object: titleObject,
+        appearanceText:true,
       },
     );
     y += titleLineHeight;
-  });
+  }
   ctx.restore();
 
   if (renderTitleLines.length && renderBodyLines.length) y += Math.round(bodySize * 0.6);
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   ctx.save();
   ctx.globalAlpha = bodyState.alpha;
-  renderBodyLines.forEach((line) => {
-    drawVideoTextLine(
+  for (const line of renderBodyLines) {
+    await drawVideoTextLine(
       ctx,
       line,
       textX(
@@ -254,9 +255,10 @@ export const drawRenderFrame = async ({
         fillColor: colorWithAlpha(videoRenderStyle.bodyColor, videoRenderStyle.bodyColorAlpha),
         letterSpacing: videoRenderStyle.bodyLetterSpacing,
         object: bodyObject,
+        appearanceText:true,
       },
     );
     y += bodyLineHeight;
-  });
+  }
   ctx.restore();
 };

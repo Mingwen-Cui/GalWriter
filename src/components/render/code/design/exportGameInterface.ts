@@ -4,7 +4,7 @@ import type { RenpyExportSettings, RenpyFile } from '../codeExport/types';
 import { resolveGameInterface } from './gameInterface';
 
 /** Shared by source preview and ZIP export. No inspector state is read during generation. */
-export function applyGameInterface(
+function applyLegacyGameInterface(
   files: RenpyFile[],
   settings: RenpyExportSettings,
   target: CodeExportTarget,
@@ -152,4 +152,86 @@ screen choice(items):
     );
   }
   return files;
+}
+
+/** Native engines consume the same composed artwork as the design panel. */
+export function applyGameInterface(
+  files: RenpyFile[],
+  settings: RenpyExportSettings,
+  target: CodeExportTarget,
+): RenpyFile[] {
+  const d = resolveGameInterface(settings.interfaceDesigns, target);
+  return applyLegacyGameInterface(files, settings, target).map((file) => {
+    let content = file.content;
+    if (target === 'dialogic' && file.path === 'game/GalWriter.gd') {
+      if (d.panelAppearance)
+        content = content.replace(
+          `_panel(Color("${toHex8(d.panelColor, d.panelAlpha)}"))`,
+          '_interface_texture("dialogue")',
+        );
+      if (d.choiceAppearance)
+        content = content.replace(
+          'parent.add_child(button)',
+          'button.add_theme_stylebox_override("normal", _interface_texture("choices"))\n\tbutton.add_theme_stylebox_override("hover", _interface_texture("choices"))\n\tparent.add_child(button)',
+        );
+      if (d.canvasAppearance)
+        content = content.replace(
+          'add_child(fill)',
+          'add_child(fill)\n\tvar interface_background = TextureRect.new()\n\tinterface_background.texture = load("res://game/galwriter-ui/canvas.png")\n\tinterface_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE\n\tinterface_background.size = SCREEN\n\tinterface_background.mouse_filter = Control.MOUSE_FILTER_IGNORE\n\tadd_child(interface_background)',
+        );
+      content = content
+        .replace(
+          'dialogue_panel.z_index = 100',
+          `dialogue_panel.z_index = ${100 + (d.layerOrder?.dialogue ?? 1)}`,
+        )
+        .replace(
+          'choice_scroll.z_index = 101',
+          `choice_scroll.z_index = ${100 + (d.layerOrder?.choices ?? 2)}`,
+        );
+      if (d.panelAppearance || d.choiceAppearance)
+        content +=
+          '\nfunc _interface_texture(surface: String) -> StyleBoxTexture:\n\tvar skin = StyleBoxTexture.new()\n\tskin.texture = load("res://game/galwriter-ui/" + surface + ".png")\n\tskin.set_content_margin_all(16.0)\n\treturn skin\n';
+    }
+    if (target === 'renpy') {
+      if (file.path === 'game/galwriter_interface.rpy') {
+        if (d.panelAppearance)
+          content = content.replace(
+            `background Solid("${toHex8(d.panelColor, d.panelAlpha)}")`,
+            'background "galwriter-ui/dialogue.png"',
+          );
+        if (d.choiceAppearance)
+          content = content
+            .replace(
+              `background Solid("${d.accentColor}")`,
+              'background Frame("galwriter-ui/choices.png", 16, 16)',
+            )
+            .replace(
+              `hover_background Solid("${d.accentColor}cc")`,
+              'hover_background Frame("galwriter-ui/choices.png", 16, 16)',
+            );
+        content = content
+          .replace(
+            'screen say(who, what):',
+            `screen say(who, what):\n    zorder ${d.layerOrder?.dialogue ?? 1}`,
+          )
+          .replace(
+            'screen choice(items):',
+            `screen choice(items):\n    zorder ${d.layerOrder?.choices ?? 2}`,
+          );
+      }
+      if (file.path === 'game/script.rpy' && d.canvasAppearance)
+        content = content.replace(
+          `scene expression Solid("${d.background}")`,
+          'scene expression "galwriter-ui/canvas.png"',
+        );
+    }
+    if (target === 'tyrano' && file.path === 'data/scenario/first.ks') {
+      if (d.panelAppearance)
+        content = content.replace(
+          '[position layer="message0"',
+          '[position frame="galwriter-ui/dialogue.png" layer="message0"',
+        );
+    }
+    return { ...file, content };
+  });
 }

@@ -1,3 +1,4 @@
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -86,6 +87,7 @@ const textAlignStyle = (align: 'left' | 'center' | 'right' | undefined) => {
 };
 
 const slideBackgroundPaint = (background?: PptSlideBackgroundStyle): React.CSSProperties => {
+  if(background?.appearance)return {background:'transparent'};
   if (!background) return {};
   if (background.type === 'gradient') {
     return {
@@ -386,6 +388,7 @@ export function PptManualElementLayer({
               if (editable) onSelectElement?.(element.id);
             }}
           >
+            <SurfaceLayers value={element.webStyle?.appearance} radius={element.webStyle?.borderRadius || 0}/>
             {element.kind === 'image' ? (
               <img
                 src={element.src}
@@ -441,7 +444,7 @@ export function PptManualElementLayer({
                 contentEditable
                 suppressContentEditableWarning
                 className={`h-full w-full cursor-text px-8 outline-none transition ${buttonClass(element.variant)}`}
-                style={{ ...manualElementPaint(element), ...manualTextPaint(element) }}
+                style={{ ...manualElementPaint(element), ...manualTextPaint(element),position:'relative',zIndex:1,...(element.webStyle?.appearance?{background:'transparent',border:0,boxShadow:'none'}:{}) }}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
                 onInput={(event) => setDraftText(event.currentTarget.innerText)}
@@ -464,7 +467,7 @@ export function PptManualElementLayer({
                 type="button"
                 onClick={() => runButtonAction(element)}
                 className={`h-full w-full px-8 transition ${editable ? 'cursor-grab active:cursor-grabbing' : ''} ${buttonClass(element.variant)}`}
-                style={{ ...manualElementPaint(element), ...manualTextPaint(element) }}
+                style={{ ...manualElementPaint(element), ...manualTextPaint(element),position:'relative',zIndex:1,...(element.webStyle?.appearance?{background:'transparent',border:0,boxShadow:'none'}:{}) }}
               >
                 {element.text}
               </button>
@@ -513,7 +516,8 @@ export function PptManualSlideCanvas({
         if (event.target === event.currentTarget) onSelectBackground?.();
       }}
     >
-      {slide.backgroundStyle?.type === 'video' && slide.backgroundStyle.videoUrl ? (
+      {slide.backgroundStyle?.appearance && <SurfaceLayers value={slide.backgroundStyle.appearance}/>}
+      {!slide.backgroundStyle?.appearance && slide.backgroundStyle?.type === 'video' && slide.backgroundStyle.videoUrl ? (
         <video
           className="pointer-events-none absolute inset-0 h-full w-full"
           src={slide.backgroundStyle.videoUrl}

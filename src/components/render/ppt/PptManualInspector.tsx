@@ -55,6 +55,11 @@ export function PptManualInspector({
     <div className="space-y-3 text-[12px] text-slate-900">
       <StartMenuElementInspector
         element={toPptWebInspectorElement(element)}
+        layerElements={slide.elements.map(toPptWebInspectorElement)}
+        onLayerUpdate={(id, patch) => {
+          const item = slide.elements.find((e) => e.id === id);
+          if (item) onUpdateElement(id, toPptManualElementPatch(item, patch));
+        }}
         language={language}
         showDescriptions={showDescriptions}
         buttonFunctions={element.kind === 'button' ? ['custom', 'link'] : undefined}

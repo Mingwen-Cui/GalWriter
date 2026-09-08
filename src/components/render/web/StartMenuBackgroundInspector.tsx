@@ -1,3 +1,5 @@
+import { AppearanceStackInspector } from '../shared/inspectors/AppearanceStackInspector';
+import { newPaint } from '../shared/paint/appearance';
 import type { Language } from '../../../lib/i18n';
 import type { SharedCanvasSettings } from '../canvas/canvasSettings';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
@@ -44,20 +46,27 @@ export function StartMenuBackgroundInspector({
             );
         }}
       />
-      <BackgroundFillInspector
+      <AppearanceStackInspector
         language={language}
-        value={getSurfaceBackground(settings, surface)}
-        onGradientEditingChange={(editing) => onGradientEditingChange?.(editing ? surface : null)}
-        onChange={(patch) => {
-          Object.entries(patch).forEach(([key, value]) =>
-            updateBackgroundSetting(
-              updateWebSettings,
-              surface,
-              key as Parameters<typeof updateBackgroundSetting>[2],
-              value as Parameters<typeof updateBackgroundSetting>[3],
-            ),
-          );
-        }}
+        value={
+          settings.surfaceAppearances?.[surface] || {
+            fills: [
+              {
+                ...newPaint(),
+                ...getSurfaceBackground(settings, surface),
+                id: 'legacy-background',
+              },
+            ],
+            strokes: [],
+            shadows: [],
+          }
+        }
+        onChange={(appearance) =>
+          updateWebSettings('surfaceAppearances', {
+            ...settings.surfaceAppearances,
+            [surface]: appearance,
+          })
+        }
       />
       {!hideMusic && surface !== 'game' && (
         <WebMenuMusicPanel

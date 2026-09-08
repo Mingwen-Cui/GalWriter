@@ -155,7 +155,7 @@ export function PptSidebar({
 }) {
   const copy = usePptCopy();
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
-  const [showParameterDescriptions, setShowParameterDescriptions] = useState(false);
+  const showParameterDescriptions = false;
   const [coverDesignMode, setCoverDesignMode] = useState<'background' | 'preset'>('background');
   const [savedPptCoverTemplates, setSavedPptCoverTemplates] = useState(readPptCoverTemplateLibrary);
   const [selectedPptCoverTemplateId, setSelectedPptCoverTemplateId] = useState<string | null>(null);
@@ -240,30 +240,7 @@ export function PptSidebar({
         <div className="flex min-w-0 items-center gap-2">
           <activeTabConfig.icon className="h-4 w-4 shrink-0 text-[var(--vr-accent)]" />
           <span className="truncate">{activeTabConfig.label}</span>
-          {showDescriptionToggle ? (
-            <button
-              type="button"
-              onClick={() => setShowParameterDescriptions((current) => !current)}
-              className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                showParameterDescriptions
-                  ? 'bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]'
-                  : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-              }`}
-              title={
-                showParameterDescriptions
-                  ? copy.hideParameterDescriptions
-                  : copy.showParameterDescriptions
-              }
-              aria-label={
-                showParameterDescriptions
-                  ? copy.hideParameterDescriptions
-                  : copy.showParameterDescriptions
-              }
-              aria-pressed={showParameterDescriptions}
-            >
-              <Info className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
+          
         </div>
         <div className="flex h-8 shrink-0 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
           {tabs.map((tab) => (

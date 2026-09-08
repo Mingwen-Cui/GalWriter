@@ -3,8 +3,6 @@ import {
   AlignLeft,
   AlignRight,
   ChevronDown,
-  Eye,
-  EyeOff,
   GripHorizontal,
   Image as ImageIcon,
   Palette,
@@ -114,10 +112,13 @@ export function InspectorGroup({
               setOpen(!titleActive);
             }}
             aria-label={title}
-            aria-pressed={titlePressed ?? titleActive}
+            role="switch"
+            aria-checked={titlePressed ?? titleActive}
             title={title}
           >
-            {titleActive ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            <span className="property-switch" data-on={titlePressed ?? titleActive}>
+              <span />
+            </span>
           </button>
         )}
       </div>
@@ -235,7 +236,9 @@ export function VisibilityButton({
       aria-label={label}
       aria-pressed={visible}
     >
-      {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+      <span className="property-switch" data-on={visible}>
+        <span />
+      </span>
       <span className="min-w-0 truncate">{label}</span>
     </button>
   );

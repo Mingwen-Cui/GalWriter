@@ -1,3 +1,4 @@
+import { drawAppearance } from '../../shared/paint/appearanceCanvas';
 import type { RenderEditableTextObject, RenderShadowStyle } from './types';
 
 const rgba = (color: string, alpha: number) => {
@@ -20,7 +21,7 @@ const enabledShadows = (object: RenderEditableTextObject): RenderShadowStyle[] =
 };
 
 /** Draw one text line with the video-export effects used by the Canvas renderer. */
-export const drawVideoTextLine = (
+export const drawVideoTextLine = async (
   ctx: CanvasRenderingContext2D,
   line: string,
   x: number,
@@ -30,12 +31,31 @@ export const drawVideoTextLine = (
     fillColor: string;
     letterSpacing: number;
     object: RenderEditableTextObject;
+    appearanceText?: boolean;
   },
 ) => {
   ctx.save();
   ctx.textAlign = options.align;
   (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing =
     `${options.letterSpacing}px`;
+
+  if(options.appearanceText && options.object.appearance){
+    const appearance=options.object.appearance;
+    const metrics=ctx.measureText(line),w=Math.ceil(metrics.width)+4,h=Math.ceil(metrics.actualBoundingBoxAscent+metrics.actualBoundingBoxDescent)+4;
+    const left=options.align==='center'?x-w/2:options.align==='right'?x-w+2:x-2;
+    const top=y-metrics.actualBoundingBoxAscent-2;
+    const canvas=document.createElement('canvas');canvas.width=Math.max(1,w);canvas.height=Math.max(1,h);
+    const paint=canvas.getContext('2d');if(paint){
+      await drawAppearance(paint,{fills:appearance.fills,strokes:[],shadows:[]},{x:0,y:0,width:w,height:h});
+      paint.globalCompositeOperation='destination-in';paint.font=ctx.font;paint.textAlign=ctx.textAlign;paint.textBaseline=ctx.textBaseline;
+      (paint as CanvasRenderingContext2D & {letterSpacing?:string}).letterSpacing=`${options.letterSpacing}px`;
+      paint.fillText(line,x-left,y-top);
+      for(const shadow of [...appearance.shadows].reverse().filter(s=>s.enabled&&!s.inset)){ctx.save();ctx.shadowColor=shadow.color;ctx.shadowBlur=shadow.blur;ctx.shadowOffsetX=shadow.x;ctx.shadowOffsetY=shadow.y;ctx.drawImage(canvas,left,top);ctx.restore();}
+      for(const stroke of [...appearance.strokes].reverse().filter(s=>s.enabled)){ctx.strokeStyle=stroke.color;ctx.lineWidth=stroke.width*2;ctx.strokeText(line,x,y);}
+      ctx.drawImage(canvas,left,top);
+    }
+    ctx.restore();return;
+  }
 
   // Render each layer separately so opacity and offsets match the inspector exactly.
   for (const shadow of enabledShadows(options.object)) {

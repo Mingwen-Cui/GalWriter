@@ -1,3 +1,4 @@
+import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { CSSProperties } from 'react';
 
 import {
@@ -108,6 +109,12 @@ export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSPrope
   };
 };
 
+const textAppearanceStyle=(object:RenderEditableObject):CSSProperties=>object.appearance?{
+ backgroundImage:appearanceStyle(object.appearance).backgroundImage,backgroundSize:'cover',backgroundClip:'text',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',color:'transparent',zIndex:object.zIndex,
+ textShadow:object.appearance.shadows.filter(s=>s.enabled&&!s.inset).map(s=>`${s.x}px ${s.y}px ${s.blur}px ${s.color}`).join(', ') || 'none',
+ WebkitTextStroke:object.appearance.strokes.filter(s=>s.enabled).map(s=>`${s.width}px ${s.color}`)[0] || '0 transparent'
+}:{};
+
 export const buildTitleStyle = (renderStyle: RenderStyle, canvasHeight: number): CSSProperties => {
   const scale = resolvePresentationTextScale(canvasHeight);
   return {
@@ -121,6 +128,7 @@ export const buildTitleStyle = (renderStyle: RenderStyle, canvasHeight: number):
     overflowWrap: 'anywhere',
     ...webAnimationStyle(renderStyle.titleAnimation),
     textShadow: shadowPaint(getRenderObjects(renderStyle).title),
+    ...textAppearanceStyle(getRenderObjects(renderStyle).title),
   };
 };
 
@@ -137,6 +145,7 @@ export const buildBodyStyle = (renderStyle: RenderStyle, canvasHeight: number): 
     overflowWrap: 'anywhere',
     ...webAnimationStyle(renderStyle.bodyAnimation),
     textShadow: shadowPaint(getRenderObjects(renderStyle).body),
+    ...textAppearanceStyle(getRenderObjects(renderStyle).body),
   };
 };
 
@@ -164,7 +173,9 @@ export const buildDialogueShellStyle = (
           boxShadow: 'none',
           backdropFilter: 'none',
         }),
-    borderRadius: object.radius,
+    borderRadius: object.corners?.map((v) => `${v}px`).join(' ') || object.radius,
+    zIndex: object.zIndex,
+    ...(object.appearance ? appearanceStyle(object.appearance) : {}),
     position: 'absolute',
     boxSizing: 'border-box',
     left: layout.x,

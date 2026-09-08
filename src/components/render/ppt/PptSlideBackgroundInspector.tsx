@@ -1,3 +1,5 @@
+import { AppearanceStackInspector } from '../shared/inspectors/AppearanceStackInspector';
+import { newPaint } from '../shared/paint/appearance';
 import { useState } from 'react';
 import type { Language } from '../../../lib/i18n';
 import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
@@ -46,10 +48,23 @@ export function PptSlideBackgroundInspector({
           if (layout !== pptSettings.layout) setPendingLayout(layout);
         }}
       />
-      <BackgroundFillInspector
+      <AppearanceStackInspector
         language={language}
-        value={{ ...background, imageUrl: background.imageUrl || '' }}
-        onChange={onUpdateBackground}
+        value={
+          background.appearance || {
+            fills: [
+              {
+                ...newPaint(),
+                ...background,
+                imageUrl: background.imageUrl || '',
+                id: 'legacy-background',
+              },
+            ],
+            strokes: [],
+            shadows: [],
+          }
+        }
+        onChange={(appearance) => onUpdateBackground({ appearance })}
       />
       {pendingLayout && (
         <PptLayoutChangeDialog

@@ -1,3 +1,4 @@
+import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { CSSProperties } from 'react';
 
 import type { WebMenuElement } from '../video/shared/types';
@@ -46,21 +47,25 @@ export const webElementShadowStyle = (
   if (element.shadowEnabled === false) return {};
   const shadows = element.shadows?.length
     ? element.shadows
-    : [{
-        id: 'legacy',
-        type: element.shadowType || 'outer',
-        color: element.shadowColor || '#000000',
-        opacity: element.shadowOpacity ?? 0,
-        blur: element.shadowBlur ?? 18,
-        offsetX: element.shadowOffsetX ?? 0,
-        offsetY: element.shadowOffsetY ?? (target === 'text' ? 2 : 8),
-      }];
+    : [
+        {
+          id: 'legacy',
+          type: element.shadowType || 'outer',
+          color: element.shadowColor || '#000000',
+          opacity: element.shadowOpacity ?? 0,
+          blur: element.shadowBlur ?? 18,
+          offsetX: element.shadowOffsetX ?? 0,
+          offsetY: element.shadowOffsetY ?? (target === 'text' ? 2 : 8),
+        },
+      ];
   const values = shadows
     .filter((shadow) => shadow.enabled !== false && shadow.opacity > 0)
     .map((shadow) => {
       const color = webColorWithAlpha(shadow.color, shadow.opacity, '#000000');
-      if (target === 'text') return `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
-      if (shadow.type === 'inner') return `inset ${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
+      if (target === 'text')
+        return `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
+      if (shadow.type === 'inner')
+        return `inset ${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
       if (shadow.type === 'innerBlur') return `inset 0 0 ${shadow.blur}px ${color}`;
       return `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
     });
@@ -109,11 +114,18 @@ const webElementBorderParts = (element: WebMenuElement) => {
 
   if (!isGradient) {
     if (position === 'inside') {
-      return { style: { border: 0 } as CSSProperties, shadow: `inset 0 0 0 ${width}px ${borderPaint}` };
+      return {
+        style: { border: 0 } as CSSProperties,
+        shadow: `inset 0 0 0 ${width}px ${borderPaint}`,
+      };
     }
     if (position === 'outside') {
       return {
-        style: { border: 0, outline: `${width}px solid ${borderPaint}`, outlineOffset: 0 } as CSSProperties,
+        style: {
+          border: 0,
+          outline: `${width}px solid ${borderPaint}`,
+          outlineOffset: 0,
+        } as CSSProperties,
         shadow: '',
       };
     }
@@ -140,6 +152,7 @@ export const webElementBorderStyle = (element: WebMenuElement): CSSProperties =>
   webElementBorderParts(element).style;
 
 export const webElementBoxStyle = (element: WebMenuElement): CSSProperties => {
+  if (element.appearance) return appearanceStyle(element.appearance);
   const border = webElementBorderParts(element);
   const shadow = webElementShadowStyle(element, 'box');
   const shadows = [border.shadow, shadow.boxShadow].filter(Boolean).join(', ');

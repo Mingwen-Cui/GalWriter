@@ -66,18 +66,8 @@ export function VideoExportSettingsPanel({
   onCanvasSettingsChange,
   showCanvasSettings,
 }: VideoExportSettingsPanelProps) {
-  const [showSettingDescriptions, setShowSettingDescriptions] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const stored = window.localStorage.getItem('galwriter-video-export-setting-descriptions');
-    return stored === 'true';
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(
-      'galwriter-video-export-setting-descriptions',
-      String(showSettingDescriptions),
-    );
-  }, [showSettingDescriptions]);
+  const showSettingDescriptions = false;
+
   return (
     <aside
       className="ml-auto min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col shrink-0 overflow-hidden"
@@ -92,39 +82,6 @@ export function VideoExportSettingsPanel({
               'componentsrendervideopanelsVideoExportSettingsPanelText742',
             )}
           </span>
-          <button
-            type="button"
-            onClick={() => setShowSettingDescriptions((current) => !current)}
-            className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-              showSettingDescriptions
-                ? 'bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)]'
-                : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-muted)] hover:text-[var(--vr-text)]'
-            }`}
-            title={
-              showSettingDescriptions
-                ? formatVideoText(
-                    language,
-                    'componentsrendervideopanelsVideoExportSettingsPanelText753',
-                  )
-                : formatVideoText(
-                    language,
-                    'componentsrendervideopanelsVideoExportSettingsPanelText754',
-                  )
-            }
-            aria-label={
-              showSettingDescriptions
-                ? formatVideoText(
-                    language,
-                    'componentsrendervideopanelsVideoExportSettingsPanelText758',
-                  )
-                : formatVideoText(
-                    language,
-                    'componentsrendervideopanelsVideoExportSettingsPanelText759',
-                  )
-            }
-          >
-            <Info className="h-3.5 w-3.5" />
-          </button>
         </div>
         <div className="flex h-8 shrink-0 rounded-lg bg-[var(--vr-surface-soft)] p-0.5">
           {(['video', 'audio'] as ExportSettingsMode[]).map((mode) => (

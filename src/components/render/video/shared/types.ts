@@ -1,3 +1,4 @@
+import type { SurfaceAppearance } from '../../shared/paint/appearance';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { ReactNode } from 'react';
 
@@ -220,6 +221,9 @@ export type RenderObjectAnimationStyle = {
 };
 
 export type RenderEditableObject = {
+  appearance?: SurfaceAppearance;
+  zIndex?: number;
+  corners?: [number, number, number, number];
   visible: boolean;
   x: number;
   y: number;
@@ -259,6 +263,7 @@ export type RenderEditableObjects = {
 };
 
 export type WebMenuElement = {
+  appearance?: SurfaceAppearance;
   id: string;
   kind: 'button' | 'text' | 'image';
   role?:
@@ -379,6 +384,9 @@ export type WebMenuElement = {
 };
 
 export type WebExportSettings = {
+  surfaceAppearances?: Partial<
+    Record<'start' | 'archive' | 'settings' | 'game', SurfaceAppearance>
+  >;
   canvasWidth: number;
   canvasHeight: number;
   canvasRatioWidth: number;
@@ -761,6 +769,7 @@ export type PptManualElement =
   | PptManualButtonElement;
 /** Background settings are intentionally local to one PPT slide. */
 export type PptSlideBackgroundStyle = {
+  appearance?: SurfaceAppearance;
   type: 'solid' | 'gradient' | 'image' | 'video';
   color: string;
   gradientStart: string;

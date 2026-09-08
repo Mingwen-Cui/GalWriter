@@ -1,3 +1,4 @@
+import { packageGameInterface } from '../design/packageGameInterface';
 import { applyGameInterface } from '../design/exportGameInterface';
 import type { Edge, Node } from '@xyflow/react';
 import JSZip from 'jszip';
@@ -50,9 +51,16 @@ export const buildCodeProjectPreview = (
   settings: Partial<RenpyExportSettings> | undefined,
   target: CodeExportTarget,
 ): CodeProjectPreview => {
-  const normalized = (target === 'dialogic' ? normalizeGodotProject : normalizeProjectToIr)(nodes, edges, projectName, settings);
-  const irDiagnostics = validateIr(normalized.ir).filter((item) =>
-    target !== 'dialogic' || (!item.id.startsWith('asset-risk-') && !item.id.startsWith('ir-code-')),
+  const normalized = (target === 'dialogic' ? normalizeGodotProject : normalizeProjectToIr)(
+    nodes,
+    edges,
+    projectName,
+    settings,
+  );
+  const irDiagnostics = validateIr(normalized.ir).filter(
+    (item) =>
+      target !== 'dialogic' ||
+      (!item.id.startsWith('asset-risk-') && !item.id.startsWith('ir-code-')),
   );
   const build = generatorFor(target)(normalized.ir);
   const diagnostics = [...normalized.diagnostics, ...irDiagnostics, ...build.diagnostics].filter(
@@ -105,6 +113,7 @@ export const buildCodeProjectZip = async (
     const { packageGodotAssets } = await import('./targets/dialogic/packageGodotAssets');
     await packageGodotAssets(zip, preview.assets);
   } else await materializeAssets(zip, preview.assets, build.assetCopies);
+  await packageGameInterface(zip, preview.settings, target);
   return {
     blob: await zip.generateAsync({ type: 'blob' }),
     fileName: `${safeFilePart(projectName, 'galwriter')}-${target === 'dialogic' ? 'godot' : target}.zip`,

@@ -1,7 +1,14 @@
+import type { SurfaceAppearance } from '../../shared/paint/appearance';
 import { parseColorValue } from '../../shared/paint/colorValue';
 import type { CodeExportTarget } from '../codeExport/targets/targetTypes';
 
 export type GameInterfaceSettings = {
+  templateId?: string;
+  panelAppearance?: SurfaceAppearance;
+  canvasAppearance?: SurfaceAppearance;
+  choiceAppearance?: SurfaceAppearance;
+  corners?: [number, number, number, number];
+  layerOrder?: Record<string, number>;
   width: number;
   height: number;
   background: string;
@@ -73,6 +80,12 @@ export function normalizeGameInterface(
   value.panelHeight = Math.min(value.panelHeight, 100 - value.panelY);
   for (const key of ['background', 'panelColor', 'textColor', 'nameColor', 'accentColor'] as const)
     value[key] = parseColorValue(input?.[key], value[key]).hex;
+  value.templateId = input?.templateId;
+  value.panelAppearance = input?.panelAppearance;
+  value.canvasAppearance = input?.canvasAppearance;
+  value.choiceAppearance = input?.choiceAppearance;
+  value.corners = input?.corners;
+  value.layerOrder = input?.layerOrder;
   return value;
 }
 export function resolveGameInterface(

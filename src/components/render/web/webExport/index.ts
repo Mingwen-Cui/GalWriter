@@ -1,3 +1,4 @@
+import type { SurfaceAppearance } from '../../shared/paint/appearance';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
@@ -414,6 +415,35 @@ export async function buildInteractiveWebZipBlob(
     hideCharacterTags: true,
     hideSceneTags: true,
   };
+  const packAppearance = async (
+    appearance: SurfaceAppearance | undefined,
+    label: string,
+  ): Promise<SurfaceAppearance | undefined> =>
+    appearance
+      ? {
+          ...appearance,
+          fills: await Promise.all(
+            appearance.fills.map(async (fill, i) => ({
+              ...fill,
+              imageUrl: await addImageAsset(zip, fill.imageUrl, `${label}-fill-${i}`, assetMap),
+              videoUrl: await addVideoAsset(zip, fill.videoUrl, `${label}-video-${i}`, assetMap),
+            })),
+          ),
+        }
+      : undefined;
+  settings.surfaceAppearances = {};
+  for (const [surface, appearance] of Object.entries(options.settings?.surfaceAppearances || {}))
+    settings.surfaceAppearances[surface as 'start' | 'archive' | 'settings' | 'game'] =
+      await packAppearance(appearance, `${title}-${surface}`);
+  if (style.renderObjects)
+    style.renderObjects = Object.fromEntries(
+      await Promise.all(
+        Object.entries(style.renderObjects).map(async ([key, object]) => [
+          key,
+          { ...object, appearance: await packAppearance(object.appearance, `${title}-${key}`) },
+        ]),
+      ),
+    ) as typeof style.renderObjects;
   settings.startMenuBackgroundImageUrl = await addImageAsset(
     zip,
     settings.startMenuBackgroundImageUrl,
@@ -454,6 +484,7 @@ export async function buildInteractiveWebZipBlob(
     Promise.all(
       elements.map(async (element) => ({
         ...element,
+        appearance: await packAppearance(element.appearance, `${title}-${pageName}-${element.id}`),
         imageUrl: await addImageAsset(
           zip,
           element.imageUrl,

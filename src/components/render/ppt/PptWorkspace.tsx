@@ -1,3 +1,5 @@
+import { themeRenderPatch } from '../experienceThemes';
+import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -180,6 +182,7 @@ const pptBackgroundColor = (background: PptSlideBackgroundStyle) =>
     : background.color;
 
 const pptBackgroundCss = (background?: PptSlideBackgroundStyle): React.CSSProperties => {
+  if (background?.appearance) return appearanceStyle(background.appearance);
   if (!background) return {};
   if (background.type === 'gradient') {
     return {
@@ -411,50 +414,50 @@ export function PptWorkspace({
   // Keep them visible in the native PPT timeline without serialising a second
   // copy into the workspace settings.
   const tagAnimations = scene ? resolvePptTagAnimations(scene) : [];
-    const styleTextAnimations = useMemo(() => {
-      if (!scene) return [] as PptObjectAnimation[];
-      const objects = getRenderObjects(renderStyle);
-      const entries: PptObjectAnimation[] = [];
-      const hasSaved = (target: PptAnimationTarget) =>
-        savedAnimations.some((item) => item.target === target);
-      if (
-        objects.title.visible &&
-        objects.title.animation.animation === 'typewriter' &&
-        !hasSaved('dialog-title')
-      ) {
-        entries.push({
-          id: `style:${scene.id}:dialog-title:typewriter`,
-          source: 'tag',
-          target: 'dialog-title',
-          phase: 'enter',
-          effect: 'wipe',
-          start: 'afterPrevious',
-          durationMs: Math.max(500, objects.title.animation.durationMs || 600),
-          delayMs: 0,
-          direction: 'left',
-          textBuild: { mode: 'line-wipe', lineGapMs: 140 },
-        });
-      }
-      if (
-        objects.body.visible &&
-        objects.body.animation.animation === 'typewriter' &&
-        !hasSaved('dialog-body')
-      ) {
-        entries.push({
-          id: `style:${scene.id}:dialog-body:typewriter`,
-          source: 'tag',
-          target: 'dialog-body',
-          phase: 'enter',
-          effect: 'wipe',
-          start: 'afterPrevious',
-          durationMs: Math.max(500, objects.body.animation.durationMs || 600),
-          delayMs: 0,
-          direction: 'left',
-          textBuild: { mode: 'line-wipe', lineGapMs: 160 },
-        });
-      }
-      return entries;
-    }, [renderStyle, savedAnimations, scene]);
+  const styleTextAnimations = useMemo(() => {
+    if (!scene) return [] as PptObjectAnimation[];
+    const objects = getRenderObjects(renderStyle);
+    const entries: PptObjectAnimation[] = [];
+    const hasSaved = (target: PptAnimationTarget) =>
+      savedAnimations.some((item) => item.target === target);
+    if (
+      objects.title.visible &&
+      objects.title.animation.animation === 'typewriter' &&
+      !hasSaved('dialog-title')
+    ) {
+      entries.push({
+        id: `style:${scene.id}:dialog-title:typewriter`,
+        source: 'tag',
+        target: 'dialog-title',
+        phase: 'enter',
+        effect: 'wipe',
+        start: 'afterPrevious',
+        durationMs: Math.max(500, objects.title.animation.durationMs || 600),
+        delayMs: 0,
+        direction: 'left',
+        textBuild: { mode: 'line-wipe', lineGapMs: 140 },
+      });
+    }
+    if (
+      objects.body.visible &&
+      objects.body.animation.animation === 'typewriter' &&
+      !hasSaved('dialog-body')
+    ) {
+      entries.push({
+        id: `style:${scene.id}:dialog-body:typewriter`,
+        source: 'tag',
+        target: 'dialog-body',
+        phase: 'enter',
+        effect: 'wipe',
+        start: 'afterPrevious',
+        durationMs: Math.max(500, objects.body.animation.durationMs || 600),
+        delayMs: 0,
+        direction: 'left',
+        textBuild: { mode: 'line-wipe', lineGapMs: 160 },
+      });
+    }
+    return entries;
+  }, [renderStyle, savedAnimations, scene]);
 
   const currentAnimations = useMemo(
     () => withTimelineStarts([...tagAnimations, ...styleTextAnimations, ...savedAnimations]),
@@ -702,7 +705,10 @@ export function PptWorkspace({
       ...manualElementClipboard,
       id: `manual-${manualElementClipboard.kind}-${crypto.randomUUID()}`,
       x: Math.min(PPT_CONTENT_WIDTH - manualElementClipboard.width, manualElementClipboard.x + 40),
-      y: Math.min(PPT_CONTENT_HEIGHT - manualElementClipboard.height, manualElementClipboard.y + 40),
+      y: Math.min(
+        PPT_CONTENT_HEIGHT - manualElementClipboard.height,
+        manualElementClipboard.y + 40,
+      ),
     });
   };
   const updateActiveManualElement = (elementId: string, patch: Partial<PptManualElement>) => {
@@ -768,6 +774,9 @@ export function PptWorkspace({
       slideBackgroundColors: { ...slideBackgroundColors, cover: template.backgroundColor },
       slideBackgroundStyles: { ...slideBackgroundStyles, cover: coverBackground },
     });
+    Object.entries(themeRenderPatch(template.id, renderStyle)).forEach(([key, value]) =>
+      updateRenderStyle(key as keyof RenderStyle, value as never),
+    );
     setSelectedManualElementId(undefined);
     setSelectedObject({ target: 'background', label: copy.background });
     setSidebarTab('style');

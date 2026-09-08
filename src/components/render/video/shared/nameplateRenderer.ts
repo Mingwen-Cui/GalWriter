@@ -1,3 +1,4 @@
+import { drawAppearance } from '../../shared/paint/appearanceCanvas';
 import type { Node as FlowNode } from '@xyflow/react';
 import type { CSSProperties } from 'react';
 
@@ -83,6 +84,8 @@ export const getNameplateCssBackground = (style: RenderStyle): CSSProperties => 
       .join(', ');
     return { backgroundImage: `linear-gradient(${angle}deg, ${stops})` };
   }
+  const object=getRenderObjects(style).nameplate;
+  if(object.appearance){await drawAppearance(ctx,object.appearance,layout,object.corners || object.radius);return;}
   if (style.nameplateBackgroundType === 'image' && style.nameplateImageUrl) {
     return {
       backgroundImage: `url("${style.nameplateImageUrl.replace(/"/g, '\\"')}")`,
@@ -282,7 +285,7 @@ export const drawNameplates = async (
     ctx.textBaseline = 'middle';
     ctx.save();
     ctx.globalAlpha = animation.alpha;
-    drawVideoTextLine(ctx, layout.item.name, animatedLayout.x + animatedLayout.width / 2, animatedLayout.y + animatedLayout.height / 2, {
+    await drawVideoTextLine(ctx, layout.item.name, animatedLayout.x + animatedLayout.width / 2, animatedLayout.y + animatedLayout.height / 2, {
       align: 'center',
       fillColor: colorWithAlpha(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100),
       letterSpacing: nameplateObject.letterSpacing,

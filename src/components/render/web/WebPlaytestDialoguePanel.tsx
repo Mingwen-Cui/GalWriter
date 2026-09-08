@@ -1,3 +1,4 @@
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import { formatWebText } from './i18n';
 import type React from 'react';
 import type { ReactNode, RefObject } from 'react';
@@ -317,7 +318,12 @@ export function WebPlaytestDialoguePanel({
             ? `${editMode ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
             : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
         } ${editMode ? 'cursor-grab' : ''} ${selectionClass('dialogBox')}`}
-        style={dialogueShellStyle}
+        style={{
+          ...dialogueShellStyle,
+          ...(getRenderObjects(renderStyle).dialogBox.appearance
+            ? { background: 'transparent', boxShadow: 'none', border: 0 }
+            : {}),
+        }}
         data-dialogue-box="true"
         data-render-object="dialogBox"
         onClick={(event) => selectObject(event, 'dialogBox')}
@@ -332,6 +338,14 @@ export function WebPlaytestDialoguePanel({
           if (editMode) event.preventDefault();
         }}
       >
+        <SurfaceLayers
+          value={getRenderObjects(renderStyle).dialogBox.appearance}
+          radius={
+            getRenderObjects(renderStyle)
+              .dialogBox.corners?.map((v) => `${v}px`)
+              .join(' ') || renderStyle.dialogRadius
+          }
+        />
         {editMode && activeGuideLines.length > 0 && (
           <div className="pointer-events-none absolute inset-0 z-[80]">
             {activeGuideLines.map((line, index) => (
