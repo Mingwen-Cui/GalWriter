@@ -102,7 +102,6 @@ const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
   (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
 const CHARACTER_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
-const CHARACTER_NODE_HEIGHT_SAFETY = 8;
 
 type AppearanceMenuOption = { id: string; label: string; assetPath: string };
 
@@ -537,10 +536,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [appearanceAssetUrls, setAppearanceAssetUrls] = useState<Record<string, string>>({});
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
-  const contentFrameRef = useRef<HTMLDivElement>(null);
-  const [measuredMinHeight, setMeasuredMinHeight] = useState(
-    getCalculatedCharacterNodeMinHeight(0),
-  );
   const previewAsset = characterAssetSlots.find((asset) => asset.key === previewAssetKey);
 
   const storeApi = useStoreApi();
@@ -604,7 +599,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   );
 
   const calculatedMinHeight = getCalculatedCharacterNodeMinHeight(outfits.length);
-  const effectiveMinHeight = Math.max(calculatedMinHeight, measuredMinHeight);
+  const effectiveMinHeight = calculatedMinHeight;
   const hasCharacterText = [
     name,
     data.identity,
@@ -626,24 +621,23 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
       if (isMinimized) return;
 
       const heightToApply = Math.ceil(nextMinHeight);
+      const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+      if (!currentNode) return;
+
+      const currentHeight =
+        getNumericSize(currentNode.style?.height) ??
+        getNumericSize((currentNode as any).height) ??
+        getNumericSize((currentNode as any).measured?.height);
+      const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
+      const shouldApplyHeight =
+        allowShrink || currentHeight === undefined || currentHeight < heightToApply - 1;
+      const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
+
+      if (!shouldApplyHeight && !shouldUpdateMinHeight) return;
 
       setNodes((nodes) =>
         nodes.map((node) => {
           if (node.id !== id) return node;
-
-          const currentHeight =
-            getNumericSize(node.style?.height) ??
-            getNumericSize((node as any).height) ??
-            getNumericSize((node as any).measured?.height);
-
-          const currentMinHeight = getNumericSize(node.style?.minHeight);
-          const shouldApplyHeight =
-            allowShrink || currentHeight === undefined || currentHeight < heightToApply - 1;
-          const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
-
-          if (!shouldApplyHeight && !shouldUpdateMinHeight) {
-            return node;
-          }
 
           return {
             ...node,
@@ -660,22 +654,26 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         updateNodeInternals(id);
       });
     },
-    [effectiveMinHeight, id, isMinimized, setNodes, updateNodeInternals],
+    [effectiveMinHeight, id, isMinimized, setNodes, storeApi, updateNodeInternals],
   );
 
   // Existing projects may contain character cards created with an older width.
   // Normalize those cards to the same fixed width used by scene setting cards.
   const syncNodeWidthToSettingCard = useCallback(() => {
+    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+    if (!currentNode) return;
+
+    const currentWidth =
+      getNumericSize(currentNode.style?.width) ??
+      getNumericSize((currentNode as any).width) ??
+      getNumericSize((currentNode as any).measured?.width);
+    const currentMinWidth = getNumericSize(currentNode.style?.minWidth);
+    if (currentWidth === SETTING_NODE_CARD_WIDTH && currentMinWidth === SETTING_NODE_CARD_WIDTH)
+      return;
+
     setNodes((nodes) =>
       nodes.map((node) => {
         if (node.id !== id) return node;
-
-        const currentWidth =
-          getNumericSize(node.style?.width) ??
-          getNumericSize((node as any).width) ??
-          getNumericSize((node as any).measured?.width);
-
-        if (currentWidth === SETTING_NODE_CARD_WIDTH) return node;
 
         return {
           ...node,
@@ -687,16 +685,16 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         };
       }),
     );
-  }, [id, setNodes]);
+  }, [id, setNodes, storeApi]);
 
   const measureContentMinHeight = useCallback(() => {
-    if (isMinimized || !contentFrameRef.current) return calculatedMinHeight;
-
-    const contentHeight =
-      contentFrameRef.current.scrollHeight ||
-      contentFrameRef.current.getBoundingClientRect().height;
-    return Math.max(calculatedMinHeight, Math.ceil(contentHeight + CHARACTER_NODE_HEIGHT_SAFETY));
-  }, [calculatedMinHeight, isMinimized]);
+    // The card wrapper fills the React Flow node. Reading its scrollHeight and
+    // then writing that value back as the node minimum creates a feedback loop:
+    // each write enlarges the wrapper measured by the next layout effect.
+    // Every visible section has a fixed height, so the formula is the stable
+    // lower bound for both initial and user-created character cards.
+    return calculatedMinHeight;
+  }, [calculatedMinHeight]);
 
   const shouldResizeCharacterNode = useCallback(
     (_event: unknown, params: { height: number; direction?: number[] }) => {
@@ -724,7 +722,12 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         appearancePresetEnabled: data.appearancePresetEnabled ?? false,
       });
     }
-  }, [data.appearancePresetEnabled, data.appearanceTemplate, defaultAppearanceTemplate, updateNodeData]);
+  }, [
+    data.appearancePresetEnabled,
+    data.appearanceTemplate,
+    defaultAppearanceTemplate,
+    updateNodeData,
+  ]);
 
   useEffect(() => {
     if (typeof data.appearancePresetEnabled === 'boolean') {
@@ -1108,11 +1111,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
    * 注意：不要持续读取 scrollHeight，否则会和 height: 100% 形成反馈循环，导致高度一直变高。
    */
   useLayoutEffect(() => {
-    const nextMeasuredMinHeight = measureContentMinHeight();
-    setMeasuredMinHeight((previous) =>
-      Math.abs(previous - nextMeasuredMinHeight) < 1 ? previous : nextMeasuredMinHeight,
-    );
-    syncNodeHeightToMinimum(Math.max(calculatedMinHeight, nextMeasuredMinHeight));
+    syncNodeHeightToMinimum(calculatedMinHeight);
   }, [
     calculatedMinHeight,
     data.showPersonality,
@@ -1387,7 +1386,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-purple-500 !rounded-none"
       />
 
-      <div ref={contentFrameRef} className="flex flex-col w-full h-full rounded-xl">
+      <div className="flex flex-col w-full h-full rounded-xl">
         {/* Header with Buttons */}
         <div className="bg-[var(--header-bg)] rounded-t-xl border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing shrink-0">
           <div className="flex items-center gap-2">
@@ -1486,12 +1485,10 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       adjustment={appearanceAdjustment}
                       className="h-full w-full object-cover"
                     />
+                  ) : placeholderAvatarUrl ? (
+                    <img src={placeholderAvatarUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    placeholderAvatarUrl ? (
-                      <img src={placeholderAvatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <UserCircle2 className="h-7 w-7 text-purple-400" aria-label="人物头像占位" />
-                    )
+                    <UserCircle2 className="h-7 w-7 text-purple-400" aria-label="人物头像占位" />
                   )}
                 </div>
                 <div className="absolute inset-0 overflow-hidden rounded-lg bg-black/55 opacity-0 transition-opacity group-hover/avatar:opacity-100">
@@ -1590,7 +1587,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       className="inline-flex h-5 overflow-hidden rounded border border-purple-200 bg-white/80 dark:border-purple-800 dark:bg-slate-900"
                       role="group"
                       aria-label={
-                        lang === 'zh' ? '角色性别' : lang === 'ja' ? 'キャラクターの性別' : 'Character gender'
+                        lang === 'zh'
+                          ? '角色性别'
+                          : lang === 'ja'
+                            ? 'キャラクターの性別'
+                            : 'Character gender'
                       }
                     >
                       {(['male', 'female'] as const).map((gender) => (
@@ -1630,7 +1631,9 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                           updateAppearanceTemplate('faceId', value);
                           setOpenAppearanceMenu(null);
                         }}
-                        onUploadCustom={(file) => uploadCustomAppearanceLayer('customFaceAssetUrl', file)}
+                        onUploadCustom={(file) =>
+                          uploadCustomAppearanceLayer('customFaceAssetUrl', file)
+                        }
                       />
                       <AppearanceImageMenu
                         label={lang === 'zh' ? '发型' : lang === 'ja' ? '髪型' : 'Hair'}

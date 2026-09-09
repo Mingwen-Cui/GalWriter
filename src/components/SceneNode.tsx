@@ -63,7 +63,15 @@ const getNumericSize = (value: unknown) => {
 };
 
 const getCalculatedSceneNodeMinHeight = (imagesCount: number) =>
-  70 + 73 + 24 + 4 * 75 + 3 * 8 + 24 + 20 + (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8) + 4;
+  70 +
+  73 +
+  24 +
+  4 * 75 +
+  3 * 8 +
+  24 +
+  20 +
+  (imagesCount === 0 ? 33 : imagesCount * (46 + 8) + 8) +
+  4;
 
 const SCENE_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
 const SCENE_NODE_HEIGHT_RECOVERY_EXCESS = 960;
@@ -157,38 +165,30 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
       if (isMinimized) return;
 
       const heightToApply = Math.ceil(nextMinHeight);
+      const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+      if (!currentNode) return;
+
+      const currentHeight =
+        getNumericSize(currentNode.style?.height) ??
+        getNumericSize((currentNode as any).height) ??
+        getNumericSize((currentNode as any).measured?.height);
+      const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
+      const shouldRecoverRunawayHeight =
+        currentHeight !== undefined &&
+        currentHeight >
+          Math.max(heightToApply * 3, heightToApply + SCENE_NODE_HEIGHT_RECOVERY_EXCESS);
+      const shouldApplyHeight =
+        allowShrink ||
+        shouldRecoverRunawayHeight ||
+        currentHeight === undefined ||
+        currentHeight < heightToApply - 1;
+      const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
+
+      if (!shouldApplyHeight && !shouldUpdateMinHeight) return;
 
       setNodes((nodes) =>
         nodes.map((node) => {
           if (node.id !== id) return node;
-
-          const currentHeight =
-            getNumericSize(node.style?.height) ??
-            getNumericSize((node as any).height) ??
-            getNumericSize((node as any).measured?.height);
-
-          const currentMinHeight = getNumericSize(node.style?.minHeight);
-          // A previous `h-full` measurement could persist the node's own
-          // height as its minimum. Recover only clearly runaway values while
-          // leaving ordinary manual vertical resizes intact.
-          const shouldRecoverRunawayHeight =
-            currentHeight !== undefined &&
-            currentHeight >
-              Math.max(
-                heightToApply * 3,
-                heightToApply + SCENE_NODE_HEIGHT_RECOVERY_EXCESS,
-              );
-          const shouldApplyHeight =
-            allowShrink ||
-            shouldRecoverRunawayHeight ||
-            currentHeight === undefined ||
-            currentHeight < heightToApply - 1;
-          const shouldUpdateMinHeight = currentMinHeight !== heightToApply;
-
-          if (!shouldApplyHeight && !shouldUpdateMinHeight) {
-            return node;
-          }
-
           return {
             ...node,
             style: {
@@ -204,7 +204,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
         updateNodeInternals(id);
       });
     },
-    [effectiveMinHeight, id, isMinimized, setNodes, updateNodeInternals],
+    [effectiveMinHeight, id, isMinimized, setNodes, storeApi, updateNodeInternals],
   );
 
   const shouldResizeSceneNode = useCallback(
@@ -524,8 +524,8 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneFlowNode>) {
                 savedItems={data.settingLibraryItems?.filter((item) => item.kind === 'scene')}
                 presetItems={data.settingLibraryPresets?.filter((item) => item.kind === 'scene')}
                 onSave={(mode) => data.onSaveSettingLibrary?.(id, 'scene', mode)}
-              onUse={(itemId, source) => data.onUseSettingLibrary?.(id, 'scene', itemId, source)}
-              onDownloadPreset={(itemId) => data.onDownloadSettingLibraryPreset?.(itemId)}
+                onUse={(itemId, source) => data.onUseSettingLibrary?.(id, 'scene', itemId, source)}
+                onDownloadPreset={(itemId) => data.onDownloadSettingLibraryPreset?.(itemId)}
                 onDelete={(itemId) => data.onDeleteSettingLibrary?.(itemId)}
               />
               <button
