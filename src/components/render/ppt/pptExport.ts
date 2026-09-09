@@ -478,11 +478,9 @@ export async function buildPptxBuffer({
       animation: PptAnimationExportTarget['animation'],
     ) => {
       if (!sceneSlideNumber) return;
-      animationTargets.push({
-        slideNumber: sceneSlideNumber,
-        objectName: outgoingObjectName,
-        animation: { ...animation, action: undefined, phase: 'exit', effect: 'fade' },
-      });
+      // PowerPoint's native entrance wipe clips the incoming full-frame image
+      // from left to right while the outgoing image remains underneath.
+      // This mirrors the story editor's masked scene-material transition.
       animationTargets.push({
         slideNumber: sceneSlideNumber,
         objectName: incomingObjectName,
@@ -490,8 +488,8 @@ export async function buildPptxBuffer({
           ...animation,
           action: undefined,
           phase: 'enter',
-          effect: 'fade',
-          start: 'withPrevious',
+          effect: 'wipe',
+          direction: 'left',
         },
       });
     };

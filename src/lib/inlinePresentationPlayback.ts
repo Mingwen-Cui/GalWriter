@@ -98,11 +98,27 @@ export const buildInlinePlaybackSteps = (
 
   Array.from(container.childNodes).forEach((node) => {
     if (node instanceof HTMLElement && node.classList.contains('mention-chip')) {
-      if (mentionPlacement(container, node) !== 'inline') {
+      const placement = mentionPlacement(container, node);
+      const action = findInlineAction(node, presentation);
+      // A scene tag often sits at the beginning or end of a card rather than
+      // in the middle of a sentence. Switching its media must still be a
+      // real playback step, otherwise the editor can save a switch that the
+      // player/export never executes.
+      if (placement !== 'inline' && action?.action === 'switch') {
+        if (placement === 'start') {
+          steps.push({ kind: 'action', action });
+          buffer += nodeHtml(node);
+          return;
+        }
+        buffer += nodeHtml(node);
+        flush();
+        steps.push({ kind: 'action', action });
+        return;
+      }
+      if (placement !== 'inline') {
         buffer += nodeHtml(node);
         return;
       }
-      const action = findInlineAction(node, presentation);
       if (action) {
         flush();
         steps.push({ kind: 'action', action });
@@ -134,7 +150,9 @@ export const isPersistentInlineAction = (action?: InlinePresentationAction | nul
   action?.action === 'translate-y' ||
   action?.action === 'rotate' ||
   action?.action === 'opacity' ||
-  action?.action === 'brightness';
+  action?.action === 'brightness' ||
+  // Keep the selected material after the temporary transition overlay completes.
+  action?.action === 'switch';
 
 export const latestPersistentInlineAction = (
   actions: InlinePresentationAction[],
@@ -168,6 +186,7 @@ export const inlineActionAnimation = (action?: InlinePresentationAction | null) 
   if (action.action === 'rotate') return `galInlineRotate ${duration}ms ease both`;
   if (action.action === 'opacity') return `galInlineOpacity ${duration}ms ease both`;
   if (action.action === 'brightness') return `galInlineBrightness ${duration}ms ease both`;
+  if (action.action === 'switch') return undefined;
   return undefined;
 };
 

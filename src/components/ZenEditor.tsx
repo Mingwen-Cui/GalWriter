@@ -68,7 +68,18 @@ type ZenTag = {
   id: string;
   name: string;
   imageUrl?: string;
+  images?: Array<{ id: string; name?: string; imageUrl?: string; videoUrl?: string }>;
 };
+
+const switchableSceneAssets = (tag?: ZenTag | null) =>
+  (tag?.images || [])
+    .filter((asset) => Boolean(asset.id && (asset.imageUrl || asset.videoUrl)))
+    .map((asset, index) => ({
+      id: asset.id,
+      label: asset.name?.trim() || `场景图片 ${index + 1}`,
+      imageUrl: asset.imageUrl,
+      videoUrl: asset.videoUrl,
+    }));
 
 export function ZenEditor({
   nodeId,
@@ -1490,12 +1501,17 @@ export function ZenEditor({
                       (item) => item.sourceNodeId === presentationMenu.id,
                     ) || createCharacterPresentation(presentationMenu.id)
                   : null;
+              const switchableAssets =
+                presentationMenu.kind === 'scene'
+                  ? switchableSceneAssets(presentationMenu)
+                  : undefined;
               return (
                 <div className="space-y-3">
                   <InlineActionEditor
                     action={action}
                     targetName={presentationMenu.name}
                     targetKind={presentationMenu.kind}
+                    switchableAssets={switchableAssets}
                     onChange={updateInlineAction}
                     onDelete={() => {
                       deleteInlineAction(action.id);
@@ -1902,6 +1918,8 @@ export function ZenEditor({
                 normalizedPresentation.scene?.sourceNodeId === presentationMenu.id
                   ? normalizedPresentation.scene
                   : createScenePresentation(presentationMenu.id, imageUrl);
+              const switchableAssets = switchableSceneAssets(presentationMenu);
+              const switchAction = getInlineAction(presentationMenu);
               const animationOptions: { value: PresentationAnimation; label: string }[] = [
                 { value: 'none', label: '· 无动画' },
                 { value: 'fade', label: '◇ 淡入淡出' },
@@ -2123,6 +2141,50 @@ export function ZenEditor({
                       </button>
                     ))}
                   </div>
+                  {switchableAssets.length > 1 && (
+                    <label className="mb-3 block space-y-1.5 rounded-lg border border-[var(--card-border)]/40 bg-[var(--app-bg)]/50 p-2">
+                      <span className="block text-[10px] font-bold text-[var(--text-muted)]">
+                        原场景图片
+                      </span>
+                      <ZenSelect
+                        value={current.imageId || switchableAssets[0].id}
+                        onChange={(imageId) =>
+                          updateScene(presentationMenu.id, (item) => ({ ...item, imageId }))
+                        }
+                        options={switchableAssets.map((asset) => ({
+                          value: asset.id,
+                          label: asset.label,
+                        }))}
+                        ariaLabel="原场景图片"
+                      />
+                    </label>
+                  )}
+                  {switchableAssets.length > 1 && (
+                    <div className="mb-3 rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
+                      <div className="mb-2 text-[10px] font-bold text-blue-600">场景 Tag 动画</div>
+                      <InlineActionEditor
+                        action={switchAction}
+                        targetName={presentationMenu.name}
+                        targetKind="scene"
+                        switchableAssets={switchableAssets}
+                        onChange={updateInlineAction}
+                        onReset={() =>
+                          updateInlineAction(
+                            createInlinePresentationAction({
+                              id: switchAction.id,
+                              kind: 'scene',
+                              sourceNodeId: presentationMenu.id,
+                              name: presentationMenu.name,
+                            }),
+                          )
+                        }
+                        onPreviewBefore={(action) => previewInlineAction(action, 'before')}
+                        onPreviewAfter={(action) => previewInlineAction(action, 'after')}
+                        autoPreview={autoPreviewInlineAction}
+                        onAutoPreviewChange={setAutoPreviewInlineAction}
+                      />
+                    </div>
+                  )}
                   {videoUrl && (
                     <div className="mb-3 space-y-3">
                       <div className="flex items-center justify-between">

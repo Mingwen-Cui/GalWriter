@@ -105,7 +105,9 @@ const actionEntry = (
             ?.switchImageUrls?.[action.targetAssetId]
       : undefined;
   const effect: PptAnimationEffect =
-    action.action === 'shake-x' || action.action === 'shake-y' || action.action === 'translate'
+    action.action === 'switch'
+      ? 'wipe'
+      : action.action === 'shake-x' || action.action === 'shake-y' || action.action === 'translate'
       ? 'line'
       : action.action === 'scale'
         ? 'growShrink'

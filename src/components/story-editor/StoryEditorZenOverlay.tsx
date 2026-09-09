@@ -96,7 +96,18 @@ export function StoryEditorZenOverlay({
           const isPresented = zenPresentation.scene?.sourceNodeId === item.id;
           return isGlobal || isConnected || isPresented;
         })
-        .map((item) => ({ id: item.id, name: String(item.data.sceneName).trim() }))
+        .map((item) => ({
+          id: item.id,
+          name: String(item.data.sceneName).trim(),
+          images: Array.isArray(item.data.images)
+            ? (item.data.images as Array<{
+                id: string;
+                name?: string;
+                imageUrl?: string;
+                videoUrl?: string;
+              }>)
+            : [],
+        }))
     : [];
   const presentationScene = zenPresentation.scene
     ? nodes.find((item) => item.id === zenPresentation.scene?.sourceNodeId)

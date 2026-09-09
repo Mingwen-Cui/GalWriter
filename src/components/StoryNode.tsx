@@ -92,6 +92,7 @@ import { DraggableNumberInput } from './DraggableNumberInput';
 import { DurationInput } from './DurationInput';
 import { InlineActionEditor } from './InlineActionEditor';
 import { SolidColorPopover } from './render/shared/paint/ColorPopovers';
+import { SceneSwitchFlash } from './render/shared/SceneSwitchFlash';
 import { renderObjectText } from './render/video/objectInspector/i18n';
 import { parseColorValue, toHex8 } from './render/shared/paint/colorValue';
 import { FloatingPopover } from './render/shared/inspectors/InspectorControls';
@@ -2356,6 +2357,21 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       ? getInlineSwitchAction(kind, sourceNodeId, inlineActionPreview.action)
       : null;
 
+  const inlinePreviewSceneSwitchAction =
+    inlineActionPreview?.mode === 'after' &&
+    inlineActionPreview.action.kind === 'scene' &&
+    inlineActionPreview.action.action === 'switch' &&
+    inlineActionPreview.action.sourceNodeId === storyPresentation.scene?.sourceNodeId
+      ? inlineActionPreview.action
+      : null;
+  const previewSceneBaseMedia = storyPresentation.scene
+    ? resolveSceneMedia({
+        data: presentationSceneData || undefined,
+        scene: storyPresentation.scene,
+        fallbackImageUrl: imageUrl,
+        fallbackVideoUrl: videoUrl,
+      })
+    : { imageUrl, videoUrl };
   const previewSceneMedia = storyPresentation.scene
     ? resolveSceneMedia({
         data: presentationSceneData || undefined,
@@ -2365,6 +2381,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         switchAction: inlinePreviewSwitchFor('scene', storyPresentation.scene.sourceNodeId),
       })
     : { imageUrl, videoUrl };
+  const displayedPreviewSceneMedia = inlinePreviewSceneSwitchAction
+    ? previewSceneBaseMedia
+    : previewSceneMedia;
 
   const mediaToolbarButtons = (imageUrl || videoUrl) &&
     hasMediaToolbarActions &&
@@ -3012,10 +3031,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               style={{ height: cardMediaHeight }}
             >
               <div className="absolute inset-0 overflow-hidden">
-                {hasScenePresentationImage && previewSceneMedia.imageUrl && (
+                {hasScenePresentationImage && displayedPreviewSceneMedia.imageUrl && (
                   <img
                     key={`scene-preview-${presentationPreview?.nonce || 0}-${storyPresentation.scene ? inlinePreviewNonceFor('scene', storyPresentation.scene.sourceNodeId) : 0}`}
-                    src={previewSceneMedia.imageUrl}
+                    src={displayedPreviewSceneMedia.imageUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
                     style={{
                       ...getSceneMediaStyle(storyPresentation.scene),
@@ -3075,10 +3094,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   />
                 )}
                 {(hasScenePresentationVideo ||
-                  (hasScenePresentationImage && previewSceneMedia.videoUrl)) && (
+                  (hasScenePresentationImage && displayedPreviewSceneMedia.videoUrl)) && (
                   <video
                     key={`scene-video-preview-${presentationPreview?.nonce || 0}-${storyPresentation.scene ? inlinePreviewNonceFor('scene', storyPresentation.scene.sourceNodeId) : 0}`}
-                    src={previewSceneMedia.videoUrl || videoUrl}
+                    src={displayedPreviewSceneMedia.videoUrl || videoUrl}
                     className="absolute inset-0 z-0 h-full w-full pointer-events-none"
                     style={{
                       ...getSceneMediaStyle(storyPresentation.scene),
@@ -3093,6 +3112,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                     playsInline
                   />
                 )}
+                <SceneSwitchFlash
+                  action={inlinePreviewSceneSwitchAction}
+                  targetImageUrl={previewSceneMedia.imageUrl}
+                  targetImageStyle={getSceneMediaStyle(storyPresentation.scene)}
+                />
                 {presentedCharacters.map(
                   ({ config, imageUrl: characterImageUrl, appearance, data: characterData, name }) => {
                     const previewMatches =
@@ -3792,6 +3816,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           ? presentation.scene
                           : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
                       const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
+                      const sourceNode = storeApi
+                        .getState()
+                        .nodes.find((node) => node.id === presentationMenu.sourceNodeId);
+                      const switchableAssets =
+                        sourceNode?.type === 'sceneNode'
+                          ? sceneSwitchOptions(sourceNode.data as SceneNodeData)
+                          : [];
+                      const switchAction = getInlineAction(presentationMenu);
                       return (
                         <div className="space-y-3 text-xs">
                           <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
@@ -3884,6 +3916,60 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                   </div>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                          {switchableAssets.length > 1 && (
+                            <label className="block space-y-1.5 rounded-lg border border-[var(--card-border)]/40 bg-[var(--app-bg)]/50 p-2">
+                              <span className="block text-[10px] font-bold text-[var(--text-muted)]">
+                                原场景图片
+                              </span>
+                              <ZenSelect
+                                value={current.imageId || switchableAssets[0].id}
+                                onChange={(imageId) =>
+                                  updateScenePresentation(
+                                    presentationMenu.sourceNodeId,
+                                    (item) => ({ ...item, imageId }),
+                                  )
+                                }
+                                options={switchableAssets.map((asset) => ({
+                                  value: asset.id,
+                                  label: asset.label,
+                                }))}
+                                ariaLabel="原场景图片"
+                                menuTextScale={presentationMenuScale}
+                              />
+                            </label>
+                          )}
+                          {switchableAssets.length > 1 && (
+                            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
+                              <div className="mb-2 text-[10px] font-bold text-blue-600">
+                                场景 Tag 动画
+                              </div>
+                              <InlineActionEditor
+                                action={switchAction}
+                                targetName={presentationMenu.name}
+                                targetKind="scene"
+                                switchableAssets={switchableAssets}
+                                onChange={updateInlineAction}
+                                onReset={() =>
+                                  updateInlineAction(
+                                    createInlinePresentationAction({
+                                      id: switchAction.id,
+                                      kind: 'scene',
+                                      sourceNodeId: presentationMenu.sourceNodeId,
+                                      name: presentationMenu.name,
+                                    }),
+                                  )
+                                }
+                                onPreviewBefore={(nextAction) =>
+                                  previewInlineAction(nextAction, 'before')
+                                }
+                                onPreviewAfter={(nextAction) =>
+                                  previewInlineAction(nextAction, 'after')
+                                }
+                                autoPreview={autoPreviewInlineAction}
+                                onAutoPreviewChange={setAutoPreviewInlineAction}
+                              />
                             </div>
                           )}
                           <label className="flex items-center gap-2">

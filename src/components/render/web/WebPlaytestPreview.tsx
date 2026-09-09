@@ -515,6 +515,12 @@ export function WebPlaytestPreview({
     : null;
   const sceneData =
     sceneSource?.type === 'sceneNode' ? (sceneSource.data as SceneNodeData) : undefined;
+  const activeSceneSwitchTransition =
+    activeInlineAction?.kind === 'scene' &&
+    activeInlineAction.action === 'switch' &&
+    activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
+      ? activeInlineAction
+      : null;
   const activeSceneSwitchAction = getInlineSwitchAction(
     'scene',
     presentation.scene?.sourceNodeId,
@@ -530,6 +536,16 @@ export function WebPlaytestPreview({
   });
   const currentImageUrl = sceneMedia.videoUrl ? '' : sceneMedia.imageUrl || '';
   const currentVideoUrl = sceneMedia.videoUrl || '';
+  const sceneSwitchMedia = activeSceneSwitchTransition
+    ? resolveSceneMedia({
+        data: sceneData,
+        scene: presentation.scene,
+        fallbackImageUrl: imageUrl,
+        fallbackVideoUrl: videoUrl,
+        switchAction: activeSceneSwitchTransition,
+      })
+    : null;
+  const sceneSwitchImageUrl = sceneSwitchMedia?.videoUrl ? '' : sceneSwitchMedia?.imageUrl || '';
 
   React.useEffect(() => {
     if (!currentImageUrl || imagePreloadRef.current.has(currentImageUrl)) return;
@@ -2165,6 +2181,7 @@ export function WebPlaytestPreview({
       currentNodeId={currentNodeId}
       currentImageUrl={currentImageUrl}
       currentVideoUrl={currentVideoUrl}
+      sceneSwitchImageUrl={sceneSwitchImageUrl}
       currentVideoRef={currentVideoRef}
       settings={settings}
       sceneStyle={sceneStyle}

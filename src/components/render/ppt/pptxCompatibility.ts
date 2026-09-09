@@ -169,6 +169,8 @@ const animationXml = (shapeId: string, animation: PptObjectAnimation, index: num
         ? 10
         : animation.effect === 'fly' || animation.effect === 'line'
           ? 2
+          : animation.effect === 'wipe'
+            ? 22
           : animation.effect === 'zoom'
             ? 23
             : 0;

@@ -1,5 +1,5 @@
 import type { Edge, Node } from '@xyflow/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { StoryPresentation } from '../../domain/project';
 import {
@@ -20,7 +20,43 @@ export function useStoryPresentationBindings({
   nodes,
   setNodes,
 }: UseStoryPresentationBindingsOptions) {
+  // The bound story card is itself changed by this hook.  Keep its data out
+  // of the trigger signature; otherwise React Flow's measurement update can
+  // re-run the binding effect while the same edge is still being committed.
+  const lastBindingSourceSignatureRef = useRef<string | null>(null);
+  const bindingSourceSignature = JSON.stringify({
+    edges: edges
+      .map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+      }))
+      .sort((left, right) =>
+        `${left.source}:${left.sourceHandle}:${left.target}:${left.targetHandle}`.localeCompare(
+          `${right.source}:${right.sourceHandle}:${right.target}:${right.targetHandle}`,
+        ),
+      ),
+    bindingSources: nodes
+      .filter((node) => node.type === 'sceneNode' || node.type === 'characterNode')
+      .map((node) => ({
+        id: node.id,
+        type: node.type,
+        coverImageUrl: node.data.coverImageUrl,
+        images: node.data.images,
+        avatarUrl: node.data.avatarUrl,
+        tagSpriteUrl: node.data.tagSpriteUrl,
+        outfits: node.data.outfits,
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  });
+
   useEffect(() => {
+    if (lastBindingSourceSignatureRef.current === bindingSourceSignature) return;
+    // Mark the input before writing nodes. React Flow applies node dimensions
+    // in a layout pass, which can synchronously render this component again.
+    lastBindingSourceSignatureRef.current = bindingSourceSignature;
+
     // React Flow's controlled store treats a setNodes call as a store update
     // even when its updater ultimately returns the same array. A new edge
     // causes the node props to be reconciled during layout, so issuing that
@@ -205,5 +241,5 @@ export function useStoryPresentationBindings({
     if (synchronizeBindings(nodes) === nodes) return;
 
     setNodes(synchronizeBindings);
-  }, [edges, nodes, setNodes]);
+  }, [bindingSourceSignature, edges, nodes, setNodes]);
 }

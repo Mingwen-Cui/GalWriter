@@ -22,6 +22,7 @@ import {
 import { getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
 import type { WebExportSettings } from '../video/shared/types';
 import { SceneLightOverlay } from '../shared/SceneLightOverlay';
+import { SceneSwitchFlash } from '../shared/SceneSwitchFlash';
 
 type PresentedCharacter = {
   config: CharacterPresentation;
@@ -33,6 +34,7 @@ type WebPlaytestMediaLayersProps = {
   currentNodeId: string | null;
   currentImageUrl: string;
   currentVideoUrl: string;
+  sceneSwitchImageUrl?: string;
   currentVideoRef: RefObject<HTMLVideoElement | null>;
   settings: WebExportSettings;
   sceneStyle: React.CSSProperties;
@@ -52,6 +54,7 @@ export function WebPlaytestMediaLayers({
   currentNodeId,
   currentImageUrl,
   currentVideoUrl,
+  sceneSwitchImageUrl,
   currentVideoRef,
   settings,
   sceneStyle,
@@ -100,6 +103,11 @@ export function WebPlaytestMediaLayers({
             {emptyText}
           </div>
         )}
+        <SceneSwitchFlash
+          action={activeInlineAction}
+          targetImageUrl={sceneSwitchImageUrl}
+          targetImageStyle={sceneStyle}
+        />
         {presentedCharacters.length > 0 && (
           <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
             {presentedCharacters.map(({ config, data, imageUrl }) => {

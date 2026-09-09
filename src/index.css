@@ -95,6 +95,63 @@
   }
 }
 
+/* A short white-light wipe for scene material switches. Screen blending keeps
+   the supplied black backing transparent while preserving the photographed glow. */
+.gal-scene-switch-flash {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 31;
+  width: 58%;
+  height: 156%;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+  object-fit: contain;
+  mix-blend-mode: screen;
+  filter: brightness(1.25) saturate(0.7);
+  transform: translate(-125%, -50%) scale(0.82);
+  animation: galSceneSwitchFlash var(--scene-switch-flash-duration, 420ms)
+    cubic-bezier(0.2, 0.72, 0.25, 1) both;
+}
+
+.gal-scene-switch-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: none;
+  clip-path: inset(0 100% 0 0);
+  animation: galSceneSwitchReveal var(--scene-switch-flash-duration, 420ms)
+    cubic-bezier(0.2, 0.72, 0.25, 1) both;
+}
+
+@keyframes galSceneSwitchReveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes galSceneSwitchFlash {
+  0% {
+    opacity: 0;
+    transform: translate(-125%, -50%) scale(0.82);
+  }
+  10% {
+    opacity: 0.88;
+  }
+  58% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(225%, -50%) scale(1.08);
+  }
+}
+
 :root {
   --app-bg: #f9fafb;
   --app-safe-area-top: env(safe-area-inset-top, 0px);

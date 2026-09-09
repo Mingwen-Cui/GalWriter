@@ -30,6 +30,7 @@ import {
   getSceneVisualFilter,
   resolveSceneLightOverlayUrl,
 } from '../../../../lib/sceneVisualStyle';
+import sceneSwitchFlashAssetUrl from '../../../../assets/effects/scene-switch-white-flash.png';
 
 type MediaSource = { source: CanvasImageSource; width: number; height: number };
 
@@ -397,6 +398,56 @@ export const drawPresentationVisuals = async ({
       0,
     );
     ctx.restore();
+
+    // A scene switch is a wipe, not a replacement: keep the outgoing scene
+    // visible and reveal the incoming image from the left under a travelling
+    // white flash. This canvas path is shared by video preview and export.
+    const activeSceneSwitch =
+      activeInlineAction?.kind === 'scene' &&
+      activeInlineAction.action === 'switch' &&
+      activeInlineAction.sourceNodeId === scene?.sourceNodeId
+        ? activeInlineAction
+        : null;
+    if (activeSceneSwitch) {
+      const sceneNode = scene ? nodes.find((item) => item.id === scene.sourceNodeId) : undefined;
+      const targetMedia = resolveSceneMedia({
+        data: sceneNode?.data as SceneNodeData | undefined,
+        scene,
+        switchAction: activeSceneSwitch,
+      });
+      if (targetMedia.imageUrl) {
+        try {
+          const targetImage = await loadCachedImage(targetMedia.imageUrl);
+          const switchDuration = Math.max(0.18, (activeSceneSwitch.duration || 420) / 1000);
+          const progress = easeOut(activeInlineActionElapsed / switchDuration);
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, width * progress, height);
+          ctx.clip();
+          drawFitted(
+            ctx,
+            targetImage,
+            targetImage.naturalWidth || width,
+            targetImage.naturalHeight || height,
+            width,
+            height,
+            canvasSettings?.sceneFit || scene?.cropMode || 'cover',
+          );
+          ctx.restore();
+
+          const flash = await loadCachedImage(sceneSwitchFlashAssetUrl);
+          const flashWidth = width * 0.58;
+          const flashHeight = height * 1.56;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = Math.sin(progress * Math.PI);
+          ctx.drawImage(flash, width * progress - flashWidth * 0.5, (height - flashHeight) / 2, flashWidth, flashHeight);
+          ctx.restore();
+        } catch {
+          // A media load failure must not interrupt the render timeline.
+        }
+      }
+    }
   }
 
   const characterImages = await Promise.all(

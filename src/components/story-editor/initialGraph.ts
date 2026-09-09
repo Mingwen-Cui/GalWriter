@@ -24,6 +24,9 @@ export const createDefaultEdgeOptions = (edgeColor: string, arrowSize: number) =
   style: { strokeWidth: 3, stroke: edgeColor },
 });
 
+const initialMention = (kind: 'scene' | 'character', name: string, id: string) =>
+  `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${name}" data-mention-id="${id}" contenteditable="false" draggable="false">@${name}</span>`;
+
 export const INITIAL_NODES: Node[] = [
   {
     id: 'initial-story-background',
@@ -45,7 +48,7 @@ export const INITIAL_NODES: Node[] = [
     data: {
       id: 'root',
       title: DEFAULT_ROOT_STORY_TITLE,
-      text: DEFAULT_ROOT_STORY_TEXT,
+      text: `${initialMention('scene', '山中寺庙', 'initial-root-scene')}${DEFAULT_ROOT_STORY_TEXT}`,
       shape: 'rounded-rectangle',
       color: '#ffffff',
       sizeMode: 'auto',
@@ -70,7 +73,7 @@ export const INITIAL_NODES: Node[] = [
     data: {
       id: 'initial-branch',
       title: '场景切换',
-      text: '山里有座庙。\n镜头从远景切换到寺前。',
+      text: `${initialMention('scene', '山中寺庙', 'initial-switch-to-temple')}山里有座庙。`,
       shape: 'square',
       color: '#ffffff',
       sizeMode: 'auto',
@@ -107,7 +110,11 @@ export const INITIAL_NODES: Node[] = [
     data: {
       id: 'initial-dialogue',
       title: '人物对话',
-      text: '小和尚：师父，山外的云好像一片海。\n老和尚：心静下来，脚下的石阶也能通向远方。',
+      text:
+        `${initialMention('scene', '山中寺庙', 'initial-dialogue-scene')}` +
+        `${initialMention('character', '小和尚', 'initial-dialogue-young')}` +
+        `${initialMention('character', '老和尚', 'initial-dialogue-old')}` +
+        '小和尚：师父，山外的云好像一片海。<br />老和尚：心静下来，脚下的石阶也能通向远方。',
       shape: 'rounded-rectangle',
       color: '#ffffff',
       sizeMode: 'auto',
@@ -122,12 +129,12 @@ export const INITIAL_NODES: Node[] = [
         characters: [
           {
             ...createCharacterPresentation('initial-old-monk'),
-            position: 'left',
+            position: 'right',
             scale: 0.78,
           },
           {
             ...createCharacterPresentation('initial-young-monk'),
-            position: 'right',
+            position: 'left',
             scale: 0.78,
           },
         ],

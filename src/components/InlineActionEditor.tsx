@@ -18,6 +18,7 @@ const ACTIONS: InlinePresentationActionType[] = [
   'rotate',
   'opacity',
   'brightness',
+  'switch',
 ];
 
 type InlineActionTemplate = {

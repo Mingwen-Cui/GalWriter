@@ -261,6 +261,12 @@ export function usePlaytestRuntime(
     ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
     : null;
   const sceneData = sceneSource?.data as SceneNodeData | undefined;
+  const activeSceneSwitchTransition =
+    activeInlineAction?.kind === 'scene' &&
+    activeInlineAction.action === 'switch' &&
+    activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
+      ? activeInlineAction
+      : null;
   const selectedSceneImage = presentation.scene?.imageId
     ? sceneData?.images?.find((image) => image.id === presentation.scene?.imageId)
     : undefined;
@@ -281,6 +287,18 @@ export function usePlaytestRuntime(
   });
   const sceneVideoUrl = sceneMedia.videoUrl;
   const sceneImageUrl = sceneVideoUrl ? undefined : sceneMedia.imageUrl;
+  const sceneSwitchMedia = activeSceneSwitchTransition
+    ? resolveSceneMedia({
+        data: sceneData,
+        scene: presentation.scene,
+        fallbackImageUrl:
+          (currentNode?.data.imageUrl as string | undefined) || selectedSceneImage?.imageUrl,
+        fallbackVideoUrl:
+          selectedSceneImage?.videoUrl || (currentNode?.data.videoUrl as string | undefined),
+        switchAction: activeSceneSwitchTransition,
+      })
+    : null;
+  const sceneSwitchImageUrl = sceneSwitchMedia?.videoUrl ? undefined : sceneSwitchMedia?.imageUrl;
   const sceneVideoStartTime = Math.max(0, presentation.scene?.videoStartTime || 0);
   const sceneVideoEndTime = presentation.scene?.videoEndTime;
   const sceneVideoMaxDuration = Math.max(0.1, presentation.scene?.videoMaxDuration || 30);
@@ -898,6 +916,7 @@ export function usePlaytestRuntime(
     mediaStatusNodeId,
     layoutMode,
     sceneImageUrl,
+    sceneSwitchImageUrl,
     sceneVideoUrl,
     outEdges.length,
     creativeInteraction,
@@ -1758,6 +1777,7 @@ export function usePlaytestRuntime(
     sceneMotion,
     sceneAnimationActive,
     activeSceneInlineAction,
+    activeSceneSwitchTransition,
     sceneInlineDuration,
     sceneMediaTransform,
     sceneObjectFit,

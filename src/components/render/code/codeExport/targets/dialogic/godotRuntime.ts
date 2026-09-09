@@ -281,6 +281,41 @@ func _rect(config: Dictionary, background: bool) -> TextureRect:
 	stage.add_child(rect)
 	return rect
 
+func _scene_wipe(outgoing: TextureRect, asset_path: String, duration: float, video_path: String) -> void:
+	var mask := Control.new()
+	mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mask.position = Vector2.ZERO
+	mask.size = Vector2(0, SCREEN.y)
+	mask.clip_contents = true
+	stage.add_child(mask)
+	stage.move_child(mask, 1)
+	var incoming := TextureRect.new()
+	incoming.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	incoming.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	incoming.texture = _texture(asset_path)
+	incoming.size = SCREEN
+	incoming.stretch_mode = outgoing.stretch_mode
+	mask.add_child(incoming)
+	var flash := ColorRect.new()
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.color = Color(1, 1, 1, 0.86)
+	flash.position = Vector2(-72, 0)
+	flash.size = Vector2(72, SCREEN.y)
+	flash.z_index = 30
+	stage.add_child(flash)
+	var tween := create_tween().set_parallel(true)
+	tweens.append(tween)
+	tween.tween_property(mask, "size:x", SCREEN.x, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(flash, "position:x", SCREEN.x, duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(flash, "modulate:a", 0.0, duration)
+	await tween.finished
+	outgoing.texture = incoming.texture
+	stage_data["background"]["assetPath"] = asset_path
+	stage_data["background"]["videoPath"] = video_path
+	mask.queue_free()
+	flash.queue_free()
+	_start_movie(stage_data["background"])
+
 func _motion(rect: Control, config: Dictionary, leaving: bool = false) -> float:
 	var kind = str(config.get("type", "none"))
 	var duration = float(config.get("duration", 0))
@@ -517,15 +552,15 @@ func _action(event: Dictionary) -> float:
 	var kind = str(event.get("action", "none"))
 	var duration = maxf(0.0, float(event.get("duration", 0)))
 	if kind == "switch":
-		rect.texture = _texture(str(event.get("assetPath", "")))
 		if id == "scene":
-			stage_data["background"]["assetPath"] = event.get("assetPath", "")
-			stage_data["background"]["videoPath"] = event.get("videoPath", "")
-			_start_movie(stage_data["background"])
+			var wipe_duration = maxf(0.18, duration)
+			_scene_wipe(rect, str(event.get("assetPath", "")), wipe_duration, str(event.get("videoPath", "")))
+			return wipe_duration
 		else:
+			rect.texture = _texture(str(event.get("assetPath", "")))
 			for config in stage_data.get("characters", []):
 				if str(config.get("sourceNodeId", "")) == id: config["assetPath"] = event.get("assetPath", "")
-		return 0.0
+		return duration
 	if kind == "none": return 0.0
 	var tween = create_tween()
 	tweens.append(tween)

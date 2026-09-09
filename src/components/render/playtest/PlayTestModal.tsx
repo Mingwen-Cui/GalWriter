@@ -31,6 +31,7 @@ import {
 } from './model/playtestCanvasModel';
 import { PlaytestFloatingWindow, PlaytestWindowActions } from './PlaytestFloatingWindow';
 import { PlaytestSettingsWorkbench } from './PlaytestSettingsWorkbench';
+import { SceneSwitchFlash } from '../shared/SceneSwitchFlash';
 import type { PlayTestProps } from './types';
 import { usePlaytestRuntime } from './usePlaytestRuntime';
 
@@ -81,6 +82,7 @@ export function PlayTestModal(props: PlayTestProps) {
     currentTitle,
     sceneVideoUrl,
     sceneImageUrl,
+    sceneSwitchImageUrl,
     sceneVideoStartTime,
     dialogueBackgroundStyle,
     dialogueCornerRadius,
@@ -101,6 +103,7 @@ export function PlayTestModal(props: PlayTestProps) {
     handleRestartClick,
     showNodeAsCurrentPage,
     sceneStyle,
+    activeSceneSwitchTransition,
     renderPresentedCharacters,
     currentNodeId,
     history,
@@ -1009,6 +1012,11 @@ export function PlayTestModal(props: PlayTestProps) {
                         className={`w-full h-full ${isDarkMode ? 'bg-gradient-to-br from-slate-900 via-sky-950/40 to-slate-950' : 'bg-gradient-to-br from-indigo-50 via-slate-100 to-indigo-100'}`}
                       />
                     )}
+                    <SceneSwitchFlash
+                      action={activeSceneSwitchTransition}
+                      targetImageUrl={sceneSwitchImageUrl}
+                      targetImageStyle={sceneStyle}
+                    />
                   </div>
                   {renderPresentedCharacters()}
                 </div>
@@ -1232,6 +1240,11 @@ export function PlayTestModal(props: PlayTestProps) {
                                 style={sceneStyle}
                               />
                             )}
+                            <SceneSwitchFlash
+                              action={activeSceneSwitchTransition}
+                              targetImageUrl={sceneSwitchImageUrl}
+                              targetImageStyle={sceneStyle}
+                            />
                             {renderPresentedCharacters()}
                           </div>
                         </div>
