@@ -1,6 +1,13 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
-import { getAppAssetUrl } from '../../lib/appAssets';
+import mountainTempleBackgroundUrl from '../../assets/initial-tutorial/mountain-temple-background.png';
+import mountainTempleDistantUrl from '../../assets/initial-tutorial/mountain-temple-distant.png';
+import oldMonkAvatarUrl from '../../assets/initial-tutorial/old-monk-avatar.png';
+import oldMonkTagSpriteUrl from '../../assets/initial-tutorial/old-monk-tag-sprite.png';
+import oldMonkThreeViewUrl from '../../assets/initial-tutorial/old-monk-three-view.png';
+import youngMonkAvatarUrl from '../../assets/initial-tutorial/young-monk-avatar.png';
+import youngMonkTagSpriteUrl from '../../assets/initial-tutorial/young-monk-tag-sprite.png';
+import youngMonkThreeViewUrl from '../../assets/initial-tutorial/young-monk-three-view.png';
 import {
   createCharacterPresentation,
   createInlinePresentationAction,
@@ -53,7 +60,7 @@ export const INITIAL_NODES: Node[] = [
       color: '#ffffff',
       sizeMode: 'auto',
       isRoot: true,
-      imageUrl: getAppAssetUrl('initial-assets/mountain-temple-distant.png'),
+      imageUrl: mountainTempleDistantUrl,
       showTextOverlay: true,
       presentation: {
         scene: {
@@ -77,7 +84,7 @@ export const INITIAL_NODES: Node[] = [
       shape: 'square',
       color: '#ffffff',
       sizeMode: 'auto',
-      imageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+      imageUrl: mountainTempleBackgroundUrl,
       showTextOverlay: true,
       presentation: {
         scene: {
@@ -118,7 +125,7 @@ export const INITIAL_NODES: Node[] = [
       shape: 'rounded-rectangle',
       color: '#ffffff',
       sizeMode: 'auto',
-      imageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+      imageUrl: mountainTempleBackgroundUrl,
       showTextOverlay: true,
       presentation: {
         scene: {
@@ -130,12 +137,16 @@ export const INITIAL_NODES: Node[] = [
           {
             ...createCharacterPresentation('initial-old-monk'),
             position: 'right',
-            scale: 0.78,
+            offsetY: -100,
+            scale: 1,
+            enter: { type: 'slide-left', duration: 500 },
           },
           {
             ...createCharacterPresentation('initial-young-monk'),
             position: 'left',
-            scale: 0.78,
+            offsetY: -100,
+            scale: 0.7,
+            enter: { type: 'slide-right', duration: 500 },
           },
         ],
       },
@@ -153,9 +164,9 @@ export const INITIAL_NODES: Node[] = [
       traits: '沉稳、慈祥、睿智',
       personality: '说话从容，喜欢用故事引导小和尚思考。',
       background: '长年居住在山中寺庙，守着晨钟暮鼓和一方清净。',
-      avatarUrl: getAppAssetUrl('initial-assets/old-monk-avatar.png'),
-      threeViewUrl: getAppAssetUrl('initial-assets/old-monk-three-view.png'),
-      tagSpriteUrl: getAppAssetUrl('initial-assets/old-monk-tag-sprite.png'),
+      avatarUrl: oldMonkAvatarUrl,
+      threeViewUrl: oldMonkThreeViewUrl,
+      tagSpriteUrl: oldMonkTagSpriteUrl,
       isGlobal: true,
     },
   },
@@ -171,9 +182,9 @@ export const INITIAL_NODES: Node[] = [
       traits: '好奇、天真、勤快',
       personality: '总有问不完的问题，喜欢跟着师父听故事。',
       background: '跟随老和尚在山中修行，日常负责洒扫和添香。',
-      avatarUrl: getAppAssetUrl('initial-assets/young-monk-avatar.png'),
-      threeViewUrl: getAppAssetUrl('initial-assets/young-monk-three-view.png'),
-      tagSpriteUrl: getAppAssetUrl('initial-assets/young-monk-tag-sprite.png'),
+      avatarUrl: youngMonkAvatarUrl,
+      threeViewUrl: youngMonkThreeViewUrl,
+      tagSpriteUrl: youngMonkTagSpriteUrl,
       isGlobal: true,
     },
   },
@@ -189,17 +200,17 @@ export const INITIAL_NODES: Node[] = [
       location: '云雾缭绕的山腰，寺前有石阶和一株老松。',
       items: '山门、钟楼、蒲团、木鱼、老松。',
       atmosphere: '清晨安静，偶尔传来悠长的钟声。',
-      coverImageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+      coverImageUrl: mountainTempleBackgroundUrl,
       images: [
         {
           id: 'initial-distant-mountain',
           name: '远景：从前有座山',
-          imageUrl: getAppAssetUrl('initial-assets/mountain-temple-distant.png'),
+          imageUrl: mountainTempleDistantUrl,
         },
         {
           id: 'initial-temple-close',
           name: '近景：山里有座庙',
-          imageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+          imageUrl: mountainTempleBackgroundUrl,
         },
       ],
       isGlobal: true,
