@@ -1,5 +1,7 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
+import { getAppAssetUrl } from '../../lib/appAssets';
+
 import {
   DEFAULT_ROOT_STORY_TEXT,
   DEFAULT_ROOT_STORY_TITLE,
@@ -19,9 +21,21 @@ export const createDefaultEdgeOptions = (edgeColor: string, arrowSize: number) =
 
 export const INITIAL_NODES: Node[] = [
   {
+    id: 'initial-story-background',
+    type: 'backgroundNode',
+    position: { x: 1660, y: 80 },
+    dragHandle: '.custom-drag-handle',
+    style: { width: 780, height: 800, zIndex: -3 },
+    data: {
+      id: 'initial-story-background',
+      title: '山中寺庙 · 第一章',
+      color: '#f1f5f9',
+    },
+  },
+  {
     id: 'root',
     type: 'storyNode',
-    position: { x: 200, y: 100 },
+    position: { x: 1740, y: 160 },
     style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
     data: {
       id: 'root',
@@ -36,7 +50,7 @@ export const INITIAL_NODES: Node[] = [
   {
     id: 'initial-branch',
     type: 'storyNode',
-    position: { x: 200, y: 560 },
+    position: { x: 1740, y: 520 },
     style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
     data: {
       id: 'initial-branch',
@@ -50,7 +64,7 @@ export const INITIAL_NODES: Node[] = [
   {
     id: 'initial-old-monk',
     type: 'characterNode',
-    position: { x: 620, y: 100 },
+    position: { x: 100, y: 120 },
     style: { width: 440 },
     data: {
       id: 'initial-old-monk',
@@ -59,13 +73,16 @@ export const INITIAL_NODES: Node[] = [
       traits: '沉稳、慈祥、睿智',
       personality: '说话从容，喜欢用故事引导小和尚思考。',
       background: '长年居住在山中寺庙，守着晨钟暮鼓和一方清净。',
+      avatarUrl: getAppAssetUrl('initial-assets/old-monk-avatar.png'),
+      threeViewUrl: getAppAssetUrl('initial-assets/old-monk-three-view.png'),
+      tagSpriteUrl: getAppAssetUrl('initial-assets/old-monk-tag-sprite.png'),
       isGlobal: true,
     },
   },
   {
     id: 'initial-young-monk',
     type: 'characterNode',
-    position: { x: 1120, y: 100 },
+    position: { x: 620, y: 120 },
     style: { width: 440 },
     data: {
       id: 'initial-young-monk',
@@ -74,13 +91,16 @@ export const INITIAL_NODES: Node[] = [
       traits: '好奇、天真、勤快',
       personality: '总有问不完的问题，喜欢跟着师父听故事。',
       background: '跟随老和尚在山中修行，日常负责洒扫和添香。',
+      avatarUrl: getAppAssetUrl('initial-assets/young-monk-avatar.png'),
+      threeViewUrl: getAppAssetUrl('initial-assets/young-monk-three-view.png'),
+      tagSpriteUrl: getAppAssetUrl('initial-assets/young-monk-tag-sprite.png'),
       isGlobal: true,
     },
   },
   {
     id: 'initial-mountain-temple',
     type: 'sceneNode',
-    position: { x: 620, y: 700 },
+    position: { x: 1140, y: 120 },
     style: { width: 440 },
     data: {
       id: 'initial-mountain-temple',
@@ -89,21 +109,19 @@ export const INITIAL_NODES: Node[] = [
       location: '云雾缭绕的山腰，寺前有石阶和一株老松。',
       items: '山门、钟楼、蒲团、木鱼、老松。',
       atmosphere: '清晨安静，偶尔传来悠长的钟声。',
+      coverImageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
       isGlobal: true,
     },
   },
   {
-    id: 'initial-plot',
-    type: 'storyNode',
-    position: { x: 1120, y: 700 },
-    style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
+    id: 'initial-plot-structure',
+    type: 'plotStructureNode',
+    position: { x: 2120, y: 160 },
     data: {
-      id: 'initial-plot',
-      title: '初始剧情',
-      text: '从前有座山，山里有座庙。老和尚和小和尚在晨钟声中开始了新的一天。',
-      shape: 'rounded-rectangle',
-      color: '#ffffff',
-      sizeMode: 'auto',
+      id: 'initial-plot-structure',
+      cardCount: 3,
+      detailLevel: 'standard',
+      direction: '围绕老和尚和小和尚在山中寺庙的日常，展开宁静温暖的故事。',
     },
   },
 ];
@@ -114,14 +132,6 @@ export const INITIAL_EDGES: Edge[] = [
     source: 'root',
     sourceHandle: 'bottom',
     target: 'initial-branch',
-    targetHandle: 'top',
-    type: 'customEdge',
-  },
-  {
-    id: 'initial-branch-to-plot',
-    source: 'initial-branch',
-    sourceHandle: 'bottom',
-    target: 'initial-plot',
     targetHandle: 'top',
     type: 'customEdge',
   },

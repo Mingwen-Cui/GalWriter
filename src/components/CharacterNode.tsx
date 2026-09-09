@@ -102,6 +102,7 @@ const getCalculatedCharacterNodeMinHeight = (outfitsCount: number) =>
   (outfitsCount === 0 ? 33 : outfitsCount * 46 + (outfitsCount - 1) * 8);
 
 const CHARACTER_NODE_MIN_WIDTH = SETTING_NODE_CARD_WIDTH;
+const CHARACTER_NODE_HEIGHT_SAFETY = 4;
 
 type AppearanceMenuOption = { id: string; label: string; assetPath: string };
 
@@ -536,6 +537,10 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   const [appearanceAssetUrls, setAppearanceAssetUrls] = useState<Record<string, string>>({});
   const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
   const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
+  const contentFrameRef = useRef<HTMLDivElement>(null);
+  const [measuredMinHeight, setMeasuredMinHeight] = useState(
+    getCalculatedCharacterNodeMinHeight(0),
+  );
   const previewAsset = characterAssetSlots.find((asset) => asset.key === previewAssetKey);
 
   const storeApi = useStoreApi();
@@ -599,7 +604,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   );
 
   const calculatedMinHeight = getCalculatedCharacterNodeMinHeight(outfits.length);
-  const effectiveMinHeight = calculatedMinHeight;
+  const effectiveMinHeight = Math.max(calculatedMinHeight, measuredMinHeight);
   const hasCharacterText = [
     name,
     data.identity,
@@ -688,13 +693,16 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
   }, [id, setNodes, storeApi]);
 
   const measureContentMinHeight = useCallback(() => {
-    // The card wrapper fills the React Flow node. Reading its scrollHeight and
-    // then writing that value back as the node minimum creates a feedback loop:
-    // each write enlarges the wrapper measured by the next layout effect.
-    // Every visible section has a fixed height, so the formula is the stable
-    // lower bound for both initial and user-created character cards.
-    return calculatedMinHeight;
-  }, [calculatedMinHeight]);
+    if (isMinimized || !contentFrameRef.current) return calculatedMinHeight;
+
+    // This frame has no `h-full`, so its scroll height is the natural form
+    // content rather than the current React Flow node height. That avoids a
+    // feedback loop while keeping the border and shadow around all content.
+    return Math.max(
+      calculatedMinHeight,
+      Math.ceil(contentFrameRef.current.scrollHeight + CHARACTER_NODE_HEIGHT_SAFETY),
+    );
+  }, [calculatedMinHeight, isMinimized]);
 
   const shouldResizeCharacterNode = useCallback(
     (_event: unknown, params: { height: number; direction?: number[] }) => {
@@ -1111,7 +1119,11 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
    * 注意：不要持续读取 scrollHeight，否则会和 height: 100% 形成反馈循环，导致高度一直变高。
    */
   useLayoutEffect(() => {
-    syncNodeHeightToMinimum(calculatedMinHeight);
+    const nextMeasuredMinHeight = measureContentMinHeight();
+    setMeasuredMinHeight((previous) =>
+      Math.abs(previous - nextMeasuredMinHeight) < 1 ? previous : nextMeasuredMinHeight,
+    );
+    syncNodeHeightToMinimum(Math.max(calculatedMinHeight, nextMeasuredMinHeight));
   }, [
     calculatedMinHeight,
     data.showPersonality,
@@ -1123,6 +1135,31 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     measureContentMinHeight,
     syncNodeHeightToMinimum,
   ]);
+
+  useEffect(() => {
+    if (isMinimized || !contentFrameRef.current) return;
+
+    let frameId = 0;
+    const syncNaturalContentHeight = () => {
+      const nextMeasuredMinHeight = measureContentMinHeight();
+      setMeasuredMinHeight((previous) =>
+        Math.abs(previous - nextMeasuredMinHeight) < 1 ? previous : nextMeasuredMinHeight,
+      );
+      syncNodeHeightToMinimum(Math.max(calculatedMinHeight, nextMeasuredMinHeight));
+    };
+    const scheduleSync = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(syncNaturalContentHeight);
+    };
+    const observer = new ResizeObserver(scheduleSync);
+    observer.observe(contentFrameRef.current);
+    scheduleSync();
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frameId);
+    };
+  }, [calculatedMinHeight, isMinimized, measureContentMinHeight, syncNodeHeightToMinimum]);
 
   useLayoutEffect(() => {
     if (!data.assistantAutoHeightNonce) return;
@@ -1386,7 +1423,7 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
         handleClassName="!z-20 !w-2 !h-2 !bg-[var(--card-bg)] !border !border-purple-500 !rounded-none"
       />
 
-      <div className="flex flex-col w-full h-full rounded-xl">
+      <div ref={contentFrameRef} className="flex flex-col w-full rounded-xl">
         {/* Header with Buttons */}
         <div className="bg-[var(--header-bg)] rounded-t-xl border-b border-[var(--header-border)] px-3 py-2 flex items-center justify-between z-10 relative cursor-grab active:cursor-grabbing shrink-0">
           <div className="flex items-center gap-2">
