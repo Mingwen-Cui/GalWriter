@@ -9,16 +9,18 @@ type SceneSwitchFlashProps = {
   action: InlinePresentationAction | null | undefined;
   targetImageUrl?: string;
   targetImageStyle?: CSSProperties;
+  durationMs?: number;
 };
 
 export function SceneSwitchFlash({
   action,
   targetImageUrl,
   targetImageStyle,
+  durationMs,
 }: SceneSwitchFlashProps) {
   if (action?.kind !== 'scene' || action.action !== 'switch' || !targetImageUrl) return null;
 
-  const duration = Math.max(180, action.duration || 420);
+  const duration = Math.max(180, durationMs ?? action.duration ?? 420);
   const style = {
     '--scene-switch-flash-duration': `${duration}ms`,
   } as CSSProperties;

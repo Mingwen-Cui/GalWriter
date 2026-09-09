@@ -35,6 +35,7 @@ type WebPlaytestMediaLayersProps = {
   currentImageUrl: string;
   currentVideoUrl: string;
   sceneSwitchImageUrl?: string;
+  sceneSwitchDurationMs?: number;
   currentVideoRef: RefObject<HTMLVideoElement | null>;
   settings: WebExportSettings;
   sceneStyle: React.CSSProperties;
@@ -55,6 +56,7 @@ export function WebPlaytestMediaLayers({
   currentImageUrl,
   currentVideoUrl,
   sceneSwitchImageUrl,
+  sceneSwitchDurationMs,
   currentVideoRef,
   settings,
   sceneStyle,
@@ -107,6 +109,7 @@ export function WebPlaytestMediaLayers({
           action={activeInlineAction}
           targetImageUrl={sceneSwitchImageUrl}
           targetImageStyle={sceneStyle}
+          durationMs={sceneSwitchDurationMs}
         />
         {presentedCharacters.length > 0 && (
           <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">

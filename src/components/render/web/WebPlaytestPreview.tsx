@@ -546,6 +546,13 @@ export function WebPlaytestPreview({
       })
     : null;
   const sceneSwitchImageUrl = sceneSwitchMedia?.videoUrl ? '' : sceneSwitchMedia?.imageUrl || '';
+  const sceneSwitchDurationMs = activeSceneSwitchTransition
+    ? Math.max(
+        180,
+        (activeSceneSwitchTransition.duration || 420) /
+          Math.max(0.5, settings.animationSpeed ?? 1),
+      )
+    : undefined;
 
   React.useEffect(() => {
     if (!currentImageUrl || imagePreloadRef.current.has(currentImageUrl)) return;
@@ -703,21 +710,18 @@ export function WebPlaytestPreview({
     setActiveInlineAction(null);
     setCompletedSwitchActions([]);
     setCompletedInlineActions([]);
-    setAnimationDone(settings.interactionMode !== 'typewriter');
     if (settings.interactionMode !== 'typewriter') {
       const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
         hideCharacterTags: settings.hideCharacterTags,
         hideSceneTags: settings.hideSceneTags,
       });
-      setCompletedSwitchActions(
-        playbackSteps
-          .filter(
-            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
-              step.kind === 'action',
-          )
-          .map((step) => step.action)
-          .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId)),
-      );
+      const switchActions = playbackSteps
+        .filter(
+          (step): step is { kind: 'action'; action: InlinePresentationAction } =>
+            step.kind === 'action',
+        )
+        .map((step) => step.action)
+        .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId));
       setCompletedInlineActions(
         playbackSteps
           .filter(
@@ -725,11 +729,36 @@ export function WebPlaytestPreview({
               step.kind === 'action',
           )
           .map((step) => step.action)
-          .filter(isPersistentInlineAction),
+          .filter((action) => isPersistentInlineAction(action) && action.action !== 'switch'),
       );
       setDisplayedPreviewText(text);
+      if (!switchActions.length) {
+        setAnimationDone(true);
+        return;
+      }
+
+      setAnimationDone(false);
+      const playSwitch = (index: number) => {
+        const action = switchActions[index];
+        if (!action) {
+          setActiveInlineAction(null);
+          setAnimationDone(true);
+          return;
+        }
+        setActiveInlineAction(action);
+        const duration = Math.max(180, action.duration || 420) /
+          Math.max(0.5, settings.animationSpeed ?? 1);
+        inlineActionTimerRef.current = window.setTimeout(() => {
+          setActiveInlineAction(null);
+          setCompletedSwitchActions((previous) => [...previous, action]);
+          setCompletedInlineActions((previous) => [...previous, action]);
+          playSwitch(index + 1);
+        }, duration);
+      };
+      playSwitch(0);
       return;
     }
+    setAnimationDone(false);
     const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
       hideCharacterTags: settings.hideCharacterTags,
       hideSceneTags: settings.hideSceneTags,
@@ -2182,6 +2211,7 @@ export function WebPlaytestPreview({
       currentImageUrl={currentImageUrl}
       currentVideoUrl={currentVideoUrl}
       sceneSwitchImageUrl={sceneSwitchImageUrl}
+      sceneSwitchDurationMs={sceneSwitchDurationMs}
       currentVideoRef={currentVideoRef}
       settings={settings}
       sceneStyle={sceneStyle}

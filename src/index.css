@@ -110,7 +110,10 @@
   object-fit: contain;
   mix-blend-mode: screen;
   filter: brightness(1.25) saturate(0.7);
-  transform: translate(-125%, -50%) scale(0.82);
+  /* The flash is 58% of the stage width. Moving it from -50% to 122.414%
+     of its own width places its centre exactly on the reveal edge from 0% to
+     100% of the stage, using the same animation clock as the clip mask. */
+  transform: translate(-50%, -50%);
   animation: galSceneSwitchFlash var(--scene-switch-flash-duration, 420ms)
     cubic-bezier(0.2, 0.72, 0.25, 1) both;
 }
@@ -138,7 +141,7 @@
 @keyframes galSceneSwitchFlash {
   0% {
     opacity: 0;
-    transform: translate(-125%, -50%) scale(0.82);
+    transform: translate(-50%, -50%);
   }
   10% {
     opacity: 0.88;
@@ -148,7 +151,7 @@
   }
   100% {
     opacity: 0;
-    transform: translate(225%, -50%) scale(1.08);
+    transform: translate(122.414%, -50%);
   }
 }
 

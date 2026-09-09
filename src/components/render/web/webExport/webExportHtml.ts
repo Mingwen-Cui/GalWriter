@@ -1650,12 +1650,14 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       incoming.style.height = '100%';
       reveal.appendChild(incoming);
       const flash = document.createElement('div');
-      flash.style.cssText = 'position:absolute;top:-28%;left:0;z-index:31;width:58%;height:156%;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(255,255,255,.98) 0%,rgba(255,255,255,.68) 23%,rgba(255,255,255,0) 67%);mix-blend-mode:screen;transform:translateX(-125%);transition:transform ' + duration + 'ms cubic-bezier(.2,.72,.25,1),opacity ' + duration + 'ms ease;';
+      // The flash is 58% of the stage width. These two offsets keep its centre
+      // on the reveal edge for the entire duration: 0% -> 100% of the stage.
+      flash.style.cssText = 'position:absolute;top:-28%;left:0;z-index:31;width:58%;height:156%;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(255,255,255,.98) 0%,rgba(255,255,255,.68) 23%,rgba(255,255,255,0) 67%);mix-blend-mode:screen;transform:translateX(-50%);transition:transform ' + duration + 'ms cubic-bezier(.2,.72,.25,1),opacity ' + duration + 'ms cubic-bezier(.2,.72,.25,1);';
       host.append(reveal, flash);
       requestAnimationFrame(() => requestAnimationFrame(() => {
         reveal.style.clipPath = 'inset(0 0 0 0)';
         flash.style.opacity = '1';
-        flash.style.transform = 'translateX(225%)';
+        flash.style.transform = 'translateX(122.414%)';
       }));
       const timer = setTimeout(() => {
         outgoing.src = targetUrl;

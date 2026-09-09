@@ -200,7 +200,9 @@ export const INITIAL_NODES: Node[] = [
       location: '云雾缭绕的山腰，寺前有石阶和一株老松。',
       items: '山门、钟楼、蒲团、木鱼、老松。',
       atmosphere: '清晨安静，偶尔传来悠长的钟声。',
-      coverImageUrl: mountainTempleBackgroundUrl,
+      // The scene's default material is the opening wide shot. The following
+      // story card switches it to the temple close shot.
+      coverImageUrl: mountainTempleDistantUrl,
       images: [
         {
           id: 'initial-distant-mountain',

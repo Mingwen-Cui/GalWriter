@@ -708,15 +708,13 @@ export function usePlaytestRuntime(
         hideCharacterTags,
         hideSceneTags,
       });
-      setCompletedSwitchActions(
-        playbackSteps
-          .filter(
-            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
-              step.kind === 'action',
-          )
-          .map((step) => step.action)
-          .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId)),
-      );
+      const switchActions = playbackSteps
+        .filter(
+          (step): step is { kind: 'action'; action: InlinePresentationAction } =>
+            step.kind === 'action',
+        )
+        .map((step) => step.action)
+        .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId));
       setCompletedInlineActions(
         playbackSteps
           .filter(
@@ -724,10 +722,33 @@ export function usePlaytestRuntime(
               step.kind === 'action',
           )
           .map((step) => step.action)
-          .filter(isPersistentInlineAction),
+          .filter((action) => isPersistentInlineAction(action) && action.action !== 'switch'),
       );
       setDisplayedHtml(textHtml);
-      setAnimationCompleted(true);
+      if (!switchActions.length) {
+        setAnimationCompleted(true);
+        return;
+      }
+
+      // Immediate text display must not skip visual scene actions. Keep each
+      // target under the outgoing image until its own wipe has finished.
+      setAnimationCompleted(false);
+      const playSwitch = (index: number) => {
+        const action = switchActions[index];
+        if (!action) {
+          setActiveInlineAction(null);
+          setAnimationCompleted(true);
+          return;
+        }
+        setActiveInlineAction(action);
+        inlineActionTimerRef.current = setTimeout(() => {
+          setActiveInlineAction(null);
+          setCompletedSwitchActions((previous) => [...previous, action]);
+          setCompletedInlineActions((previous) => [...previous, action]);
+          playSwitch(index + 1);
+        }, Math.max(180, action.duration || 420));
+      };
+      playSwitch(0);
     } else if (interactionMode === 'typewriter') {
       setAnimationCompleted(false);
       const playbackSteps = buildInlinePlaybackSteps(rawTextHtml, presentation, {
