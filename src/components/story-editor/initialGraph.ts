@@ -1,6 +1,11 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import { getAppAssetUrl } from '../../lib/appAssets';
+import {
+  createCharacterPresentation,
+  createInlinePresentationAction,
+  createScenePresentation,
+} from '../../lib/presentation';
 
 import {
   DEFAULT_ROOT_STORY_TEXT,
@@ -25,17 +30,17 @@ export const INITIAL_NODES: Node[] = [
     type: 'backgroundNode',
     position: { x: 1660, y: 80 },
     dragHandle: '.custom-drag-handle',
-    style: { width: 780, height: 800, zIndex: -3 },
+    style: { width: 780, height: 1150, zIndex: -3 },
     data: {
       id: 'initial-story-background',
-      title: '山中寺庙 · 第一章',
+      title: '山中寺庙 · 初始化教程',
       color: '#f1f5f9',
     },
   },
   {
     id: 'root',
     type: 'storyNode',
-    position: { x: 1740, y: 160 },
+    position: { x: 1740, y: 150 },
     style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
     data: {
       id: 'root',
@@ -45,20 +50,88 @@ export const INITIAL_NODES: Node[] = [
       color: '#ffffff',
       sizeMode: 'auto',
       isRoot: true,
+      imageUrl: getAppAssetUrl('initial-assets/mountain-temple-distant.png'),
+      showTextOverlay: true,
+      presentation: {
+        scene: {
+          ...createScenePresentation('initial-mountain-temple'),
+          imageId: 'initial-distant-mountain',
+          cropMode: 'cover',
+        },
+        characters: [],
+      },
     },
   },
   {
     id: 'initial-branch',
     type: 'storyNode',
-    position: { x: 1740, y: 520 },
+    position: { x: 1740, y: 470 },
     style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
     data: {
       id: 'initial-branch',
-      title: '分支',
-      text: '山里有座庙',
+      title: '场景切换',
+      text: '山里有座庙。\n镜头从远景切换到寺前。',
       shape: 'square',
       color: '#ffffff',
       sizeMode: 'auto',
+      imageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+      showTextOverlay: true,
+      presentation: {
+        scene: {
+          ...createScenePresentation('initial-mountain-temple'),
+          imageId: 'initial-temple-close',
+          cropMode: 'cover',
+        },
+        characters: [],
+        inlineActions: [
+          {
+            ...createInlinePresentationAction({
+              id: 'initial-switch-to-temple',
+              kind: 'scene',
+              sourceNodeId: 'initial-mountain-temple',
+              name: '切换至山中寺庙',
+            }),
+            action: 'switch',
+            targetAssetId: 'initial-temple-close',
+            duration: 650,
+          },
+        ],
+      },
+    },
+  },
+  {
+    id: 'initial-dialogue',
+    type: 'storyNode',
+    position: { x: 1740, y: 820 },
+    style: { width: 300, height: MIN_STORY_CARD_HEIGHT },
+    data: {
+      id: 'initial-dialogue',
+      title: '人物对话',
+      text: '小和尚：师父，山外的云好像一片海。\n老和尚：心静下来，脚下的石阶也能通向远方。',
+      shape: 'rounded-rectangle',
+      color: '#ffffff',
+      sizeMode: 'auto',
+      imageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+      showTextOverlay: true,
+      presentation: {
+        scene: {
+          ...createScenePresentation('initial-mountain-temple'),
+          imageId: 'initial-temple-close',
+          cropMode: 'cover',
+        },
+        characters: [
+          {
+            ...createCharacterPresentation('initial-old-monk'),
+            position: 'left',
+            scale: 0.78,
+          },
+          {
+            ...createCharacterPresentation('initial-young-monk'),
+            position: 'right',
+            scale: 0.78,
+          },
+        ],
+      },
     },
   },
   {
@@ -110,6 +183,18 @@ export const INITIAL_NODES: Node[] = [
       items: '山门、钟楼、蒲团、木鱼、老松。',
       atmosphere: '清晨安静，偶尔传来悠长的钟声。',
       coverImageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+      images: [
+        {
+          id: 'initial-distant-mountain',
+          name: '远景：从前有座山',
+          imageUrl: getAppAssetUrl('initial-assets/mountain-temple-distant.png'),
+        },
+        {
+          id: 'initial-temple-close',
+          name: '近景：山里有座庙',
+          imageUrl: getAppAssetUrl('initial-assets/mountain-temple-background.png'),
+        },
+      ],
       isGlobal: true,
     },
   },
@@ -132,6 +217,14 @@ export const INITIAL_EDGES: Edge[] = [
     source: 'root',
     sourceHandle: 'bottom',
     target: 'initial-branch',
+    targetHandle: 'top',
+    type: 'customEdge',
+  },
+  {
+    id: 'initial-branch-to-dialogue',
+    source: 'initial-branch',
+    sourceHandle: 'bottom',
+    target: 'initial-dialogue',
     targetHandle: 'top',
     type: 'customEdge',
   },

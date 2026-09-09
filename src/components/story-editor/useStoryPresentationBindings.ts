@@ -21,7 +21,11 @@ export function useStoryPresentationBindings({
   setNodes,
 }: UseStoryPresentationBindingsOptions) {
   useEffect(() => {
-    setNodes((currentNodes) => {
+    // React Flow's controlled store treats a setNodes call as a store update
+    // even when its updater ultimately returns the same array. A new edge
+    // causes the node props to be reconciled during layout, so issuing that
+    // no-op update here could re-enter this effect through StoreUpdater.
+    const synchronizeBindings = (currentNodes: Node[]) => {
       const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
       let changed = false;
 
@@ -194,6 +198,12 @@ export function useStoryPresentationBindings({
       });
 
       return changed ? nextNodes : currentNodes;
-    });
+    };
+
+    // Do not invoke React Flow's setter unless this particular edge change
+    // actually changes a story card's bound scene/character presentation.
+    if (synchronizeBindings(nodes) === nodes) return;
+
+    setNodes(synchronizeBindings);
   }, [edges, nodes, setNodes]);
 }

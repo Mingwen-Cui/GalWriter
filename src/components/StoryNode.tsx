@@ -938,6 +938,27 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   // is deliberately independent of card data so an in-flight AI update cannot
   // put an old automatic content height back onto the node.
   useLayoutEffect(() => {
+    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
+    if (!currentNode) return;
+
+    const currentHeight =
+      getNumericSize(currentNode.style?.height) ??
+      getNumericSize((currentNode as any).height) ??
+      getNumericSize((currentNode as any).measured?.height);
+    const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
+    const isCustomSize = currentNode.data?.sizeMode === 'custom';
+    const normalizedHeight = Math.max(currentHeight ?? 0, FIXED_STORY_CARD_HEIGHT);
+    const needsNormalization = isCustomSize
+      ? currentMinHeight !== FIXED_STORY_CARD_HEIGHT
+      : currentHeight !== normalizedHeight ||
+        currentMinHeight !== FIXED_STORY_CARD_HEIGHT ||
+        currentNode.data?.sizeMode !== 'auto';
+
+    // Do not call React Flow's controlled setter for an already-normalized
+    // card. A new scene/character edge re-renders the card during layout;
+    // a no-op write here otherwise feeds that render back into StoreUpdater.
+    if (!needsNormalization) return;
+
     let changed = false;
     setNodes((nodes) =>
       nodes.map((node) => {
