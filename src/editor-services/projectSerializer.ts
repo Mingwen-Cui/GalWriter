@@ -516,6 +516,8 @@ const applyProjectSettings = (
   defaultButtonsConfig: AIButtonsConfig,
 ) => {
   if (!incomingSettings) {
+    setters.setCharacterTagColor('#7c3aed');
+    setters.setSceneTagColor('#2563eb');
     setters.setAccentColor('');
     setters.setEdgeColor(DEFAULT_EDGE_COLOR);
     setters.setArrowSize(DEFAULT_ARROW_SIZE);
@@ -536,6 +538,12 @@ const applyProjectSettings = (
       ...sharedRenderStyle,
     }));
   }
+  const normalizeTagColor = (value: unknown, fallback: string) =>
+    typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim())
+      ? value.trim()
+      : fallback;
+  setters.setCharacterTagColor(normalizeTagColor(incomingSettings.characterTagColor, '#7c3aed'));
+  setters.setSceneTagColor(normalizeTagColor(incomingSettings.sceneTagColor, '#2563eb'));
   if (incomingSettings.canvasBg) setters.setCanvasBg(incomingSettings.canvasBg);
   if (incomingSettings.edgeStyle) setters.setEdgeStyle(incomingSettings.edgeStyle);
   setters.setEdgeColor(normalizeEdgeColor(incomingSettings.edgeColor));

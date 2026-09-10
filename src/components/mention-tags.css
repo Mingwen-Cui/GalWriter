@@ -1,19 +1,19 @@
 /* Keep icons in CSS so saved @ references and their plain text stay unchanged. */
 .mention-chip-character,
 .mention-tag-character {
-  --mention-ink: #6d3eb7;
-  --mention-fill: #f3ecfc;
-  --mention-border: #dac9f2;
-  --mention-hover: #eadef9;
+  --mention-ink: var(--mention-character-color, #7c3aed);
+  --mention-fill: color-mix(in srgb, var(--mention-character-color, #7c3aed) 12%, white);
+  --mention-border: color-mix(in srgb, var(--mention-character-color, #7c3aed) 30%, white);
+  --mention-hover: color-mix(in srgb, var(--mention-character-color, #7c3aed) 20%, white);
   --mention-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M5 21v-2a7 7 0 0 1 14 0v2'/%3E%3C/svg%3E");
 }
 
 .mention-chip-scene,
 .mention-tag-scene {
-  --mention-ink: #0c766c;
-  --mention-fill: #eaf7f2;
-  --mention-border: #b3ddd4;
-  --mention-hover: #daf0e8;
+  --mention-ink: var(--mention-scene-color, #2563eb);
+  --mention-fill: color-mix(in srgb, var(--mention-scene-color, #2563eb) 11%, white);
+  --mention-border: color-mix(in srgb, var(--mention-scene-color, #2563eb) 28%, white);
+  --mention-hover: color-mix(in srgb, var(--mention-scene-color, #2563eb) 18%, white);
   --mention-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='2.5'/%3E%3C/svg%3E");
 }
 
@@ -117,18 +117,16 @@
 
 [data-theme='dark'] .mention-chip-character,
 [data-theme='dark'] .mention-tag-character {
-  --mention-ink: #d8c2ff;
-  --mention-fill: #332444;
-  --mention-border: #675080;
-  --mention-hover: #453156;
+  --mention-fill: color-mix(in srgb, var(--mention-character-color, #7c3aed) 26%, #111827);
+  --mention-border: color-mix(in srgb, var(--mention-character-color, #7c3aed) 48%, #111827);
+  --mention-hover: color-mix(in srgb, var(--mention-character-color, #7c3aed) 36%, #111827);
 }
 
 [data-theme='dark'] .mention-chip-scene,
 [data-theme='dark'] .mention-tag-scene {
-  --mention-ink: #99e6d4;
-  --mention-fill: #173a36;
-  --mention-border: #386a61;
-  --mention-hover: #214d46;
+  --mention-fill: color-mix(in srgb, var(--mention-scene-color, #2563eb) 26%, #111827);
+  --mention-border: color-mix(in srgb, var(--mention-scene-color, #2563eb) 48%, #111827);
+  --mention-hover: color-mix(in srgb, var(--mention-scene-color, #2563eb) 36%, #111827);
 }
 
 [data-theme='dark'] .mention-chip-video,

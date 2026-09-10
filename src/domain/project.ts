@@ -370,6 +370,8 @@ export interface ProjectAIProfilesExport {
 
 export interface ProjectSettings extends PlaytestSettings {
   sharedRenderStyle: RenderStyle;
+  characterTagColor: string;
+  sceneTagColor: string;
   canvasBg: string;
   edgeStyle: EdgeStyle;
   edgeColor: string;
@@ -431,6 +433,8 @@ export interface ProjectSettings extends PlaytestSettings {
 
 export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setSharedRenderStyle: Dispatch<SetStateAction<RenderStyle>>;
+  setCharacterTagColor: Dispatch<SetStateAction<string>>;
+  setSceneTagColor: Dispatch<SetStateAction<string>>;
   setCanvasBg: Dispatch<SetStateAction<string>>;
   setEdgeStyle: Dispatch<SetStateAction<EdgeStyle>>;
   setEdgeColor: Dispatch<SetStateAction<string>>;
@@ -724,6 +728,8 @@ export interface StoryNodeData extends BaseEditorNodeData {
   mediaOffsetX?: number;
   mediaOffsetY?: number;
   showTextOverlay?: boolean;
+  /** Keeps this card's title available for branching while omitting it in playback and exports. */
+  hideTitleInPlayback?: boolean;
   titleHeightAdded?: boolean;
   isRoot?: boolean;
   nodeValue?: number;

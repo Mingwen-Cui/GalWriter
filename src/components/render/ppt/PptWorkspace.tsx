@@ -1971,7 +1971,7 @@ function ScenePreview({
   const bodyAnimation = bodyAnimations.find(
     (animation) => animation.textBuild?.mode === 'line-wipe',
   );
-  const hasTitle = title.visible && Boolean(titleText.trim());
+  const hasTitle = title.visible && !scene.hideTitleInPlayback && Boolean(titleText.trim());
   // Match the web preview's logical 720px-canvas text sizing on the 1080px stage.
   const titlePaint = textPaint(title, true);
   const bodyPaint = textPaint(body, true);

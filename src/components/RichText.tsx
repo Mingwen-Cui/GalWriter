@@ -27,7 +27,22 @@ export const createMentionHtml = (kind: MentionKind, name: string) => {
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `mention-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">@${safeName}</span>`;
+  return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${id}" contenteditable="false" draggable="false">${safeName}</span>`;
+};
+
+const normalizeLegacyMentionPrefix = (html: string) => {
+  if (!html || !/mention-chip|data-mention-kind/i.test(html)) return html;
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  let changed = false;
+  container.querySelectorAll<HTMLElement>('.mention-chip, [data-mention-kind]').forEach((node) => {
+    const name = node.dataset.mentionName || node.textContent?.replace(/^@/, '').trim() || '';
+    if (name && node.textContent !== name) {
+      node.textContent = name;
+      changed = true;
+    }
+  });
+  return changed ? container.innerHTML : html;
 };
 
 const sanitizePastedMentionHtml = (html: string) => {
@@ -57,7 +72,7 @@ const sanitizePastedMentionHtml = (html: string) => {
         : `mention-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     replacement.contentEditable = 'false';
     replacement.draggable = false;
-    replacement.textContent = `@${name}`;
+    replacement.textContent = name;
     node.replaceWith(replacement);
   });
 
@@ -198,9 +213,11 @@ export const RichText = forwardRef<
   }, [autoFocus]);
 
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
+    const normalizedValue = normalizeLegacyMentionPrefix(value);
+    if (editorRef.current && editorRef.current.innerHTML !== normalizedValue) {
+      editorRef.current.innerHTML = normalizedValue;
     }
+    if (normalizedValue !== value) onChange(normalizedValue);
   }, [value]);
 
   const handleInput = () => {

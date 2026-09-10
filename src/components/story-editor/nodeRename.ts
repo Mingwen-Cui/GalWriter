@@ -1,7 +1,7 @@
 import type { Node } from '@xyflow/react';
 
 export const replaceMentionNameInText = (html: string, oldName: string, newName: string) => {
-  if (!oldName || oldName === newName || !html.includes(`@${oldName}`)) return html;
+  if (!oldName || oldName === newName) return html;
 
   const oldMention = `@${oldName}`;
   const newMention = `@${newName}`;
@@ -31,6 +31,7 @@ export const replaceMentionNameInText = (html: string, oldName: string, newName:
   container.querySelectorAll<HTMLElement>('.mention-chip').forEach((mention) => {
     if (mention.dataset.mentionName === oldName) {
       mention.dataset.mentionName = newName;
+      mention.textContent = newName;
     }
   });
 

@@ -18,6 +18,7 @@ import {
   Copy,
   Download,
   Eraser,
+  Eye,
   EyeOff,
   GitFork,
   Image as ImageIcon,
@@ -100,7 +101,9 @@ import { RichText, RichTextHandle } from './RichText';
 import { VirtualPresentationStage } from './VirtualPresentationStage';
 import { ZenSelect } from './zen-editor/ZenSelect';
 
-const COLORS = ['#ffffff', '#FE8A25', '#E64881', '#FD5C5C'];
+const DEFAULT_CARD_COLOR = '#ffffff';
+const INITIAL_RECENT_CARD_COLORS = ['#FE8A25', '#E64881'];
+const COLORS = [DEFAULT_CARD_COLOR, ...INITIAL_RECENT_CARD_COLORS, '#FD5C5C'];
 const CARD_RADIUS = '12px';
 const TITLE_HEIGHT = 36;
 const MEDIA_CARD_MIN_HEIGHT = 60;
@@ -275,6 +278,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
   const [hasRichTextSelection, setHasRichTextSelection] = useState(false);
   const [isColorPopoverOpen, setIsColorPopoverOpen] = useState(false);
+  const [recentCardColors, setRecentCardColors] = useState(INITIAL_RECENT_CARD_COLORS);
   const [autoCardHeight, setAutoCardHeight] = useState(MEDIA_CARD_MIN_HEIGHT);
   const [nodeWidthForAutoSize, setNodeWidthForAutoSize] = useState(300);
   const [isResizingCard, setIsResizingCard] = useState(false);
@@ -477,8 +481,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     const formatCalculation = (operationValues: number[], total: number) => {
       const [firstValue, ...remainingValues] = operationValues;
       const expression = remainingValues.reduce(
-        (current, value) =>
-          `${current} ${value >= 0 ? '+' : '-'} ${Math.abs(value)}`,
+        (current, value) => `${current} ${value >= 0 ? '+' : '-'} ${Math.abs(value)}`,
         String(firstValue),
       );
       return `${expression} = ${total}`;
@@ -487,9 +490,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     const result = getTotalToNode(id);
     const directIncomingEdges = incomingEdgesByTarget.get(id) || [];
     const maxIncomingValue = directIncomingEdges.length
-      ? Math.max(
-          ...directIncomingEdges.map((edge) => getTotalToNode(edge.source).total),
-        )
+      ? Math.max(...directIncomingEdges.map((edge) => getTotalToNode(edge.source).total))
       : 0;
     const followsArithmetic = directIncomingEdges.some((edge) => {
       const sourceTotal = getTotalToNode(edge.source);
@@ -507,12 +508,18 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       : null;
   });
   const isCalculatedNodeValue = nodeValue === 0 && calculatedNodeValueExpression !== null;
-  const displayedNodeValue =
-    nodeValue !== 0 ? String(nodeValue) : calculatedNodeValueExpression;
+  const displayedNodeValue = nodeValue !== 0 ? String(nodeValue) : calculatedNodeValueExpression;
   const storylineNumbers = Array.isArray(data.storylineNumbers)
     ? data.storylineNumbers.filter((number): number is number => Number.isFinite(number))
     : [];
   const storylineLabel = storylineNumbers.length ? `故事线${storylineNumbers.join(',')}` : '故事线';
+  const rememberCardColor = useCallback((nextColor: string) => {
+    const next = parseColorValue(nextColor, DEFAULT_CARD_COLOR);
+    if (next.hex === DEFAULT_CARD_COLOR) return;
+    setRecentCardColors((current) =>
+      [next.hex, ...current.filter((color) => color !== next.hex)].slice(0, 2),
+    );
+  }, []);
   const { zoom } = useViewport();
   const presentationMenuScale = Math.min(zoom, 1.25);
   const storeApi = useStoreApi();
@@ -1131,9 +1138,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     const isManuallySized = currentNode.data?.sizeMode === 'custom';
     // Manual resizing may leave extra room, but never lets later text be
     // clipped: new content can still grow the card past the manual height.
-    const nextHeight = isManuallySized
-      ? Math.max(currentHeight, targetHeight)
-      : targetHeight;
+    const nextHeight = isManuallySized ? Math.max(currentHeight, targetHeight) : targetHeight;
     const initialBranch = isDefaultInitialRoot
       ? storeApi
           .getState()
@@ -1438,13 +1443,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     setIsResizingCard(true);
   }, []);
 
-  const updateResizeMinimumHeight = useCallback(
-    (_width: number) => {
-      const nextMinimum = FIXED_STORY_CARD_HEIGHT;
-      return nextMinimum;
-    },
-    [],
-  );
+  const updateResizeMinimumHeight = useCallback((_width: number) => {
+    const nextMinimum = FIXED_STORY_CARD_HEIGHT;
+    return nextMinimum;
+  }, []);
 
   const shouldResizeCard = useCallback<ShouldResize>(
     (_event, dimensions) => {
@@ -2594,9 +2596,22 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   <GitFork className={`w-3.5 h-3.5 ${data.isHighlighted ? 'animate-pulse' : ''}`} />{' '}
                   故事线
                 </button>
+                <button
+                  onClick={() => updateNodeData({ hideTitleInPlayback: !data.hideTitleInPlayback })}
+                  className={`${textBtnBase} gap-1 ${data.hideTitleInPlayback ? 'bg-slate-500 text-white hover:bg-slate-600 hover:text-white' : ''}`}
+                  title={data.hideTitleInPlayback ? '播放时显示标题' : '播放时隐藏标题'}
+                  aria-pressed={data.hideTitleInPlayback === true}
+                >
+                  {data.hideTitleInPlayback ? (
+                    <EyeOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5" />
+                  )}
+                  标题
+                </button>
                 <Separator />
                 <div className="relative flex items-center gap-2">
-                  {COLORS.map((preset) => {
+                  {[DEFAULT_CARD_COLOR, ...recentCardColors].map((preset) => {
                     const isActive =
                       parsedCardColor.hex === preset && parsedCardColor.alpha === 100;
                     return (
@@ -2604,6 +2619,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         key={preset}
                         onClick={() => {
                           updateNodeData({ color: preset });
+                          rememberCardColor(preset);
                           setIsColorPopoverOpen(false);
                         }}
                         className={`h-5 w-5 shrink-0 rounded-full border border-[var(--toolbar-border)] transition-transform hover:scale-110 ${isActive ? 'scale-110 shadow-sm' : ''}`}
@@ -2635,6 +2651,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         alpha={parsedCardColor.alpha}
                         onColorChange={(nextColor) => {
                           const next = parseColorValue(nextColor, parsedCardColor.hex);
+                          rememberCardColor(next.hex);
                           updateNodeData({
                             color:
                               parsedCardColor.alpha === 100
@@ -2650,11 +2667,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 : toHex8(parsedCardColor.hex, nextAlpha),
                           })
                         }
-                        onColorAndAlphaChange={({ color, alpha }) =>
+                        onColorAndAlphaChange={({ color, alpha }) => {
+                          rememberCardColor(color);
                           updateNodeData({
                             color: alpha === 100 ? color : toHex8(color, alpha),
-                          })
-                        }
+                          });
+                        }}
                       />
                     </FloatingPopover>
                   )}
@@ -2833,14 +2851,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           title={
                             char.isUsable
                               ? lang === 'zh'
-                                ? `插入人物 @${char.name}`
+                                ? `插入人物 ${char.name}`
                                 : lang === 'ja'
-                                  ? `キャラクター @${char.name} を挿入`
-                                  : `Insert character @${char.name}`
+                                  ? `キャラクター ${char.name} を挿入`
+                                  : `Insert character ${char.name}`
                               : undefined
                           }
                         >
-                          @{char.name}
+                          {char.name}
                         </button>
                       ))}
                     </ToolGroup>
@@ -2867,7 +2885,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 : 'Click to insert video tag; right-click to adjust presentation'
                           }
                         >
-                          @{cardVideoMentionName}
+                          {cardVideoMentionName}
                         </button>
                       )}
                       {showRichTextTools &&
@@ -2888,14 +2906,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             title={
                               scene.isUsable
                                 ? lang === 'zh'
-                                  ? `插入场景 @${scene.name}`
+                                  ? `插入场景 ${scene.name}`
                                   : lang === 'ja'
-                                    ? `シーン @${scene.name} を挿入`
-                                    : `Insert scene @${scene.name}`
+                                    ? `シーン ${scene.name} を挿入`
+                                    : `Insert scene ${scene.name}`
                                 : undefined
                             }
                           >
-                            @{scene.name}
+                            {scene.name}
                           </button>
                         ))}
                     </ToolGroup>
@@ -3130,7 +3148,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   targetImageStyle={getSceneMediaStyle(storyPresentation.scene)}
                 />
                 {presentedCharacters.map(
-                  ({ config, imageUrl: characterImageUrl, appearance, data: characterData, name }) => {
+                  ({
+                    config,
+                    imageUrl: characterImageUrl,
+                    appearance,
+                    data: characterData,
+                    name,
+                  }) => {
                     const previewMatches =
                       presentationPreview?.kind === 'character' &&
                       presentationPreview.sourceNodeId === config.sourceNodeId;
@@ -3206,10 +3230,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               loading="lazy"
             />
           ) : videoUrl && !hasScenePresentationVideo ? (
-            <div
-              className="relative w-full shrink-0"
-              style={{ height: cardMediaHeight }}
-            >
+            <div className="relative w-full shrink-0" style={{ height: cardMediaHeight }}>
               {zoom < 0.3 ? (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900/10 text-slate-400">
                   <Play className="w-8 h-8 opacity-40" />
@@ -3272,9 +3293,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   onChange={handleTextChange}
                   pasteAsPlainText={!!data.pasteAsPlainText}
                   className={`w-full ${
-                    isAutoSizeMode
-                      ? 'overflow-visible'
-                      : 'h-full overflow-y-auto custom-scrollbar'
+                    isAutoSizeMode ? 'overflow-visible' : 'h-full overflow-y-auto custom-scrollbar'
                   } resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-left ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{
                     color: nodeText,

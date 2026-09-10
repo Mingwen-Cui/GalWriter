@@ -549,8 +549,7 @@ export function WebPlaytestPreview({
   const sceneSwitchDurationMs = activeSceneSwitchTransition
     ? Math.max(
         180,
-        (activeSceneSwitchTransition.duration || 420) /
-          Math.max(0.5, settings.animationSpeed ?? 1),
+        (activeSceneSwitchTransition.duration || 420) / Math.max(0.5, settings.animationSpeed ?? 1),
       )
     : undefined;
 
@@ -590,7 +589,10 @@ export function WebPlaytestPreview({
   const shouldHideSingleChoice = settings.skipSingleChoicePopup && outEdges.length <= 1;
   const shouldShowChoices = !shouldHideSingleChoice && (animationDone || !settings.autoAdvance);
   const canClickContinue = outEdges.length <= 1;
-  const hideCenteredTitle = false;
+  // A card title doubles as the label of a branch target, so playback visibility
+  // must be separate from the stored title text.
+  const hideCenteredTitle =
+    previewMode !== 'edit' && currentNode?.data?.hideTitleInPlayback === true;
   const nameplateItems = useMemo(
     () => (currentNode ? getNameplateItems(currentNode, nodes) : []),
     [currentNode, nodes],
@@ -746,8 +748,8 @@ export function WebPlaytestPreview({
           return;
         }
         setActiveInlineAction(action);
-        const duration = Math.max(180, action.duration || 420) /
-          Math.max(0.5, settings.animationSpeed ?? 1);
+        const duration =
+          Math.max(180, action.duration || 420) / Math.max(0.5, settings.animationSpeed ?? 1);
         inlineActionTimerRef.current = window.setTimeout(() => {
           setActiveInlineAction(null);
           setCompletedSwitchActions((previous) => [...previous, action]);

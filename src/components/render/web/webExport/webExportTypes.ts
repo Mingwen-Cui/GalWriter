@@ -34,6 +34,7 @@ export type WebExportNode = {
     };
     objectFit?: string;
     showTextOverlay?: boolean;
+    hideTitleInPlayback?: boolean;
     isRoot?: boolean;
     hidden?: boolean;
     skip?: boolean;

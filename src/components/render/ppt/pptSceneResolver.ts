@@ -28,6 +28,7 @@ export type PptCharacter = Pick<
 export type PptScene = {
   id: string;
   title: string;
+  hideTitleInPlayback?: boolean;
   text: string;
   /** Original rich text is retained solely for resolving ordered animation tags. */
   rawText: string;
@@ -45,6 +46,7 @@ export type PptScene = {
 
 type StoryData = {
   title?: string;
+  hideTitleInPlayback?: boolean;
   text?: string;
   imageUrl?: string;
   videoUrl?: string;
@@ -148,6 +150,7 @@ export function resolvePptScenes(
       id: node.id,
       // Keep the same fallback order as web/playtest, including a card label.
       title: getNodeDisplayTitle(node).trim(),
+      hideTitleInPlayback: data.hideTitleInPlayback === true,
       text: stripHtml(filterMentionTags(data.text || '', true, true)),
       rawText: data.text || '',
       presentation,

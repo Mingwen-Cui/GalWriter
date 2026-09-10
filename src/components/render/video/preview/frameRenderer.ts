@@ -77,6 +77,7 @@ export const drawRenderFrame = async ({
   canvasSettings,
 }: DrawRenderFrameInput) => {
   const title = htmlToSpeechText(String(node.data?.title || ''));
+  const hideCardTitle = node.data?.hideTitleInPlayback === true;
   const rawBodyHtml = String(node.data?.text || '');
   const fullBody = htmlToSpeechText(
     filterMentionTags(rawBodyHtml, hideCharacterTags, hideSceneTags),
@@ -131,17 +132,18 @@ export const drawRenderFrame = async ({
   );
 
   ctx.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
-  const titleLines = videoRenderStyle.titleVisible
-    ? wrapText(
-        ctx,
-        title ||
-          getVideoTextForChinesePreference(
-            isZh,
-            'componentsrendervideopreviewframeRendererIsZhText124',
-          ),
-        titleMaxTextWidth,
-      ).slice(0, 2)
-    : [];
+  const titleLines =
+    videoRenderStyle.titleVisible && !hideCardTitle
+      ? wrapText(
+          ctx,
+          title ||
+            getVideoTextForChinesePreference(
+              isZh,
+              'componentsrendervideopreviewframeRendererIsZhText124',
+            ),
+          titleMaxTextWidth,
+        ).slice(0, 2)
+      : [];
   ctx.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
   const fullBodyLines = wrapText(ctx, fullBody || '', bodyMaxTextWidth).slice(0, 7);
   const bodyLines = revealCharacters(fullBodyLines, visibleTextLength(body));

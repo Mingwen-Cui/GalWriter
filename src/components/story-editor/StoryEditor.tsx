@@ -149,6 +149,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [showVideoRender, setShowVideoRender] = useState(false);
   const [renderLaunchIntent, setRenderLaunchIntent] = useState<RenderWorkspaceLaunchIntent>();
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
+  const [characterTagColor, setCharacterTagColor] = useState('#7c3aed');
+  const [sceneTagColor, setSceneTagColor] = useState('#2563eb');
   const [interactionMode, setInteractionMode] = useState<'select' | 'box'>('select');
   const [pendingCardPlacement, setPendingCardPlacement] = useState<
     'story' | 'background' | 'dynamicWrap' | 'bodyText' | 'headingText' | null
@@ -771,6 +773,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const editorProjectSettings = useMemo(
     () => ({
+      characterTagColor,
+      sceneTagColor,
       canvasBg,
       edgeStyle,
       edgeColor,
@@ -863,6 +867,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       skipAssistantAgentAnimation,
       bubbleStyle,
       canvasBg,
+      characterTagColor,
+      sceneTagColor,
       characterAssetTypes,
       characterImageMode,
       edgeColor,
@@ -928,6 +934,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const editorProjectSettingsSetters = useMemo(
     () => ({
+      setCharacterTagColor,
+      setSceneTagColor,
       setCanvasBg,
       setEdgeStyle,
       setEdgeColor,
@@ -998,6 +1006,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     }),
     [
       setCanvasBg,
+      setCharacterTagColor,
+      setSceneTagColor,
       setEdgeStyle,
       setEdgeColor,
       setArrowSize,
@@ -1104,9 +1114,18 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           resolvedTheme === 'dark' ? '#ffffff' : '#000000',
           resolvedTheme === 'dark' ? 0.24 : 0.14,
         ),
+        '--mention-character-color': characterTagColor,
+        '--mention-scene-color': sceneTagColor,
       }) as React.CSSProperties,
-    [effectiveAccentColor, resolvedTheme],
+    [characterTagColor, effectiveAccentColor, resolvedTheme, sceneTagColor],
   );
+
+  // Zen mode and floating previews render outside the editor container. Keep
+  // their mention tags on the same project-defined palette as the canvas.
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--mention-character-color', characterTagColor);
+    document.documentElement.style.setProperty('--mention-scene-color', sceneTagColor);
+  }, [characterTagColor, sceneTagColor]);
 
   React.useEffect(() => {
     if (!didHydrateLocalState) return;
@@ -3209,6 +3228,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           accentColor={accentColor}
           setAccentColor={setAccentColor}
           effectiveAccentColor={effectiveAccentColor}
+          characterTagColor={characterTagColor}
+          setCharacterTagColor={setCharacterTagColor}
+          sceneTagColor={sceneTagColor}
+          setSceneTagColor={setSceneTagColor}
           canvasBg={canvasBg}
           setCanvasBg={setCanvasBg}
           presetColors={presetColors}

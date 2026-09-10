@@ -830,7 +830,7 @@ export async function buildPptxBuffer({
       });
       addAnimationTargets(objectName, 'dialog-panel');
     }
-    const hasTitle = title.visible && Boolean(sceneTitle.trim());
+    const hasTitle = title.visible && !scene.hideTitleInPlayback && Boolean(sceneTitle.trim());
     const titleTypewriter = title.animation.animation === 'typewriter';
     const titleTypewriterMode = title.animation.typewriterMode;
     const hasSavedTitleAnimation = sceneAnimations.some(

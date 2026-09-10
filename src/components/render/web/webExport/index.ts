@@ -691,6 +691,7 @@ export async function buildInteractiveWebZipBlob(
         objectFit: typeof node.data?.objectFit === 'string' ? node.data.objectFit : undefined,
         showTextOverlay:
           typeof node.data?.showTextOverlay === 'boolean' ? node.data.showTextOverlay : undefined,
+        hideTitleInPlayback: node.data?.hideTitleInPlayback === true,
         isRoot: Boolean(node.data?.isRoot),
         hidden: Boolean(node.data?.hidden),
         skip: Boolean(node.data?.skip),

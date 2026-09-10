@@ -155,6 +155,10 @@ interface SettingsModalProps {
   accentColor: string;
   setAccentColor: (color: string) => void;
   effectiveAccentColor: string;
+  characterTagColor: string;
+  setCharacterTagColor: (color: string) => void;
+  sceneTagColor: string;
+  setSceneTagColor: (color: string) => void;
   canvasBg: string;
   setCanvasBg: (bg: string) => void;
   presetColors: string[];
@@ -332,6 +336,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   accentColor,
   setAccentColor,
   effectiveAccentColor,
+  characterTagColor,
+  setCharacterTagColor,
+  sceneTagColor,
+  setSceneTagColor,
   canvasBg,
   setCanvasBg,
   presetColors,
@@ -473,6 +481,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [accentHexDraft, setAccentHexDraft] = useState('');
   const [editingEdgeHex, setEditingEdgeHex] = useState(false);
   const [edgeHexDraft, setEdgeHexDraft] = useState('');
+  const [editingCharacterTagHex, setEditingCharacterTagHex] = useState(false);
+  const [characterTagHexDraft, setCharacterTagHexDraft] = useState('');
+  const [editingSceneTagHex, setEditingSceneTagHex] = useState(false);
+  const [sceneTagHexDraft, setSceneTagHexDraft] = useState('');
   const [isToolbarPreviewHovering, setIsToolbarPreviewHovering] = useState(false);
   const [isToolbarPreviewLocked, setIsToolbarPreviewLocked] = useState(false);
   const [isToolbarPreviewManuallyCollapsed, setIsToolbarPreviewManuallyCollapsed] = useState(false);
@@ -1145,6 +1157,139 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {activeSettingsTab === 'editor' && (
                 <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
+                  <section className={settingsRowClass}>
+                    <div className="min-w-0 flex-1">
+                      <h3 className={settingsRowTitleClass}>剧情 Tag 颜色</h3>
+                      <p className="mt-1 text-xs text-[var(--text-muted)]">
+                        人物默认为紫色，场景默认为蓝色。
+                      </p>
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center gap-5 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/35 p-4">
+                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="w-10 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
+                            人物
+                          </span>
+                          <label className="relative h-9 w-9 shrink-0 cursor-pointer overflow-hidden rounded-lg border-4 border-white shadow-lg ring-1 ring-[var(--card-border)] dark:border-slate-700">
+                            <input
+                              type="color"
+                              value={characterTagColor}
+                              onChange={(event) => setCharacterTagColor(event.target.value)}
+                              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                              aria-label="人物 Tag 颜色"
+                            />
+                            <span className="block h-full w-full" style={{ backgroundColor: characterTagColor }} />
+                          </label>
+                          {editingCharacterTagHex ? (
+                            <input
+                              value={characterTagHexDraft}
+                              onChange={(event) => setCharacterTagHexDraft(event.target.value)}
+                              onBlur={() => {
+                                const nextColor = normalizeHexDraft(characterTagHexDraft);
+                                if (isHexColor(nextColor)) setCharacterTagColor(nextColor);
+                                setEditingCharacterTagHex(false);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  const nextColor = normalizeHexDraft(characterTagHexDraft);
+                                  if (isHexColor(nextColor)) setCharacterTagColor(nextColor);
+                                  setEditingCharacterTagHex(false);
+                                }
+                                if (event.key === 'Escape') setEditingCharacterTagHex(false);
+                              }}
+                              autoFocus
+                              className="h-8 min-w-0 flex-1 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] px-2 text-[11px] font-mono font-bold uppercase text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onDoubleClick={() => {
+                                setCharacterTagHexDraft(characterTagColor);
+                                setEditingCharacterTagHex(true);
+                              }}
+                              className="min-w-0 flex-1 truncate text-left text-[11px] font-mono font-bold uppercase text-[var(--text-primary)]"
+                              title={s.doubleClickToEditColor}
+                            >
+                              {characterTagColor}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="w-10 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
+                            场景
+                          </span>
+                          <label className="relative h-9 w-9 shrink-0 cursor-pointer overflow-hidden rounded-lg border-4 border-white shadow-lg ring-1 ring-[var(--card-border)] dark:border-slate-700">
+                            <input
+                              type="color"
+                              value={sceneTagColor}
+                              onChange={(event) => setSceneTagColor(event.target.value)}
+                              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                              aria-label="场景 Tag 颜色"
+                            />
+                            <span className="block h-full w-full" style={{ backgroundColor: sceneTagColor }} />
+                          </label>
+                          {editingSceneTagHex ? (
+                            <input
+                              value={sceneTagHexDraft}
+                              onChange={(event) => setSceneTagHexDraft(event.target.value)}
+                              onBlur={() => {
+                                const nextColor = normalizeHexDraft(sceneTagHexDraft);
+                                if (isHexColor(nextColor)) setSceneTagColor(nextColor);
+                                setEditingSceneTagHex(false);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  const nextColor = normalizeHexDraft(sceneTagHexDraft);
+                                  if (isHexColor(nextColor)) setSceneTagColor(nextColor);
+                                  setEditingSceneTagHex(false);
+                                }
+                                if (event.key === 'Escape') setEditingSceneTagHex(false);
+                              }}
+                              autoFocus
+                              className="h-8 min-w-0 flex-1 rounded-md border border-[var(--card-border)] bg-[var(--card-bg)] px-2 text-[11px] font-mono font-bold uppercase text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onDoubleClick={() => {
+                                setSceneTagHexDraft(sceneTagColor);
+                                setEditingSceneTagHex(true);
+                              }}
+                              className="min-w-0 flex-1 truncate text-left text-[11px] font-mono font-bold uppercase text-[var(--text-primary)]"
+                              title={s.doubleClickToEditColor}
+                            >
+                              {sceneTagColor}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex h-20 w-32 shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)]/70">
+                        <span className="text-[10px] font-bold text-[var(--text-muted)]">Tag 预览</span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-flex items-center rounded-md border px-2 py-1 text-[10px] font-bold"
+                            style={{
+                              color: characterTagColor,
+                              borderColor: `color-mix(in srgb, ${characterTagColor} 32%, white)`,
+                              backgroundColor: `color-mix(in srgb, ${characterTagColor} 12%, white)`,
+                            }}
+                          >
+                            人物
+                          </span>
+                          <span
+                            className="inline-flex items-center rounded-md border px-2 py-1 text-[10px] font-bold"
+                            style={{
+                              color: sceneTagColor,
+                              borderColor: `color-mix(in srgb, ${sceneTagColor} 30%, white)`,
+                              backgroundColor: `color-mix(in srgb, ${sceneTagColor} 11%, white)`,
+                            }}
+                          >
+                            场景
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>{s.edgeStyle}</h3>
                     <div className={segmentedControlClass}>

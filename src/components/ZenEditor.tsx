@@ -22,6 +22,8 @@
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
+import './mention-tags.css';
+
 import type {
   CharacterPresentation,
   InlinePresentationAction,
@@ -1162,9 +1164,9 @@ export function ZenEditor({
                           openCharacterMenu(tag);
                         }}
                         className="mention-tag-button mention-tag-character"
-                        title={`点击插入 @${tag.name}，右击设置人物演出`}
+                        title={`点击插入 ${tag.name}，右击设置人物演出`}
                       >
-                        @{tag.name}
+                        {tag.name}
                       </button>
                     ))}
                   </div>
@@ -1185,9 +1187,9 @@ export function ZenEditor({
                           openSceneMenu(tag);
                         }}
                         className="mention-tag-button mention-tag-scene"
-                        title={`点击插入 @${tag.name}，右键设置场景演出`}
+                        title={`点击插入 ${tag.name}，右键设置场景演出`}
                       >
-                        @{tag.name}
+                        {tag.name}
                       </button>
                     ))}
                   </div>
@@ -1200,9 +1202,9 @@ export function ZenEditor({
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => insertMention('video', cardVideoMentionName)}
                       className="mention-tag-button mention-tag-video"
-                      title={`插入 @${cardVideoMentionName}`}
+                      title={`插入 ${cardVideoMentionName}`}
                     >
-                      @{cardVideoMentionName}
+                      {cardVideoMentionName}
                     </button>
                   </div>
                 )}
@@ -1417,7 +1419,7 @@ export function ZenEditor({
           }`}
         >
           <div className="flex min-w-0 items-start gap-2">
-            <div className="flex shrink-0 items-center gap-1.5 text-sm font-black text-indigo-500">
+            <div className="flex shrink-0 items-center gap-1.5 text-sm font-black text-[var(--mention-character-color,#7c3aed)]">
               <User className="h-5 w-5" />
               人物演出
             </div>
@@ -1429,11 +1431,17 @@ export function ZenEditor({
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => insertCharacterMention(tag)}
-                    className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
+                    className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold transition-[filter] hover:brightness-95 ${
                       presentationMenu?.kind === 'character' && presentationMenu.id === tag.id
-                        ? 'bg-indigo-500 text-white'
-                        : 'bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20'
+                        ? 'text-white'
+                        : 'text-[var(--mention-character-color,#7c3aed)]'
                     }`}
+                    style={{
+                      backgroundColor:
+                        presentationMenu?.kind === 'character' && presentationMenu.id === tag.id
+                          ? 'var(--mention-character-color, #7c3aed)'
+                          : 'color-mix(in srgb, var(--mention-character-color, #7c3aed) 12%, white)',
+                    }}
                     title={`切换到${tag.name}的人物演出设置`}
                   >
                     {tag.name}
@@ -1445,7 +1453,7 @@ export function ZenEditor({
             </div>
           </div>
           <div className="flex min-w-0 items-start gap-2">
-            <div className="flex shrink-0 items-center gap-1.5 text-sm font-black text-blue-500">
+            <div className="flex shrink-0 items-center gap-1.5 text-sm font-black text-[var(--mention-scene-color,#2563eb)]">
               <MapPin className="h-5 w-5" />
               场景演出
             </div>
@@ -1457,11 +1465,17 @@ export function ZenEditor({
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={openCardVideoMenu}
-                      className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
+                      className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold transition-[filter] hover:brightness-95 ${
                         presentationMenu?.kind === 'scene' && presentationMenu.id === nodeId
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
+                          ? 'text-white'
+                          : 'text-[var(--mention-scene-color,#2563eb)]'
                       }`}
+                      style={{
+                        backgroundColor:
+                          presentationMenu?.kind === 'scene' && presentationMenu.id === nodeId
+                            ? 'var(--mention-scene-color, #2563eb)'
+                            : 'color-mix(in srgb, var(--mention-scene-color, #2563eb) 12%, white)',
+                      }}
                       title="切换到卡片视频的场景演出设置"
                     >
                       {cardVideoMentionName}
@@ -1473,11 +1487,17 @@ export function ZenEditor({
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => insertSceneMention(tag)}
-                      className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold ${
+                      className={`max-w-36 truncate rounded-lg px-3 py-2 text-left text-sm font-bold transition-[filter] hover:brightness-95 ${
                         presentationMenu?.kind === 'scene' && presentationMenu.id === tag.id
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
+                          ? 'text-white'
+                          : 'text-[var(--mention-scene-color,#2563eb)]'
                       }`}
+                      style={{
+                        backgroundColor:
+                          presentationMenu?.kind === 'scene' && presentationMenu.id === tag.id
+                            ? 'var(--mention-scene-color, #2563eb)'
+                            : 'color-mix(in srgb, var(--mention-scene-color, #2563eb) 12%, white)',
+                      }}
                       title={`切换到${tag.name}的场景演出设置`}
                     >
                       {tag.name}

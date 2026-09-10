@@ -32,7 +32,7 @@ export const createDefaultEdgeOptions = (edgeColor: string, arrowSize: number) =
 });
 
 const initialMention = (kind: 'scene' | 'character', name: string, id: string) =>
-  `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${name}" data-mention-id="${id}" contenteditable="false" draggable="false">@${name}</span>`;
+  `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${name}" data-mention-id="${id}" contenteditable="false" draggable="false">${name}</span>`;
 
 export const INITIAL_NODES: Node[] = [
   {
@@ -89,7 +89,9 @@ export const INITIAL_NODES: Node[] = [
       presentation: {
         scene: {
           ...createScenePresentation('initial-mountain-temple'),
-          imageId: 'initial-temple-close',
+          // The switch action starts from the opening wide shot and reveals
+          // this card's temple close shot as its target material.
+          imageId: 'initial-distant-mountain',
           cropMode: 'cover',
         },
         characters: [],

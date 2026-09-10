@@ -1902,7 +1902,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       syncSceneAmbient(data.presentation && data.presentation.scene && data.presentation.scene.ambientSound || null);
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
-      const hideCenteredTitle = style.titleVisible === false;
+      const hideCenteredTitle = style.titleVisible === false || data.hideTitleInPlayback === true;
       const image = data.imageUrl || "";
       const video = data.videoUrl || "";
       currentAudioEnded = !data.audioUrl;
