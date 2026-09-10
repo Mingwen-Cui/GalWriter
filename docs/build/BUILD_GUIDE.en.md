@@ -43,7 +43,7 @@ The version in the filenames comes from `package.json`.
 
 Install:
 
-- Node.js 20 or newer
+- Node.js 22.x (22.13 or newer) or 24+, as required by the locked dependencies
 - Rust stable with the MSVC toolchain
 - Microsoft Visual Studio 2022 Build Tools with **Desktop development with C++**
 - WebView2 (normally already installed on current Windows systems)

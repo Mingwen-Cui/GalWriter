@@ -83,6 +83,10 @@ export function PlayTestModal(props: PlayTestProps) {
     sceneVideoUrl,
     sceneImageUrl,
     sceneSwitchImageUrl,
+    sceneSwitchVideoUrl,
+    inlineActionPlaybackId,
+    presentationKey,
+    sceneAnimationKey,
     sceneVideoStartTime,
     dialogueBackgroundStyle,
     dialogueCornerRadius,
@@ -164,7 +168,12 @@ export function PlayTestModal(props: PlayTestProps) {
       setCreativeChoicesVisible(true);
     }, creativeChoiceRevealDelayMs);
     return () => window.clearTimeout(timer);
-  }, [choicesReady, creativeInteraction, creativeInteraction?.loading, creativeInteraction?.turnId]);
+  }, [
+    choicesReady,
+    creativeInteraction,
+    creativeInteraction?.loading,
+    creativeInteraction?.turnId,
+  ]);
 
   // Every completed AI turn has a generated story card. Move the playtest cursor
   // to that card before showing the next question, so the dialogue, scene, and
@@ -172,7 +181,12 @@ export function PlayTestModal(props: PlayTestProps) {
   React.useLayoutEffect(() => {
     const turnId = creativeInteraction?.turnId;
     const nodeId = creativeInteraction?.nodeId;
-    if (!turnId || !nodeId || creativeInteraction.loading || appliedCreativeTurnRef.current === turnId) {
+    if (
+      !turnId ||
+      !nodeId ||
+      creativeInteraction.loading ||
+      appliedCreativeTurnRef.current === turnId
+    ) {
       return;
     }
     const targetExists = props.nodes.some(
@@ -206,7 +220,8 @@ export function PlayTestModal(props: PlayTestProps) {
         : language === 'ja'
           ? 'または、自分の言葉で次の展開を AI に伝えてください…'
           : 'Or tell AI, in your own words, what should happen next…';
-    const sendLabel = language === 'zh' ? '继续故事' : language === 'ja' ? '物語を続ける' : 'Continue story';
+    const sendLabel =
+      language === 'zh' ? '继续故事' : language === 'ja' ? '物語を続ける' : 'Continue story';
     const continueLabel = language === 'zh' ? '继续' : language === 'ja' ? '続ける' : 'Continue';
     const affectionLabel =
       language === 'zh' ? '好感度' : language === 'ja' ? '好感度' : 'Affection';
@@ -975,6 +990,7 @@ export function PlayTestModal(props: PlayTestProps) {
                   <div className="absolute inset-0 overflow-hidden w-full h-full select-none pointer-events-none">
                     {sceneImageUrl ? (
                       <img
+                        key={sceneAnimationKey}
                         src={sceneImageUrl}
                         draggable={false}
                         onDragStart={(event) => event.preventDefault()}
@@ -984,7 +1000,7 @@ export function PlayTestModal(props: PlayTestProps) {
                       />
                     ) : sceneVideoUrl ? (
                       <video
-                        key={currentNodeId}
+                        key={presentationKey}
                         ref={videoRef}
                         src={sceneVideoUrl}
                         playsInline
@@ -1013,8 +1029,10 @@ export function PlayTestModal(props: PlayTestProps) {
                       />
                     )}
                     <SceneSwitchFlash
+                      key={`${presentationKey}-${inlineActionPlaybackId}`}
                       action={activeSceneSwitchTransition}
                       targetImageUrl={sceneSwitchImageUrl}
+                      targetVideoUrl={sceneSwitchVideoUrl}
                       targetImageStyle={sceneStyle}
                     />
                   </div>
@@ -1060,7 +1078,7 @@ export function PlayTestModal(props: PlayTestProps) {
                     >
                       {currentNode?.data.audioUrl && (
                         <audio
-                          key={currentNodeId}
+                          key={presentationKey}
                           ref={audioRef}
                           src={currentNode.data.audioUrl as string}
                           preload="auto"
@@ -1070,15 +1088,16 @@ export function PlayTestModal(props: PlayTestProps) {
                         />
                       )}
 
-                      {renderStyle.titleVisible && (creativeInteraction?.sceneName || currentTitle) && (
-                        <div
-                          className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
-                          style={titleStyle}
-                          onClick={(event) => selectRenderObject(event, 'title')}
-                        >
-                          {creativeInteraction?.sceneName || currentTitle}
-                        </div>
-                      )}
+                      {renderStyle.titleVisible &&
+                        (creativeInteraction?.sceneName || currentTitle) && (
+                          <div
+                            className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
+                            style={titleStyle}
+                            onClick={(event) => selectRenderObject(event, 'title')}
+                          >
+                            {creativeInteraction?.sceneName || currentTitle}
+                          </div>
+                        )}
 
                       <div
                         className={`whitespace-pre-wrap break-words drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('body')}`}
@@ -1203,6 +1222,7 @@ export function PlayTestModal(props: PlayTestProps) {
                           >
                             {sceneImageUrl && (
                               <img
+                                key={sceneAnimationKey}
                                 src={sceneImageUrl}
                                 alt="Scene"
                                 draggable={false}
@@ -1215,7 +1235,7 @@ export function PlayTestModal(props: PlayTestProps) {
                             )}
                             {sceneVideoUrl && (
                               <video
-                                key={currentNodeId}
+                                key={presentationKey}
                                 ref={videoRef}
                                 src={sceneVideoUrl}
                                 controls
@@ -1241,8 +1261,10 @@ export function PlayTestModal(props: PlayTestProps) {
                               />
                             )}
                             <SceneSwitchFlash
+                              key={`${presentationKey}-${inlineActionPlaybackId}`}
                               action={activeSceneSwitchTransition}
                               targetImageUrl={sceneSwitchImageUrl}
+                              targetVideoUrl={sceneSwitchVideoUrl}
                               targetImageStyle={sceneStyle}
                             />
                             {renderPresentedCharacters()}
@@ -1336,7 +1358,7 @@ export function PlayTestModal(props: PlayTestProps) {
                 >
                   {currentNode?.data.audioUrl && (
                     <audio
-                      key={currentNodeId}
+                      key={presentationKey}
                       ref={audioRef}
                       src={currentNode.data.audioUrl as string}
                       preload="auto"

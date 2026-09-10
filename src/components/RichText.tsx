@@ -1,3 +1,5 @@
+import './mention-tags.css';
+
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 export type MentionKind = 'character' | 'scene' | 'video';
@@ -412,7 +414,7 @@ export const RichText = forwardRef<
       onContextMenu={handleContextMenu}
       onDragOver={(e) => e.preventDefault()}
       // "nodrag" and "nowheel" prevents react-flow from hijacking selection/scroll
-      className={`nodrag nopan outline-none ${className}`}
+      className={`nodrag nopan outline-none ${onMentionContextMenu ? 'rich-text-mentions-interactive' : ''} ${className}`}
       // Prevent focus from expanding awkwardly if empty
       style={{ minHeight: '1.5em', whiteSpace: 'pre-wrap', ...style }}
     />

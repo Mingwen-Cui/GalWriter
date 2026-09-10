@@ -13,14 +13,17 @@ import { CharacterAppearancePreview } from '../../CharacterAppearancePreview';
 import { translations } from '../../../lib/i18n';
 import {
   getInlineSwitchAction,
+  isSwitchInlineAction,
   resolveCharacterTemplateAppearance,
   resolveCharacterImageUrl,
   resolveSceneMedia,
 } from '../../../lib/inlineAssetSwitch';
 import {
   buildInlinePlaybackSteps,
+  getInlineActionDuration,
   inlineActionAnimation,
   inlineActionCssVars,
+  inlineActionSettledStyle,
   inlineActionTransform,
   isPersistentInlineAction,
   latestPersistentInlineAction,
@@ -30,6 +33,7 @@ import {
   getCharacterEnterDelay,
   getCharacterStageBounds,
   getPresentationExitDuration,
+  getPresentationMotionDuration,
   getPresentationTransform,
   getSceneExitDelay,
   normalizeStoryPresentation,
@@ -187,6 +191,13 @@ export function usePlaytestRuntime(
   const [timeLeft, setTimeLeft] = useState(0);
   const [presentationVisible, setPresentationVisible] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
+  const [presentationReady, setPresentationReady] = useState(false);
+  const entryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishInlinePlaybackRef = useRef<(() => void) | null>(null);
+  const [inlineActionPlaybackId, setInlineActionPlaybackId] = useState(0);
+  type SceneMedia = { imageUrl?: string; videoUrl?: string };
+  const displayedSceneMediaRef = useRef<SceneMedia | null>(null);
+  const incomingSceneMediaRef = useRef<SceneMedia | null>(null);
   const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
     null,
   );
@@ -219,6 +230,7 @@ export function usePlaytestRuntime(
     transitionTimerRef.current = null;
     setPresentationExiting(false);
     setActiveInlineAction(null);
+    setCompletedSwitchActions([]);
     setCompletedInlineActions([]);
   }, []);
 
@@ -226,8 +238,18 @@ export function usePlaytestRuntime(
     playbackSessionRef.current += 1;
     setPlaybackSession((session) => session + 1);
     clearPendingPlaybackTimers();
+    displayedSceneMediaRef.current = null;
+    incomingSceneMediaRef.current = null;
     lastJumpedNode.current = null;
   }, [clearPendingPlaybackTimers]);
+
+  useEffect(
+    () => () => {
+      playbackSessionRef.current += 1;
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    },
+    [],
+  );
 
   /**
    * 跳转到指定节点并重置动画完成状态，避免切换时按钮闪烁
@@ -235,14 +257,21 @@ export function usePlaytestRuntime(
    */
   const navigateToNode = React.useCallback(
     (nodeId: string | null) => {
-      setCurrentNodeId(nodeId);
-      if (interactionMode !== 'immediate') {
-        setAnimationCompleted(false);
-      } else {
-        setAnimationCompleted(true);
+      incomingSceneMediaRef.current = displayedSceneMediaRef.current;
+      setPresentationVisible(false);
+      setPresentationExiting(false);
+      setPresentationReady(false);
+      setActiveInlineAction(null);
+      setCompletedSwitchActions([]);
+      setCompletedInlineActions([]);
+      if (nodeId === currentNodeId) {
+        playbackSessionRef.current += 1;
+        setPlaybackSession((session) => session + 1);
       }
+      setCurrentNodeId(nodeId);
+      setAnimationCompleted(false);
     },
-    [interactionMode],
+    [currentNodeId],
   );
 
   const currentNode = nodes.find((n) => n.id === currentNodeId);
@@ -256,6 +285,20 @@ export function usePlaytestRuntime(
     () =>
       normalizeStoryPresentation(currentNode?.data.presentation as StoryPresentation | undefined),
     [currentNode?.data.presentation],
+  );
+  const rawTextHtml =
+    currentNodeId !== 'THE_END' && currentNode ? (currentNode.data.text as string) || '' : '';
+  const playbackSteps = React.useMemo(
+    () => buildInlinePlaybackSteps(rawTextHtml, presentation, { hideCharacterTags, hideSceneTags }),
+    [rawTextHtml, presentation, hideCharacterTags, hideSceneTags],
+  );
+  const textHtml = React.useMemo(
+    () =>
+      playbackSteps
+        .filter((step) => step.kind === 'text')
+        .map((step) => step.html)
+        .join(''),
+    [playbackSteps],
   );
   const sceneSource = presentation.scene
     ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
@@ -276,7 +319,7 @@ export function usePlaytestRuntime(
     null,
     completedSwitchActions,
   );
-  const sceneMedia = resolveSceneMedia({
+  const resolvedSceneMedia = resolveSceneMedia({
     data: sceneData,
     scene: presentation.scene,
     fallbackImageUrl:
@@ -285,6 +328,34 @@ export function usePlaytestRuntime(
       selectedSceneImage?.videoUrl || (currentNode?.data.videoUrl as string | undefined),
     switchAction: activeSceneSwitchAction,
   });
+  // A leading switch can select the same asset already stored on the new card.
+  // Keep the page we actually displayed as its outgoing layer until the wipe ends.
+  const firstTextStep = playbackSteps.findIndex((step) => {
+    if (step.kind !== 'text') return false;
+    const fragment = document.createElement('div');
+    fragment.innerHTML = step.html;
+    fragment.querySelectorAll('.mention-chip').forEach((tag) => tag.remove());
+    return Boolean(fragment.textContent?.trim());
+  });
+  const leadingSceneSwitch = playbackSteps
+    .slice(0, firstTextStep < 0 ? undefined : firstTextStep)
+    .find(
+      (step) =>
+        step.kind === 'action' &&
+        isSwitchInlineAction(step.action) &&
+        step.action.kind === 'scene' &&
+        step.action.sourceNodeId === presentation.scene?.sourceNodeId,
+    );
+  const keepIncomingScene =
+    leadingSceneSwitch?.kind === 'action' &&
+    !completedSwitchActions.some((action) => action.id === leadingSceneSwitch.action.id);
+  const sceneMedia =
+    keepIncomingScene && incomingSceneMediaRef.current
+      ? incomingSceneMediaRef.current
+      : resolvedSceneMedia;
+  useLayoutEffect(() => {
+    displayedSceneMediaRef.current = sceneMedia;
+  }, [sceneMedia.imageUrl, sceneMedia.videoUrl, currentNodeId, playbackSession]);
   const sceneVideoUrl = sceneMedia.videoUrl;
   const sceneImageUrl = sceneVideoUrl ? undefined : sceneMedia.imageUrl;
   const sceneSwitchMedia = activeSceneSwitchTransition
@@ -299,9 +370,17 @@ export function usePlaytestRuntime(
       })
     : null;
   const sceneSwitchImageUrl = sceneSwitchMedia?.videoUrl ? undefined : sceneSwitchMedia?.imageUrl;
+  const sceneSwitchVideoUrl = sceneSwitchMedia?.videoUrl;
   const sceneVideoStartTime = Math.max(0, presentation.scene?.videoStartTime || 0);
   const sceneVideoEndTime = presentation.scene?.videoEndTime;
   const sceneVideoMaxDuration = Math.max(0.1, presentation.scene?.videoMaxDuration || 30);
+  useEffect(() => {
+    setCurrentVideoEnded(false);
+    if (videoStopTimerRef.current) {
+      clearTimeout(videoStopTimerRef.current);
+      videoStopTimerRef.current = null;
+    }
+  }, [sceneVideoUrl]);
   const presentedCharacters = presentation.characters
     .map((config) => {
       const source = nodes.find((node) => node.id === config.sourceNodeId);
@@ -319,7 +398,11 @@ export function usePlaytestRuntime(
         config,
         data: characterData,
         imageUrl,
-        appearance: resolveCharacterTemplateAppearance(characterData, config, characterSwitchAction),
+        appearance: resolveCharacterTemplateAppearance(
+          characterData,
+          config,
+          characterSwitchAction,
+        ),
       };
     })
     .filter(
@@ -332,18 +415,6 @@ export function usePlaytestRuntime(
         appearance: ReturnType<typeof resolveCharacterTemplateAppearance>;
       } => Boolean(item),
     );
-  const rawTextHtml =
-    currentNodeId !== 'THE_END' && currentNode ? (currentNode.data.text as string) || '' : '';
-  const textHtml = React.useMemo(() => {
-    if (!rawTextHtml) return rawTextHtml;
-    const container = document.createElement('div');
-    container.innerHTML = rawTextHtml;
-    container.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
-    container
-      .querySelectorAll('[data-mention-kind="scene"], [data-mention-kind="video"]')
-      .forEach((node) => node.remove());
-    return container.innerHTML;
-  }, [rawTextHtml]);
 
   const colorInputValue = (value: string, fallback = '#111827') => {
     const trimmed = value.trim();
@@ -613,11 +684,15 @@ export function usePlaytestRuntime(
 
   const outEdges = edges.filter((e) => e.source === currentNodeId);
   const waitsForBranchVideo = outEdges.length > 1 && Boolean(sceneVideoUrl);
-  const choicesReady = animationCompleted && (!waitsForBranchVideo || currentVideoEnded);
+  const choicesReady =
+    presentationReady &&
+    !presentationExiting &&
+    animationCompleted &&
+    (!waitsForBranchVideo || currentVideoEnded);
   const autoAdvanceTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
   const advanceToTarget = React.useCallback(
     (targetId: string) => {
-      if (presentationExiting) return;
+      if (presentationExiting || transitionTimerRef.current) return;
       if (autoAdvanceTimerRef.current) {
         clearTimeout(autoAdvanceTimerRef.current);
         autoAdvanceTimerRef.current = null;
@@ -635,9 +710,16 @@ export function usePlaytestRuntime(
     [currentNodeId, navigateToNode, presentation, presentationExiting],
   );
 
-  useEffect(() => {
+  const presentationEnterDuration =
+    getPresentationMotionDuration(presentation.scene?.enter) +
+    Math.max(
+      0,
+      ...presentation.characters.map((character) => getPresentationMotionDuration(character.enter)),
+    );
+  useLayoutEffect(() => {
     setPresentationExiting(false);
     setPresentationVisible(false);
+    setPresentationReady(false);
     setCurrentAudioEnded(false);
     setCurrentVideoEnded(false);
     setMediaStatusNodeId(currentNodeId);
@@ -645,9 +727,25 @@ export function usePlaytestRuntime(
       clearTimeout(videoStopTimerRef.current);
       videoStopTimerRef.current = null;
     }
-    const frame = requestAnimationFrame(() => setPresentationVisible(true));
-    return () => cancelAnimationFrame(frame);
-  }, [currentNodeId]);
+    // Paint the initial pose once with transitions disabled. A single RAF in a
+    // passive effect can be coalesced with the reset, skipping the entrance.
+    let revealFrame = 0;
+    const initialFrame = requestAnimationFrame(() => {
+      revealFrame = requestAnimationFrame(() => {
+        setPresentationVisible(true);
+        entryTimerRef.current = setTimeout(() => {
+          entryTimerRef.current = null;
+          setPresentationReady(true);
+        }, presentationEnterDuration);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(initialFrame);
+      cancelAnimationFrame(revealFrame);
+      if (entryTimerRef.current) clearTimeout(entryTimerRef.current);
+      entryTimerRef.current = null;
+    };
+  }, [currentNodeId, playbackSession, presentationEnterDuration]);
 
   const stopVideoLimitTimer = () => {
     if (!videoStopTimerRef.current) return;
@@ -684,192 +782,183 @@ export function usePlaytestRuntime(
     setCurrentVideoEnded(true);
   };
 
-  // 触发打字机或延时逻辑
+  // All display modes share the action queue; text timing never discards actions.
   useEffect(() => {
     if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
     if (inlineActionTimerRef.current) clearTimeout(inlineActionTimerRef.current);
     if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
-    if (autoAdvanceTimerRef.current) {
-      clearTimeout(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = null;
-    }
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    autoAdvanceTimerRef.current = null;
     setActiveInlineAction(null);
     setCompletedSwitchActions([]);
     setCompletedInlineActions([]);
+    setTimeLeft(0);
+    setAnimationCompleted(false);
+    finishInlinePlaybackRef.current = null;
 
     if (currentNodeId === 'THE_END' || !currentNode) {
       setDisplayedHtml('');
       setAnimationCompleted(true);
       return;
     }
-
-    if (interactionMode === 'immediate') {
-      const playbackSteps = buildInlinePlaybackSteps(rawTextHtml, presentation, {
-        hideCharacterTags,
-        hideSceneTags,
-      });
-      const switchActions = playbackSteps
-        .filter(
-          (step): step is { kind: 'action'; action: InlinePresentationAction } =>
-            step.kind === 'action',
-        )
-        .map((step) => step.action)
-        .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId));
-      setCompletedInlineActions(
-        playbackSteps
-          .filter(
-            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
-              step.kind === 'action',
-          )
-          .map((step) => step.action)
-          .filter((action) => isPersistentInlineAction(action) && action.action !== 'switch'),
-      );
-      setDisplayedHtml(textHtml);
-      if (!switchActions.length) {
-        setAnimationCompleted(true);
-        return;
-      }
-
-      // Immediate text display must not skip visual scene actions. Keep each
-      // target under the outgoing image until its own wipe has finished.
-      setAnimationCompleted(false);
-      const playSwitch = (index: number) => {
-        const action = switchActions[index];
-        if (!action) {
-          setActiveInlineAction(null);
-          setAnimationCompleted(true);
-          return;
-        }
-        setActiveInlineAction(action);
-        inlineActionTimerRef.current = setTimeout(() => {
-          setActiveInlineAction(null);
-          setCompletedSwitchActions((previous) => [...previous, action]);
-          setCompletedInlineActions((previous) => [...previous, action]);
-          playSwitch(index + 1);
-        }, Math.max(180, action.duration || 420));
-      };
-      playSwitch(0);
-    } else if (interactionMode === 'typewriter') {
-      setAnimationCompleted(false);
-      const playbackSteps = buildInlinePlaybackSteps(rawTextHtml, presentation, {
-        hideCharacterTags,
-        hideSceneTags,
-      });
-      const fullHtml = playbackSteps
-        .filter((step): step is { kind: 'text'; html: string } => step.kind === 'text')
-        .map((step) => step.html)
-        .join('');
-      const { totalTextLength } = sliceHtmlByTextLength(fullHtml, 9999);
-      if (totalTextLength === 0) {
-        setDisplayedHtml(fullHtml);
-        setAnimationCompleted(true);
-        return;
-      }
-
-      let stepIndex = 0;
-      let currentSegmentLen = 0;
-      let committedHtml = '';
+    if (!presentationReady) {
       setDisplayedHtml('');
-
-      const playNext = () => {
-        if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
-        const step = playbackSteps[stepIndex];
-        if (!step) {
-          setActiveInlineAction(null);
-          setDisplayedHtml(committedHtml);
-          setAnimationCompleted(true);
-          return;
-        }
-
-        if (step.kind === 'action') {
-          setActiveInlineAction(step.action);
-          inlineActionTimerRef.current = setTimeout(
-            () => {
-              setActiveInlineAction(null);
-              if (step.action.action === 'switch' && step.action.targetAssetId) {
-                setCompletedSwitchActions((previous) => [...previous, step.action]);
-              }
-              if (isPersistentInlineAction(step.action)) {
-                setCompletedInlineActions((previous) => [...previous, step.action]);
-              }
-              stepIndex += 1;
-              playNext();
-            },
-            Math.max(0, step.action.duration || 0),
-          );
-          return;
-        }
-
-        const { totalTextLength: segmentLength } = sliceHtmlByTextLength(step.html, 9999);
-        if (segmentLength === 0) {
-          committedHtml += step.html;
-          stepIndex += 1;
-          playNext();
-          return;
-        }
-        currentSegmentLen = 0;
-        typewriterTimerRef.current = setInterval(() => {
-          currentSegmentLen += 1;
-          const { slicedHtml } = sliceHtmlByTextLength(step.html, currentSegmentLen);
-          setDisplayedHtml(committedHtml + slicedHtml);
-          if (currentSegmentLen >= segmentLength) {
-            if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
-            committedHtml += step.html;
-            stepIndex += 1;
-            playNext();
-          }
-        }, typewriterSpeed);
-      };
-
-      playNext();
-    } else if (interactionMode === 'timed') {
-      setDisplayedHtml(textHtml);
-      setAnimationCompleted(false);
-      setTimeLeft(choiceDelay);
-
-      const intervalTick = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 0.1) {
-            clearInterval(intervalTick);
-            return 0;
-          }
-          return Number((prev - 0.1).toFixed(1));
-        });
-      }, 100);
-
-      timedTimerRef.current = setTimeout(() => {
-        clearInterval(intervalTick);
-        setAnimationCompleted(true);
-      }, choiceDelay * 1000);
-
-      return () => {
-        clearInterval(intervalTick);
-        if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
-      };
-    } else if (interactionMode === 'clickToShow') {
-      setDisplayedHtml(textHtml);
-      setAnimationCompleted(false);
+      return;
     }
 
-    return () => {
+    let cancelled = false;
+    let stepIndex = 0;
+    let committedHtml = '';
+    let committedTextLength = 0;
+    const actions = playbackSteps.flatMap((step) => (step.kind === 'action' ? [step.action] : []));
+    const clearTimers = () => {
       if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
       if (inlineActionTimerRef.current) clearTimeout(inlineActionTimerRef.current);
       if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
-      if (autoAdvanceTimerRef.current) {
-        clearTimeout(autoAdvanceTimerRef.current);
-        autoAdvanceTimerRef.current = null;
+      typewriterTimerRef.current = null;
+      inlineActionTimerRef.current = null;
+      timedTimerRef.current = null;
+    };
+    const finish = () => {
+      cancelled = true;
+      clearTimers();
+      setActiveInlineAction(null);
+      setCompletedSwitchActions(actions.filter(isSwitchInlineAction));
+      setCompletedInlineActions(actions.filter(isPersistentInlineAction));
+      setDisplayedHtml(textHtml);
+      setTimeLeft(0);
+      setAnimationCompleted(true);
+    };
+    finishInlinePlaybackRef.current = finish;
+    setDisplayedHtml(interactionMode === 'typewriter' ? '' : textHtml);
+
+    const finishActions = () => {
+      setActiveInlineAction(null);
+      setDisplayedHtml(textHtml);
+      if (interactionMode === 'timed' && choiceDelay > 0) {
+        const deadline = performance.now() + choiceDelay * 1000;
+        setTimeLeft(choiceDelay);
+        timedTimerRef.current = setInterval(() => {
+          if (cancelled) return;
+          const remaining = Math.max(0, (deadline - performance.now()) / 1000);
+          setTimeLeft(Math.ceil(remaining * 10) / 10);
+          if (remaining === 0) {
+            clearInterval(timedTimerRef.current);
+            timedTimerRef.current = null;
+            setAnimationCompleted(true);
+          }
+        }, 100);
+      } else {
+        setAnimationCompleted(interactionMode !== 'clickToShow');
       }
+    };
+
+    const prepareSwitchImage = async (action: InlinePresentationAction) => {
+      if (!isSwitchInlineAction(action)) return;
+      const source = nodes.find((node) => node.id === action.sourceNodeId);
+      const character = presentation.characters.find(
+        (item) => item.sourceNodeId === action.sourceNodeId,
+      );
+      const imageUrl =
+        action.kind === 'scene'
+          ? resolveSceneMedia({
+              data: source?.data as SceneNodeData,
+              scene: presentation.scene,
+              switchAction: action,
+            }).imageUrl
+          : character && source
+            ? resolveCharacterImageUrl(source.data as CharacterNodeData, character, action)
+            : undefined;
+      if (!imageUrl) return;
+      // Start the wipe only after its target image is decoded, including cold loads.
+      const image = new Image();
+      image.src = imageUrl;
+      let timeout: ReturnType<typeof setTimeout>;
+      await Promise.race([
+        image.decode().catch(() => {}),
+        new Promise<void>((resolve) => {
+          timeout = setTimeout(resolve, 3000);
+        }),
+      ]);
+      clearTimeout(timeout!);
+    };
+
+    const playNext = async () => {
+      if (cancelled) return;
+      if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
+      const step = playbackSteps[stepIndex];
+      if (!step) {
+        finishActions();
+        return;
+      }
+      if (step.kind === 'action') {
+        await prepareSwitchImage(step.action);
+        if (cancelled) return;
+        setInlineActionPlaybackId((id) => id + 1);
+        setActiveInlineAction(step.action);
+        inlineActionTimerRef.current = setTimeout(() => {
+          if (cancelled) return;
+          inlineActionTimerRef.current = null;
+          setActiveInlineAction(null);
+          if (isSwitchInlineAction(step.action)) {
+            setCompletedSwitchActions((previous) => [...previous, step.action]);
+          }
+          if (isPersistentInlineAction(step.action)) {
+            setCompletedInlineActions((previous) => [...previous, step.action]);
+          }
+          stepIndex += 1;
+          void playNext();
+        }, getInlineActionDuration(step.action));
+        return;
+      }
+
+      // A step can split inside <p>/<strong>; slice the accumulated HTML so its
+      // ancestors survive, rather than concatenating independently parsed slices.
+      const cumulativeHtml = committedHtml + step.html;
+      const totalLength = sliceHtmlByTextLength(cumulativeHtml, Infinity).totalTextLength;
+      const segmentLength = Math.max(0, totalLength - committedTextLength);
+      if (interactionMode !== 'typewriter' || segmentLength === 0) {
+        committedHtml = cumulativeHtml;
+        committedTextLength = totalLength;
+        stepIndex += 1;
+        void playNext();
+        return;
+      }
+      let segmentPosition = 0;
+      typewriterTimerRef.current = setInterval(
+        () => {
+          if (cancelled) return;
+          segmentPosition += 1;
+          setDisplayedHtml(
+            sliceHtmlByTextLength(cumulativeHtml, committedTextLength + segmentPosition).slicedHtml,
+          );
+          if (segmentPosition >= segmentLength) {
+            clearInterval(typewriterTimerRef.current);
+            typewriterTimerRef.current = null;
+            committedHtml = cumulativeHtml;
+            committedTextLength = totalLength;
+            stepIndex += 1;
+            void playNext();
+          }
+        },
+        Math.max(1, typewriterSpeed),
+      );
+    };
+    void playNext();
+
+    return () => {
+      cancelled = true;
+      clearTimers();
+      if (finishInlinePlaybackRef.current === finish) finishInlinePlaybackRef.current = null;
     };
   }, [
     currentNodeId,
-    rawTextHtml,
     textHtml,
+    playbackSteps,
     interactionMode,
     typewriterSpeed,
     choiceDelay,
-    hideCharacterTags,
-    hideSceneTags,
-    presentation,
+    presentationReady,
     playbackSession,
   ]);
 
@@ -889,6 +978,9 @@ export function usePlaytestRuntime(
     if (
       creativeInteraction ||
       !autoAdvance ||
+      !presentationReady ||
+      !animationCompleted ||
+      presentationExiting ||
       !currentNode ||
       currentNodeId === 'THE_END' ||
       autoAdvanceHoldNodeRef.current === currentNodeId ||
@@ -927,6 +1019,8 @@ export function usePlaytestRuntime(
   }, [
     advanceToTarget,
     animationCompleted,
+    presentationReady,
+    presentationExiting,
     autoAdvance,
     autoAdvanceDelay,
     autoAdvanceTarget,
@@ -944,14 +1038,11 @@ export function usePlaytestRuntime(
   ]);
 
   const handleTextContainerClick = () => {
-    if (currentNodeId === 'THE_END' || !currentNode) return;
+    if (currentNodeId === 'THE_END' || !currentNode || !presentationReady || presentationExiting)
+      return;
     autoAdvanceHoldNodeRef.current = null;
     if (!animationCompleted) {
-      if (typewriterTimerRef.current) clearInterval(typewriterTimerRef.current);
-      if (timedTimerRef.current) clearTimeout(timedTimerRef.current);
-
-      setDisplayedHtml(textHtml);
-      setAnimationCompleted(true);
+      finishInlinePlaybackRef.current?.();
     } else {
       // 如果打字完毕，且开启了“单选项隐藏居中弹窗”的设置，并且当前没有多分支选项（<= 1个分支）
       if (skipSingleChoicePopup && outEdges.length <= 1) {
@@ -1536,6 +1627,7 @@ export function usePlaytestRuntime(
   const sceneAnimationActive = presentationExiting || !presentationVisible;
   const activeSceneInlineAction =
     activeInlineAction?.kind === 'scene' &&
+    activeInlineAction.action !== 'switch' &&
     activeInlineAction.sourceNodeId === presentation.scene?.sourceNodeId
       ? activeInlineAction
       : latestPersistentInlineAction(
@@ -1543,16 +1635,19 @@ export function usePlaytestRuntime(
           'scene',
           presentation.scene?.sourceNodeId,
         );
-  const sceneInlineDuration = activeSceneInlineAction
-    ? Math.max(80, activeSceneInlineAction.duration || 300)
-    : 0;
+  const sceneInlineDuration = getInlineActionDuration(activeSceneInlineAction);
+  const sceneActionPlaying = Boolean(
+    activeSceneInlineAction && activeSceneInlineAction === activeInlineAction,
+  );
   const sceneMediaTransform = presentation.scene
     ? `translate(${presentation.scene.offsetX || 0}%, ${presentation.scene.offsetY || 0}%) scale(${
         presentation.scene.scale || 1
       })`
     : '';
   const presentedSceneData = presentation.scene
-    ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId && node.type === 'sceneNode')?.data as SceneNodeData | undefined
+    ? (nodes.find(
+        (node) => node.id === presentation.scene?.sourceNodeId && node.type === 'sceneNode',
+      )?.data as SceneNodeData | undefined)
     : undefined;
   const scenePresetVisualStyle =
     presentedSceneData?.scenePresetEnabled === true ? presentedSceneData.visualStyle : undefined;
@@ -1574,15 +1669,19 @@ export function usePlaytestRuntime(
         .join(' ') || 'none',
     transformOrigin: 'center center',
     filter: sceneVisualMediaStyle.filter,
-    animation: inlineActionAnimation(activeSceneInlineAction),
+    ...(sceneActionPlaying ? {} : inlineActionSettledStyle(activeSceneInlineAction)),
+    ...(sceneAnimationActive && sceneMotion?.type === 'fade' ? { opacity: 0 } : {}),
+    animation: sceneActionPlaying ? inlineActionAnimation(activeSceneInlineAction) : undefined,
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration: `${
-      activeSceneInlineAction
-        ? sceneInlineDuration
-        : sceneMotion?.type === 'none'
-          ? 0
-          : sceneMotion?.duration || 0
+      !presentationVisible && !presentationExiting
+        ? 0
+        : activeSceneInlineAction
+          ? sceneInlineDuration
+          : sceneMotion?.type === 'none'
+            ? 0
+            : sceneMotion?.duration || 0
     }ms`,
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
     transitionTimingFunction: 'ease-out',
@@ -1621,6 +1720,7 @@ export function usePlaytestRuntime(
               : '';
           const inlineAction =
             activeInlineAction?.kind === 'character' &&
+            activeInlineAction.action !== 'switch' &&
             activeInlineAction.sourceNodeId === config.sourceNodeId
               ? activeInlineAction
               : latestPersistentInlineAction(
@@ -1628,48 +1728,88 @@ export function usePlaytestRuntime(
                   'character',
                   config.sourceNodeId,
                 );
-          const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
-          const style = {
+          const switchAction = getInlineSwitchAction(
+            'character',
+            config.sourceNodeId,
+            activeInlineAction,
+          );
+          const targetImageUrl = switchAction
+            ? resolveCharacterImageUrl(data, config, switchAction)
+            : undefined;
+          const inlineDuration = getInlineActionDuration(inlineAction);
+          const actionPlaying = Boolean(inlineAction && inlineAction === activeInlineAction);
+          const style: React.CSSProperties = {
             ...getCharacterStageBounds(config),
             zIndex: clampCharacterLayer(config.layer),
             opacity: animationActive && motion.type === 'fade' ? 0 : 1,
             transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-            animation: inlineActionAnimation(inlineAction),
+            ...(actionPlaying ? {} : inlineActionSettledStyle(inlineAction)),
+            ...(animationActive && motion.type === 'fade' ? { opacity: 0 } : {}),
+            animation: actionPlaying ? inlineActionAnimation(inlineAction) : undefined,
             ...inlineActionCssVars(inlineAction),
             transformOrigin: 'bottom center',
             transitionProperty: 'opacity, transform',
-            transitionDuration: `${inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
-            transitionDelay: `${presentationExiting ? 0 : getCharacterEnterDelay(presentation)}ms`,
+            transitionDuration: `${!presentationVisible && !presentationExiting ? 0 : inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
+            transitionDelay: `${presentationExiting || !presentationVisible || inlineAction ? 0 : getCharacterEnterDelay(presentation)}ms`,
             transitionTimingFunction: 'ease-out',
           };
-          return appearance ? (
-            <CharacterAppearancePreview
-              key={config.sourceNodeId}
-              appearance={appearance}
-              adjustment={data.appearanceTemplate?.adjustment}
-              mode="sprite"
-              className="preview-media-safe absolute w-auto object-contain object-bottom"
-              style={style}
-            />
-          ) : (
-            <img
-              key={config.sourceNodeId}
-              src={imageUrl}
-              alt={data.characterName}
-              draggable={false}
-              onDragStart={(event) => event.preventDefault()}
-              className="preview-media-safe absolute w-auto object-contain object-bottom"
-              style={style}
-            />
+          const switchDuration = getInlineActionDuration(switchAction);
+          const outgoingStyle: React.CSSProperties = targetImageUrl
+            ? {
+                ...style,
+                ...{ '--inline-switch-opacity': style.opacity },
+                animation: [style.animation, `galInlineSwitchOut ${switchDuration}ms ease both`]
+                  .filter(Boolean)
+                  .join(', '),
+              }
+            : style;
+          return (
+            <React.Fragment key={`${currentNodeId}-${playbackSession}-${config.sourceNodeId}`}>
+              {appearance ? (
+                <CharacterAppearancePreview
+                  key={`base-${targetImageUrl || actionPlaying ? inlineActionPlaybackId : 'idle'}`}
+                  appearance={appearance}
+                  adjustment={data.appearanceTemplate?.adjustment}
+                  mode="sprite"
+                  className="preview-media-safe absolute w-auto object-contain object-bottom"
+                  style={outgoingStyle}
+                />
+              ) : (
+                <img
+                  key={`base-${targetImageUrl || actionPlaying ? inlineActionPlaybackId : 'idle'}`}
+                  src={imageUrl}
+                  alt={data.characterName}
+                  draggable={false}
+                  onDragStart={(event) => event.preventDefault()}
+                  className="preview-media-safe absolute w-auto object-contain object-bottom"
+                  style={outgoingStyle}
+                />
+              )}
+              {targetImageUrl && (
+                <img
+                  key={`switch-${inlineActionPlaybackId}`}
+                  src={targetImageUrl}
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  className="gal-character-switch-target preview-media-safe absolute w-auto object-contain object-bottom"
+                  style={{
+                    ...style,
+                    ...{ '--inline-switch-opacity': style.opacity },
+                    animation: [style.animation, `galInlineSwitch ${switchDuration}ms ease both`]
+                      .filter(Boolean)
+                      .join(', '),
+                  }}
+                />
+              )}
+            </React.Fragment>
           );
         })}
       </div>
       <SceneLightOverlay
         style={scenePresetVisualStyle}
         enabled={Boolean(scenePresetVisualStyle)}
-        className={
-          constrainToClassicStage ? 'left-1/2 w-full max-w-[1200px] -translate-x-1/2' : ''
-        }
+        className={constrainToClassicStage ? 'left-1/2 w-full max-w-[1200px] -translate-x-1/2' : ''}
       />
     </>
   );
@@ -1754,6 +1894,11 @@ export function usePlaytestRuntime(
     sceneMedia,
     sceneVideoUrl,
     sceneImageUrl,
+    sceneSwitchImageUrl,
+    sceneSwitchVideoUrl,
+    inlineActionPlaybackId,
+    presentationKey: `${currentNodeId}-${playbackSession}`,
+    sceneAnimationKey: `${currentNodeId}-${playbackSession}-${sceneActionPlaying ? inlineActionPlaybackId : 'idle'}`,
     sceneVideoStartTime,
     sceneVideoEndTime,
     sceneVideoMaxDuration,

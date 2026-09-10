@@ -43,7 +43,7 @@ release/
 
 次をインストールしてください。
 
-- Node.js 20 以降
+- Node.js 22.x（22.13 以降）または 24+（ロックファイル内の依存関係の要件）
 - MSVC ツールチェーンを使用する Rust stable
 - Microsoft Visual Studio 2022 Build Tools の **Desktop development with C++**
 - WebView2（現在の Windows には通常インストール済みです）

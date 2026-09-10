@@ -1,0 +1,155 @@
+/* Keep icons in CSS so saved @ references and their plain text stay unchanged. */
+.mention-chip-character,
+.mention-tag-character {
+  --mention-ink: #6d3eb7;
+  --mention-fill: #f3ecfc;
+  --mention-border: #dac9f2;
+  --mention-hover: #eadef9;
+  --mention-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M5 21v-2a7 7 0 0 1 14 0v2'/%3E%3C/svg%3E");
+}
+
+.mention-chip-scene,
+.mention-tag-scene {
+  --mention-ink: #0c766c;
+  --mention-fill: #eaf7f2;
+  --mention-border: #b3ddd4;
+  --mention-hover: #daf0e8;
+  --mention-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='2.5'/%3E%3C/svg%3E");
+}
+
+.mention-chip-video,
+.mention-tag-video {
+  --mention-ink: #a45b0f;
+  --mention-fill: #fff7e8;
+  --mention-border: #edd4a8;
+  --mention-hover: #fcedd1;
+  --mention-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='m10 8 6 4-6 4Z'/%3E%3C/svg%3E");
+}
+
+.mention-chip,
+.mention-tag-button {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--mention-border, var(--card-border));
+  border-radius: 0.55em;
+  background: var(--mention-fill, var(--card-bg));
+  color: var(--mention-ink, var(--text-secondary));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: manipulation;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.mention-chip::before,
+.mention-tag-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.4em;
+  width: 1em;
+  height: 1em;
+  background-color: currentColor;
+  -webkit-mask: var(--mention-icon) center / contain no-repeat;
+  mask: var(--mention-icon) center / contain no-repeat;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.mention-chip {
+  -webkit-user-select: all;
+  user-select: all;
+  margin: 0 0.15em;
+  padding: 0.04em 0.5em 0.04em 1.6em;
+  font-size: 0.9em;
+  line-height: 1.5;
+  vertical-align: -0.3em;
+}
+
+.mention-tag-button {
+  flex-shrink: 0;
+  max-width: 16rem;
+  min-height: 28px;
+  padding: 4px 8px 4px 22px;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mention-tag-button::before {
+  left: 6px;
+}
+
+.mention-tag-button.zen-editor-mobile-tag {
+  max-width: min(42vw, 16rem);
+  line-height: 18px;
+}
+
+.rich-text-mentions-interactive .mention-chip {
+  cursor: pointer;
+}
+
+.rich-text-mentions-interactive .mention-chip:hover,
+.mention-tag-button:not([aria-disabled='true']):hover {
+  border-color: var(--mention-ink);
+  background: var(--mention-hover);
+}
+
+.mention-tag-button:focus-visible {
+  outline: 2px solid var(--mention-ink);
+  outline-offset: 2px;
+}
+
+.mention-tag-button[aria-pressed='true'] {
+  border-color: var(--mention-ink);
+  background: var(--mention-hover);
+  box-shadow: inset 0 0 0 1px var(--mention-ink);
+}
+
+[data-theme='dark'] .mention-chip-character,
+[data-theme='dark'] .mention-tag-character {
+  --mention-ink: #d8c2ff;
+  --mention-fill: #332444;
+  --mention-border: #675080;
+  --mention-hover: #453156;
+}
+
+[data-theme='dark'] .mention-chip-scene,
+[data-theme='dark'] .mention-tag-scene {
+  --mention-ink: #99e6d4;
+  --mention-fill: #173a36;
+  --mention-border: #386a61;
+  --mention-hover: #214d46;
+}
+
+[data-theme='dark'] .mention-chip-video,
+[data-theme='dark'] .mention-tag-video {
+  --mention-ink: #f6d08d;
+  --mention-fill: #40331d;
+  --mention-border: #796039;
+  --mention-hover: #554329;
+}
+
+.mention-tag-button[aria-disabled='true'] {
+  --mention-ink: var(--text-muted);
+  --mention-fill: var(--app-bg);
+  --mention-border: var(--card-border);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mention-chip,
+  .mention-tag-button {
+    transition: none;
+  }
+}

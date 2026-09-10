@@ -91,8 +91,13 @@
     opacity: 0;
   }
   100% {
-    opacity: 1;
+    opacity: var(--inline-switch-opacity, 1);
   }
+}
+
+@keyframes galInlineSwitchOut {
+  from { opacity: var(--inline-switch-opacity, 1); }
+  to { opacity: 0; }
 }
 
 /* A short white-light wipe for scene material switches. Screen blending keeps
@@ -2844,46 +2849,6 @@ input[type='range'] {
 
 input[type='range']:focus {
   outline: none;
-}
-
-.mention-chip {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  touch-action: manipulation;
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  margin: 0 2px;
-  padding: 1px 6px;
-  border-radius: 6px;
-  border: 1px solid currentColor;
-  font-weight: 700;
-  font-size: 0.9em;
-  line-height: 1.5;
-  white-space: nowrap;
-  user-select: all;
-  cursor: default;
-}
-
-.mention-chip-character {
-  color: #4f46e5;
-  background: rgba(99, 102, 241, 0.12);
-}
-
-.mention-chip-scene {
-  color: #1d4ed8;
-  background: rgba(37, 99, 235, 0.12);
-}
-
-[data-theme='dark'] .mention-chip-character {
-  color: #a5b4fc;
-  background: rgba(129, 140, 248, 0.18);
-}
-
-[data-theme='dark'] .mention-chip-scene {
-  color: #93c5fd;
-  background: rgba(96, 165, 250, 0.18);
 }
 
 .gradient-stop-color-input::-webkit-color-swatch-wrapper {

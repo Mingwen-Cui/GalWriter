@@ -83,7 +83,7 @@ Windows 发布文件会带 `-full` 或 `-lite` 后缀。Android 同包名的完�
 
 请安装：
 
-- Node.js 20 或更高版本
+- Node.js 22.x（至少 22.13）或 24+，以满足当前锁定依赖的版本要求
 - Rust stable（MSVC 工具链）
 - Microsoft Visual Studio 2022 Build Tools，并勾选 **Desktop development with C++**
 - WebView2（当前 Windows 系统通常已经安装）

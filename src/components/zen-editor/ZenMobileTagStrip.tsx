@@ -32,11 +32,9 @@ export function ZenMobileTagStrip({
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onCharacterClick(tag)}
-            className={`zen-editor-mobile-tag shrink-0 truncate rounded-md px-2 text-xs font-bold ${
-              activeKind === 'character' && activeId === tag.id
-                ? 'bg-indigo-500 text-white'
-                : 'bg-indigo-500/10 text-indigo-500'
-            }`}
+            className="zen-editor-mobile-tag mention-tag-button mention-tag-character"
+            aria-pressed={activeKind === 'character' && activeId === tag.id}
+            title={`@${tag.name}`}
           >
             @{tag.name}
           </button>
@@ -46,11 +44,9 @@ export function ZenMobileTagStrip({
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={onVideoClick}
-            className={`zen-editor-mobile-tag shrink-0 truncate rounded-md px-2 text-xs font-bold ${
-              activeKind === 'scene' && activeId === nodeId
-                ? 'bg-blue-500 text-white'
-                : 'bg-blue-500/10 text-blue-500'
-            }`}
+            className="zen-editor-mobile-tag mention-tag-button mention-tag-video"
+            aria-pressed={activeKind === 'scene' && activeId === nodeId}
+            title={`@${cardVideoMentionName}`}
           >
             @{cardVideoMentionName}
           </button>
@@ -61,11 +57,9 @@ export function ZenMobileTagStrip({
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onSceneClick(tag)}
-            className={`zen-editor-mobile-tag shrink-0 truncate rounded-md px-2 text-xs font-bold ${
-              activeKind === 'scene' && activeId === tag.id
-                ? 'bg-blue-500 text-white'
-                : 'bg-blue-500/10 text-blue-500'
-            }`}
+            className="zen-editor-mobile-tag mention-tag-button mention-tag-scene"
+            aria-pressed={activeKind === 'scene' && activeId === tag.id}
+            title={`@${tag.name}`}
           >
             @{tag.name}
           </button>

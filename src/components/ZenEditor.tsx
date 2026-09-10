@@ -1161,7 +1161,7 @@ export function ZenEditor({
                           event.preventDefault();
                           openCharacterMenu(tag);
                         }}
-                        className="select-none px-2 py-1 rounded-md text-xs font-bold bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors"
+                        className="mention-tag-button mention-tag-character"
                         title={`点击插入 @${tag.name}，右击设置人物演出`}
                       >
                         @{tag.name}
@@ -1184,7 +1184,7 @@ export function ZenEditor({
                           event.preventDefault();
                           openSceneMenu(tag);
                         }}
-                        className="select-none px-2 py-1 rounded-md text-xs font-bold bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200 transition-colors"
+                        className="mention-tag-button mention-tag-scene"
                         title={`点击插入 @${tag.name}，右键设置场景演出`}
                       >
                         @{tag.name}
@@ -1199,7 +1199,7 @@ export function ZenEditor({
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => insertMention('video', cardVideoMentionName)}
-                      className="select-none px-2 py-1 rounded-md text-xs font-bold bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 border border-blue-800/20 dark:text-blue-300"
+                      className="mention-tag-button mention-tag-video"
                       title={`插入 @${cardVideoMentionName}`}
                     >
                       @{cardVideoMentionName}

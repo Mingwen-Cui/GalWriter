@@ -2825,14 +2825,20 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           onDragStart={(event) => event.preventDefault()}
                           aria-disabled={!char.isUsable}
                           onClick={() =>
-                            char.isUsable ? insertCharacterMention(char.name) : showUnavailableTagToast()
-                          }
-                          className={`${textBtnBase} select-none border ${
                             char.isUsable
-                              ? 'bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 hover:text-indigo-400 border-indigo-500/20'
-                              : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500'
-                          }`}
-                          title={char.isUsable ? `插入 @${char.name}` : undefined}
+                              ? insertCharacterMention(char.name)
+                              : showUnavailableTagToast()
+                          }
+                          className="mention-tag-button mention-tag-character"
+                          title={
+                            char.isUsable
+                              ? lang === 'zh'
+                                ? `插入人物 @${char.name}`
+                                : lang === 'ja'
+                                  ? `キャラクター @${char.name} を挿入`
+                                  : `Insert character @${char.name}`
+                              : undefined
+                          }
                         >
                           @{char.name}
                         </button>
@@ -2852,7 +2858,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           onDragStart={(event) => event.preventDefault()}
                           onClick={insertCardVideoMention}
                           onContextMenu={openCardVideoPresentationMenu}
-                          className={`${textBtnBase} select-none bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200`}
+                          className="mention-tag-button mention-tag-video"
                           title={
                             lang === 'zh'
                               ? '点击插入视频 Tag，右键调整场景演出'
@@ -2874,14 +2880,20 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             onDragStart={(event) => event.preventDefault()}
                             aria-disabled={!scene.isUsable}
                             onClick={() =>
-                              scene.isUsable ? insertSceneMention(scene.name) : showUnavailableTagToast()
-                            }
-                            className={`${textBtnBase} select-none border ${
                               scene.isUsable
-                                ? 'bg-blue-800/10 text-blue-700 hover:bg-blue-800/20 hover:text-blue-800 border-blue-800/20 dark:text-blue-300 dark:hover:text-blue-200'
-                                : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500'
-                            }`}
-                            title={scene.isUsable ? `插入 @${scene.name}` : undefined}
+                                ? insertSceneMention(scene.name)
+                                : showUnavailableTagToast()
+                            }
+                            className="mention-tag-button mention-tag-scene"
+                            title={
+                              scene.isUsable
+                                ? lang === 'zh'
+                                  ? `插入场景 @${scene.name}`
+                                  : lang === 'ja'
+                                    ? `シーン @${scene.name} を挿入`
+                                    : `Insert scene @${scene.name}`
+                                : undefined
+                            }
                           >
                             @{scene.name}
                           </button>
