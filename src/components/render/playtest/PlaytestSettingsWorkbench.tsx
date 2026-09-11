@@ -1,4 +1,4 @@
-import { MonitorPlay, Type } from 'lucide-react';
+import { MonitorPlay, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
@@ -218,8 +218,8 @@ function PlaytestRuntimeSettingsSection({
   const text = getPlaytestText(language);
   return (
     <InspectorGroup
-      title={text.textSettings}
-      icon={<Type className="h-3.5 w-3.5" />}
+      title={text.runtimeSettings}
+      icon={<Play className="h-3.5 w-3.5" />}
       tone="extra"
       secondary={null}
       showDescriptions={showDescriptions}
