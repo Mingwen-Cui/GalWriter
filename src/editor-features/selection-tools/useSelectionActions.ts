@@ -315,6 +315,35 @@ export const useSelectionActions = ({
     );
   }, [language, nodes, setNodes, showToast]);
 
+  const setSelectedStoryTitlesVisible = useCallback(
+    (visible: boolean) => {
+      const selectedStoryNodeIds = nodes
+        .filter((node) => node.selected && node.type === 'storyNode')
+        .map((node) => node.id);
+      if (selectedStoryNodeIds.length === 0) return;
+
+      const selectedIdSet = new Set(selectedStoryNodeIds);
+      setNodes((currentNodes) =>
+        currentNodes.map((node) =>
+          selectedIdSet.has(node.id)
+            ? {
+                ...node,
+                data: { ...node.data, hideTitleInPlayback: !visible },
+              }
+            : node,
+        ),
+      );
+      showToast(
+        language === 'zh'
+          ? `已${visible ? '显示' : '隐藏'} ${selectedStoryNodeIds.length} 张卡片的播放标题`
+          : language === 'ja'
+            ? `${selectedStoryNodeIds.length} 枚のカードの再生タイトルを${visible ? '表示' : '非表示'}にしました`
+            : `${visible ? 'Shown' : 'Hidden'} playback titles for ${selectedStoryNodeIds.length} cards`,
+      );
+    },
+    [language, nodes, setNodes, showToast],
+  );
+
   const arrangeSelected = useCallback(() => {
     const selectedNodes = nodes.filter((node) => node.selected);
     if (selectedNodes.length < 2) return;
@@ -698,6 +727,8 @@ export const useSelectionActions = ({
     handlePaste,
     deleteSelected,
     hideSelected,
+    hideSelectedStoryTitles: () => setSelectedStoryTitlesVisible(false),
+    showSelectedStoryTitles: () => setSelectedStoryTitlesVisible(true),
     arrangeSelected,
     handleGenerateSelectedSpeech,
     unhideAllNodes,

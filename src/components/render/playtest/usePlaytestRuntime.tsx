@@ -279,6 +279,9 @@ export function usePlaytestRuntime(
     currentNodeId !== 'THE_END' && currentNode && typeof currentNode.data.title === 'string'
       ? currentNode.data.title.trim()
       : '';
+  // Card titles remain the source for branch labels. This only controls the
+  // current card's visible playback heading.
+  const hideCurrentTitle = currentNode?.data.hideTitleInPlayback === true;
   useRegionBackgroundMusic(nodes, currentNode, currentNodeId !== 'THE_END');
   useSceneAmbientSound(nodes, currentNode, currentNodeId !== 'THE_END');
   const presentation = React.useMemo(
@@ -1886,6 +1889,7 @@ export function usePlaytestRuntime(
     showNodeAsCurrentPage,
     currentNode,
     currentTitle,
+    hideCurrentTitle,
     presentation,
     sceneSource,
     sceneData,

@@ -2432,7 +2432,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
 
   return (
     <div ref={nodeRootRef} className="w-full h-full relative group min-w-[100px] min-h-[60px]">
-      {(isRoot || data.skip || data.isHighlighted || data.hidden) && (
+      {(isRoot ||
+        data.skip ||
+        data.isHighlighted ||
+        data.hidden ||
+        (data.hideTitleInPlayback && title.trim())) && (
         <div className="pointer-events-none absolute -top-3 -left-3 z-50 flex items-center gap-1">
           {isRoot && (
             <div className="flex items-center gap-1 rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
@@ -2452,6 +2456,15 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           {data.hidden && (
             <div className="flex items-center gap-1 rounded bg-slate-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
               <EyeOff className="h-4 w-3" /> 已隐藏
+            </div>
+          )}
+          {data.hideTitleInPlayback && title.trim() && (
+            <div
+              className="flex items-center gap-1 rounded bg-slate-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm"
+              title="播放时隐藏标题"
+            >
+              <EyeOff className="h-4 w-3" />
+              标题隐藏
             </div>
           )}
         </div>

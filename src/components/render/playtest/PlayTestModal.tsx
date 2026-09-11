@@ -80,6 +80,7 @@ export function PlayTestModal(props: PlayTestProps) {
     mobileClassicLayout,
     currentNode,
     currentTitle,
+    hideCurrentTitle,
     sceneVideoUrl,
     sceneImageUrl,
     sceneSwitchImageUrl,
@@ -1089,6 +1090,7 @@ export function PlayTestModal(props: PlayTestProps) {
                       )}
 
                       {renderStyle.titleVisible &&
+                        (!hideCurrentTitle || Boolean(creativeInteraction?.sceneName)) &&
                         (creativeInteraction?.sceneName || currentTitle) && (
                           <div
                             className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
@@ -1367,15 +1369,17 @@ export function PlayTestModal(props: PlayTestProps) {
                       className="hidden"
                     />
                   )}
-                  {renderStyle.titleVisible && (creativeInteraction?.sceneName || currentTitle) && (
-                    <div
-                      className={`mb-2 drop-shadow-sm ${renderObjectSelectionClass('title')}`}
-                      style={titleStyle}
-                      onClick={(event) => selectRenderObject(event, 'title')}
-                    >
-                      {creativeInteraction?.sceneName || currentTitle}
-                    </div>
-                  )}
+                  {renderStyle.titleVisible &&
+                    (!hideCurrentTitle || Boolean(creativeInteraction?.sceneName)) &&
+                    (creativeInteraction?.sceneName || currentTitle) && (
+                      <div
+                        className={`mb-2 drop-shadow-sm ${renderObjectSelectionClass('title')}`}
+                        style={titleStyle}
+                        onClick={(event) => selectRenderObject(event, 'title')}
+                      >
+                        {creativeInteraction?.sceneName || currentTitle}
+                      </div>
+                    )}
                   <div
                     className={`whitespace-pre-wrap drop-shadow-sm ${renderObjectSelectionClass('body')}`}
                     style={bodyStyle}

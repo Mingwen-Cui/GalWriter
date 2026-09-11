@@ -1198,6 +1198,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handlePaste,
     deleteSelected,
     hideSelected,
+    hideSelectedStoryTitles,
+    showSelectedStoryTitles,
     arrangeSelected,
     handleGenerateSelectedSpeech,
     unhideAllNodes,
@@ -3036,6 +3038,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                     onDelete: deleteSelected,
                     onCopy: handleCopy,
                     onHide: hideSelected,
+                    selectedStoryNodeCount: selectedNodes.filter(
+                      (node) => node.type === 'storyNode',
+                    ).length,
+                    onHideTitles: hideSelectedStoryTitles,
+                    onShowTitles: showSelectedStoryTitles,
                   }
                 : undefined
             }

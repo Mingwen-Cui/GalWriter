@@ -1,6 +1,7 @@
 import {
   Bot,
   Copy,
+  Eye,
   EyeOff,
   FileText,
   Grid3X3,
@@ -32,6 +33,9 @@ interface SelectionMenuProps {
   onDelete: () => void;
   onCopy: () => void;
   onHide: () => void;
+  selectedStoryNodeCount: number;
+  onHideTitles: () => void;
+  onShowTitles: () => void;
 }
 
 const Divider = ({ horizontal, isMobile }: { horizontal: boolean; isMobile: boolean }) =>
@@ -61,6 +65,9 @@ export function SelectionMenu({
   onDelete,
   onCopy,
   onHide,
+  selectedStoryNodeCount,
+  onHideTitles,
+  onShowTitles,
 }: SelectionMenuProps) {
   const t = translations[language];
   const isSingleSelection = selectedNodeCount === 1;
@@ -139,6 +146,8 @@ export function SelectionMenu({
       : 'Delete';
   const copyLabel = language === 'zh' ? '\u590d\u5236' : 'Copy';
   const hideLabel = language === 'zh' ? '\u9690\u85cf' : 'Hide';
+  const hideTitlesLabel = tr('隐藏标题', 'タイトルを非表示', 'Hide titles');
+  const showTitlesLabel = tr('显示标题', 'タイトルを表示', 'Show titles');
 
   return (
     <div
@@ -155,11 +164,12 @@ export function SelectionMenu({
       {isDesktopVertical ? (
         <>
           <div className="selection-menu-summary px-2.5 py-2 text-xs font-bold text-[var(--text-primary)]">
-            {selectionMenuSummary || tr(
-              `已选 ${selectedNodeCount} 张卡片`,
-              `${selectedNodeCount} 枚を選択中`,
-              `${selectedNodeCount} cards selected`,
-            )}
+            {selectionMenuSummary ||
+              tr(
+                `已选 ${selectedNodeCount} 张卡片`,
+                `${selectedNodeCount} 枚を選択中`,
+                `${selectedNodeCount} cards selected`,
+              )}
           </div>
 
           <div className="selection-menu-section">
@@ -244,6 +254,26 @@ export function SelectionMenu({
             <EyeOff className={`${iconSizeClass} shrink-0`} />
             <span>{hideLabel}</span>
           </button>
+          {selectedStoryNodeCount > 0 && (
+            <>
+              <button
+                onClick={onHideTitles}
+                className={`${buttonBaseClass} selection-menu-action`}
+                title={hideTitlesLabel}
+              >
+                <EyeOff className={`${iconSizeClass} shrink-0`} />
+                <span>{hideTitlesLabel}</span>
+              </button>
+              <button
+                onClick={onShowTitles}
+                className={`${buttonBaseClass} selection-menu-action`}
+                title={showTitlesLabel}
+              >
+                <Eye className={`${iconSizeClass} shrink-0`} />
+                <span>{showTitlesLabel}</span>
+              </button>
+            </>
+          )}
 
           <div className="selection-menu-danger-divider" />
           <button
@@ -311,6 +341,18 @@ export function SelectionMenu({
             <EyeOff className={`${iconSizeClass} shrink-0`} />
             <span className={nowrapClass}>{hideLabel}</span>
           </button>
+          {selectedStoryNodeCount > 0 && (
+            <>
+              <button onClick={onHideTitles} className={buttonBaseClass} title={hideTitlesLabel}>
+                <EyeOff className={`${iconSizeClass} shrink-0`} />
+                <span className={nowrapClass}>{hideTitlesLabel}</span>
+              </button>
+              <button onClick={onShowTitles} className={buttonBaseClass} title={showTitlesLabel}>
+                <Eye className={`${iconSizeClass} shrink-0`} />
+                <span className={nowrapClass}>{showTitlesLabel}</span>
+              </button>
+            </>
+          )}
         </>
       )}
     </div>
