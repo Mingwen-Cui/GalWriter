@@ -26,7 +26,6 @@ import {
   Layers,
   List,
   Loader2,
-  MapPin,
   Maximize,
   Mic,
   Palette,
@@ -38,7 +37,6 @@ import {
   Trash2,
   Type,
   Underline,
-  User,
   Volume2,
 } from 'lucide-react';
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -2865,9 +2863,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                 <ToolbarRow className="order-2 flex-nowrap justify-start gap-1">
                   {showRichTextTools && mentionableCharacters.length > 0 && (
                     <ToolGroup className="flex-nowrap gap-1">
-                      <div className="flex shrink-0 items-center">
-                        <User className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                      </div>
                       {mentionableCharacters.map((char) => (
                         <button
                           key={char.id}
@@ -2899,9 +2894,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   )}
                   {(videoUrl || (showRichTextTools && mentionableScenes.length > 0)) && (
                     <ToolGroup className="flex-nowrap gap-1">
-                      <div className="flex shrink-0 items-center">
-                        <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                      </div>
                       {videoUrl && (
                         <button
                           type="button"
