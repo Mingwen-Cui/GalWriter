@@ -1,9 +1,10 @@
-import { ChevronDown, CircleAlert, MonitorPlay, Type } from 'lucide-react';
+import { MonitorPlay, Type } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import type { SharedCanvasSettings } from '../canvas/canvasSettings';
 import { CanvasSettingsSection } from '../canvas/CanvasSettingsSection';
+import { InspectorGroup } from '../shared/inspectors/InspectorControls';
 import { RenderObjectSettingsSection } from '../shared/inspectors/RenderObjectSettingsSection';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import type { RenderEditableObjectKind, RenderStyle } from '../video/shared/types';
@@ -70,14 +71,8 @@ export function PlaytestSettingsWorkbench({
 
   const inspector = (
     <div className="video-render-workspace min-w-0 space-y-4">
-      <div
-        className={`grid items-center gap-3 ${
-          onToggleWindowedPlaytest
-            ? 'grid-cols-[28px_minmax(0,1fr)_32px]'
-            : 'grid-cols-[28px_minmax(0,1fr)]'
-        }`}
-      >
-        <div className="grid min-w-0 grid-cols-4 gap-2 rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="grid min-w-0 flex-1 grid-cols-4 gap-2 rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
           {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map(
             (kind) => (
               <button
@@ -221,27 +216,16 @@ function PlaytestRuntimeSettingsSection({
   showDescriptions: boolean;
 }) {
   const text = getPlaytestText(language);
-  const [collapsed, setCollapsed] = useState(false);
-  const descriptionSlot = (label?: string) =>
-    showDescriptions ? (
-      <div className="mb-1 h-4 px-1 text-[10px] leading-4 text-[var(--vr-text-muted)]">
-        {label || '\u00a0'}
-      </div>
-    ) : null;
   return (
-    <section
-      className={`rounded-[22px] bg-sky-50 p-3 dark:bg-sky-950/25 ${showDescriptions ? '' : '[&_.playtest-runtime-description]:hidden'}`}
+    <InspectorGroup
+      title={text.textSettings}
+      icon={<Type className="h-3.5 w-3.5" />}
+      tone="extra"
+      secondary={null}
+      showDescriptions={showDescriptions}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-        <div className="min-w-0">
-          {descriptionSlot()}
-          <div className="flex h-10 min-w-0 items-center gap-2 rounded-xl bg-sky-100 px-3 text-sm font-bold text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]">
-            <Type className="h-4 w-4 shrink-0" />
-            <span className="truncate">{text.textSettings}</span>
-          </div>
-        </div>
-        <div className="min-w-0">
-          {descriptionSlot(text.textPlayback)}
+      <div className="property-control-row">
+        <RuntimeField label={text.textPlayback}>
           <Segmented
             value={value.interactionMode}
             options={[
@@ -254,93 +238,70 @@ function PlaytestRuntimeSettingsSection({
               })
             }
           />
-        </div>
-        <div>
-          {descriptionSlot()}
-          <button
-            type="button"
-            onClick={() => setCollapsed((current) => !current)}
-            className="grid h-10 w-11 place-items-center rounded-xl bg-sky-100 text-slate-900 dark:bg-white/5 dark:text-[var(--vr-text)]"
-            title={collapsed ? text.expandSettings : text.collapseSettings}
-            aria-label={collapsed ? text.expandSettings : text.collapseSettings}
-            aria-expanded={!collapsed}
-          >
-            <ChevronDown
-              className={`h-5 w-5 transition-transform ${collapsed ? '' : 'rotate-180'}`}
-            />
-          </button>
-        </div>
+        </RuntimeField>
+        <RuntimeNumber
+          label={text.typewriterSpeed}
+          value={value.typewriterSpeed}
+          unit="ms"
+          min={0}
+          max={500}
+          onChange={(typewriterSpeed) => onChange({ typewriterSpeed })}
+        />
       </div>
-
-      {!collapsed && (
-        <div className="mt-3 space-y-3">
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-            <RuntimeField label={text.choiceColumns} disabled={choicesPosition === 'center'}>
-              <Segmented
-                value={String(value.choicesColumns)}
-                options={[
-                  ['1', '1'],
-                  ['2', '2'],
-                  ['3', '3'],
-                ]}
-                onChange={(choicesColumns) => onChange({ choicesColumns: Number(choicesColumns) })}
-              />
-            </RuntimeField>
-            <RuntimeNumber
-              label={text.typewriterSpeed}
-              value={value.typewriterSpeed}
-              unit="ms"
-              min={0}
-              max={500}
-              onChange={(typewriterSpeed) => onChange({ typewriterSpeed })}
-            />
-            <div className="h-10 w-11" aria-hidden="true" />
-          </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-            <RuntimeField label={text.blurBackground}>
-              <Segmented
-                value={value.blurBackground ? 'on' : 'off'}
-                options={[
-                  ['on', text.on],
-                  ['off', text.off],
-                ]}
-                onChange={(next) => onChange({ blurBackground: next === 'on' })}
-              />
-            </RuntimeField>
-            <RuntimeField label={text.blurText} disabled={!value.blurBackground}>
-              <Segmented
-                value={value.blurText ? 'on' : 'off'}
-                options={[
-                  ['on', text.on],
-                  ['off', text.off],
-                ]}
-                onChange={(next) => onChange({ blurText: next === 'on' })}
-              />
-            </RuntimeField>
-            <div className="h-10 w-11" aria-hidden="true" />
-          </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
-            <RuntimeNumber
-              label={text.choiceDelay}
-              value={value.choiceDelay}
-              unit="s"
-              min={0}
-              max={60}
-              onChange={(choiceDelay) => onChange({ choiceDelay })}
-            />
-            <RuntimeNumber
-              label={text.autoAdvanceDelay}
-              value={value.autoAdvanceDelay}
-              unit="s"
-              min={0}
-              max={60}
-              onChange={(autoAdvanceDelay) => onChange({ autoAdvanceDelay })}
-            />
-            <div className="h-10 w-11" aria-hidden="true" />
-          </div>
-        </div>
-      )}
-    </section>
+      <div className="property-control-row mt-3">
+        <RuntimeField label={text.choiceColumns} disabled={choicesPosition === 'center'}>
+          <Segmented
+            value={String(value.choicesColumns)}
+            options={[
+              ['1', '1'],
+              ['2', '2'],
+              ['3', '3'],
+            ]}
+            onChange={(choicesColumns) => onChange({ choicesColumns: Number(choicesColumns) })}
+          />
+        </RuntimeField>
+        <RuntimeField label={text.blurBackground}>
+          <Segmented
+            value={value.blurBackground ? 'on' : 'off'}
+            options={[
+              ['on', text.on],
+              ['off', text.off],
+            ]}
+            onChange={(next) => onChange({ blurBackground: next === 'on' })}
+          />
+        </RuntimeField>
+      </div>
+      <div className="property-control-row mt-3">
+        <RuntimeField label={text.blurText} disabled={!value.blurBackground}>
+          <Segmented
+            value={value.blurText ? 'on' : 'off'}
+            options={[
+              ['on', text.on],
+              ['off', text.off],
+            ]}
+            onChange={(next) => onChange({ blurText: next === 'on' })}
+          />
+        </RuntimeField>
+        <RuntimeNumber
+          label={text.choiceDelay}
+          value={value.choiceDelay}
+          unit="s"
+          min={0}
+          max={60}
+          onChange={(choiceDelay) => onChange({ choiceDelay })}
+        />
+      </div>
+      <div className="property-control-row mt-3">
+        <RuntimeNumber
+          label={text.autoAdvanceDelay}
+          value={value.autoAdvanceDelay}
+          unit="s"
+          min={0}
+          max={60}
+          onChange={(autoAdvanceDelay) => onChange({ autoAdvanceDelay })}
+        />
+      </div>
+    </InspectorGroup>
   );
 }
 

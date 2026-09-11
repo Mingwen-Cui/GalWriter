@@ -352,8 +352,11 @@ export function usePlaytestRuntime(
   const keepIncomingScene =
     leadingSceneSwitch?.kind === 'action' &&
     !completedSwitchActions.some((action) => action.id === leadingSceneSwitch.action.id);
+  // THE_END has no presentation of its own. Keep the scene that led here so the
+  // completion view still feels like the ending of the branch rather than a
+  // separate, blank utility screen.
   const sceneMedia =
-    keepIncomingScene && incomingSceneMediaRef.current
+    (currentNodeId === 'THE_END' || keepIncomingScene) && incomingSceneMediaRef.current
       ? incomingSceneMediaRef.current
       : resolvedSceneMedia;
   useLayoutEffect(() => {
@@ -641,6 +644,32 @@ export function usePlaytestRuntime(
     [playtestText.untitledAudio],
   );
 
+  const getSegmentText = React.useCallback((node: FlowNode) => {
+    const container = document.createElement('div');
+    container.innerHTML = typeof node.data.text === 'string' ? node.data.text : '';
+    return container.textContent?.trim().replace(/\s+/g, ' ') || '';
+  }, []);
+
+  // The playtest playlist is a reading map: every written story segment is
+  // available to jump to, while only segments with narration expose playback.
+  const playlistAudios = React.useMemo(() => {
+    return nodes.flatMap((node) => {
+      if (node.type !== 'storyNode') return [];
+      const text = getSegmentText(node);
+      if (!text) return [];
+      const url = typeof node.data.audioUrl === 'string' ? node.data.audioUrl.trim() : '';
+      const title = typeof node.data.title === 'string' ? node.data.title.trim() : '';
+      return [
+        {
+          nodeId: node.id,
+          title: title || playtestText.untitledSegment,
+          description: text,
+          ...(url ? { url } : {}),
+        },
+      ];
+    });
+  }, [getSegmentText, nodes, playtestText.untitledSegment]);
+
   const recordCurrentAudio = React.useCallback(() => {
     if (!currentNode || typeof currentNode.data.audioUrl !== 'string') return;
     const url = currentNode.data.audioUrl.trim();
@@ -659,7 +688,10 @@ export function usePlaytestRuntime(
     ]);
   }, [currentNode, getAudioTitle]);
 
-  const togglePlaylistAudio = (audio: PlayedAudio) => {
+  const togglePlaylistAudio = (
+    audio: PlayedAudio | { nodeId: string; title: string; url?: string },
+  ) => {
+    if (!audio.url) return;
     audioRef.current?.pause();
 
     if (playlistAudioUrl === audio.url && playlistAudioRef.current) {
@@ -1963,6 +1995,7 @@ export function usePlaytestRuntime(
     showAudioPlaylist,
     setShowAudioPlaylist,
     playedAudios,
+    playlistAudios,
     setPlayedAudios,
     playlistAudioUrl,
     setPlaylistAudioUrl,

@@ -240,6 +240,8 @@ export interface PlaytestWindowSettings {
   mobileBounds: PlaytestWindowBounds | null;
   followSelectedCard: boolean;
   autoScaleOnHover: boolean;
+  autoExpandOnPlaylistJump: boolean;
+  autoPlayOnPlaylistJump: boolean;
 }
 
 export interface PlaytestSettings {

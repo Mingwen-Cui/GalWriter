@@ -60,6 +60,7 @@ export const INITIAL_NODES: Node[] = [
       color: '#ffffff',
       sizeMode: 'auto',
       isRoot: true,
+      hideTitleInPlayback: true,
       imageUrl: mountainTempleDistantUrl,
       showTextOverlay: true,
       presentation: {
@@ -84,6 +85,7 @@ export const INITIAL_NODES: Node[] = [
       shape: 'square',
       color: '#ffffff',
       sizeMode: 'auto',
+      hideTitleInPlayback: true,
       imageUrl: mountainTempleBackgroundUrl,
       showTextOverlay: true,
       presentation: {
@@ -127,6 +129,7 @@ export const INITIAL_NODES: Node[] = [
       shape: 'rounded-rectangle',
       color: '#ffffff',
       sizeMode: 'auto',
+      hideTitleInPlayback: true,
       imageUrl: mountainTempleBackgroundUrl,
       showTextOverlay: true,
       presentation: {

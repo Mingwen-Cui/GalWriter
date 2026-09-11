@@ -35,6 +35,8 @@ const getStoredWindowSettings = (): PlaytestWindowSettings => {
     mobileBounds: null,
     followSelectedCard: false,
     autoScaleOnHover: false,
+    autoExpandOnPlaylistJump: false,
+    autoPlayOnPlaylistJump: false,
   };
   if (typeof window === 'undefined') return fallback;
 
@@ -58,6 +60,8 @@ const getStoredWindowSettings = (): PlaytestWindowSettings => {
       mobileBounds: null,
       followSelectedCard: false,
       autoScaleOnHover: false,
+      autoExpandOnPlaylistJump: false,
+      autoPlayOnPlaylistJump: false,
     };
   } catch {
     return fallback;

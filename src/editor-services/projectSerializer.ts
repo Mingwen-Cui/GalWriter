@@ -72,6 +72,8 @@ const normalizePlaytestWindowSettings = (
     mobileBounds: normalizeBounds(value?.mobileBounds),
     followSelectedCard: value?.followSelectedCard === true,
     autoScaleOnHover: value?.autoScaleOnHover === true,
+    autoExpandOnPlaylistJump: value?.autoExpandOnPlaylistJump === true,
+    autoPlayOnPlaylistJump: value?.autoPlayOnPlaylistJump === true,
   };
 };
 
@@ -539,9 +541,7 @@ const applyProjectSettings = (
     }));
   }
   const normalizeTagColor = (value: unknown, fallback: string) =>
-    typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim())
-      ? value.trim()
-      : fallback;
+    typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim()) ? value.trim() : fallback;
   setters.setCharacterTagColor(normalizeTagColor(incomingSettings.characterTagColor, '#7c3aed'));
   setters.setSceneTagColor(normalizeTagColor(incomingSettings.sceneTagColor, '#2563eb'));
   if (incomingSettings.canvasBg) setters.setCanvasBg(incomingSettings.canvasBg);

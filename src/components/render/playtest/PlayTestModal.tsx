@@ -116,7 +116,7 @@ export function PlayTestModal(props: PlayTestProps) {
     setShowSettings,
     showAudioPlaylist,
     setShowAudioPlaylist,
-    playedAudios,
+    playlistAudios,
     playlistAudioUrl,
     isPlaylistAudioPlaying,
     setIsPlaylistAudioPlaying,
@@ -140,14 +140,42 @@ export function PlayTestModal(props: PlayTestProps) {
   } = usePlaytestRuntime(props, { windowContentWidth });
   const isWindowed = props.displayMode === 'windowed';
   const mobileWindowed = Boolean(isMobile && isWindowed);
-  const { followSelectedCard, autoScaleOnHover } = props.windowSettings;
+  const { followSelectedCard, autoScaleOnHover, autoExpandOnPlaylistJump, autoPlayOnPlaylistJump } =
+    props.windowSettings;
   const [showMobileWindowMenu, setShowMobileWindowMenu] = React.useState(false);
+  const [immersiveControlsVisible, setImmersiveControlsVisible] = React.useState(true);
+  const immersiveControlsTimerRef = React.useRef<number | null>(null);
   const [customCreativeDecision, setCustomCreativeDecision] = React.useState('');
   const [creativeChoicesVisible, setCreativeChoicesVisible] = React.useState(false);
   const creativeInteraction = props.creativeInteraction;
   const appliedCreativeTurnRef = React.useRef<string | null>(null);
   const creativeChoiceRevealDelayMs = 2000;
   const activeChoicesReady = creativeInteraction ? creativeChoicesVisible : choicesReady;
+
+  const sidebarOpen = !isWindowed && (showSettings || showAudioPlaylist);
+  const revealImmersiveControls = React.useCallback(() => {
+    if (layoutMode !== 'immersive' || isWindowed || isFocusMode) return;
+    setImmersiveControlsVisible(true);
+    if (immersiveControlsTimerRef.current) {
+      window.clearTimeout(immersiveControlsTimerRef.current);
+    }
+    immersiveControlsTimerRef.current = window.setTimeout(
+      () => setImmersiveControlsVisible(false),
+      2600,
+    );
+  }, [isFocusMode, isWindowed, layoutMode]);
+
+  React.useEffect(() => {
+    if (layoutMode !== 'immersive' || isWindowed || isFocusMode) {
+      if (immersiveControlsTimerRef.current) window.clearTimeout(immersiveControlsTimerRef.current);
+      setImmersiveControlsVisible(true);
+      return;
+    }
+    revealImmersiveControls();
+    return () => {
+      if (immersiveControlsTimerRef.current) window.clearTimeout(immersiveControlsTimerRef.current);
+    };
+  }, [isFocusMode, isWindowed, layoutMode, revealImmersiveControls]);
 
   React.useEffect(() => {
     setCustomCreativeDecision('');
@@ -660,20 +688,6 @@ export function PlayTestModal(props: PlayTestProps) {
             </button>
           </div>
         ) : null}
-
-        <AudioPlaylistModal
-          open={showAudioPlaylist}
-          items={playedAudios}
-          activeUrl={playlistAudioUrl}
-          isPlaying={isPlaylistAudioPlaying}
-          title={playtestText.audioPlaylist}
-          hint={playtestText.audioPlaylistHint}
-          emptyText={playtestText.audioPlaylistEmpty}
-          closeLabel={t.close}
-          dark={isDarkMode || layoutMode === 'immersive'}
-          onClose={() => setShowAudioPlaylist(false)}
-          onToggleAudio={togglePlaylistAudio}
-        />
       </div>
     );
   };
@@ -723,20 +737,6 @@ export function PlayTestModal(props: PlayTestProps) {
         >
           <ListMusic className="w-5 h-5" />
         </button>
-
-        <AudioPlaylistModal
-          open={showAudioPlaylist}
-          items={playedAudios}
-          activeUrl={playlistAudioUrl}
-          isPlaying={isPlaylistAudioPlaying}
-          title={playtestText.audioPlaylist}
-          hint={playtestText.audioPlaylistHint}
-          emptyText={playtestText.audioPlaylistEmpty}
-          closeLabel={t.close}
-          dark={isDarkMode || layoutMode === 'immersive'}
-          onClose={() => setShowAudioPlaylist(false)}
-          onToggleAudio={togglePlaylistAudio}
-        />
       </div>
 
       {renderPlaytestDisplayModeButton()}
@@ -820,9 +820,11 @@ export function PlayTestModal(props: PlayTestProps) {
   const playtestContent = (
     <div
       ref={containerRef}
+      onPointerMove={revealImmersiveControls}
       onClick={() => {
-        if (showSettings) {
+        if (sidebarOpen) {
           setShowSettings(false);
+          setShowAudioPlaylist(false);
           return;
         }
         handleTextContainerClick();
@@ -837,7 +839,7 @@ export function PlayTestModal(props: PlayTestProps) {
         className={`playtest-modal-root ${isWindowed ? 'playtest-modal-root--windowed' : ''} ${
           mobileWindowed ? 'playtest-modal-root--windowed-mobile' : ''
         } ${mobileImmersiveLayout ? 'playtest-modal-root--mobile-immersive' : ''} absolute inset-0 flex origin-left transform-gpu flex-col overflow-hidden border transition-transform duration-200 ease-out ${
-          showSettings && !isMobile && !isWindowed ? 'scale-[0.77]' : 'scale-100'
+          sidebarOpen && !isMobile ? 'scale-[0.77]' : 'scale-100'
         } ${
           showSettings
             ? isDarkMode
@@ -858,7 +860,13 @@ export function PlayTestModal(props: PlayTestProps) {
               : mobileClassicLayout || mobileImmersiveLayout
                 ? 'playtest-header--fullscreen-mobile flex min-h-14 items-center justify-between gap-2'
                 : 'playtest-header--compact-row flex min-h-14 items-center justify-between'
-          } ${isWindowed ? 'cursor-move touch-none select-none' : ''} ${playtestHeaderToneClass}`}
+          } ${isWindowed ? 'cursor-move touch-none select-none' : ''} ${
+            layoutMode === 'immersive' && !isWindowed && !isFocusMode
+              ? immersiveControlsVisible
+                ? 'opacity-100'
+                : 'pointer-events-none opacity-0'
+              : ''
+          } ${playtestHeaderToneClass}`}
         >
           {mobileWindowed ? (
             <div className="playtest-header-actions flex w-full min-w-0 items-center justify-end gap-1">
@@ -939,52 +947,58 @@ export function PlayTestModal(props: PlayTestProps) {
             className={`w-full h-full flex flex-col ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}
           >
             {currentNodeId === 'THE_END' && !creativeInteraction ? (
-              layoutMode === 'immersive' ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500 relative w-full h-full">
-                  {/* 全景背景渐变 */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 z-0" />
-
-                  <div className="relative z-10 flex flex-col items-center max-w-md p-8 rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 shadow-2xl">
-                    <div className="w-20 h-20 mb-6 rounded-full flex items-center justify-center bg-white/10 border border-white/20 text-sky-400 animate-pulse">
-                      <PlayCircle className="w-10 h-10" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">
-                      {t.storyEnd}
-                    </h2>
-                    <p className="text-slate-300 mb-8 max-w-sm">{t.branchEnded}</p>
+              <div className="relative flex h-full w-full flex-1 items-center justify-center overflow-hidden p-6 text-center animate-in fade-in duration-500 md:p-12">
+                {sceneImageUrl ? (
+                  <img
+                    src={sceneImageUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : sceneVideoUrl ? (
+                  <video
+                    src={sceneVideoUrl}
+                    muted
+                    autoPlay
+                    loop
+                    playsInline
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : null}
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/35 via-slate-950/60 to-slate-950/90 backdrop-blur-[2px]" />
+                <section className="relative z-10 w-full max-w-md rounded-[28px] border border-white/15 bg-slate-950/55 p-7 text-white shadow-2xl backdrop-blur-xl md:p-9">
+                  <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-full border border-sky-300/35 bg-sky-400/15 text-sky-300 shadow-lg shadow-sky-500/15">
+                    <PlayCircle className="h-7 w-7" />
+                  </div>
+                  <p className="mb-2 text-xs font-bold tracking-[0.24em] text-sky-200/80">
+                    PLAYTEST COMPLETE
+                  </p>
+                  <h2 className="text-3xl font-black tracking-tight">{t.storyEnd}</h2>
+                  <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-200/80">
+                    {t.branchEnded}
+                  </p>
+                  <div className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
                     <button
                       onClick={handleRestartClick}
-                      className="px-10 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-95 hover:scale-[1.03]"
+                      className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-sky-500/25 transition hover:bg-sky-400 active:scale-95"
                     >
                       {t.restart}
                     </button>
+                    <button
+                      onClick={handleBack}
+                      disabled={history.length === 0}
+                      className="rounded-xl border border-white/15 bg-white/10 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/18 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
+                    >
+                      {t.backHistory}
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="rounded-xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white active:scale-95"
+                    >
+                      {t.close}
+                    </button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500">
-                  <div
-                    className={`w-20 h-20 mb-6 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-sky-500/20 text-sky-400' : 'bg-indigo-100 text-indigo-600'}`}
-                  >
-                    <PlayCircle className="w-10 h-10" />
-                  </div>
-                  <h2
-                    className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'} mb-4 tracking-tight`}
-                  >
-                    {t.storyEnd}
-                  </h2>
-                  <p
-                    className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mb-8 max-w-sm`}
-                  >
-                    {t.branchEnded}
-                  </p>
-                  <button
-                    onClick={handleRestartClick}
-                    className={`px-10 py-3 ${isDarkMode ? 'bg-sky-600 hover:bg-sky-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl shadow-lg transition-all active:scale-95`}
-                  >
-                    {t.restart}
-                  </button>
-                </div>
-              )
+                </section>
+              </div>
             ) : layoutMode === 'immersive' ? (
               <div className="flex-1 flex flex-col min-h-0 relative w-full h-full">
                 <div className="absolute inset-0 z-0 overflow-hidden">
@@ -1441,7 +1455,7 @@ export function PlayTestModal(props: PlayTestProps) {
           )}
       </div>
 
-      {!isWindowed && showSettings && (
+      {!isWindowed && sidebarOpen && (
         <aside
           onClick={(event) => event.stopPropagation()}
           className={`z-[130] shadow-2xl ${
@@ -1462,10 +1476,15 @@ export function PlayTestModal(props: PlayTestProps) {
                 isDarkMode ? 'border-white/10' : 'border-slate-200'
               }`}
             >
-              <span className="text-sm font-bold">{playtestText.settingsTitle}</span>
+              <span className="text-sm font-bold">
+                {showAudioPlaylist ? playtestText.audioPlaylist : playtestText.settingsTitle}
+              </span>
               <button
                 type="button"
-                onClick={() => setShowSettings(false)}
+                onClick={() => {
+                  setShowSettings(false);
+                  setShowAudioPlaylist(false);
+                }}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors active:scale-95 ${
                   isDarkMode
                     ? 'bg-white/10 text-white hover:bg-white/20'
@@ -1473,7 +1492,7 @@ export function PlayTestModal(props: PlayTestProps) {
                 }`}
               >
                 <X className="h-4 w-4" />
-                {playtestText.closeSettings}
+                {showAudioPlaylist ? t.close : playtestText.closeSettings}
               </button>
             </div>
           )}
@@ -1482,7 +1501,46 @@ export function PlayTestModal(props: PlayTestProps) {
               isMobile ? 'p-4' : 'pr-1'
             }`}
           >
-            {renderPlaytestSettingsPanel()}
+            {showAudioPlaylist ? (
+              <AudioPlaylistModal
+                open
+                scope="panel"
+                items={playlistAudios}
+                activeUrl={playlistAudioUrl}
+                isPlaying={isPlaylistAudioPlaying}
+                title={playtestText.audioPlaylist}
+                emptyText={playtestText.audioPlaylistEmpty}
+                closeLabel={t.close}
+                expandAllLabel={playtestText.expandAllSegments}
+                collapseAllLabel={playtestText.collapseAllSegments}
+                autoExpandOnJump={autoExpandOnPlaylistJump}
+                autoExpandOnJumpLabel={playtestText.autoExpandOnPlaylistJump}
+                autoPlayOnJump={autoPlayOnPlaylistJump}
+                autoPlayOnJumpLabel={playtestText.autoPlayOnPlaylistJump}
+                dark={isDarkMode}
+                onClose={() => setShowAudioPlaylist(false)}
+                onToggleAudio={togglePlaylistAudio}
+                onJumpToItem={(item) => {
+                  setAutoAdvance(autoPlayOnPlaylistJump);
+                  showNodeAsCurrentPage(item.nodeId);
+                  if (autoExpandOnPlaylistJump) setShowAudioPlaylist(false);
+                }}
+                onAutoExpandOnJumpChange={() =>
+                  props.setWindowSettings((current) => ({
+                    ...current,
+                    autoExpandOnPlaylistJump: !current.autoExpandOnPlaylistJump,
+                  }))
+                }
+                onAutoPlayOnJumpChange={() =>
+                  props.setWindowSettings((current) => ({
+                    ...current,
+                    autoPlayOnPlaylistJump: !current.autoPlayOnPlaylistJump,
+                  }))
+                }
+              />
+            ) : (
+              renderPlaytestSettingsPanel()
+            )}
           </div>
         </aside>
       )}
