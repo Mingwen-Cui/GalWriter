@@ -124,8 +124,9 @@ export const INITIAL_NODES: Node[] = [
       text:
         `${initialMention('scene', '山中寺庙', 'initial-dialogue-scene')}` +
         `${initialMention('character', '小和尚', 'initial-dialogue-young')}` +
+        '小和尚：师父，山外的云好像一片海。<br />' +
         `${initialMention('character', '老和尚', 'initial-dialogue-old')}` +
-        '小和尚：师父，山外的云好像一片海。<br />老和尚：心静下来，脚下的石阶也能通向远方。',
+        '老和尚：心静下来，脚下的石阶也能通向远方。',
       shape: 'rounded-rectangle',
       color: '#ffffff',
       sizeMode: 'auto',
@@ -152,6 +153,18 @@ export const INITIAL_NODES: Node[] = [
             offsetY: -100,
             scale: 0.7,
             enter: { type: 'slide-right', duration: 500 },
+          },
+        ],
+        inlineActions: [
+          {
+            ...createInlinePresentationAction({
+              id: 'initial-dialogue-old',
+              kind: 'character',
+              sourceNodeId: 'initial-old-monk',
+              name: '老和尚',
+            }),
+            timelinePhase: 'enter',
+            duration: 500,
           },
         ],
       },
