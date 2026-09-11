@@ -242,6 +242,7 @@ export interface PlaytestWindowSettings {
   autoScaleOnHover: boolean;
   autoExpandOnPlaylistJump: boolean;
   autoPlayOnPlaylistJump: boolean;
+  showCurrentBranchOnly: boolean;
 }
 
 export interface PlaytestSettings {
@@ -558,6 +559,8 @@ export interface InlinePresentationAction {
   offsetX: number;
   offsetY: number;
   scale: number;
+  /** The tag's place in the dialogue playback timeline, independent of its text position. */
+  timelinePhase?: 'enter' | 'inline' | 'exit';
 }
 
 export interface CharacterPresentation {

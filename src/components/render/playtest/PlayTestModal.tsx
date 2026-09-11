@@ -1,6 +1,4 @@
 import {
-  Eye,
-  EyeOff,
   FastForward,
   ListMusic,
   Loader2,
@@ -124,7 +122,6 @@ export function PlayTestModal(props: PlayTestProps) {
     setCurrentVideoEnded,
     isFullscreen,
     isFocusMode,
-    setIsFocusMode,
     backExitHintVisible,
     displayedHtml,
     animationCompleted,
@@ -134,14 +131,18 @@ export function PlayTestModal(props: PlayTestProps) {
     bodyStyle,
     dialogueShellStyle,
     dialogueFrameStyle,
-    focusButtonStyle,
     classicMediaContainerStyle,
     classicMediaFrameStyle,
   } = usePlaytestRuntime(props, { windowContentWidth });
   const isWindowed = props.displayMode === 'windowed';
   const mobileWindowed = Boolean(isMobile && isWindowed);
-  const { followSelectedCard, autoScaleOnHover, autoExpandOnPlaylistJump, autoPlayOnPlaylistJump } =
-    props.windowSettings;
+  const {
+    followSelectedCard,
+    autoScaleOnHover,
+    autoExpandOnPlaylistJump,
+    autoPlayOnPlaylistJump,
+    showCurrentBranchOnly,
+  } = props.windowSettings;
   const [showMobileWindowMenu, setShowMobileWindowMenu] = React.useState(false);
   const [immersiveControlsVisible, setImmersiveControlsVisible] = React.useState(true);
   const immersiveControlsTimerRef = React.useRef<number | null>(null);
@@ -492,7 +493,6 @@ export function PlayTestModal(props: PlayTestProps) {
   const classicFocusHidden =
     isFocusMode && mobileClassicLayout ? 'invisible pointer-events-none' : '';
   const hideEntireHeaderInFocusMode = isFocusMode && !mobileClassicLayout && !mobileWindowed;
-  const useInlineFocusButton = isMobile && !isWindowed && layoutMode === 'immersive';
   const reserveClassicMediaSlot = layoutMode === 'classic';
   const hasSceneMedia = Boolean(sceneImageUrl || sceneVideoUrl);
   const playtestHeaderToneClass =
@@ -539,28 +539,6 @@ export function PlayTestModal(props: PlayTestProps) {
     >
       <RotateCcw className="h-3.5 w-3.5 md:h-4 md:w-4" />
       <span>{t.backHistory}</span>
-    </button>
-  );
-
-  const renderPlaytestFocusButton = (className: string, style?: React.CSSProperties) => (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setIsFocusMode(!isFocusMode);
-      }}
-      className={`${className} inline-flex h-12 w-12 items-center justify-center rounded-full border p-0 leading-none shadow-xl backdrop-blur-lg transition-colors duration-200 active:scale-95 [&>svg]:block [&>svg]:shrink-0 ${
-        isFocusMode
-          ? isDarkMode
-            ? 'border-white/10 bg-slate-900/35 text-slate-400 shadow-black/10 hover:bg-slate-900/50 hover:text-slate-300'
-            : 'border-black/10 bg-black/35 text-white/55 shadow-black/10 hover:bg-black/45 hover:text-white/75'
-          : isDarkMode
-            ? 'border-white/10 bg-slate-900/20 text-slate-100 shadow-slate-950/30 hover:bg-slate-900/40 hover:text-white'
-            : 'border-black/10 bg-white/20 text-slate-400 shadow-slate-200/30 hover:bg-white/40 hover:text-slate-900'
-      }`}
-      style={style}
-      title={isFocusMode ? t.exitZenMode : t.enterZenMode}
-    >
-      {isFocusMode ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
     </button>
   );
 
@@ -670,21 +648,6 @@ export function PlayTestModal(props: PlayTestProps) {
               aria-pressed={showAudioPlaylist}
             >
               <ListMusic className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsFocusMode((active) => !active);
-                setShowMobileWindowMenu(false);
-              }}
-              className={`${playtestRoundIconButtonClass} ${
-                isFocusMode ? 'bg-violet-500/85 text-white' : idleClass
-              }`}
-              title={isFocusMode ? t.exitZenMode : t.enterZenMode}
-              aria-label={isFocusMode ? t.exitZenMode : t.enterZenMode}
-              aria-pressed={isFocusMode}
-            >
-              {isFocusMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         ) : null}
@@ -964,35 +927,34 @@ export function PlayTestModal(props: PlayTestProps) {
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                 ) : null}
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/35 via-slate-950/60 to-slate-950/90 backdrop-blur-[2px]" />
-                <section className="relative z-10 w-full max-w-md rounded-[28px] border border-white/15 bg-slate-950/55 p-7 text-white shadow-2xl backdrop-blur-xl md:p-9">
-                  <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-full border border-sky-300/35 bg-sky-400/15 text-sky-300 shadow-lg shadow-sky-500/15">
-                    <PlayCircle className="h-7 w-7" />
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/30 via-slate-950/55 to-slate-950/85 backdrop-blur-[3px]" />
+                <section className="relative z-10 w-full max-w-lg rounded-[32px] bg-slate-950/65 px-7 py-10 text-white shadow-[0_24px_72px_rgba(2,6,23,0.42)] backdrop-blur-2xl md:px-12 md:py-12">
+                  <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-sky-400/12 text-sky-200">
+                    <PlayCircle className="h-7 w-7" strokeWidth={1.8} />
                   </div>
-                  <p className="mb-2 text-xs font-bold tracking-[0.24em] text-sky-200/80">
-                    PLAYTEST COMPLETE
+                  <p className="mt-6 text-xs font-bold tracking-[0.18em] text-sky-100/70">
+                    {language === 'zh'
+                      ? '试玩已结束'
+                      : language === 'ja'
+                        ? 'テスト終了'
+                        : 'PLAYTEST ENDED'}
                   </p>
-                  <h2 className="text-3xl font-black tracking-tight">{t.storyEnd}</h2>
-                  <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-200/80">
+                  <h2 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">
+                    {t.storyEnd}
+                  </h2>
+                  <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-slate-200/75 md:text-base">
                     {t.branchEnded}
                   </p>
-                  <div className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+                  <div className="mt-9 flex flex-col items-center gap-3">
                     <button
                       onClick={handleRestartClick}
-                      className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-sky-500/25 transition hover:bg-sky-400 active:scale-95"
+                      className="w-full rounded-xl bg-sky-500 px-7 py-3.5 text-sm font-black text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400 active:scale-[0.98] sm:w-auto"
                     >
                       {t.restart}
                     </button>
                     <button
-                      onClick={handleBack}
-                      disabled={history.length === 0}
-                      className="rounded-xl border border-white/15 bg-white/10 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/18 disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
-                    >
-                      {t.backHistory}
-                    </button>
-                    <button
                       onClick={onClose}
-                      className="rounded-xl px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white active:scale-95"
+                      className="px-4 py-2 text-sm font-bold text-slate-300 transition hover:text-white active:scale-95"
                     >
                       {t.close}
                     </button>
@@ -1072,11 +1034,6 @@ export function PlayTestModal(props: PlayTestProps) {
                     {choicesPosition === 'aboveText' &&
                       (!creativeInteraction || activeChoicesReady) &&
                       renderActiveChoices(true)}
-
-                    {useInlineFocusButton &&
-                      renderPlaytestFocusButton(
-                        'playtest-focus-button-inline pointer-events-auto relative z-[30] mb-1 self-end',
-                      )}
 
                     {/* 透明半透明对话框 */}
                     <div
@@ -1445,14 +1402,6 @@ export function PlayTestModal(props: PlayTestProps) {
             )}
           </div>
         </div>
-
-        {/* 沉浸式模式切换按钮 */}
-        {!mobileWindowed &&
-          !useInlineFocusButton &&
-          renderPlaytestFocusButton(
-            `${isWindowed ? 'absolute' : 'fixed'} z-[260]`,
-            focusButtonStyle,
-          )}
       </div>
 
       {!isWindowed && sidebarOpen && (
@@ -1517,6 +1466,8 @@ export function PlayTestModal(props: PlayTestProps) {
                 autoExpandOnJumpLabel={playtestText.autoExpandOnPlaylistJump}
                 autoPlayOnJump={autoPlayOnPlaylistJump}
                 autoPlayOnJumpLabel={playtestText.autoPlayOnPlaylistJump}
+                showCurrentBranchOnly={showCurrentBranchOnly}
+                showCurrentBranchOnlyLabel={playtestText.showCurrentBranchOnly}
                 dark={isDarkMode}
                 onClose={() => setShowAudioPlaylist(false)}
                 onToggleAudio={togglePlaylistAudio}
@@ -1535,6 +1486,12 @@ export function PlayTestModal(props: PlayTestProps) {
                   props.setWindowSettings((current) => ({
                     ...current,
                     autoPlayOnPlaylistJump: !current.autoPlayOnPlaylistJump,
+                  }))
+                }
+                onShowCurrentBranchOnlyChange={() =>
+                  props.setWindowSettings((current) => ({
+                    ...current,
+                    showCurrentBranchOnly: !current.showCurrentBranchOnly,
                   }))
                 }
               />

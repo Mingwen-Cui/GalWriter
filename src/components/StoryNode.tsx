@@ -540,6 +540,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     mentionId?: string;
     placement?: 'start' | 'end' | 'inline';
   } | null>(null);
+  // Editing a phase is independent from where this mention sits in the text.
+  const [presentationEditorPhase, setPresentationEditorPhase] = useState<
+    'enter' | 'inline' | 'exit'
+  >('enter');
   const presentationMenuRef = useRef<HTMLDivElement>(null);
   const [presentationMenuPosition, setPresentationMenuPosition] = useState({ left: 12, top: 12 });
   const previewFrameRef = useRef<number | null>(null);
@@ -1849,9 +1853,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     if (nextText !== currentText) {
       handleTextChange(nextText);
     }
-    if (menu.placement === 'inline') {
-      deleteInlineAction(menu.mentionId || `${menu.kind}:${menu.sourceNodeId}`);
-    }
+    deleteInlineAction(menu.mentionId || `${menu.kind}:${menu.sourceNodeId}`);
     setPresentationResetUndo(null);
     setPresentationMenu(null);
   };
@@ -1869,6 +1871,26 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     );
   };
 
+  const selectPresentationEditorPhase = (phase: 'enter' | 'inline' | 'exit') => {
+    setPresentationEditorPhase(phase);
+    if (!presentationMenu) return;
+    const action = getInlineAction(presentationMenu);
+    const presentation = getPresentation();
+    const stage =
+      presentationMenu.kind === 'character'
+        ? presentation.characters.find(
+            (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
+          )
+        : presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
+          ? presentation.scene
+          : undefined;
+    updateInlineAction({
+      ...action,
+      timelinePhase: phase,
+      duration: phase === 'inline' ? action.duration : stage?.[phase].duration || action.duration,
+    });
+  };
+
   const previewInlineAction = (action: InlinePresentationAction, mode: 'before' | 'after') => {
     setPresentationPreview(null);
     const nonce = Date.now();
@@ -1881,9 +1903,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     }
     setInlineActionPreview({ action, mode, nonce });
   };
-
-  const presentationPhaseForPlacement = (placement?: 'start' | 'end' | 'inline') =>
-    placement === 'end' ? 'exit' : 'enter';
 
   const handleMentionContextMenu = (
     event: React.MouseEvent<HTMLSpanElement>,
@@ -1921,7 +1940,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       );
     if (!sourceNode) return;
 
-    const placementPhase = presentationPhaseForPlacement(mention.placement);
     if (mention.kind === 'scene') {
       if (presentation.scene?.sourceNodeId !== sourceNode.id) {
         const sceneMedia =
@@ -1949,7 +1967,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           },
         });
       }
-    } else if (mention.placement !== 'inline') {
+    } else {
       if (!presentation.characters.some((item) => item.sourceNodeId === sourceNode.id)) {
         updateNodeData({
           presentation: {
@@ -1969,8 +1987,11 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       mentionId: mention.id,
       placement: mention.placement,
     });
-    if (mention.placement !== 'inline')
-      replayPresentation(mention.kind, sourceNode.id, placementPhase);
+    const actionId = mention.id || `${mention.kind}:${sourceNode.id}`;
+    const existingPhase = presentation.inlineActions?.find((action) => action.id === actionId)
+      ?.timelinePhase;
+    setPresentationEditorPhase(existingPhase || 'enter');
+    replayPresentation(mention.kind, sourceNode.id, 'enter');
   };
 
   const handleGenerateImage = async () => {
@@ -3357,11 +3378,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               onMouseDown={(event) => event.stopPropagation()}
               onContextMenu={(event) => event.preventDefault()}
             >
-              <div
-                className={`absolute right-3 top-3 flex items-center gap-1 ${
-                  presentationMenu.placement === 'inline' ? 'hidden' : ''
-                }`}
-              >
+              <div className="absolute right-3 top-3 flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -3395,7 +3412,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         getPresentation().characters.find(
                           (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
                         ) || createCharacterPresentation(presentationMenu.sourceNodeId);
-                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
+                      const phase = presentationEditorPhase === 'exit' ? 'exit' : 'enter';
                       setPresentationResetUndo({
                         kind: 'character',
                         sourceNodeId: presentationMenu.sourceNodeId,
@@ -3415,7 +3432,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                         getPresentation().scene?.sourceNodeId === presentationMenu.sourceNodeId
                           ? getPresentation().scene!
                           : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
-                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
+                      const phase = presentationEditorPhase === 'exit' ? 'exit' : 'enter';
                       setPresentationResetUndo({
                         kind: 'scene',
                         sourceNodeId: presentationMenu.sourceNodeId,
@@ -3456,14 +3473,34 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {presentationMenu.placement !== 'inline' && (
-                <div className="mb-3 pr-12 text-sm font-black">
-                  {presentationMenu.kind === 'character' ? '人物演出' : '场景演出'}：
-                  {presentationMenu.name}
-                </div>
-              )}
+              <div className="mb-3 pr-12 text-sm font-black">
+                {presentationMenu.kind === 'character' ? '人物演出' : '场景演出'}：
+                {presentationMenu.name}
+              </div>
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ['enter', '入场'],
+                    ['inline', '中场'],
+                    ['exit', '出场'],
+                  ] as const
+                ).map(([phase, label]) => (
+                  <button
+                    key={phase}
+                    type="button"
+                    onClick={() => selectPresentationEditorPhase(phase)}
+                    className={`rounded-lg border p-2 text-xs font-bold transition-colors ${
+                      presentationEditorPhase === phase
+                        ? 'border-indigo-500 bg-indigo-500 text-white'
+                        : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                    }`}
+                  >
+                    {label}动画
+                  </button>
+                ))}
+              </div>
 
-              {presentationMenu.placement === 'inline' &&
+              {presentationEditorPhase === 'inline' &&
                 (() => {
                   const action = getInlineAction(presentationMenu);
                   const presentation = getPresentation();
@@ -3537,14 +3574,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   );
                 })()}
 
-              {presentationMenu.placement !== 'inline' && presentationMenu.kind === 'character'
+              {presentationEditorPhase !== 'inline' && presentationMenu.kind === 'character'
                 ? (() => {
                     const presentation = getPresentation();
                     const current =
                       presentation.characters.find(
                         (item) => item.sourceNodeId === presentationMenu.sourceNodeId,
                       ) || createCharacterPresentation(presentationMenu.sourceNodeId);
-                    const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
+                    const activePhase = presentationEditorPhase;
                     return (
                       <div className="space-y-3 text-xs">
                         <div className="flex items-center justify-between bg-[var(--app-bg)] rounded-lg p-1.5 border border-[var(--card-border)]/40 gap-1">
@@ -3852,14 +3889,14 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       </div>
                     );
                   })()
-                : presentationMenu.placement !== 'inline'
+                : presentationEditorPhase !== 'inline'
                   ? (() => {
                       const presentation = getPresentation();
                       const current =
                         presentation.scene?.sourceNodeId === presentationMenu.sourceNodeId
                           ? presentation.scene
                           : createScenePresentation(presentationMenu.sourceNodeId, imageUrl);
-                      const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
+                      const activePhase = presentationEditorPhase;
                       const sourceNode = storeApi
                         .getState()
                         .nodes.find((node) => node.id === presentationMenu.sourceNodeId);
@@ -3984,7 +4021,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               />
                             </label>
                           )}
-                          {switchableAssets.length > 1 && (
+                          {presentationEditorPhase === 'inline' && switchableAssets.length > 1 && (
                             <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
                               <div className="mb-2 text-[10px] font-bold text-blue-600">
                                 场景 Tag 动画

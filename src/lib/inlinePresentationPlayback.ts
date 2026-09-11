@@ -121,6 +121,14 @@ export const buildInlinePlaybackSteps = (
     if (node.classList.contains('mention-chip') || node.hasAttribute('data-mention-kind')) {
       const placement = mentionPlacement(container, node);
       const action = findInlineAction(node, presentation);
+      // A tag can explicitly place a stage entrance or exit at this point in
+      // the typewriter timeline, even when it appears at the beginning/end.
+      if (action?.timelinePhase) {
+        flush();
+        steps.push({ kind: 'action', action });
+        buffer += visibleMentionHtml(node);
+        return;
+      }
       // A scene tag often sits at the beginning or end of a card rather than
       // in the middle of a sentence. Switching its media must still be a
       // real playback step, otherwise the editor can save a switch that the
@@ -215,7 +223,11 @@ export const latestPersistentInlineAction = (
 
 /** The visual effect and its playback timer must share the same duration. */
 export const getInlineActionDuration = (action?: InlinePresentationAction | null) => {
-  if (!action || action.action === 'none') return 0;
+  if (!action) return 0;
+  if (action.timelinePhase === 'enter' || action.timelinePhase === 'exit') {
+    return Math.max(0, action.duration || 0);
+  }
+  if (action.action === 'none') return 0;
   const fallback = action.action === 'switch' ? 420 : 400;
   const duration = Number.isFinite(action.duration) ? action.duration : fallback;
   return Math.max(action.action === 'switch' ? 180 : 80, duration);

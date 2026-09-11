@@ -74,6 +74,7 @@ const normalizePlaytestWindowSettings = (
     autoScaleOnHover: value?.autoScaleOnHover === true,
     autoExpandOnPlaylistJump: value?.autoExpandOnPlaylistJump === true,
     autoPlayOnPlaylistJump: value?.autoPlayOnPlaylistJump === true,
+    showCurrentBranchOnly: value?.showCurrentBranchOnly === true,
   };
 };
 

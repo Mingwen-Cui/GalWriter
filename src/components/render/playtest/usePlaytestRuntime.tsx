@@ -137,6 +137,7 @@ export function usePlaytestRuntime(
   const root = nodes.find((n) => n.data.isRoot) || nodes[0];
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(root?.id || null);
   const [history, setHistory] = useState<string[]>([]);
+  const [playedStoryNodeIds, setPlayedStoryNodeIds] = useState<Set<string>>(() => new Set());
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -255,8 +256,23 @@ export function usePlaytestRuntime(
    * 跳转到指定节点并重置动画完成状态，避免切换时按钮闪烁
    * @param nodeId 目标节点 ID
    */
+  const markStoryNodeAsPlayed = React.useCallback(
+    (nodeId: string | null) => {
+      if (!nodeId || nodeId === 'THE_END') return;
+      if (!nodes.some((node) => node.id === nodeId && node.type === 'storyNode')) return;
+      setPlayedStoryNodeIds((previous) => {
+        if (previous.has(nodeId)) return previous;
+        const next = new Set(previous);
+        next.add(nodeId);
+        return next;
+      });
+    },
+    [nodes],
+  );
+
   const navigateToNode = React.useCallback(
     (nodeId: string | null) => {
+      if (nodeId !== currentNodeId) markStoryNodeAsPlayed(currentNodeId);
       incomingSceneMediaRef.current = displayedSceneMediaRef.current;
       setPresentationVisible(false);
       setPresentationExiting(false);
@@ -271,7 +287,7 @@ export function usePlaytestRuntime(
       setCurrentNodeId(nodeId);
       setAnimationCompleted(false);
     },
-    [currentNodeId],
+    [currentNodeId, markStoryNodeAsPlayed],
   );
 
   const currentNode = nodes.find((n) => n.id === currentNodeId);
@@ -650,25 +666,88 @@ export function usePlaytestRuntime(
     return container.textContent?.trim().replace(/\s+/g, ' ') || '';
   }, []);
 
+  // Once a choice is made, keep the unchosen direction available as a compact
+  // outline in the playlist, while the selected route remains fully readable.
+  // Nodes where routes rejoin stay visible because they are on the played path.
+  const minimizedBranchNodeIds = React.useMemo(() => {
+    const activePath = [...history, currentNodeId].filter((nodeId): nodeId is string =>
+      Boolean(nodeId && nodeId !== 'THE_END'),
+    );
+    const activePathIds = new Set(activePath);
+    const minimized = new Set<string>();
+    const visitBranch = (nodeId: string) => {
+      if (minimized.has(nodeId) || activePathIds.has(nodeId)) return;
+      minimized.add(nodeId);
+      edges.filter((edge) => edge.source === nodeId).forEach((edge) => visitBranch(edge.target));
+    };
+
+    activePath.slice(0, -1).forEach((sourceId, index) => {
+      const selectedTarget = activePath[index + 1];
+      edges
+        .filter((edge) => edge.source === sourceId && edge.target !== selectedTarget)
+        .forEach((edge) => visitBranch(edge.target));
+    });
+
+    return minimized;
+  }, [currentNodeId, edges, history]);
+
+  const currentBranchNodeIds = React.useMemo(() => {
+    const visible = new Set(
+      [...history, currentNodeId].filter((nodeId): nodeId is string =>
+        Boolean(nodeId && nodeId !== 'THE_END'),
+      ),
+    );
+    let cursor = currentNodeId;
+    const visited = new Set<string>();
+    while (cursor && cursor !== 'THE_END' && !visited.has(cursor)) {
+      visited.add(cursor);
+      const outgoing = edges.filter((edge) => edge.source === cursor);
+      if (outgoing.length !== 1) break;
+      cursor = outgoing[0].target;
+      if (cursor !== 'THE_END') visible.add(cursor);
+    }
+    return visible;
+  }, [currentNodeId, edges, history]);
+
   // The playtest playlist is a reading map: every written story segment is
   // available to jump to, while only segments with narration expose playback.
   const playlistAudios = React.useMemo(() => {
     return nodes.flatMap((node) => {
       if (node.type !== 'storyNode') return [];
+      if (windowSettings.showCurrentBranchOnly && !currentBranchNodeIds.has(node.id)) return [];
       const text = getSegmentText(node);
-      if (!text) return [];
-      const url = typeof node.data.audioUrl === 'string' ? node.data.audioUrl.trim() : '';
       const title = typeof node.data.title === 'string' ? node.data.title.trim() : '';
+      // A branch entry can intentionally have only a title. Keep it in the
+      // playlist so alternative routes never disappear just because their
+      // first card has no body text yet.
+      if (!text && !title) return [];
+      const url = typeof node.data.audioUrl === 'string' ? node.data.audioUrl.trim() : '';
       return [
         {
           nodeId: node.id,
           title: title || playtestText.untitledSegment,
-          description: text,
+          ...(text ? { description: text } : {}),
+          status:
+            node.id === currentNodeId
+              ? ('current' as const)
+              : playedStoryNodeIds.has(node.id)
+                ? ('played' as const)
+                : ('unplayed' as const),
+          minimized: minimizedBranchNodeIds.has(node.id),
           ...(url ? { url } : {}),
         },
       ];
     });
-  }, [getSegmentText, nodes, playtestText.untitledSegment]);
+  }, [
+    currentNodeId,
+    currentBranchNodeIds,
+    getSegmentText,
+    minimizedBranchNodeIds,
+    nodes,
+    playedStoryNodeIds,
+    playtestText.untitledSegment,
+    windowSettings.showCurrentBranchOnly,
+  ]);
 
   const recordCurrentAudio = React.useCallback(() => {
     if (!currentNode || typeof currentNode.data.audioUrl !== 'string') return;
@@ -859,7 +938,9 @@ export function usePlaytestRuntime(
       clearTimers();
       setActiveInlineAction(null);
       setCompletedSwitchActions(actions.filter(isSwitchInlineAction));
-      setCompletedInlineActions(actions.filter(isPersistentInlineAction));
+      setCompletedInlineActions(
+        actions.filter((action) => isPersistentInlineAction(action) || Boolean(action.timelinePhase)),
+      );
       setDisplayedHtml(textHtml);
       setTimeLeft(0);
       setAnimationCompleted(true);
@@ -938,7 +1019,7 @@ export function usePlaytestRuntime(
           if (isSwitchInlineAction(step.action)) {
             setCompletedSwitchActions((previous) => [...previous, step.action]);
           }
-          if (isPersistentInlineAction(step.action)) {
+          if (isPersistentInlineAction(step.action) || step.action.timelinePhase) {
             setCompletedInlineActions((previous) => [...previous, step.action]);
           }
           stepIndex += 1;
@@ -1442,6 +1523,7 @@ export function usePlaytestRuntime(
     autoAdvanceHoldNodeRef.current = rootId;
     setHistory([]);
     navigateToNode(rootId);
+    setPlayedStoryNodeIds(new Set());
   }, [navigateToNode, restartPlaybackSession, root?.id]);
 
   const showNodeAsCurrentPage = React.useCallback(
@@ -1747,11 +1829,29 @@ export function usePlaytestRuntime(
         }`}
       >
         {presentedCharacters.map(({ config, data, imageUrl, appearance }) => {
-          const motion = presentationExiting ? config.exit : config.enter;
-          const animationActive = presentationExiting || !presentationVisible;
+          const hasEnterCue = presentation.inlineActions?.some(
+            (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+          );
+          const enterCueActive =
+            activeInlineAction?.timelinePhase === 'enter' &&
+            activeInlineAction.kind === 'character' &&
+            activeInlineAction.sourceNodeId === config.sourceNodeId;
+          const exitCueActive =
+            activeInlineAction?.timelinePhase === 'exit' &&
+            activeInlineAction.kind === 'character' &&
+            activeInlineAction.sourceNodeId === config.sourceNodeId;
+          const enterCueCompleted = completedInlineActions.some(
+            (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+          );
+          const exitCueCompleted = completedInlineActions.some(
+            (action) => action.timelinePhase === 'exit' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+          );
+          const waitingForEnterCue = Boolean(hasEnterCue && !enterCueActive && !enterCueCompleted);
+          const motion = presentationExiting || exitCueActive ? config.exit : config.enter;
+          const animationActive = presentationExiting || exitCueActive || waitingForEnterCue || exitCueCompleted;
           const animationTransform =
             animationActive && motion
-              ? getPresentationTransform(motion.type, presentationExiting)
+              ? getPresentationTransform(motion.type, presentationExiting || exitCueActive || exitCueCompleted)
               : '';
           const inlineAction =
             activeInlineAction?.kind === 'character' &&

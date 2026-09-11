@@ -37,6 +37,7 @@ const getStoredWindowSettings = (): PlaytestWindowSettings => {
     autoScaleOnHover: false,
     autoExpandOnPlaylistJump: false,
     autoPlayOnPlaylistJump: false,
+    showCurrentBranchOnly: false,
   };
   if (typeof window === 'undefined') return fallback;
 
@@ -62,6 +63,7 @@ const getStoredWindowSettings = (): PlaytestWindowSettings => {
       autoScaleOnHover: false,
       autoExpandOnPlaylistJump: false,
       autoPlayOnPlaylistJump: false,
+      showCurrentBranchOnly: false,
     };
   } catch {
     return fallback;

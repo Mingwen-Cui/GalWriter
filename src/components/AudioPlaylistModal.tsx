@@ -1,4 +1,13 @@
-import { ChevronsDown, ChevronsUp, LocateFixed, Maximize2, Pause, Play, X } from 'lucide-react';
+import {
+  ChevronsDown,
+  ChevronsUp,
+  GitBranch,
+  LocateFixed,
+  Maximize2,
+  Pause,
+  Play,
+  X,
+} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 export type AudioPlaylistItem = {
@@ -6,6 +15,8 @@ export type AudioPlaylistItem = {
   title: string;
   description?: string;
   url?: string;
+  status: 'current' | 'played' | 'unplayed';
+  minimized: boolean;
 };
 
 type AudioPlaylistModalProps = {
@@ -23,6 +34,8 @@ type AudioPlaylistModalProps = {
   autoExpandOnJumpLabel: string;
   autoPlayOnJump: boolean;
   autoPlayOnJumpLabel: string;
+  showCurrentBranchOnly: boolean;
+  showCurrentBranchOnlyLabel: string;
   dark?: boolean;
   scope?: 'viewport' | 'container' | 'panel';
   onClose: () => void;
@@ -30,6 +43,7 @@ type AudioPlaylistModalProps = {
   onJumpToItem: (item: AudioPlaylistItem) => void;
   onAutoExpandOnJumpChange: () => void;
   onAutoPlayOnJumpChange: () => void;
+  onShowCurrentBranchOnlyChange: () => void;
 };
 
 export function AudioPlaylistModal({
@@ -47,6 +61,8 @@ export function AudioPlaylistModal({
   autoExpandOnJumpLabel,
   autoPlayOnJump,
   autoPlayOnJumpLabel,
+  showCurrentBranchOnly,
+  showCurrentBranchOnlyLabel,
   dark = true,
   scope = 'viewport',
   onClose,
@@ -54,6 +70,7 @@ export function AudioPlaylistModal({
   onJumpToItem,
   onAutoExpandOnJumpChange,
   onAutoPlayOnJumpChange,
+  onShowCurrentBranchOnlyChange,
 }: AudioPlaylistModalProps) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(() => new Set());
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
@@ -156,11 +173,25 @@ export function AudioPlaylistModal({
             items.map((item) => {
               const active = Boolean(item.url && activeUrl === item.url && isPlaying);
               const expanded =
-                allExpanded || expandedItems.has(item.nodeId) || hoveredItemId === item.nodeId;
+                !item.minimized &&
+                (allExpanded || expandedItems.has(item.nodeId) || hoveredItemId === item.nodeId);
+              const itemClass =
+                item.status === 'current'
+                  ? dark
+                    ? 'border-sky-300/40 bg-sky-400/15'
+                    : 'border-indigo-300 bg-indigo-50'
+                  : item.status === 'played'
+                    ? dark
+                      ? 'border-violet-300/20 bg-violet-400/[0.08]'
+                      : 'border-violet-200 bg-violet-50/70'
+                    : active
+                      ? activeItemClass
+                      : inactiveItemClass;
               return (
                 <div
                   key={item.nodeId}
                   onClick={() =>
+                    !item.minimized &&
                     setExpandedItems((current) => {
                       const next = new Set(current);
                       if (next.has(item.nodeId)) next.delete(item.nodeId);
@@ -170,8 +201,8 @@ export function AudioPlaylistModal({
                   }
                   onMouseEnter={() => setHoveredItemId(item.nodeId)}
                   onMouseLeave={() => setHoveredItemId(null)}
-                  className={`group cursor-pointer rounded-xl border px-3 py-2 ${
-                    active ? activeItemClass : inactiveItemClass
+                  className={`group rounded-xl border px-3 py-2 ${itemClass} ${
+                    item.minimized ? 'cursor-default opacity-45' : 'cursor-pointer'
                   }`}
                 >
                   <div className="flex min-h-9 items-center gap-2">
@@ -182,7 +213,7 @@ export function AudioPlaylistModal({
                     >
                       {item.title}
                     </span>
-                    {item.url ? (
+                    {item.url && !item.minimized ? (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -240,6 +271,13 @@ export function AudioPlaylistModal({
             icon={<Play className="h-4 w-4" />}
             label={autoPlayOnJumpLabel}
             onClick={onAutoPlayOnJumpChange}
+          />
+          <PlaylistToggle
+            active={showCurrentBranchOnly}
+            dark={dark}
+            icon={<GitBranch className="h-4 w-4" />}
+            label={showCurrentBranchOnlyLabel}
+            onClick={onShowCurrentBranchOnlyChange}
           />
         </div>
       </div>

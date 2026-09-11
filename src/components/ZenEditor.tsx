@@ -154,6 +154,11 @@ export function ZenEditor({
       })
     | null
   >(null);
+  // Text placement determines when a tag is played.  The editor phase is deliberately
+  // independent, so any tag can configure its entrance, inline, or exit behaviour.
+  const [presentationEditorPhase, setPresentationEditorPhase] = useState<
+    'enter' | 'inline' | 'exit'
+  >('enter');
   const [preview, setPreview] = useState<{
     kind: 'character' | 'scene';
     sourceNodeId?: string;
@@ -366,7 +371,7 @@ export function ZenEditor({
 
   // NOTE: 应用角色模板
   const handleApplyCharacterTemplate = (tpl: CharacterTemplate) => {
-    if (!presentationMenu || presentationMenu.placement === 'inline') return;
+    if (!presentationMenu || presentationEditorPhase === 'inline') return;
     updateCharacter(
       presentationMenu.id,
       (current) => ({
@@ -379,7 +384,7 @@ export function ZenEditor({
 
   // NOTE: 应用场景模板
   const handleApplySceneTemplate = (tpl: SceneTemplate) => {
-    if (!presentationMenu || presentationMenu.placement === 'inline') return;
+    if (!presentationMenu || presentationEditorPhase === 'inline') return;
     updateScene(
       presentationMenu.id,
       (current) => ({
@@ -548,6 +553,25 @@ export function ZenEditor({
     );
   };
 
+  const selectPresentationEditorPhase = (phase: 'enter' | 'inline' | 'exit') => {
+    setPresentationEditorPhase(phase);
+    if (!presentationMenu) return;
+    const action = getInlineAction(presentationMenu);
+    const stage =
+      presentationMenu.kind === 'character'
+        ? normalizedPresentation.characters.find(
+            (item) => item.sourceNodeId === presentationMenu.id,
+          )
+        : normalizedPresentation.scene?.sourceNodeId === presentationMenu.id
+          ? normalizedPresentation.scene
+          : undefined;
+    updateInlineAction({
+      ...action,
+      timelinePhase: phase,
+      duration: phase === 'inline' ? action.duration : stage?.[phase].duration || action.duration,
+    });
+  };
+
   const previewInlineAction = (action: InlinePresentationAction, mode: 'before' | 'after') => {
     setPreview(null);
     const nonce = Date.now();
@@ -561,9 +585,6 @@ export function ZenEditor({
     setInlineActionPreview({ action, mode, nonce });
   };
 
-  const presentationPhaseForPlacement = (placement?: 'start' | 'end' | 'inline') =>
-    placement === 'end' ? 'exit' : 'enter';
-
   const openCharacterMenu = (
     tag: ZenTag,
     options: { mentionId?: string; placement?: 'start' | 'end' | 'inline' } = {},
@@ -575,8 +596,8 @@ export function ZenEditor({
       });
     }
     setPresentationMenu({ ...tag, kind: 'character', ...options });
-    if (options.placement !== 'inline')
-      replayCharacter(tag.id, presentationPhaseForPlacement(options.placement));
+    setPresentationEditorPhase(getInlineAction({ ...tag, kind: 'character', ...options }).timelinePhase || 'enter');
+    replayCharacter(tag.id, 'enter');
   };
 
   const replayScene = (
@@ -632,8 +653,8 @@ export function ZenEditor({
       });
     }
     setPresentationMenu({ ...tag, kind: 'scene', ...options });
-    if (options.placement !== 'inline')
-      replayScene(tag.id, presentationPhaseForPlacement(options.placement));
+    setPresentationEditorPhase(getInlineAction({ ...tag, kind: 'scene', ...options }).timelinePhase || 'enter');
+    replayScene(tag.id, 'enter');
   };
 
   const cardVideoMentionName = '卡片视频';
@@ -1511,8 +1532,33 @@ export function ZenEditor({
           </div>
         </div>
         <div className="zen-editor-panel-body min-h-0 flex-1 overflow-y-auto px-5 py-3">
+          {rightPanel === 'presentation' && presentationMenu && (
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              {(
+                [
+                  ['enter', '入场'],
+                  ['inline', '中场'],
+                  ['exit', '出场'],
+                ] as const
+              ).map(([phase, label]) => (
+                <button
+                  key={phase}
+                  type="button"
+                  onClick={() => selectPresentationEditorPhase(phase)}
+                  className={`rounded-lg border p-2 text-xs font-bold transition-colors ${
+                    presentationEditorPhase === phase
+                      ? 'border-indigo-500 bg-indigo-500 text-white'
+                      : 'border-[var(--card-border)] bg-[var(--app-bg)] hover:border-indigo-500/50 hover:bg-indigo-500/10'
+                  }`}
+                >
+                  {label}动画
+                </button>
+              ))}
+            </div>
+          )}
           {rightPanel === 'presentation' &&
-            presentationMenu?.placement === 'inline' &&
+            presentationMenu &&
+            presentationEditorPhase === 'inline' &&
             (() => {
               const action = getInlineAction(presentationMenu);
               const currentCharacter =
@@ -1577,7 +1623,8 @@ export function ZenEditor({
               );
             })()}
           {rightPanel === 'presentation' &&
-            presentationMenu?.placement !== 'inline' &&
+            presentationMenu &&
+            presentationEditorPhase !== 'inline' &&
             presentationMenu?.kind === 'character' &&
             (() => {
               const current =
@@ -1593,7 +1640,7 @@ export function ZenEditor({
                 { value: 'slide-down', label: '↓ 向下滑动' },
                 { value: 'zoom', label: '↕ 缩放' },
               ];
-              const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
+              const activePhase = presentationEditorPhase;
               return (
                 <div className="relative text-sm text-[var(--text-primary)]">
                   <button
@@ -1616,7 +1663,7 @@ export function ZenEditor({
                         sourceNodeId: presentationMenu.id,
                         value: structuredClone(current),
                       });
-                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
+                      const phase = activePhase;
                       updateCharacter(
                         presentationMenu.id,
                         (current) => ({
@@ -1931,7 +1978,8 @@ export function ZenEditor({
               );
             })()}
           {rightPanel === 'presentation' &&
-            presentationMenu?.placement !== 'inline' &&
+            presentationMenu &&
+            presentationEditorPhase !== 'inline' &&
             presentationMenu?.kind === 'scene' &&
             (() => {
               const current =
@@ -1949,7 +1997,7 @@ export function ZenEditor({
                 { value: 'slide-down', label: '↓ 向下滑动' },
                 { value: 'zoom', label: '↕ 缩放' },
               ];
-              const activePhase = presentationPhaseForPlacement(presentationMenu.placement);
+              const activePhase = presentationEditorPhase;
               return (
                 <div className="relative text-sm text-[var(--text-primary)]">
                   <button
@@ -1972,7 +2020,7 @@ export function ZenEditor({
                         sourceNodeId: presentationMenu.id,
                         value: structuredClone(current),
                       });
-                      const phase = presentationPhaseForPlacement(presentationMenu.placement);
+                      const phase = activePhase;
                       updateScene(
                         presentationMenu.id,
                         (item) => ({
@@ -2179,7 +2227,7 @@ export function ZenEditor({
                       />
                     </label>
                   )}
-                  {switchableAssets.length > 1 && (
+                  {presentationEditorPhase === 'inline' && switchableAssets.length > 1 && (
                     <div className="mb-3 rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
                       <div className="mb-2 text-[10px] font-bold text-blue-600">场景 Tag 动画</div>
                       <InlineActionEditor

@@ -114,13 +114,34 @@ export function WebPlaytestMediaLayers({
         {presentedCharacters.length > 0 && (
           <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
             {presentedCharacters.map(({ config, data, imageUrl }) => {
-              const motion = presentationExiting ? config.exit : config.enter;
+              const hasEnterCue = presentation.inlineActions?.some(
+                (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+              );
+              const enterCueActive =
+                activeInlineAction?.timelinePhase === 'enter' &&
+                activeInlineAction.kind === 'character' &&
+                activeInlineAction.sourceNodeId === config.sourceNodeId;
+              const exitCueActive =
+                activeInlineAction?.timelinePhase === 'exit' &&
+                activeInlineAction.kind === 'character' &&
+                activeInlineAction.sourceNodeId === config.sourceNodeId;
+              const enterCueCompleted = completedInlineActions.some(
+                (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+              );
+              const exitCueCompleted = completedInlineActions.some(
+                (action) => action.timelinePhase === 'exit' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+              );
+              const waitingForEnterCue = Boolean(hasEnterCue && !enterCueActive && !enterCueCompleted);
+              const motion = presentationExiting || exitCueActive ? config.exit : config.enter;
+              // Classic mode intentionally skips the card-level entrance, but a
+              // Tag cue is an explicit timeline event and must still animate.
+              const timelineCueAnimation = exitCueActive || exitCueCompleted || waitingForEnterCue;
               const animationActive =
-                settings.layoutMode === 'immersive' &&
-                (presentationExiting || !presentationVisible);
+                timelineCueAnimation ||
+                (settings.layoutMode === 'immersive' && (presentationExiting || !presentationVisible));
               const animationTransform =
                 animationActive && motion
-                  ? getPresentationTransform(motion.type, presentationExiting)
+                  ? getPresentationTransform(motion.type, presentationExiting || exitCueActive || exitCueCompleted)
                   : '';
               const inlineAction =
                 activeInlineAction?.kind === 'character' &&
@@ -151,11 +172,13 @@ export function WebPlaytestMediaLayers({
                     transitionProperty: 'opacity, transform',
                     transitionDuration: inlineAction
                       ? `${inlineDuration}ms`
+                      : timelineCueAnimation
+                        ? `${motion.type === 'none' ? 0 : motion.duration}ms`
                       : settings.layoutMode === 'classic'
                         ? '0ms'
                         : `${motion.type === 'none' ? 0 : motion.duration}ms`,
                     transitionDelay:
-                      settings.layoutMode === 'classic' || presentationExiting
+                      timelineCueAnimation || settings.layoutMode === 'classic' || presentationExiting
                         ? '0ms'
                         : `${getCharacterEnterDelay(presentation)}ms`,
                     transitionTimingFunction: 'ease-out',

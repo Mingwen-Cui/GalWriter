@@ -731,7 +731,11 @@ export function WebPlaytestPreview({
               step.kind === 'action',
           )
           .map((step) => step.action)
-          .filter((action) => isPersistentInlineAction(action) && action.action !== 'switch'),
+          .filter(
+            (action) =>
+              (isPersistentInlineAction(action) && action.action !== 'switch') ||
+              Boolean(action.timelinePhase),
+          ),
       );
       setDisplayedPreviewText(text);
       if (!switchActions.length) {
@@ -788,7 +792,7 @@ export function WebPlaytestPreview({
             if (step.action.action === 'switch' && step.action.targetAssetId) {
               setCompletedSwitchActions((previous) => [...previous, step.action]);
             }
-            if (isPersistentInlineAction(step.action)) {
+            if (isPersistentInlineAction(step.action) || step.action.timelinePhase) {
               setCompletedInlineActions((previous) => [...previous, step.action]);
             }
             stepIndex += 1;
