@@ -267,7 +267,7 @@ export function RenderObjectInspector({
         {language === 'zh' ? '圆角 · 四角设置' : 'Corner radius'}
       </button>
       {cornersOpen && (
-        <FloatingPopover popoverKey="corners" onClose={() => setCornersOpen(false)}>
+        <FloatingPopover language={language} popoverKey="corners" onClose={() => setCornersOpen(false)}>
           <CornerEditor
             language={language}
             value={

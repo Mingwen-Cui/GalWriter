@@ -228,6 +228,35 @@
   font-weight: 600;
   margin-bottom: 12px;
 }
+.property-floating-popover {
+  border: 1px solid var(--vr-border, #e2e8f0);
+  border-radius: 16px;
+  background: var(--vr-surface, #fff);
+  color: var(--vr-text, #0f172a);
+  box-shadow: 0 16px 48px #0003;
+}
+.property-floating-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 12px 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.property-floating-popover-body {
+  border-radius: 0 0 16px 16px;
+}
+.property-floating-popover-body > .property-editor-popover,
+.property-floating-popover-body > .property-paint-popover {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
 .property-select {
   height: 32px;
   width: 100%;

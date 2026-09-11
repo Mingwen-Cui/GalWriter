@@ -3,15 +3,15 @@ import {
   AlignLeft,
   AlignRight,
   ChevronDown,
-  GripHorizontal,
   Image as ImageIcon,
   Palette,
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './inspector.css';
+import type { Language } from '../../../../lib/i18n';
 
 import { DragSizeControl } from '../../video/controls/RenderControls';
 import type { RenderFillType, TextAlign } from '../../video/shared/types';
@@ -505,19 +505,43 @@ export function GradientIcon() {
   );
 }
 
+export const FloatingPopoverHeaderContext = createContext(false);
+
+const popoverTitles = {
+  zh: {
+    solid: '纯色', gradient: '渐变', image: '图片', video: '视频',
+    layers: '图层顺序', corners: '圆角', style: '样式',
+  },
+  en: {
+    solid: 'Solid', gradient: 'Gradient', image: 'Image', video: 'Video',
+    layers: 'Layer order', corners: 'Corner radius', style: 'Style',
+  },
+  ja: {
+    solid: '単色', gradient: 'グラデーション', image: '画像', video: '動画',
+    layers: 'レイヤー順序', corners: '角丸', style: 'スタイル',
+  },
+};
+
 export function FloatingPopover({
   children,
   className = '',
   popoverKey = 'style',
+  title,
+  language = 'zh',
   onClose,
-  closeLabel = 'Close',
+  closeLabel,
 }: {
   children: React.ReactNode;
   className?: string;
   popoverKey?: 'solid' | 'gradient' | 'image' | 'video' | 'layers' | 'corners' | 'style';
+  title?: string;
+  language?: Language;
   onClose?: () => void;
   closeLabel?: string;
 }) {
+  const titleId = useId();
+  const heading = title || popoverTitles[language][popoverKey];
+  const dismissLabel = closeLabel || { zh: '关闭', en: 'Close', ja: '閉じる' }[language];
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -581,17 +605,18 @@ export function FloatingPopover({
         createPortal(
           <div
             ref={panelRef}
-            className={`fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : popoverKey === 'gradient' ? 'w-[min(392px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`}
+            className={`property-floating-popover fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : popoverKey === 'gradient' ? 'w-[min(392px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`}
             style={position}
             role="dialog"
-            aria-label={popoverKey}
+            aria-labelledby={titleId}
             data-web-style-popover
           >
             <div
-              className="relative flex h-7 cursor-grab touch-none items-center justify-center rounded-t-xl border border-b-0 border-slate-200 bg-white text-slate-400 shadow-sm active:cursor-grabbing dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
-              title="Drag"
+              className="property-floating-popover-header cursor-grab touch-none select-none active:cursor-grabbing"
               onPointerDown={(event) => {
                 if (event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
                 dragRef.current = {
                   pointerId: event.pointerId,
                   x: event.clientX,
@@ -632,14 +657,17 @@ export function FloatingPopover({
               onPointerCancel={() => {
                 dragRef.current = null;
               }}
+              onLostPointerCapture={() => {
+                dragRef.current = null;
+              }}
             >
-              <GripHorizontal className="h-4 w-4" aria-hidden="true" />
+              <span id={titleId} className="min-w-0 flex-1 truncate">{heading}</span>
               {onClose && (
                 <button
                   type="button"
-                  className="absolute right-1 grid h-5 w-5 cursor-pointer place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
-                  title={closeLabel}
-                  aria-label={closeLabel}
+                  className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:hover:bg-slate-800 dark:hover:text-white"
+                  title={dismissLabel}
+                  aria-label={dismissLabel}
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={onClose}
                 >
@@ -647,7 +675,9 @@ export function FloatingPopover({
                 </button>
               )}
             </div>
-            <div className="[&>div]:rounded-t-none [&>div]:rounded-b-[22px]">{children}</div>
+            <FloatingPopoverHeaderContext.Provider value={true}>
+              <div className="property-floating-popover-body">{children}</div>
+            </FloatingPopoverHeaderContext.Provider>
           </div>,
           document.body,
         )}

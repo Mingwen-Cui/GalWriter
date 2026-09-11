@@ -9,7 +9,8 @@ import {
   RotateCw,
   Upload,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { FloatingPopoverHeaderContext } from '../inspectors/InspectorControls';
 
 import { DraggableNumberInput } from '../../../DraggableNumberInput';
 import type {
@@ -537,6 +538,7 @@ export function GradientPopover({
   onGradientTypeChange: (value: RenderGradientType) => void;
   onStopsChange: (value: RenderColorStop[]) => void;
 }) {
+  const hasPopoverHeader = useContext(FloatingPopoverHeaderContext);
   const [stopFormats, setStopFormats] = useState<Record<string, ColorFormat>>({});
   const [formatOpenId, setFormatOpenId] = useState<string | null>(null);
   const [gradientTypeOpen, setGradientTypeOpen] = useState(false);
@@ -575,7 +577,7 @@ export function GradientPopover({
             style={{ background: gradientPreview(selectedGradientType, angle, orderedStops) }}
             aria-hidden="true"
           />
-          {text.gradientTitle}
+          {!hasPopoverHeader && text.gradientTitle}
         </span>
         <button
           type="button"

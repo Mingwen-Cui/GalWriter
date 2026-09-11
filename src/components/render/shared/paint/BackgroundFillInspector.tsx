@@ -243,7 +243,8 @@ export function BackgroundFillInspector({
       )}
       {editor && (
         <FloatingPopover
-          popoverKey={editor === 'video' ? 'style' : editor}
+          language={language}
+          popoverKey={editor}
           onClose={() => setEditor(null)}
           closeLabel={t('关闭', 'Close', '閉じる')}
         >

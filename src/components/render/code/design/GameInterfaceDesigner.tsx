@@ -408,7 +408,7 @@ export function GameInterfaceDesigner({
               {t('圆角 · 四角设置', 'Corner radius')}
             </button>
             {cornersOpen && (
-              <FloatingPopover popoverKey="corners" onClose={() => setCornersOpen(false)}>
+              <FloatingPopover language={language} popoverKey="corners" onClose={() => setCornersOpen(false)}>
                 <CornerEditor
                   language={language}
                   value={value.corners || [value.radius, value.radius, value.radius, value.radius]}
@@ -523,6 +523,7 @@ export function GameInterfaceDesigner({
         )}
         {colorField && (
           <FloatingPopover
+            language={language}
             popoverKey="solid"
             onClose={() => setColorField(null)}
             closeLabel={t('关闭', 'Close', '閉じる')}

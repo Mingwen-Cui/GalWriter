@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, Layers, Link2, Unlink2 } from 'lucide-react';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
-import { FloatingPopover, NumberField } from './InspectorControls';
+import { FloatingPopover, FloatingPopoverHeaderContext, NumberField } from './InspectorControls';
 
 export type LayerEntry = { id: string; name: string; z: number };
 export function LayerOrderMenu({
@@ -42,9 +42,8 @@ export function LayerOrderMenu({
         <span className="ml-auto">{items.length}</span>
       </button>
       {open && (
-        <FloatingPopover popoverKey="layers" onClose={() => setOpen(false)}>
+        <FloatingPopover language={language} popoverKey="layers" onClose={() => setOpen(false)}>
           <div className="property-editor-popover">
-            <div className="property-popover-heading">{t('图层顺序', 'Layer order')}</div>
             <p className="mb-3 text-xs opacity-50">
               {t('上方元素位于前景', 'Top items are in front')}
             </p>
@@ -95,6 +94,7 @@ export function CornerEditor({
   value: [number, number, number, number];
   onChange: (value: [number, number, number, number]) => void;
 }) {
+  const hasPopoverHeader = useContext(FloatingPopoverHeaderContext);
   const [linked, setLinked] = useState(value.every((v) => v === value[0]));
   const t = (zh: string, en: string) => (language === 'zh' ? zh : en);
   const labels = [
@@ -106,7 +106,7 @@ export function CornerEditor({
   return (
     <div className="property-editor-popover">
       <div className="property-popover-heading">
-        {t('圆角', 'Corner radius')}
+        {!hasPopoverHeader && t('圆角', 'Corner radius')}
         <button
           type="button"
           className="property-add ml-auto"

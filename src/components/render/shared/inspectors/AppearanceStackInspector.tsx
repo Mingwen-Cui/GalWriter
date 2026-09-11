@@ -169,12 +169,13 @@ export function AppearanceStackInspector({
       ))}
       {editing && selected && (
         <FloatingPopover
+          language={language}
           popoverKey={editing.group === 'fills' && 'type' in selected ? selected.type : 'style'}
+          title={editing.group === 'fills' && 'type' in selected ? paintNames[selected.type] : names[editing.group]}
           onClose={close}
           closeLabel={t('关闭', 'Close')}
         >
           <div className="property-editor-popover">
-            <div className="property-popover-heading">{names[editing.group]}</div>
             {editing.group === 'fills' && 'type' in selected && (
               <>
                 <BackgroundFillInspector

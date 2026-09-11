@@ -673,14 +673,14 @@ export function StartMenuElementInspector({
             </button>
           </SettingDescription>
           {radiusPopoverOpen && (
-            <div className="absolute left-0 right-[56px] top-[calc(100%+8px)] z-[10020]">
+            <FloatingPopover language={language} popoverKey="corners" onClose={() => setRadiusPopoverOpen(false)}>
               <RadiusPopover
                 language={language}
                 copy={inspectorCopy}
                 element={element}
                 onUpdate={onUpdate}
               />
-            </div>
+            </FloatingPopover>
           )}
         </div>
         <ControlRow className="mt-2">
@@ -912,7 +912,7 @@ export function StartMenuElementInspector({
             )}
           </div>
           {popover?.group === 'text' && popover.type === 'solid' && (
-            <FloatingPopover popoverKey="solid">
+            <FloatingPopover language={language} popoverKey="solid" onClose={() => setPopover(null)}>
               <SolidColorPopover
                 tone="fill"
                 text={text.popover}
@@ -927,7 +927,7 @@ export function StartMenuElementInspector({
             </FloatingPopover>
           )}
           {popover?.group === 'text' && popover.type === 'gradient' && (
-            <PortaledGradientPopover>
+            <PortaledGradientPopover language={language} onClose={() => setPopover(null)}>
               <GradientEditorPopover
                 language={language}
                 angle={element.textGradientAngle ?? 90}
@@ -1124,7 +1124,7 @@ export function StartMenuElementInspector({
             </button>
           </div>
           {popover?.group === 'image' && (
-            <FloatingPopover>
+            <FloatingPopover language={language} popoverKey="image" onClose={() => setPopover(null)}>
               <ImageFillPopover
                 tone="fill"
                 text={text.popover}
@@ -1422,15 +1422,17 @@ function CornerRadiusIcon({
 
 export function PortaledGradientPopover({
   children,
+  language,
   onClose,
   closeLabel,
 }: {
   children: React.ReactNode;
+  language?: Language;
   onClose?: () => void;
   closeLabel?: string;
 }) {
   return (
-    <FloatingPopover popoverKey="gradient" onClose={onClose} closeLabel={closeLabel}>
+    <FloatingPopover language={language} popoverKey="gradient" onClose={onClose} closeLabel={closeLabel}>
       {children}
     </FloatingPopover>
   );
