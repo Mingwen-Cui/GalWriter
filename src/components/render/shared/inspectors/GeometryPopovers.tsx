@@ -103,6 +103,20 @@ export function CornerEditor({
     t('右下', 'Bottom right'),
     t('左下', 'Bottom left'),
   ];
+  const renderCorner = (i: number) => (
+    <NumberField
+      key={i}
+      label={`${labels[i]} · px`}
+      value={value[i]}
+      min={0}
+      max={999}
+      onChange={(n) => {
+        const next = [...value] as typeof value;
+        next[i] = n;
+        onChange(linked ? [n, n, n, n] : next);
+      }}
+    />
+  );
   return (
     <div className="property-editor-popover">
       <div className="property-popover-heading">
@@ -120,26 +134,12 @@ export function CornerEditor({
           {linked ? t('统一', 'Linked') : t('独立', 'Independent')}
         </button>
       </div>
-      <div className="corner-editor-grid">
-        {[0, 1, 3, 2].map((i) => (
-          <NumberField
-            key={i}
-            label={`${labels[i]} · px`}
-            value={value[i]}
-            min={0}
-            max={999}
-            onChange={(n) => {
-              const next = [...value] as typeof value;
-              next[i] = n;
-              onChange(linked ? [n, n, n, n] : next);
-            }}
-          />
-        ))}
-      </div>
+      <div className="corner-editor-grid">{[0, 1].map(renderCorner)}</div>
       <div
         className="corner-preview"
         style={{ borderRadius: value.map((v) => `${Math.min(v, 45)}px`).join(' ') }}
       />
+      <div className="corner-editor-grid">{[3, 2].map(renderCorner)}</div>
     </div>
   );
 }

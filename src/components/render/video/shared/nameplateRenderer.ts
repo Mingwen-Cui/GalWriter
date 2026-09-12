@@ -192,9 +192,11 @@ const roundedRect = (
   y: number,
   width: number,
   height: number,
-  radius: number,
+  radius: number | number[],
 ) => {
-  const safeRadius = Math.min(Math.max(0, radius), width / 2, height / 2);
+  const safeRadius = Array.isArray(radius)
+    ? radius.map((corner) => Math.max(0, corner))
+    : Math.min(Math.max(0, radius), width / 2, height / 2);
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, safeRadius);
 };
@@ -281,7 +283,7 @@ export const drawNameplates = async (
         animatedLayout.y,
         animatedLayout.width,
         animatedLayout.height,
-        Math.min(Math.max(0, style.nameplateRadius ?? 14), animatedLayout.height / 2),
+        nameplateObject.corners || nameplateObject.radius,
       );
       ctx.clip();
       ctx.globalAlpha = animation.alpha;

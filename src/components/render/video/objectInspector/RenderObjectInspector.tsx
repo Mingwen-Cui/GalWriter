@@ -263,9 +263,6 @@ export function RenderObjectInspector({
           )
         }
       />
-      <button type="button" className="property-add" onClick={() => setCornersOpen(!cornersOpen)}>
-        {language === 'zh' ? '圆角 · 四角设置' : 'Corner radius'}
-      </button>
       {cornersOpen && (
         <FloatingPopover language={language} popoverKey="corners" onClose={() => setCornersOpen(false)}>
           <CornerEditor
@@ -299,6 +296,18 @@ export function RenderObjectInspector({
               value={selected.radius}
               min={0}
               max={200}
+              action={
+                <button
+                  type="button"
+                  className="property-number grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white"
+                  title={language === 'zh' ? '四角设置' : language === 'ja' ? '四隅の設定' : 'Individual corners'}
+                  aria-label={language === 'zh' ? '四角设置' : language === 'ja' ? '四隅の設定' : 'Individual corners'}
+                  aria-expanded={cornersOpen}
+                  onClick={() => setCornersOpen(!cornersOpen)}
+                >
+                  <Radius className="h-4 w-4" />
+                </button>
+              }
               onChange={(value) =>
                 setObject({ radius: value, corners: [value, value, value, value] })
               }

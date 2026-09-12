@@ -2259,7 +2259,7 @@ const objectPaint = (object: RenderEditableObject): React.CSSProperties => ({
   background: fillPaint(object),
   backgroundSize: object.fill.type === 'image' ? 'cover' : undefined,
   backgroundPosition: object.fill.type === 'image' ? 'center' : undefined,
-  borderRadius: object.radius,
+  borderRadius: object.corners?.map((radius) => `${Math.max(0, radius)}px`).join(' ') || object.radius,
   border: object.stroke.enabled
     ? `${object.stroke.width}px solid ${alphaColor(object.stroke.color, object.stroke.alpha)}`
     : undefined,

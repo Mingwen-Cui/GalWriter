@@ -591,8 +591,7 @@ export function WebPlaytestPreview({
   const canClickContinue = outEdges.length <= 1;
   // A card title doubles as the label of a branch target, so playback visibility
   // must be separate from the stored title text.
-  const hideCenteredTitle =
-    previewMode !== 'edit' && currentNode?.data?.hideTitleInPlayback === true;
+  const hideCenteredTitle = currentNode?.data?.hideTitleInPlayback === true;
   const nameplateItems = useMemo(
     () => (currentNode ? getNameplateItems(currentNode, nodes) : []),
     [currentNode, nodes],

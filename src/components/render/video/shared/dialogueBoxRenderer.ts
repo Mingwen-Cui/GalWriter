@@ -25,9 +25,11 @@ const roundedRect = (
   y: number,
   width: number,
   height: number,
-  radius: number,
+  radius: number | number[],
 ) => {
-  const safeRadius = Math.min(Math.max(0, radius), width / 2, height / 2);
+  const safeRadius = Array.isArray(radius)
+    ? radius.map((corner) => Math.max(0, corner))
+    : Math.min(Math.max(0, radius), width / 2, height / 2);
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, safeRadius);
 };
@@ -77,7 +79,7 @@ export const drawDialogueBox = async (
         width: layout.width * animation.reveal,
         height: layout.height,
       },
-      dialogObject.corners || style.dialogRadius,
+      dialogObject.corners || dialogObject.radius,
       options.elapsed || 0,
     );
     ctx.restore();
@@ -96,7 +98,7 @@ export const drawDialogueBox = async (
       layout.y + animation.offsetY,
       layout.width * animation.reveal,
       layout.height,
-      style.dialogRadius,
+      dialogObject.corners || dialogObject.radius,
     );
     ctx.shadowColor = colorWithAlpha(shadow.color, shadow.alpha);
     ctx.shadowBlur = shadow.blur;
@@ -117,7 +119,7 @@ export const drawDialogueBox = async (
     layout.y + animation.offsetY,
     layout.width * animation.reveal,
     layout.height,
-    style.dialogRadius,
+    dialogObject.corners || dialogObject.radius,
   );
   ctx.clip();
 
@@ -217,7 +219,7 @@ export const drawDialogueBox = async (
       layout.y + animation.offsetY,
       layout.width * animation.reveal,
       layout.height,
-      style.dialogRadius,
+      dialogObject.corners || dialogObject.radius,
     );
     ctx.lineJoin = dialogObject.stroke.lineJoin;
     ctx.lineCap = dialogObject.stroke.lineCap;

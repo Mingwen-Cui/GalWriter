@@ -1,6 +1,7 @@
 /* Shared inspector tokens. Keep output/runtime styles independent of editor chrome. */
 .property-section,
 .property-paint-popover,
+.property-floating-popover,
 .property-inspector {
   --inspector-control-height: 32px;
   --inspector-radius: 6px;
@@ -75,6 +76,10 @@
 }
 .property-number {
   border: 1px solid var(--inspector-line);
+}
+.property-number-inline {
+  grid-template-columns: minmax(0, 1fr) minmax(56px, 0.65fr);
+  background: var(--inspector-field);
 }
 .property-paint-popover {
   background: var(--inspector-bg);
@@ -275,7 +280,7 @@
   width: 100px;
   border: 2px solid var(--vr-accent, #4f46e5);
   background: var(--vr-surface-soft, #eef2ff);
-  margin: 14px auto 0;
+  margin: 14px auto;
 }
 .property-editor-popover .property-section {
   padding: 0;

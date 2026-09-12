@@ -495,7 +495,15 @@ export function usePlaytestRuntime(
   const titleObject = renderObjects.title;
   const bodyObject = renderObjects.body;
   const dialogObject = renderObjects.dialogBox;
-  const dialogueCornerRadius = scaleWindowMetric(renderStyle.dialogRadius);
+  const dialogueCornerRadii = (
+    dialogObject.corners || [
+      dialogObject.radius,
+      dialogObject.radius,
+      dialogObject.radius,
+      dialogObject.radius,
+    ]
+  ).map((radius) => scaleWindowMetric(Math.max(0, radius)));
+  const dialogueCornerRadius = dialogueCornerRadii.map((radius) => `${radius}px`).join(' ');
 
   const titleStyle: React.CSSProperties = {
     display: titleObject.visible ? undefined : 'none',
@@ -2046,6 +2054,7 @@ export function usePlaytestRuntime(
     textStroke,
     dialogueBackgroundStyle,
     dialogueCornerRadius,
+    dialogueCornerRadii,
     renderObjects,
     titleObject,
     bodyObject,

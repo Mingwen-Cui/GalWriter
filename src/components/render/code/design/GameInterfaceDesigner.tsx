@@ -4,7 +4,7 @@ import { SurfaceLayers } from '../../shared/paint/SurfaceLayers';
 import { AppearanceStackInspector } from '../../shared/inspectors/AppearanceStackInspector';
 import { CornerEditor, LayerOrderMenu } from '../../shared/inspectors/GeometryPopovers';
 import type { Node } from '@xyflow/react';
-import { Box, Monitor, PaintBucket, Redo2, Type, Undo2 } from 'lucide-react';
+import { Box, Monitor, PaintBucket, Radius, Redo2, Type, Undo2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import {
@@ -103,6 +103,18 @@ export function GameInterfaceDesigner({
       value={Number(value[key])}
       min={min}
       max={max}
+      action={key === 'radius' ? (
+        <button
+          type="button"
+          className="property-number grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white"
+          title={t('四角设置', 'Individual corners', '四隅の設定')}
+          aria-label={t('四角设置', 'Individual corners', '四隅の設定')}
+          aria-expanded={cornersOpen}
+          onClick={() => setCornersOpen(!cornersOpen)}
+        >
+          <Radius className="h-4 w-4" />
+        </button>
+      ) : undefined}
       onChange={(next) => update({ [key]: next })}
     />
   );
@@ -400,13 +412,6 @@ export function GameInterfaceDesigner({
         />
         {selection === 'dialogue' && (
           <>
-            <button
-              type="button"
-              className="property-add"
-              onClick={() => setCornersOpen(!cornersOpen)}
-            >
-              {t('圆角 · 四角设置', 'Corner radius')}
-            </button>
             {cornersOpen && (
               <FloatingPopover language={language} popoverKey="corners" onClose={() => setCornersOpen(false)}>
                 <CornerEditor

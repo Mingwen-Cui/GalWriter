@@ -170,12 +170,13 @@ export function AppearanceStackInspector({
       {editing && selected && (
         <FloatingPopover
           language={language}
+          positionKey={`appearance-${editing.group}`}
           popoverKey={editing.group === 'fills' && 'type' in selected ? selected.type : 'style'}
           title={editing.group === 'fills' && 'type' in selected ? paintNames[selected.type] : names[editing.group]}
           onClose={close}
           closeLabel={t('关闭', 'Close')}
         >
-          <div className="property-editor-popover">
+          <div className="property-editor-popover space-y-3">
             {editing.group === 'fills' && 'type' in selected && (
               <>
                 <BackgroundFillInspector
@@ -198,12 +199,15 @@ export function AppearanceStackInspector({
                 <BackgroundFillInspector
                   language={language}
                   inlineEditor
-                  allowedTypes={['solid', 'gradient', 'image']}
-                  value={selected.paint || { ...newPaint(), color: selected.color }}
+                  allowedTypes={['solid', 'gradient']}
+                  value={selected.paint && (selected.paint.type === 'solid' || selected.paint.type === 'gradient')
+                    ? selected.paint
+                    : { ...newPaint(), color: selected.color }}
                   onChange={(patch) =>
                     update('strokes', selected.id, {
                       paint: {
                         ...(selected.paint || { ...newPaint(), color: selected.color }),
+                        type: selected.paint?.type === 'gradient' ? 'gradient' : 'solid',
                         ...patch,
                       },
                       ...(patch.color ? { color: patch.color } : {}),

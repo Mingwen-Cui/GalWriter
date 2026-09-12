@@ -4,22 +4,15 @@ import { Lock, LockKeyholeOpen, Maximize, Minimize, Pause, Play } from 'lucide-r
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import { htmlToSpeechText } from '../../../../lib/tts';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
 } from '../../web/WebEditableElementFrame';
-import { animatedTextState } from '../canvas/textAnimation';
 import { RangeControl } from '../controls/RenderControls';
-import { getDialogueBoxLayout } from '../shared/dialogueBoxRenderer';
-import {
-  getNameplateItems,
-  getNameplateLayouts,
-  getNameplateReservedHeight,
-} from '../shared/nameplateRenderer';
+import { getNameplateLayouts } from '../shared/nameplateRenderer';
+import { resolveVideoTextLayout } from '../shared/videoTextLayout';
 import { getVideoRenderObjects, updateRenderObject } from '../shared/renderObjects';
-import { filterMentionTags, wrapText } from '../shared/storyNodes';
 import type {
   RenderEditableObjectKind,
   RenderStatus,
@@ -162,7 +155,6 @@ export function VideoPreviewPanel({
   hideCharacterTags,
   hideSceneTags,
   videoTextScaleMode,
-  animationLeadSeconds,
   canvasSelected,
   setCanvasSelected,
 }: VideoPreviewPanelProps) {
@@ -239,147 +231,83 @@ export function VideoPreviewPanel({
     () => getVideoTextRenderStyle(renderStyle, videoTextScaleMode, resolution.height),
     [renderStyle, resolution.height, videoTextScaleMode],
   );
+  const textMeasureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const editableFrames = useMemo(() => {
-    const objects = getVideoRenderObjects(videoRenderStyle);
-    const baseDialog = getDialogueBoxLayout(resolution.width, resolution.height, videoRenderStyle);
-    const paddingX = baseDialog.paddingX ?? baseDialog.padding;
-    const paddingY = baseDialog.paddingY ?? baseDialog.padding;
-    const contentWidth = Math.max(48, baseDialog.width - paddingX * 2);
-    const titleSize = Math.max(18, videoRenderStyle.titleFontSize);
-    const bodySize = Math.max(16, videoRenderStyle.bodyFontSize);
-    const titleLineHeight = Math.round(titleSize * Math.max(0.8, videoRenderStyle.titleLineHeight));
-    const bodyLineHeight = Math.round(bodySize * Math.max(0.8, videoRenderStyle.bodyLineHeight));
-    const textContext = canvasRef.current?.getContext('2d');
-    const measurementContext =
-      textContext || ({ measureText: () => ({ width: 0 }) } as unknown as CanvasRenderingContext2D);
+    const emptyFrame = { x: 0, y: 0, width: 0, height: 0 };
     const currentNode = focusedPreviewNode || activePreviewNode;
-    const titleWidth = Math.max(
-      48,
-      contentWidth * Math.min(1, Math.max(0.08, objects.title.width / 100)),
-    );
-    const bodyWidth = Math.max(
-      48,
-      contentWidth * Math.min(1, Math.max(0.08, objects.body.width / 100)),
-    );
-    if (textContext) textContext.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
-    const titleLines = objects.title.visible
-      ? wrapText(
-          measurementContext,
-          htmlToSpeechText(String(currentNode?.data?.title || '')) ||
-            formatVideoText(
-              language,
-              'componentsrendervideopanelsVideoPreviewPanelConditionalText270',
-            ),
-          titleWidth,
-        ).slice(0, 2)
-      : [];
-    if (textContext) textContext.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
-    const bodyLines = wrapText(
-      measurementContext,
-      htmlToSpeechText(
-        filterMentionTags(String(currentNode?.data?.text || ''), hideCharacterTags, hideSceneTags),
-      ) || ' ',
-      bodyWidth,
-    ).slice(0, 7);
-    const previewElapsed = focusedPreviewNode
+    if (!currentNode)
+      return { dialogBox: emptyFrame, title: emptyFrame, body: emptyFrame, nameplate: emptyFrame };
+    // Measuring on the visible canvas races asynchronous frame drawing and changes its font/baseline.
+    textMeasureCanvasRef.current ||= document.createElement('canvas');
+    const ctx = textMeasureCanvasRef.current.getContext('2d');
+    if (!ctx)
+      return { dialogBox: emptyFrame, title: emptyFrame, body: emptyFrame, nameplate: emptyFrame };
+    const duration = focusedPreviewNode
+      ? previewDuration
+      : (focusedTimelineMetric?.duration ?? 0) * speed;
+    const elapsed = focusedPreviewNode
       ? previewTime
-      : Math.max(0, (timelinePreviewTime - (focusedTimelineMetric?.start ?? 0)) * speed);
-    const titleState = animatedTextState(
-      objects.title.animation.animation,
-      titleLines,
-      objects.title.animation.durationMs,
-      previewElapsed,
-      false,
-      objects.title.animation.typewriterMode,
-    );
-    const bodyState = animatedTextState(
-      objects.body.animation.animation,
-      bodyLines,
-      objects.body.animation.durationMs,
-      previewElapsed,
-      false,
-      objects.body.animation.typewriterMode,
-    );
-    const renderedTitleLines = titleState.lines.filter((line) => line.length > 0);
-    const renderedBodyLines = bodyState.lines.filter((line) => line.length > 0);
-    const fullTextGap = titleLines.length && bodyLines.length ? Math.round(bodySize * 0.6) : 0;
-    const renderedTextGap =
-      renderedTitleLines.length && renderedBodyLines.length ? Math.round(bodySize * 0.6) : 0;
-    const fixedTextHeight =
-      titleLines.length * titleLineHeight + fullTextGap + bodyLines.length * bodyLineHeight;
-    const textBaselineOffset = Math.round(bodySize * 0.35);
-    const nameplateItems = currentNode ? getNameplateItems(currentNode, storyNodes) : [];
-    const nameplateReservedHeight = getNameplateReservedHeight(
-      nameplateItems,
-      measurementContext,
-      videoRenderStyle,
-    );
-    const textOffsetY = Math.round(
-      (baseDialog.height * Math.max(-20, Math.min(40, videoRenderStyle.dialogTextOffsetY ?? 0))) /
-        100,
-    );
-    const dialog = getDialogueBoxLayout(resolution.width, resolution.height, videoRenderStyle, {
-      topExtension: nameplateReservedHeight,
+      : Math.min(
+          duration,
+          Math.max(0, (timelinePreviewTime - (focusedTimelineMetric?.start ?? 0)) * speed),
+        );
+    const layout = resolveVideoTextLayout({
+      ctx,
+      node: currentNode,
+      nodes: storyNodes,
+      width: resolution.width,
+      height: resolution.height,
+      style: videoRenderStyle,
+      elapsed,
+      duration,
+      isZh: language === 'zh',
+      hideCharacterTags,
+      hideSceneTags,
     });
-    const textTop =
-      dialog.y +
-      nameplateReservedHeight +
-      Math.max(paddingY, (dialog.height - nameplateReservedHeight - fixedTextHeight) / 2) +
-      textBaselineOffset +
-      textOffsetY;
-    const renderedTitleHeight = renderedTitleLines.length * titleLineHeight;
-    if (textContext) textContext.font = `800 ${titleSize}px ${videoRenderStyle.titleFontFamily}`;
-    const titleFrame = getRenderedTextFrame({
-      ctx: measurementContext,
-      lines: renderedTitleLines,
-      align: videoRenderStyle.titleAlign,
-      left: dialog.x + paddingX + objects.title.x,
-      right: dialog.x + paddingX + objects.title.x + titleWidth,
-      firstBaseline: textTop + objects.title.y + titleState.offsetY,
-      lineHeight: titleLineHeight,
-      fontSize: titleSize,
-    });
-    if (textContext) textContext.font = `500 ${bodySize}px ${videoRenderStyle.bodyFontFamily}`;
-    const bodyFrame = getRenderedTextFrame({
-      ctx: measurementContext,
-      lines: renderedBodyLines,
-      align: videoRenderStyle.bodyAlign,
-      left: dialog.x + paddingX + objects.body.x,
-      right: dialog.x + paddingX + objects.body.x + bodyWidth,
-      firstBaseline:
-        textTop + renderedTitleHeight + renderedTextGap + objects.body.y + bodyState.offsetY,
-      lineHeight: bodyLineHeight,
-      fontSize: bodySize,
-    });
-    const nameplateLayouts = getNameplateLayouts(
-      nameplateItems,
-      measurementContext,
-      resolution.width,
-      dialog,
-      videoRenderStyle,
-    );
-    const nameplateFrame = nameplateLayouts.length
-      ? {
-          x: Math.min(...nameplateLayouts.map((item) => item.x)),
-          y: Math.min(...nameplateLayouts.map((item) => item.y)),
-          width:
-            Math.max(...nameplateLayouts.map((item) => item.x + item.width)) -
-            Math.min(...nameplateLayouts.map((item) => item.x)),
-          height:
-            Math.max(...nameplateLayouts.map((item) => item.y + item.height)) -
-            Math.min(...nameplateLayouts.map((item) => item.y)),
-        }
-      : { x: dialog.x, y: dialog.y, width: 0, height: 0 };
-    return {
-      dialogBox: { x: dialog.x, y: dialog.y, width: dialog.width, height: dialog.height },
-      title: titleFrame,
-      body: bodyFrame,
-      nameplate: nameplateFrame,
+    const frameFor = (kind: 'title' | 'body') => {
+      const text = layout[kind];
+      if (!text.visible || !text.lines.length || text.alpha <= 0) return emptyFrame;
+      ctx.font = text.font;
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left';
+      (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing =
+        `${(kind === 'title' ? videoRenderStyle.titleLetterSpacing : videoRenderStyle.bodyLetterSpacing) ?? 0}px`;
+      return getRenderedTextFrame({
+        ctx,
+        lines: text.lines,
+        align: kind === 'title' ? videoRenderStyle.titleAlign : videoRenderStyle.bodyAlign,
+        left: text.left,
+        right: text.right,
+        firstBaseline: text.firstBaseline,
+        lineHeight: text.lineHeight,
+        fontSize: text.fontSize,
+      });
     };
+    const title = frameFor('title');
+    const body = frameFor('body');
+    const nameplates = getNameplateLayouts(
+      layout.nameplateItems,
+      ctx,
+      resolution.width,
+      layout.dialog,
+      videoRenderStyle,
+    );
+    const nameplate = nameplates.length
+      ? {
+          x: Math.min(...nameplates.map((item) => item.x)),
+          y: Math.min(...nameplates.map((item) => item.y)),
+          width:
+            Math.max(...nameplates.map((item) => item.x + item.width)) -
+            Math.min(...nameplates.map((item) => item.x)),
+          height:
+            Math.max(...nameplates.map((item) => item.y + item.height)) -
+            Math.min(...nameplates.map((item) => item.y)),
+        }
+      : emptyFrame;
+    const { x, y, width, height } = layout.dialog;
+    return { dialogBox: { x, y, width, height }, title, body, nameplate };
   }, [
     activePreviewNode,
-    animationLeadSeconds,
-    canvasRef,
     focusedPreviewNode,
     focusedTimelineMetric?.duration,
     focusedTimelineMetric?.start,
@@ -388,7 +316,6 @@ export function VideoPreviewPanel({
     language,
     previewDuration,
     previewTime,
-    renderStyle,
     resolution.height,
     resolution.width,
     speed,
@@ -412,7 +339,10 @@ export function VideoPreviewPanel({
       const rawDx = ((moveEvent.clientX - startX) * resolution.width) / hostRect.width;
       const rawDy = ((moveEvent.clientY - startY) * resolution.height) / hostRect.height;
       const otherFrames = Object.entries(editableFrames)
-        .filter(([otherKind]) => otherKind !== kind)
+        .filter(
+          ([otherKind, otherFrame]) =>
+            otherKind !== kind && otherFrame.width > 0 && otherFrame.height > 0,
+        )
         .map(([, otherFrame]) => otherFrame);
       const xCandidates = [
         0,
@@ -755,6 +685,7 @@ export function VideoPreviewPanel({
                     [RenderEditableObjectKind, typeof editableFrames.dialogBox]
                   >
                 ).map(([kind, frame]) => {
+                  if (frame.width <= 0 || frame.height <= 0) return null;
                   const selected = !canvasSelected && renderStyle.selectedRenderObject === kind;
                   return (
                     <div

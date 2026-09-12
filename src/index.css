@@ -4878,10 +4878,10 @@ button.web-segment-button:last-child {
   outline: none;
 }
 
-/* The stage background is selectable too. Keep every direct stage object out
-   of normal document flow; otherwise a full-size image/video pushes dialogue
-   and character layers below the slide. Nested text selections stay relative. */
-.ppt-slide-canvas > .ppt-selectable {
+/* Keep explicitly positioned stage objects out of document flow even inside
+   the aspect-ratio content wrapper. Otherwise the full-size background pushes
+   characters and dialogue below the slide. Flow-based selections stay relative. */
+.ppt-slide-canvas .ppt-selectable.absolute {
   position: absolute;
 }
 

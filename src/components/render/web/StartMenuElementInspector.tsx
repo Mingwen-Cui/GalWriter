@@ -641,7 +641,7 @@ export function StartMenuElementInspector({
           />
         }
       >
-        <div className="relative grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-3">
+        <div className="relative grid grid-cols-2 gap-3">
           <NumberField
             icon={<MoveHorizontal className="h-4 w-4" />}
             label={text.field.x}
@@ -660,18 +660,36 @@ export function StartMenuElementInspector({
             max={200}
             onChange={(y) => onUpdate({ y })}
           />
-          <SettingDescription show={showDescriptions} label={inspectorCopy.radius}>
-            <button
-              type="button"
-              onClick={() => setRadiusPopoverOpen((current) => !current)}
-              className="grid h-10 w-11 place-items-center rounded-xl bg-white text-slate-700 transition-colors hover:bg-emerald-100 hover:text-slate-950"
-              title={inspectorCopy.radius}
-              aria-label={inspectorCopy.radius}
-              aria-pressed={radiusPopoverOpen}
-            >
-              <CornerRadiusIcon corner="all" />
-            </button>
-          </SettingDescription>
+        </div>
+        <div className="relative mt-2">
+          <NumberField
+            icon={<CornerRadiusIcon corner="all" />}
+            label={`${inspectorCopy.radius} · px`}
+            value={element.borderRadius ?? 12}
+            min={0}
+            max={999}
+            onChange={(radius) =>
+              onUpdate({
+                borderRadius: radius,
+                borderTopLeftRadius: radius,
+                borderTopRightRadius: radius,
+                borderBottomRightRadius: radius,
+                borderBottomLeftRadius: radius,
+              })
+            }
+            action={
+              <button
+                type="button"
+                onClick={() => setRadiusPopoverOpen((current) => !current)}
+                className="property-number grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-slate-700 hover:bg-emerald-100 hover:text-slate-950"
+                title={inspectorCopy.radius}
+                aria-label={inspectorCopy.radius}
+                aria-expanded={radiusPopoverOpen}
+              >
+                <CornerRadiusIcon corner="all" />
+              </button>
+            }
+          />
           {radiusPopoverOpen && (
             <FloatingPopover language={language} popoverKey="corners" onClose={() => setRadiusPopoverOpen(false)}>
               <RadiusPopover

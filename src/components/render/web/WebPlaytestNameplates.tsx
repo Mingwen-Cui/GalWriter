@@ -78,7 +78,7 @@ export function WebPlaytestNameplates({
     fontSize,
     lineHeight: 1,
     padding: `${paddingY}px ${paddingX}px`,
-    borderRadius: Math.max(0, renderStyle.nameplateRadius ?? 14),
+    borderRadius: nameplateObject.corners?.map((radius) => `${Math.max(0, radius)}px`).join(' ') || nameplateObject.radius,
     boxShadow: renderStyle.nameplateInside ? 'none' : '0 10px 24px rgba(0, 0, 0, 0.24)',
     textShadow: renderStyle.nameplateInside
       ? '0 1px 10px rgba(0, 0, 0, 0.42)'

@@ -252,39 +252,50 @@ export function NumberField({
   min,
   max,
   step = 1,
+  layout = icon ? 'stacked' : 'inline',
+  action,
   onChange,
 }: {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   label: string;
   description?: string;
   value: number;
   min: number;
   max?: number;
   step?: number;
+  layout?: 'stacked' | 'inline';
+  action?: React.ReactNode;
   onChange: (value: number) => void;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="property-field-label">{label}</div>
+    <div className="min-w-0 space-y-1">
+      {layout === 'stacked' && <div className="property-field-label">{label}</div>}
       {description && description !== label && <div className="property-help">{description}</div>}
-      <div
-        className="property-number grid h-8 grid-cols-[26px_minmax(0,1fr)] items-center overflow-hidden rounded-md bg-white"
-        title={label}
-      >
-        <span className="flex h-full items-center justify-center text-slate-600" aria-hidden="true">
-          {icon}
-        </span>
-        <DragSizeControl
-          label={label}
-          value={value}
-          min={min}
-          max={max ?? Number.MAX_SAFE_INTEGER}
-          step={step}
-          unit=""
-          onChange={onChange}
-          className="h-full rounded-l-none rounded-r-xl px-3 py-0"
-          editingClassName="ring-inset"
-        />
+      <div className="flex min-w-0 items-center gap-2">
+        <div
+          className={`property-number grid h-8 min-w-0 flex-1 ${layout === 'inline' ? 'property-number-inline' : 'grid-cols-[26px_minmax(0,1fr)]'} items-center overflow-hidden rounded-md bg-white`}
+          title={label}
+        >
+          {layout === 'inline' ? (
+            <span className="min-w-0 truncate pl-3 text-xs text-[var(--inspector-muted)]">{label}</span>
+          ) : (
+            <span className="flex h-full items-center justify-center text-slate-600" aria-hidden="true">
+              {icon}
+            </span>
+          )}
+          <DragSizeControl
+            label={label}
+            value={value}
+            min={min}
+            max={max ?? Number.MAX_SAFE_INTEGER}
+            step={step}
+            unit=""
+            onChange={onChange}
+            className="h-full min-w-0 rounded-l-none rounded-r-md px-3 py-0"
+            editingClassName="ring-inset"
+          />
+        </div>
+        {action}
       </div>
     </div>
   );
@@ -526,6 +537,7 @@ export function FloatingPopover({
   children,
   className = '',
   popoverKey = 'style',
+  positionKey,
   title,
   language = 'zh',
   onClose,
@@ -534,6 +546,7 @@ export function FloatingPopover({
   children: React.ReactNode;
   className?: string;
   popoverKey?: 'solid' | 'gradient' | 'image' | 'video' | 'layers' | 'corners' | 'style';
+  positionKey?: string;
   title?: string;
   language?: Language;
   onClose?: () => void;
@@ -552,7 +565,9 @@ export function FloatingPopover({
     top: number;
   } | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
-  const storageKey = `galwriter-inspector-popover-position:${popoverKey}`;
+  // A type switch edits the current window; only a new window restores saved coordinates.
+  const [storageKey] = useState(() => `galwriter-inspector-popover-position:${positionKey ?? popoverKey}`);
+  const measuredInitialPosition = useRef(false);
   const clampPosition = useCallback((left: number, top: number) => {
     const panel = panelRef.current;
     const width = panel?.offsetWidth || Math.min(390, window.innerWidth - 32);
@@ -593,10 +608,11 @@ export function FloatingPopover({
     return () => window.removeEventListener('resize', keepVisible);
   }, [clampPosition]);
   useLayoutEffect(() => {
-    if (!position || !panelRef.current) return;
+    if (!position || !panelRef.current || measuredInitialPosition.current) return;
+    measuredInitialPosition.current = true;
     const next = clampPosition(position.left, position.top);
     if (next.left !== position.left || next.top !== position.top) setPosition(next);
-  }, [children, clampPosition, position]);
+  }, [clampPosition, position]);
 
   return (
     <>
@@ -605,7 +621,7 @@ export function FloatingPopover({
         createPortal(
           <div
             ref={panelRef}
-            className={`property-floating-popover fixed z-[10050] ${popoverKey === 'solid' ? 'w-[min(340px,calc(100vw-24px))]' : popoverKey === 'gradient' ? 'w-[min(392px,calc(100vw-24px))]' : 'w-[min(390px,calc(100vw-24px))]'} ${className}`}
+            className={`property-floating-popover fixed z-[10050] w-[min(390px,calc(100vw-24px))] ${className}`}
             style={position}
             role="dialog"
             aria-labelledby={titleId}
@@ -676,7 +692,10 @@ export function FloatingPopover({
               )}
             </div>
             <FloatingPopoverHeaderContext.Provider value={true}>
-              <div className="property-floating-popover-body">{children}</div>
+              <div
+                className="property-floating-popover-body"
+                style={{ maxHeight: `max(32px, calc(100dvh - ${position.top + 64}px))`, overflowY: 'auto' }}
+              >{children}</div>
             </FloatingPopoverHeaderContext.Provider>
           </div>,
           document.body,
