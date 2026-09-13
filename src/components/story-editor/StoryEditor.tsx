@@ -256,6 +256,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const [pasteAsPlainText, setPasteAsPlainText] = useState(false);
   const [showNodeActions, setShowNodeActions] = useState(true);
+  const [showHiddenTitleBadge, setShowHiddenTitleBadge] = useState(true);
+  const [autoHideTitlesByDefault, setAutoHideTitlesByDefault] = useState(false);
   const [showStats, setShowStats] = useState(true);
   const [showLastSavedTime, setShowLastSavedTime] = useState(true);
   const [showHeaderActionLabels, setShowHeaderActionLabels] = useState(true);
@@ -785,6 +787,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       nodeVerticalSpacing,
       pasteAsPlainText,
       showNodeActions,
+      showHiddenTitleBadge,
+      autoHideTitlesByDefault,
       showStats,
       saveAssistantConversations,
       allowAssistantImageGeneration,
@@ -914,6 +918,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       showHoverButtonAnimations,
       showMiniMap,
       showNodeActions,
+      showHiddenTitleBadge,
+      autoHideTitlesByDefault,
       showPresetColors,
       showStats,
       showTitles,
@@ -946,6 +952,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setNodeVerticalSpacing,
       setPasteAsPlainText,
       setShowNodeActions,
+      setShowHiddenTitleBadge,
+      setAutoHideTitlesByDefault,
       setShowStats,
       setSaveAssistantConversations,
       setAllowAssistantImageGeneration,
@@ -1017,6 +1025,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setNodeVerticalSpacing,
       setPasteAsPlainText,
       setShowNodeActions,
+      setShowHiddenTitleBadge,
+      setAutoHideTitlesByDefault,
       setShowStats,
       setSaveAssistantConversations,
       setAllowAssistantImageGeneration,
@@ -1420,6 +1430,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             shape: 'square',
             color: '#ffffff',
             sizeMode: 'auto',
+            hideTitleInPlayback: autoHideTitlesByDefault,
             text: '',
           } satisfies StoryNodeData,
         };
@@ -1452,7 +1463,14 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         },
       ]);
     },
-    [nodeHorizontalSpacing, nodeVerticalSpacing, setNodes, setEdges, showNodeActions],
+    [
+      autoHideTitlesByDefault,
+      nodeHorizontalSpacing,
+      nodeVerticalSpacing,
+      setNodes,
+      setEdges,
+      showNodeActions,
+    ],
   );
 
   const {
@@ -2719,6 +2737,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       onHighlightStoryline: toggleStorylineHighlight,
       pasteAsPlainText,
       showNodeActions,
+      showHiddenTitleBadge,
       cardToolbarScale,
       language,
       theme,
@@ -2760,6 +2779,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       toggleStorylineHighlight,
       pasteAsPlainText,
       showNodeActions,
+      showHiddenTitleBadge,
       cardToolbarScale,
       language,
       theme,
@@ -3274,6 +3294,19 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           setPasteAsPlainText={setPasteAsPlainText}
           showNodeActions={showNodeActions}
           setShowNodeActions={setShowNodeActions}
+          showHiddenTitleBadge={showHiddenTitleBadge}
+          setShowHiddenTitleBadge={setShowHiddenTitleBadge}
+          autoHideTitlesByDefault={autoHideTitlesByDefault}
+          setAutoHideTitlesByDefault={setAutoHideTitlesByDefault}
+          onApplyAutoHideTitlesToExisting={() =>
+            setNodes((currentNodes) =>
+              currentNodes.map((node) =>
+                node.type === 'storyNode'
+                  ? { ...node, data: { ...node.data, hideTitleInPlayback: true } }
+                  : node,
+              ),
+            )
+          }
           showStats={showStats}
           setShowStats={setShowStats}
           showLastSavedTime={showLastSavedTime}

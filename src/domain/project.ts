@@ -390,6 +390,8 @@ export interface ProjectSettings extends PlaytestSettings {
   nodeVerticalSpacing: number;
   pasteAsPlainText: boolean;
   showNodeActions: boolean;
+  showHiddenTitleBadge: boolean;
+  autoHideTitlesByDefault: boolean;
   showStats: boolean;
   saveAssistantConversations: boolean;
   allowAssistantImageGeneration: boolean;
@@ -453,6 +455,8 @@ export interface ProjectSettingsSetters extends PlaytestSettingsSetters {
   setNodeVerticalSpacing: Dispatch<SetStateAction<number>>;
   setPasteAsPlainText: Dispatch<SetStateAction<boolean>>;
   setShowNodeActions: Dispatch<SetStateAction<boolean>>;
+  setShowHiddenTitleBadge: Dispatch<SetStateAction<boolean>>;
+  setAutoHideTitlesByDefault: Dispatch<SetStateAction<boolean>>;
   setShowStats: Dispatch<SetStateAction<boolean>>;
   setSaveAssistantConversations: Dispatch<SetStateAction<boolean>>;
   setAllowAssistantImageGeneration: Dispatch<SetStateAction<boolean>>;
@@ -712,6 +716,7 @@ export interface BaseEditorNodeData extends Record<string, unknown>, EditorNodeC
   showTitles?: boolean;
   storyTitlePlacement?: StoryTitlePlacement;
   showNodeActions?: boolean;
+  showHiddenTitleBadge?: boolean;
   pasteAsPlainText?: boolean;
   isAILoading?: boolean;
   isHighlighted?: boolean;

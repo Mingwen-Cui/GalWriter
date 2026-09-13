@@ -2220,7 +2220,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         data.skip ||
         data.isHighlighted ||
         data.hidden ||
-        (data.hideTitleInPlayback && title.trim())) && (
+        (data.showHiddenTitleBadge !== false && data.hideTitleInPlayback && title.trim())) && (
         <div className="pointer-events-none absolute -top-3 -left-3 z-50 flex items-center gap-1">
           {isRoot && (
             <div className="flex items-center gap-1 rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
@@ -2242,7 +2242,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               <EyeOff className="h-4 w-3" /> 已隐藏
             </div>
           )}
-          {data.hideTitleInPlayback && title.trim() && (
+          {data.showHiddenTitleBadge !== false && data.hideTitleInPlayback && title.trim() && (
             <div
               className="flex items-center gap-1 rounded bg-slate-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm"
               title="播放时隐藏标题"
@@ -2617,9 +2617,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             {/* 已连接人物与场景：插入对应 Tag */}
             {hasMentionToolbarItems && (
               <>
-                <ToolbarRow className="order-2 flex-nowrap justify-start gap-1">
+                {/* Let the action rows set the menu width; tags wrap within that width. */}
+                <ToolbarRow className="order-2 w-0 min-w-full flex-wrap justify-start gap-1">
                   {showRichTextTools && mentionableCharacters.length > 0 && (
-                    <ToolGroup className="flex-nowrap gap-1">
+                    <>
                       {mentionableCharacters.map((char) => (
                         <button
                           key={char.id}
@@ -2633,7 +2634,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               ? insertCharacterMention(char.name)
                               : showUnavailableTagToast()
                           }
-                          className="mention-tag-button mention-tag-character"
+                          className="mention-tag-button mention-tag-character shrink-0"
                           title={
                             char.isUsable
                               ? lang === 'zh'
@@ -2647,10 +2648,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           {char.name}
                         </button>
                       ))}
-                    </ToolGroup>
+                    </>
                   )}
                   {(videoUrl || (showRichTextTools && mentionableScenes.length > 0)) && (
-                    <ToolGroup className="flex-nowrap gap-1">
+                    <>
                       {videoUrl && (
                         <button
                           type="button"
@@ -2659,7 +2660,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                           onDragStart={(event) => event.preventDefault()}
                           onClick={insertCardVideoMention}
                           onContextMenu={openCardVideoPresentationMenu}
-                          className="mention-tag-button mention-tag-video"
+                          className="mention-tag-button mention-tag-video shrink-0"
                           title={
                             lang === 'zh'
                               ? '点击插入视频 Tag，右键调整场景演出'
@@ -2685,7 +2686,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                 ? insertSceneMention(scene.name)
                                 : showUnavailableTagToast()
                             }
-                            className="mention-tag-button mention-tag-scene"
+                            className="mention-tag-button mention-tag-scene shrink-0"
                             title={
                               scene.isUsable
                                 ? lang === 'zh'
@@ -2699,7 +2700,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                             {scene.name}
                           </button>
                         ))}
-                    </ToolGroup>
+                    </>
                   )}
                   {mediaToolbarButtons && (
                     <>

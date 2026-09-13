@@ -563,6 +563,12 @@ const applyProjectSettings = (
   if (incomingSettings.showNodeActions !== undefined) {
     setters.setShowNodeActions(incomingSettings.showNodeActions);
   }
+  if (incomingSettings.showHiddenTitleBadge !== undefined) {
+    setters.setShowHiddenTitleBadge(incomingSettings.showHiddenTitleBadge);
+  }
+  if (incomingSettings.autoHideTitlesByDefault !== undefined) {
+    setters.setAutoHideTitlesByDefault(incomingSettings.autoHideTitlesByDefault);
+  }
   if (incomingSettings.showStats !== undefined) setters.setShowStats(incomingSettings.showStats);
   if (incomingSettings.saveAssistantConversations !== undefined) {
     setters.setSaveAssistantConversations(incomingSettings.saveAssistantConversations);

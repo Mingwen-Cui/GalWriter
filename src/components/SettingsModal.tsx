@@ -191,6 +191,11 @@ interface SettingsModalProps {
   setPasteAsPlainText: (val: boolean) => void;
   showNodeActions: boolean;
   setShowNodeActions: (val: boolean) => void;
+  showHiddenTitleBadge: boolean;
+  setShowHiddenTitleBadge: (val: boolean) => void;
+  autoHideTitlesByDefault: boolean;
+  setAutoHideTitlesByDefault: (val: boolean) => void;
+  onApplyAutoHideTitlesToExisting: () => void;
   showStats: boolean;
   setShowStats: (val: boolean) => void;
   showLastSavedTime: boolean;
@@ -412,6 +417,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setPasteAsPlainText,
   showNodeActions,
   setShowNodeActions,
+  showHiddenTitleBadge,
+  setShowHiddenTitleBadge,
+  autoHideTitlesByDefault,
+  setAutoHideTitlesByDefault,
+  onApplyAutoHideTitlesToExisting,
   showStats,
   setShowStats,
   showLastSavedTime,
@@ -518,6 +528,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [aboutPage, setAboutPage] = useState<'contact' | 'help'>('contact');
   const [isApplyingSettings, setIsApplyingSettings] = useState(false);
   const [showApplySettingsConfirm, setShowApplySettingsConfirm] = useState(false);
+  const [showAutoHideTitleConfirm, setShowAutoHideTitleConfirm] = useState(false);
   const [selectedApplyProjectIds, setSelectedApplyProjectIds] = useState<string[]>([]);
   const [editingAccentHex, setEditingAccentHex] = useState(false);
   const [accentHexDraft, setAccentHexDraft] = useState('');
@@ -1226,14 +1237,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {activeSettingsTab === 'editor' && (
                 <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
                   <section className={settingsRowClass}>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 shrink-0">
                       <h3 className={settingsRowTitleClass}>剧情 Tag 颜色</h3>
-                      <p className="mt-1 text-xs text-[var(--text-muted)]">
-                        人物默认为紫色，场景默认为蓝色。
-                      </p>
                     </div>
                     <div className="flex min-w-0 flex-1 items-center gap-5 rounded-xl border border-[var(--card-border)] bg-[var(--app-bg)]/35 p-4">
-                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-5 gap-y-3">
+                      <div className="grid min-w-0 flex-1 grid-cols-1 gap-y-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-10 shrink-0 text-xs font-bold text-[var(--text-secondary)]">
                             人物
@@ -1358,6 +1366,64 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                   </section>
+                  <section className="flex min-w-0 items-center gap-8">
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                      <h3 className="min-w-0 text-sm font-black text-[var(--text-primary)]">
+                        {renderSettingHint(
+                          <span>标题隐藏提示</span>,
+                          '关闭后不显示卡片左上角的“标题隐藏”标签。',
+                        )}
+                      </h3>
+                      <button
+                      type="button"
+                      onClick={() => setShowHiddenTitleBadge(!showHiddenTitleBadge)}
+                      className={`relative h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors ${
+                        showHiddenTitleBadge ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--card-border)]'
+                      }`}
+                      role="switch"
+                      aria-checked={showHiddenTitleBadge}
+                      aria-label="显示标题隐藏提示"
+                    >
+                      <span
+                        className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-[left] ${
+                          showHiddenTitleBadge ? 'left-6' : 'left-1'
+                        }`}
+                      />
+                    </button>
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                      <h3 className="min-w-0 text-sm font-black text-[var(--text-primary)]">
+                        {renderSettingHint(
+                          <span>自动隐藏标题</span>,
+                          '开启后，新建卡片默认在播放与导出时隐藏标题。',
+                        )}
+                      </h3>
+                      <button
+                      type="button"
+                      onClick={() => {
+                        if (autoHideTitlesByDefault) {
+                          setAutoHideTitlesByDefault(false);
+                        } else {
+                          setShowAutoHideTitleConfirm(true);
+                        }
+                      }}
+                      className={`relative h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors ${
+                        autoHideTitlesByDefault
+                          ? 'bg-[var(--accent)] shadow-md'
+                          : 'bg-[var(--card-border)]'
+                      }`}
+                      role="switch"
+                      aria-checked={autoHideTitlesByDefault}
+                      aria-label="自动隐藏标题"
+                    >
+                      <span
+                        className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-[left] ${
+                          autoHideTitlesByDefault ? 'left-6' : 'left-1'
+                        }`}
+                      />
+                    </button>
+                    </div>
+                  </section>
                   <section className={settingsRowClass}>
                     <h3 className={settingsRowTitleClass}>{s.edgeStyle}</h3>
                     <div className={segmentedControlClass}>
@@ -1365,7 +1431,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setEdgeStyle('step')}
                         className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-300 ${edgeStyle === 'step' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
                       >
-                        <div className="w-11 h-8 border-2 border-current rounded-md flex items-center justify-center">
+                        <div className="w-11 h-8 flex items-center justify-center">
                           <div className="relative w-8 h-5">
                             <div className="absolute top-0 left-0 w-2 h-2 rounded-full bg-current -translate-x-1 -translate-y-[3px]" />
                             <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-current translate-x-1 translate-y-[3px]" />
@@ -1382,7 +1448,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setEdgeStyle('bezier')}
                         className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-300 ${edgeStyle === 'bezier' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
                       >
-                        <div className="w-11 h-8 border-2 border-current rounded-md flex items-center justify-center">
+                        <div className="w-11 h-8 flex items-center justify-center">
                           <div className="relative w-8 h-5">
                             <svg
                               className="absolute inset-0 w-full h-full overflow-visible"
@@ -3081,6 +3147,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
               >
                 {applyProjectCountLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAutoHideTitleConfirm && (
+        <div className="fixed inset-0 z-[1450] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--card-border)] bg-[var(--panel-bg)] p-6 shadow-[0_32px_80px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black text-[var(--text-primary)]">自动隐藏标题</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                  要把标题隐藏应用到所有现有卡片，还是只作为之后新建卡片的默认值？
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAutoHideTitleConfirm(false)}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--text-primary)]"
+                aria-label="关闭"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoHideTitlesByDefault(true);
+                  onApplyAutoHideTitlesToExisting();
+                  setShowAutoHideTitleConfirm(false);
+                }}
+                className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-black text-white transition-opacity hover:opacity-90"
+              >
+                应用到所有现有卡片
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoHideTitlesByDefault(true);
+                  setShowAutoHideTitleConfirm(false);
+                }}
+                className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+              >
+                只影响后续新建卡片
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAutoHideTitleConfirm(false)}
+                className="px-4 py-2 text-sm font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+              >
+                取消
               </button>
             </div>
           </div>
