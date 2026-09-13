@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
@@ -49,5 +49,16 @@ const result = spawnSync(process.execPath, [viteEntry, 'build'], {
   stdio: 'inherit',
   shell: false,
 });
+
+if (result.status === 0) {
+  const packageInfo = JSON.parse(readFileSync(resolve('package.json'), 'utf8'));
+  const provenance = {
+    schema: ['gw', 'release', 'lineage'].join('-'),
+    release: packageInfo.version,
+    anchor: ['9d7c', 'a4e1', '630b'].join(''),
+    publisher: ['Ming', 'wen', 'Cui'].join(''),
+  };
+  writeFileSync(resolve('dist', '.gw-release-lineage.json'), `${JSON.stringify(provenance)}\n`);
+}
 
 process.exit(typeof result.status === 'number' ? result.status : 1);

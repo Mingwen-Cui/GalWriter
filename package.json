@@ -5,6 +5,8 @@
   "type": "module",
   "description": "AI 互动叙事创作工作台 - 旮旯作家 · GalWriter",
   "author": "旮旯作家 · GalWriter (Mingwen Cui)",
+  "homepage": "https://mingwencui.com",
+  "keywords": ["galwriter", "interactive-fiction", "ai-storytelling"],
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "node build-scripts/build-frontend.mjs",

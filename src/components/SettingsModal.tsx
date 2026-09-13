@@ -51,6 +51,8 @@ import type {
 import { type AIButtonsConfig, type AIPromptsConfig } from '../editor-state/editorConfig';
 import type { LocalProjectSummary } from '../lib/db';
 import { Language } from '../lib/i18n';
+import { settingsLineageLabel } from '../lib/projectLineage';
+import { SETTINGS_ANTICOUNTERFEIT_WATERMARK } from '../lib/settingsAntiCounterfeitWatermark';
 import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import { AISettingsPanel } from './AISettingsPanel';
 import { DraggableNumberInput } from './DraggableNumberInput';
@@ -317,8 +319,7 @@ const buildArrowPath = (size: number, angle: number) => {
   return `M ${baseX} ${center - halfBase} L ${size} ${center} L ${baseX} ${center + halfBase} Z`;
 };
 
-// Settings-only anti-counterfeit watermark. Keep this source text intact so the
-// displayed mark can be matched against the official build.
+
 const SETTINGS_BACKGROUND_WATERMARK = String.raw`                                       ░▒▒▒░
                                     ▒▓▓▓▓▓▓▓▓▓▒
                                   ░▓▓▓▓▓▓▓▓▓▓▓▓▓░
@@ -357,28 +358,6 @@ const SETTINGS_BACKGROUND_WATERMARK = String.raw`                               
                                     ▒▒▒▒▒▒▒▒▒▒▒
                                      ▒▒▒▒▒▒▒▒▒
                                        ░░▒▒░`;
-
-const SETTINGS_ANTICOUNTERFEIT_WATERMARK = String.raw`                   :==:
-                 =++++++=
-                :++++++++:
-                 =++++++=
-                  .-++-.
-       :--.         ==         .---.
-     :=====-       .==.       :+++++-
-     :=====-       -++-       :+++++-
-       :--=:     .======:     :==-:.
-           -=====-.:==:.-+++++-.
-                  :====-.
-          :::--===: -- :===--:::.
-      :--:...--.    --    .--...:-=:
-     -=.    :-      --      --     =-.
-  :---    .:--      --      -=:.    -=-:
-.=====-  :=====:    --    :=====:  -=====.
-.-====-  :=====:    -=    :=====:  -=====.
-  :::.     :::     .==.     :::.    .:-:
-                  ======
-                  ======
-                   .--:`;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   showSettings,
@@ -710,13 +689,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   React.useEffect(() => {
     if (!showSettings) return;
     const domComment = document.createComment(
-      ` GalWriter AI · Settings anti-counterfeit mark\n${SETTINGS_ANTICOUNTERFEIT_WATERMARK}\n `,
+      ` ${settingsLineageLabel()}\n${SETTINGS_ANTICOUNTERFEIT_WATERMARK}\n `,
     );
     // Appending to <html> places the mark immediately before </html> in F12's Elements tree.
     document.documentElement.appendChild(domComment);
     console.info(
-      '%cGalWriter AI · Settings anti-counterfeit mark\n%c%s',
+      '%c%s\n%c%s',
       'color:#4f46e5;font-weight:800;font-size:12px;',
+      settingsLineageLabel(),
       'color:#4f46e5;font-family:monospace;font-size:8px;line-height:1;',
       SETTINGS_ANTICOUNTERFEIT_WATERMARK,
     );
