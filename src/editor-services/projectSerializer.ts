@@ -835,7 +835,7 @@ export const createProjectSerializer = (options: ProjectSerializerOptions) => {
         position: node.position,
         type: node.type,
         style: isStoryNode ? normalizeStoryNodeCardStyle(node.style) : node.style,
-        data: isStoryNode ? { ...node.data, sizeMode: 'auto' } : { ...node.data },
+        data: { ...node.data },
         width: node.measured?.width || node.width,
         height: node.measured?.height || node.height,
         dragHandle: node.dragHandle,

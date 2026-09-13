@@ -295,7 +295,7 @@ export const useCanvasInteractions = ({
               const x = targetNode.position.x;
               const y = targetNode.position.y;
               const constrainedMinHeight =
-                (targetNode.type === 'storyNode' && targetNode.data?.sizeMode !== 'custom') ||
+                targetNode.type === 'storyNode' ||
                 targetNode.type === 'characterNode' ||
                 targetNode.type === 'sceneNode'
                   ? getNumericSize(targetNode.style?.minHeight)

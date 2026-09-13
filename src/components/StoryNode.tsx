@@ -4,13 +4,14 @@ import {
   NodeResizeControl,
   NodeToolbar,
   Position,
+  ResizeControlVariant,
   useReactFlow,
   useStore,
   useStoreApi,
   useUpdateNodeInternals,
   useViewport,
 } from '@xyflow/react';
-import type { OnResize, OnResizeEnd, OnResizeStart, ShouldResize } from '@xyflow/system';
+import type { OnResize, OnResizeEnd, OnResizeStart } from '@xyflow/system';
 import {
   Bold,
   Bot,
@@ -110,11 +111,6 @@ const AUTO_SIZE_MEDIA_MIN_HEIGHT = 128;
 const AUTO_SIZE_MEDIA_MAX_HEIGHT = 220;
 const CARD_MEDIA_PREVIEW_MIN_HEIGHT = 180;
 const FIXED_STORY_CARD_HEIGHT = 200;
-// A completed assistant card can inherit an in-flight drag/measurement height.
-// Treat only a clearly runaway value as recoverable so an intentionally tall
-// manually resized card remains untouched.
-const ASSISTANT_HEIGHT_RECOVERY_EXCESS = 960;
-
 const getNumericSize = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
 
@@ -270,7 +266,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const nodeRootRef = useRef<HTMLDivElement>(null);
   const titleBlockRef = useRef<HTMLDivElement>(null);
   const textPanelRef = useRef<HTMLDivElement>(null);
-  const lastAutoHeightRef = useRef<number | null>(null);
+  const resizeStartHeightRef = useRef<number | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState(false);
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'encoding'>('idle');
@@ -279,7 +275,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const [recentCardColors, setRecentCardColors] = useState(INITIAL_RECENT_CARD_COLORS);
   const [autoCardHeight, setAutoCardHeight] = useState(MEDIA_CARD_MIN_HEIGHT);
   const [nodeWidthForAutoSize, setNodeWidthForAutoSize] = useState(300);
-  const [isResizingCard, setIsResizingCard] = useState(false);
+  const isResizingCardRef = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -313,9 +309,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   const text = data.text || '';
   const title = data.title ?? '';
   const shape: StoryCardVisualShape = data.shape || 'square';
-  // Ordinary cards have a stable readable floor, then naturally grow only
-  // when their real content no longer fits. The body never shows a scrollbar.
-  const isAutoSizeMode = true;
   const color = data.color || COLORS[0];
   const parsedCardColor = parseColorValue(color, COLORS[0]);
   const imageUrl = data.imageUrl;
@@ -944,78 +937,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     [data, id],
   );
 
-  // Normalize both newly generated and legacy cards on the live canvas. This
-  // is deliberately independent of card data so an in-flight AI update cannot
-  // put an old automatic content height back onto the node.
-  useLayoutEffect(() => {
-    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
-    if (!currentNode) return;
-
-    const currentHeight =
-      getNumericSize(currentNode.style?.height) ??
-      getNumericSize((currentNode as any).height) ??
-      getNumericSize((currentNode as any).measured?.height);
-    const currentMinHeight = getNumericSize(currentNode.style?.minHeight);
-    const isCustomSize = currentNode.data?.sizeMode === 'custom';
-    const normalizedHeight = Math.max(currentHeight ?? 0, FIXED_STORY_CARD_HEIGHT);
-    const needsNormalization = isCustomSize
-      ? currentMinHeight !== FIXED_STORY_CARD_HEIGHT
-      : currentHeight !== normalizedHeight ||
-        currentMinHeight !== FIXED_STORY_CARD_HEIGHT ||
-        currentNode.data?.sizeMode !== 'auto';
-
-    // Do not call React Flow's controlled setter for an already-normalized
-    // card. A new scene/character edge re-renders the card during layout;
-    // a no-op write here otherwise feeds that render back into StoreUpdater.
-    if (!needsNormalization) return;
-
-    let changed = false;
-    setNodes((nodes) =>
-      nodes.map((node) => {
-        if (node.id !== id) return node;
-        // A user-resized card keeps its chosen height. Only its hard lower
-        // bound is normalized so text can still expand it when necessary.
-        if (node.data?.sizeMode === 'custom') {
-          const currentMinHeight = getNumericSize(node.style?.minHeight);
-          if (currentMinHeight === FIXED_STORY_CARD_HEIGHT) return node;
-          changed = true;
-          return {
-            ...node,
-            style: { ...node.style, minHeight: FIXED_STORY_CARD_HEIGHT },
-          };
-        }
-        const currentHeight =
-          getNumericSize(node.style?.height) ??
-          getNumericSize((node as any).height) ??
-          getNumericSize((node as any).measured?.height);
-        const currentMinHeight = getNumericSize(node.style?.minHeight);
-        const normalizedHeight = Math.max(currentHeight ?? 0, FIXED_STORY_CARD_HEIGHT);
-        if (
-          currentHeight === normalizedHeight &&
-          currentMinHeight === FIXED_STORY_CARD_HEIGHT &&
-          node.data?.sizeMode === 'auto'
-        ) {
-          return node;
-        }
-
-        changed = true;
-        return {
-          ...node,
-          style: {
-            ...node.style,
-            height: normalizedHeight,
-            minHeight: FIXED_STORY_CARD_HEIGHT,
-          },
-          data: {
-            ...node.data,
-            sizeMode: 'auto',
-          },
-        };
-      }),
-    );
-    if (changed) requestAnimationFrame(() => updateNodeInternals(id));
-  }, [id, setNodes, updateNodeInternals]);
-
   const computeAutoMinHeight = useCallback(
     (candidateWidth?: number) => {
       const rootElement = nodeRootRef.current;
@@ -1023,7 +944,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       const editorElement = richTextRef.current?.getElement();
       if (!rootElement) return null;
 
-      const measuredRootWidth = rootElement.getBoundingClientRect().width || 0;
+      const measuredRootWidth = rootElement.clientWidth || 0;
       const rootWidth = candidateWidth && candidateWidth > 0 ? candidateWidth : measuredRootWidth;
       if (rootWidth <= 0) return null;
 
@@ -1032,7 +953,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         : null;
       const titleBlockHeight =
         showTitleInside && titleBlockRef.current
-          ? titleBlockRef.current.getBoundingClientRect().height +
+          ? titleBlockRef.current.offsetHeight +
             Number.parseFloat(titleBlockStyles?.marginTop || '0') +
             Number.parseFloat(titleBlockStyles?.marginBottom || '0')
           : 0;
@@ -1044,7 +965,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         return Math.max(
           FIXED_STORY_CARD_HEIGHT,
           MEDIA_CARD_MIN_HEIGHT,
-          Math.ceil(titleBlockHeight + getCardMediaHeight(rootWidth)),
+          Math.ceil(titleBlockHeight + getCardMediaHeight(rootWidth) + 4),
         );
       }
 
@@ -1071,7 +992,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       // so its scroll height is the real text requirement.
       let contentHeight = Math.max(
         editorElement.scrollHeight,
-        editorElement.getBoundingClientRect().height,
+        editorElement.offsetHeight,
       );
       contentHeight = Math.max(contentHeight, minimumTextHeight);
 
@@ -1104,13 +1025,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   );
 
   const syncAutoSizeHeight = useCallback(() => {
-    if (!isAutoSizeMode || isResizingCard) return;
+    if (isResizingCardRef.current) return;
 
     const rootElement = nodeRootRef.current;
     if (!rootElement) return;
 
-    const rootHeight = rootElement.getBoundingClientRect().height || 0;
-    const rootWidth = rootElement.getBoundingClientRect().width || 0;
+    const rootHeight = rootElement.offsetHeight || 0;
+    const rootWidth = rootElement.clientWidth || 0;
     const targetHeight = computeAutoMinHeight(rootWidth);
 
     if (!targetHeight || rootHeight <= 0 || rootWidth <= 0) {
@@ -1138,9 +1059,12 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       currentNode.data?.title === '分支' &&
       currentNode.data?.text === '山里有座庙';
     const isManuallySized = currentNode.data?.sizeMode === 'custom';
+    const manualHeight = isManuallySized
+      ? getNumericSize(currentNode.data.manualHeight) ?? currentHeight
+      : undefined;
     // Manual resizing may leave extra room, but never lets later text be
     // clipped: new content can still grow the card past the manual height.
-    const nextHeight = isManuallySized ? Math.max(currentHeight, targetHeight) : targetHeight;
+    const nextHeight = isManuallySized ? Math.max(manualHeight!, targetHeight) : targetHeight;
     const initialBranch = isDefaultInitialRoot
       ? storeApi
           .getState()
@@ -1162,10 +1086,10 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         (positionY) => Math.abs(initialBranch.position.y - positionY) < 1,
       ) &&
       Math.abs(initialBranch.position.y - normalizedInitialBranchY) >= 1;
-    lastAutoHeightRef.current = targetHeight;
     const changed =
       Math.abs(currentHeight - nextHeight) >= 1 ||
-      Math.abs((currentMinHeight ?? 0) - FIXED_STORY_CARD_HEIGHT) >= 1 ||
+      Math.abs((currentMinHeight ?? 0) - targetHeight) >= 1 ||
+      (isManuallySized && currentNode.data.manualHeight !== manualHeight) ||
       shouldNormalizeInitialBranchPosition;
     if (!changed) return;
 
@@ -1177,11 +1101,9 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               style: {
                 ...node.style,
                 height: nextHeight,
-                // `height` follows the actual content. The minimum itself is
-                // deliberately constant, otherwise a transient streamed value
-                // becomes a persisted floor and leaves a blank lower half.
-                minHeight: FIXED_STORY_CARD_HEIGHT,
+                minHeight: targetHeight,
               },
+              data: { ...node.data, manualHeight },
             }
           : shouldNormalizeInitialBranchPosition && node.id === initialBranch?.id
             ? {
@@ -1195,8 +1117,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     computeAutoMinHeight,
     hasMediaTextLayout,
     id,
-    isAutoSizeMode,
-    isResizingCard,
     setNodes,
     showRichTextTools,
     showTitleInside,
@@ -1204,7 +1124,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   ]);
 
   useLayoutEffect(() => {
-    if (!isAutoSizeMode) return;
     const frame = requestAnimationFrame(syncAutoSizeHeight);
     const secondFrame = requestAnimationFrame(() => {
       requestAnimationFrame(syncAutoSizeHeight);
@@ -1217,7 +1136,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     audioUrl,
     color,
     imageUrl,
-    isAutoSizeMode,
     nodeWidthForAutoSize,
     objectFit,
     shape,
@@ -1232,7 +1150,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   ]);
 
   useLayoutEffect(() => {
-    if (!isAutoSizeMode || !data.assistantAutoHeightNonce) return;
+    if (!data.assistantAutoHeightNonce) return;
 
     let timeoutId = 0;
     const frameIds: number[] = [];
@@ -1254,66 +1172,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       frameIds.forEach((id) => cancelAnimationFrame(id));
       window.clearTimeout(timeoutId);
     };
-  }, [data.assistantAutoHeightNonce, isAutoSizeMode, syncAutoSizeHeight]);
-
-  // Older assistant runs could leave a completed card in custom-size mode
-  // after a transient measurement wrote an enormous min-height. That blocks
-  // the normal auto-size pass forever. Restore only obviously runaway cards;
-  // ordinary manually resized story cards are never affected.
-  useLayoutEffect(() => {
-    if (data.assistantHeightState !== 'settled' || data.sizeMode !== 'custom') return;
-
-    const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
-    if (!currentNode) return;
-
-    const currentHeight =
-      getNumericSize(currentNode.style?.height) ??
-      getNumericSize((currentNode as any).height) ??
-      getNumericSize((currentNode as any).measured?.height) ??
-      0;
-    const targetHeight = computeAutoMinHeight(
-      getNumericSize(currentNode.style?.width) ??
-        getNumericSize((currentNode as any).measured?.width) ??
-        nodeRootRef.current?.clientWidth ??
-        300,
-    );
-    if (!targetHeight) return;
-
-    const recoveryThreshold = Math.max(
-      targetHeight * 3,
-      targetHeight + ASSISTANT_HEIGHT_RECOVERY_EXCESS,
-    );
-    if (currentHeight <= recoveryThreshold) return;
-
-    setAutoCardHeight(targetHeight);
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? {
-              ...node,
-              style: {
-                ...node.style,
-                height: targetHeight,
-                minHeight: FIXED_STORY_CARD_HEIGHT,
-              },
-              data: {
-                ...node.data,
-                sizeMode: 'auto',
-              },
-            }
-          : node,
-      ),
-    );
-    requestAnimationFrame(() => updateNodeInternals(id));
-  }, [
-    computeAutoMinHeight,
-    data.assistantHeightState,
-    data.sizeMode,
-    id,
-    setNodes,
-    storeApi,
-    updateNodeInternals,
-  ]);
+  }, [data.assistantAutoHeightNonce, syncAutoSizeHeight]);
 
   useEffect(() => {
     if (!nodeRootRef.current) return;
@@ -1328,6 +1187,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
     });
     observer.observe(nodeRootRef.current);
     if (textPanelRef.current) observer.observe(textPanelRef.current);
+    if (richTextRef.current?.getElement()) observer.observe(richTextRef.current.getElement()!);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -1339,7 +1199,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
   // be measured while it still contains its placeholder and keep that height.
   useEffect(() => {
     const editorElement = richTextRef.current?.getElement();
-    if (!isAutoSizeMode || !editorElement) return;
+    if (!editorElement) return;
 
     let frame = 0;
     const observer = new MutationObserver(() => {
@@ -1356,141 +1216,46 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [isAutoSizeMode, syncAutoSizeHeight]);
+  }, [syncAutoSizeHeight]);
 
-  const syncImageNodeHeight = useCallback(
-    (dimensions: { width: number; height: number } | null) => {
-      if (
-        !isAutoSizeMode ||
-        !imageUrl ||
-        hasScenePresentationImage ||
-        data.showTextOverlay ||
-        !dimensions?.width ||
-        !dimensions?.height
-      )
-        return;
-
-      const currentNode = storeApi.getState().nodes.find((node) => node.id === id);
-      if (!currentNode) return;
-      const currentWidth =
-        getNumericSize(currentNode.style?.width) ??
-        getNumericSize((currentNode as any).width) ??
-        getNumericSize((currentNode as any).measured?.width) ??
-        300;
-      const currentHeight =
-        getNumericSize(currentNode.style?.height) ??
-        getNumericSize((currentNode as any).height) ??
-        getNumericSize((currentNode as any).measured?.height) ??
-        200;
-      const targetHeight = Math.max(
-        FIXED_STORY_CARD_HEIGHT,
-        MEDIA_CARD_MIN_HEIGHT,
-        Math.ceil(
-          getCardMediaHeight(currentWidth) +
-            (showTitleInside && titleBlockRef.current
-              ? titleBlockRef.current.getBoundingClientRect().height
-              : 0),
-        ),
-      );
-      const titleHeightAdded = showTitleInside;
-      setAutoCardHeight((previous) =>
-        Math.abs(previous - targetHeight) < 1 ? previous : targetHeight,
-      );
-      const changed =
-        Math.abs(currentHeight - targetHeight) >= 1 ||
-        currentNode.data?.titleHeightAdded !== titleHeightAdded;
-      if (!changed) return;
-
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? {
-                ...node,
-                style: {
-                  ...node.style,
-                  height: targetHeight,
-                },
-                data: {
-                  ...node.data,
-                  titleHeightAdded,
-                },
-              }
-            : node,
-        ),
-      );
-
-      requestAnimationFrame(() => {
-        if (changed) updateNodeInternals(id);
-      });
-    },
-    [
-      data.showTextOverlay,
-      hasScenePresentationImage,
-      getCardMediaHeight,
-      id,
-      imageUrl,
-      isAutoSizeMode,
-      setNodes,
-      showTitleInside,
-      storeApi,
-      updateNodeInternals,
-    ],
-  );
-
-  useLayoutEffect(() => {
-    syncImageNodeHeight(imageDimensions);
-  }, [imageDimensions, syncImageNodeHeight]);
-
-  const handleResizeStart = useCallback<OnResizeStart>(() => {
-    setIsResizingCard(true);
+  // Only the explicit resize gesture can change the saved sizing mode.
+  const handleResizeStart = useCallback<OnResizeStart>((_event, dimensions) => {
+    resizeStartHeightRef.current = dimensions.height;
   }, []);
 
-  const updateResizeMinimumHeight = useCallback((_width: number) => {
-    const nextMinimum = FIXED_STORY_CARD_HEIGHT;
-    return nextMinimum;
-  }, []);
+  const handleResize = useCallback<OnResize>((_event, dimensions) => {
+    isResizingCardRef.current = true;
+    setNodeWidthForAutoSize(dimensions.width);
+    const minimum = computeAutoMinHeight(dimensions.width);
+    if (minimum) setAutoCardHeight(minimum);
+  }, [computeAutoMinHeight]);
 
-  const shouldResizeCard = useCallback<ShouldResize>(
-    (_event, dimensions) => {
-      updateResizeMinimumHeight(dimensions.width);
-      return true;
-    },
-    [updateResizeMinimumHeight],
-  );
-
-  const handleResize = useCallback<OnResize>(
-    (_event, dimensions) => {
-      updateResizeMinimumHeight(dimensions.width);
-    },
-    [updateResizeMinimumHeight],
-  );
-
-  const handleResizeEnd = useCallback<OnResizeEnd>(
-    (_event, dimensions) => {
-      setIsResizingCard(false);
-
-      setNodeWidthForAutoSize(dimensions.width);
-      const naturalHeight = computeAutoMinHeight(dimensions.width) ?? FIXED_STORY_CARD_HEIGHT;
-      const nextHeight = Math.max(dimensions.height, naturalHeight, FIXED_STORY_CARD_HEIGHT);
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? {
-                ...node,
-                style: {
-                  ...node.style,
-                  width: dimensions.width,
-                  height: nextHeight,
-                  minHeight: FIXED_STORY_CARD_HEIGHT,
-                },
-                data: { ...node.data, sizeMode: 'custom' },
-              }
-            : node,
-        ),
-      );
-    },
-    [computeAutoMinHeight, id, setNodeWidthForAutoSize, setNodes],
-  );
+  const handleResizeEnd = useCallback<OnResizeEnd>((_event, dimensions) => {
+    isResizingCardRef.current = false;
+    const heightChanged = resizeStartHeightRef.current !== null &&
+      Math.abs(dimensions.height - resizeStartHeightRef.current) >= 1;
+    resizeStartHeightRef.current = null;
+    const naturalHeight = computeAutoMinHeight(dimensions.width) ?? autoCardHeight;
+    setAutoCardHeight(naturalHeight);
+    setNodeWidthForAutoSize(dimensions.width);
+    setNodes((nodes) => nodes.map((node) => {
+      if (node.id !== id) return node;
+      const sizeMode = heightChanged
+        ? dimensions.height <= naturalHeight + 2 ? 'auto' : 'custom'
+        : node.data.sizeMode === 'custom' ? 'custom' : 'auto';
+      const manualHeight = sizeMode === 'custom'
+        ? heightChanged ? dimensions.height : getNumericSize(node.data.manualHeight) ?? dimensions.height
+        : undefined;
+      const height = Math.max(manualHeight ?? naturalHeight, naturalHeight);
+      return {
+        ...node,
+        height,
+        style: { ...node.style, width: dimensions.width, height, minHeight: naturalHeight },
+        data: { ...node.data, sizeMode, manualHeight },
+      };
+    }));
+    requestAnimationFrame(syncAutoSizeHeight);
+  }, [autoCardHeight, computeAutoMinHeight, id, setNodes, syncAutoSizeHeight]);
 
   useEffect(
     () => () => {
@@ -2504,44 +2269,40 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
       {selected && selectionCount === 1 && (
         <>
           <NodeResizeControl
-            variant="line"
+            variant={ResizeControlVariant.Line}
             position="top"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
             className="!z-10 !border-[var(--accent)]/80 hover:!border-[var(--accent)]"
           />
           <NodeResizeControl
-            variant="line"
+            variant={ResizeControlVariant.Line}
             position="right"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
             className="!z-10 !border-[var(--accent)]/80 hover:!border-[var(--accent)]"
           />
           <NodeResizeControl
-            variant="line"
+            variant={ResizeControlVariant.Line}
             position="bottom"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
             className="!z-10 !border-[var(--accent)]/80 hover:!border-[var(--accent)]"
           />
           <NodeResizeControl
-            variant="line"
+            variant={ResizeControlVariant.Line}
             position="left"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
@@ -2550,8 +2311,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             position="top-left"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
@@ -2560,8 +2320,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             position="top-right"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
@@ -2570,8 +2329,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             position="bottom-left"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
@@ -2580,8 +2338,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
           <NodeResizeControl
             position="bottom-right"
             minWidth={100}
-            minHeight={FIXED_STORY_CARD_HEIGHT}
-            shouldResize={shouldResizeCard}
+            minHeight={autoCardHeight}
             onResizeStart={handleResizeStart}
             onResize={handleResize}
             onResizeEnd={handleResizeEnd}
@@ -3074,9 +2831,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
         )}
 
         <div
-          className={`w-full flex flex-col min-h-0 overflow-hidden ${
-            isAutoSizeMode ? 'flex-none' : 'flex-1'
-          } ${showTitleInside ? 'pt-9' : ''}`}
+          className={`w-full flex flex-col flex-none ${showTitleInside ? 'pt-9' : ''}`}
         >
           {(hasScenePresentationImage ||
             hasScenePresentationVideo ||
@@ -3281,9 +3036,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             <div
               data-agent-field="story-text"
               ref={textPanelRef}
-              className={`relative z-0 w-full flex flex-col items-center ${
-                isAutoSizeMode ? 'shrink-0 justify-start' : 'min-h-0 flex-1 justify-start'
-              } ${dynamicPaddingClasses()} ${
+              className={`relative z-0 w-full flex flex-col items-center shrink-0 justify-start ${dynamicPaddingClasses()} ${
                 (imageUrl && !hasScenePresentationImage) || (videoUrl && !hasScenePresentationVideo)
                   ? 'border-t border-[var(--card-border)]/30'
                   : ''
@@ -3295,22 +3048,13 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                       ? 'rgb(var(--card-bg-rgb))'
                       : color
                     : nodeBg,
-                ...(hasScenePresentationImage ||
-                hasScenePresentationVideo ||
-                presentedCharacters.length > 0
-                  ? isAutoSizeMode
-                    ? { flex: '0 0 auto' }
-                    : {}
-                  : {}),
               }}
             >
               <div
                 className={`w-full ${
-                  isAutoSizeMode && hasMediaTextLayout
+                  hasMediaTextLayout
                     ? 'block overflow-visible'
-                    : `flex flex-col items-center justify-center ${
-                        isAutoSizeMode ? 'overflow-visible' : 'h-full min-h-0 overflow-hidden'
-                      }`
+                    : 'flex flex-col items-center justify-center overflow-visible'
                 } ${shape === 'diamond' ? 'scale-[0.8]' : ''}`}
               >
                 <RichText
@@ -3318,9 +3062,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   value={text}
                   onChange={handleTextChange}
                   pasteAsPlainText={!!data.pasteAsPlainText}
-                  className={`w-full ${
-                    isAutoSizeMode ? 'overflow-visible' : 'h-full overflow-y-auto custom-scrollbar'
-                  } resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-left ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
+                  className={`w-full overflow-visible resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-left ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{
                     color: nodeText,
                     minHeight: '1.5em',

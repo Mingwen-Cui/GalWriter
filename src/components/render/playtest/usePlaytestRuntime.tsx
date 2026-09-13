@@ -504,6 +504,10 @@ export function usePlaytestRuntime(
     ]
   ).map((radius) => scaleWindowMetric(Math.max(0, radius)));
   const dialogueCornerRadius = dialogueCornerRadii.map((radius) => `${radius}px`).join(' ');
+  // Keep the text on the centre line of the top-left rounded corner: its left
+  // and top inset must be the same as that corner's radius.
+  const dialogueContentInset =
+    dialogueCornerRadii[0] > 0 ? dialogueCornerRadii[0] : scaleWindowMetric(20);
 
   const titleStyle: React.CSSProperties = {
     display: titleObject.visible ? undefined : 'none',
@@ -537,7 +541,7 @@ export function usePlaytestRuntime(
       scaleWindowMetric(renderStyle.bodyStrokeWidth),
       renderStyle.bodyStrokeColor,
     ),
-    fontSize: scaleWindowMetric(renderStyle.bodyFontSize),
+    fontSize: Math.max(scaleWindowMetric(renderStyle.bodyFontSize), scaleWindowMetric(26)),
     letterSpacing: `${scaleWindowMetric(renderStyle.bodyLetterSpacing ?? 0)}px`,
     lineHeight: renderStyle.bodyLineHeight,
     textAlign: renderStyle.bodyAlign,
@@ -559,10 +563,10 @@ export function usePlaytestRuntime(
           backdropFilter: 'none',
         }),
     borderRadius: dialogueCornerRadius,
-    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-    paddingTop: displayMode === 'windowed' ? scaleWindowMetric(16) : undefined,
-    paddingBottom: displayMode === 'windowed' ? scaleWindowMetric(16) : undefined,
+    paddingLeft: dialogueContentInset,
+    paddingRight: dialogueContentInset,
+    paddingTop: dialogueContentInset,
+    paddingBottom: dialogueContentInset,
     transform: `rotate(${dialogObject.rotation}deg) scale(${dialogObject.flipX ? -1 : 1}, ${dialogObject.flipY ? -1 : 1})`,
   };
   const dialogueFrameStyle: React.CSSProperties = {

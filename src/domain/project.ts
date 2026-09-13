@@ -722,6 +722,8 @@ export interface StoryNodeData extends BaseEditorNodeData {
   shape: StoryCardVisualShape;
   color: string;
   sizeMode?: 'auto' | 'custom';
+  // Explicit user preference; content may temporarily require a taller card.
+  manualHeight?: number;
   assistantHeightState?: 'streaming' | 'settled';
   assistantAutoHeightNonce?: number;
   imageUrl?: string;
