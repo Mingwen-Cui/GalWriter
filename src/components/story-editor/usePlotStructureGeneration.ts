@@ -10,19 +10,20 @@ import {
   parseGeneratedPlotCards,
 } from '../../lib/plotStructure';
 import type { PlotStructureGenerateParams } from '../PlotStructureNode';
-import { MIN_STORY_CARD_HEIGHT } from './constants';
-import { formatStoryEditorText, getStoryEditorCopy } from './i18n';
-import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
-import {
-  applyAssistantStoryTags,
-  buildAssistantMentionReferencesFromNodes,
-  resolveAssistantStorySceneMedia,
-} from './assistantMentions';
 import {
   estimateStoryCardLayoutHeight,
   getNodePlacementBounds,
   rectsOverlap,
 } from './assistantCardPlacementLayout';
+import {
+  applyAssistantStoryTags,
+  buildAssistantMentionReferencesFromNodes,
+  createAssistantFallbackScene,
+  resolveAssistantStorySceneMedia,
+} from './assistantMentions';
+import { MIN_STORY_CARD_HEIGHT } from './constants';
+import { formatStoryEditorText, getStoryEditorCopy } from './i18n';
+import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
 
 type AlertOptions = {
   title: string;
@@ -153,24 +154,40 @@ export function usePlotStructureGeneration({
                 };
           let currentX = startPosition.x;
           let currentY = startPosition.y;
-          const references = buildAssistantMentionReferencesFromNodes(currentNodes);
+          const generationNodes = currentNodes.some((node) => node.type === 'sceneNode')
+            ? currentNodes
+            : [...currentNodes, createAssistantFallbackScene(currentNodes, language)];
+          const references = buildAssistantMentionReferencesFromNodes(generationNodes);
           const currentPresentation = (lastNode.data as StoryNodeData).presentation;
           const activeSourceIds = new Set([
             currentPresentation?.scene?.sourceNodeId,
             ...(currentPresentation?.characters || []).map((character) => character.sourceNodeId),
           ]);
-          const taggedReferences = references.map((reference) => ({
+          let taggedReferences = references.map((reference) => ({
             ...reference,
             prependIfMissing: activeSourceIds.has(reference.id),
           }));
-          const occupied = currentNodes
+          const occupied = generationNodes
             .filter((node) => node.id !== region?.id)
             .map(getNodePlacementBounds);
 
           const newNodes: Node[] = cards.map((card, index) => {
             const newId = newIds[index];
             const tagged = applyAssistantStoryTags(card.text, taggedReferences);
-            const sceneMedia = resolveAssistantStorySceneMedia(tagged.presentation, currentNodes);
+            if (tagged.presentation?.scene) {
+              taggedReferences = taggedReferences.map((reference) =>
+                reference.kind === 'scene'
+                  ? {
+                      ...reference,
+                      prependIfMissing: reference.id === tagged.presentation?.scene?.sourceNodeId,
+                    }
+                  : reference,
+              );
+            }
+            const sceneMedia = resolveAssistantStorySceneMedia(
+              tagged.presentation,
+              generationNodes,
+            );
             const layoutHeight = estimateStoryCardLayoutHeight(
               card.text,
               Boolean(tagged.presentation || sceneMedia.imageUrl),
@@ -228,7 +245,7 @@ export function usePlotStructureGeneration({
             return node;
           });
 
-          let updatedNodes = [...currentNodes, ...newNodes];
+          let updatedNodes = [...generationNodes, ...newNodes];
           if (region?.type === 'dynamicGroup') {
             updatedNodes = updatedNodes.map((node) => {
               if (node.id !== region.id || node.type !== 'groupNode') return node;

@@ -23,9 +23,9 @@ import {
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
 import {
+  type CharacterAppearanceGender,
   getCharacterAppearanceCatalog,
   listMatchedHairOutfitPairs,
-  type CharacterAppearanceGender,
 } from '../../lib/characterAppearance';
 import type { Language } from '../../lib/i18n';
 import {
@@ -34,8 +34,8 @@ import {
   getScenePresetAssetUrl,
 } from '../../lib/sceneTemplates';
 import {
-  resolveAssistantAppendLayoutOrigin,
   estimateStoryCardLayoutHeight,
+  resolveAssistantAppendLayoutOrigin,
   spawnCursorFromBounds,
   spawnCursorFromNodes,
 } from './assistantCardPlacementLayout';
@@ -43,6 +43,7 @@ import {
   applyAssistantStoryTags,
   type AssistantMentionReference,
   buildAssistantMentionReferencesFromNodes,
+  createAssistantFallbackScene,
   resolveAssistantStorySceneMedia,
 } from './assistantMentions';
 import { isDefaultInitialStoryNode } from './colorUtils';
@@ -926,7 +927,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           ];
         }),
       );
-      const existingMentionReferences = buildAssistantMentionReferencesFromNodes(nodes);
+      const existingMentionReferences = buildAssistantMentionReferencesFromNodes(
+        nodes,
+        (sourceNode?.data as StoryNodeData | undefined)?.presentation?.scene?.sourceNodeId,
+      );
       const generatedMentionReferences: AssistantMentionReference[] = remainingCards
         .map((card, index): AssistantMentionReference | null => {
           if (card.type === 'character') {
@@ -942,10 +946,17 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           return null;
         })
         .filter((reference): reference is AssistantMentionReference => Boolean(reference));
-      const assistantMentionReferences = [
+      let assistantMentionReferences = [
         ...generatedMentionReferences,
         ...existingMentionReferences,
       ];
+      const fallbackScene =
+        storyIndexes.length > 0 && !assistantMentionReferences.some((reference) => reference.kind === 'scene')
+          ? createAssistantFallbackScene(nodes, language)
+          : null;
+      if (fallbackScene) {
+        assistantMentionReferences.push(...buildAssistantMentionReferencesFromNodes([fallbackScene]));
+      }
       const isAssistantCandidateLayout =
         remainingCards.length > 1 &&
         remainingCards.every((card) => Boolean(card.assistantCandidateGroupId)) &&
@@ -1169,6 +1180,14 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         }
 
         const taggedStory = applyAssistantStoryTags(card.text, assistantMentionReferences);
+        const activeSceneId = taggedStory.presentation?.scene?.sourceNodeId;
+        if (activeSceneId) {
+          assistantMentionReferences = assistantMentionReferences.map((reference) =>
+            reference.kind === 'scene'
+              ? { ...reference, prependIfMissing: reference.id === activeSceneId }
+              : reference,
+          );
+        }
         const sceneMedia = resolveAssistantStorySceneMedia(taggedStory.presentation, nodes);
 
         return {
@@ -1732,6 +1751,13 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         ...newNodes,
         ...chapterBackgroundNodes,
         ...batchBackgroundNodes,
+        ...(fallbackScene
+          ? [createAssistantFallbackScene(
+              [...nds, ...newNodes, ...chapterBackgroundNodes, ...batchBackgroundNodes],
+              language,
+              fallbackScene.id,
+            )]
+          : []),
       ]);
       // Record the batch footprint before optional setup reflow. Reflow overwrites
       // the cursor once character / scene / story columns share a final origin.
@@ -2115,7 +2141,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               }
               const taggedStory = applyAssistantStoryTags(
                 value,
-                buildAssistantMentionReferencesFromNodes(currentNodes),
+                buildAssistantMentionReferencesFromNodes(
+                  currentNodes,
+                  (node.data as StoryNodeData).presentation?.scene?.sourceNodeId,
+                ),
               );
               const sceneMedia = resolveAssistantStorySceneMedia(
                 taggedStory.presentation,
@@ -2681,7 +2710,10 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
 
           const taggedStory = applyAssistantStoryTags(
             card.text || '',
-            buildAssistantMentionReferencesFromNodes(currentNodes),
+            buildAssistantMentionReferencesFromNodes(
+              currentNodes,
+              (node.data as StoryNodeData).presentation?.scene?.sourceNodeId,
+            ),
           );
           const sceneMedia = resolveAssistantStorySceneMedia(
             taggedStory.presentation,

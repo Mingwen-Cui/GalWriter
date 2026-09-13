@@ -6,6 +6,7 @@ import type {
   InlinePresentationActionType,
   StoryPresentation,
 } from '../../domain/project';
+import type { Language } from '../../lib/i18n';
 import {
   createCharacterPresentation,
   createInlinePresentationAction,
@@ -13,6 +14,29 @@ import {
   createScenePresentation,
   normalizeStoryPresentation,
 } from '../../lib/presentation';
+import { getNodePlacementBounds } from './assistantCardPlacementLayout';
+import { AI_SCENE_CARD_LAYOUT_HEIGHT, SETTING_NODE_CARD_WIDTH } from './constants';
+
+/** A real editable source for scene tags when a story starts without any scene settings. */
+export const createAssistantFallbackScene = (
+  nodes: Node[],
+  language: Language,
+  id = uuidv4(),
+): Node => ({
+  id,
+  type: 'sceneNode',
+  position: {
+    x: Math.max(0, ...nodes.map((node) => getNodePlacementBounds(node).maxX)) + 120,
+    y: nodes.length ? Math.min(...nodes.map((node) => node.position.y)) : 0,
+  },
+  style: { width: SETTING_NODE_CARD_WIDTH, height: AI_SCENE_CARD_LAYOUT_HEIGHT },
+  data: {
+    id,
+    sceneName:
+      language === 'zh' ? '默认场景' : language === 'ja' ? '既定のシーン' : 'Default scene',
+    scenePresetEnabled: false,
+  },
+});
 
 export type AssistantMentionReference = {
   id: string;
@@ -71,15 +95,13 @@ export const insertAssistantMentionTags = (
 
   if (/data-mention-kind=/i.test(text)) {
     const usedReferences = uniqueReferences.filter((reference) =>
-      text.includes(`data-mention-name="${reference.name}"`),
+      text.includes(`data-mention-name="${escapeAssistantStoryText(reference.name)}"`),
     );
-    const hasCharacterTag = usedReferences.some((reference) => reference.kind === 'character');
-    const hasSceneTag = usedReferences.some((reference) => reference.kind === 'scene');
+    const hasSceneTag = /data-mention-kind=["']scene["']/i.test(text);
     const fallbackScene =
-      uniqueReferences.find(
-        (reference) => reference.kind === 'scene' && reference.prependIfMissing,
-      ) || uniqueReferences.find((reference) => reference.kind === 'scene');
-    if (hasCharacterTag && !hasSceneTag && fallbackScene) {
+      references.find((reference) => reference.kind === 'scene' && reference.prependIfMissing) ||
+      references.find((reference) => reference.kind === 'scene');
+    if (!hasSceneTag && fallbackScene) {
       const id = uuidv4();
       return {
         html: `${createAssistantMentionHtml(fallbackScene.kind, fallbackScene.name, id)}${text}`,
@@ -131,7 +153,6 @@ export const insertAssistantMentionTags = (
     cursor = match.index + match.reference.name.length;
   }
 
-  const hasCharacterTag = usedReferences.some((reference) => reference.kind === 'character');
   const hasSceneTag = usedReferences.some((reference) => reference.kind === 'scene');
   const fallbackScene =
     references.find(
@@ -146,7 +167,7 @@ export const insertAssistantMentionTags = (
         !usedReferences.some((used) => used.kind === 'scene' && used.name === reference.name),
     );
   const forcedSceneTags =
-    hasCharacterTag && !hasSceneTag && fallbackScene
+    !hasSceneTag && fallbackScene
       ? (() => {
           const id = uuidv4();
           usedReferences.push(fallbackScene);
@@ -157,6 +178,7 @@ export const insertAssistantMentionTags = (
 
   const unusedReferences = references.filter(
     (reference) =>
+      reference.kind === 'character' &&
       reference.prependIfMissing &&
       !usedReferences.some((used) => used.kind === reference.kind && used.name === reference.name),
   );
@@ -179,6 +201,7 @@ export const insertAssistantMentionTags = (
 
 export const buildAssistantMentionReferencesFromNodes = (
   nodes: Node[],
+  preferredSceneId?: string,
 ): AssistantMentionReference[] =>
   nodes
     .map((node): AssistantMentionReference | null => {
@@ -189,7 +212,12 @@ export const buildAssistantMentionReferencesFromNodes = (
       }
       if (node.type === 'sceneNode') {
         const name = typeof node.data?.sceneName === 'string' ? node.data.sceneName.trim() : '';
-        return name ? { id: node.id, kind: 'scene', name } : null;
+        return {
+          id: node.id,
+          kind: 'scene',
+          name: name || '未命名场景',
+          prependIfMissing: node.id === preferredSceneId,
+        };
       }
       return null;
     })

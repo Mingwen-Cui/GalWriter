@@ -226,25 +226,38 @@ export function PlotStructureNode({ id, data, selected }: NodeProps<PlotStructur
                 rows={2}
                 className={'w-full resize-none ' + fieldClass}
               />
-              <details className="text-[10px] px-1">
-                <summary className="cursor-pointer text-[var(--text-muted)]">
-                  {tr('更多设置', '詳細設定', 'More settings')}
-                </summary>
-                <label className="mt-2 flex items-center justify-between">
-                  {tr('详细程度', '詳細度', 'Detail level')}
-                  <select
-                    aria-label={tr('详细程度', '詳細度', 'Detail level')}
-                    value={detailLevel}
-                    disabled={isGenerating}
-                    onChange={(event) => update({ detailLevel: event.target.value as DetailLevel })}
-                    className={fieldClass}
-                  >
-                    <option value="brief">{tr('简略', '簡潔', 'Brief')}</option>
-                    <option value="standard">{tr('标准', '標準', 'Standard')}</option>
-                    <option value="detailed">{tr('详细', '詳細', 'Detailed')}</option>
-                  </select>
-                </label>
-              </details>
+              <label className="flex flex-col gap-2 px-1 text-[11px]">
+                <span>{tr('详细程度', '詳細度', 'Detail level')}</span>
+                <input
+                  type="range"
+                  aria-label={tr('详细程度', '詳細度', 'Detail level')}
+                  aria-valuetext={
+                    detailLevel === 'brief'
+                      ? tr('简略', '簡潔', 'Brief')
+                      : detailLevel === 'detailed'
+                        ? tr('详细', '詳細', 'Detailed')
+                        : tr('标准', '標準', 'Standard')
+                  }
+                  min={0}
+                  max={2}
+                  step={1}
+                  value={['brief', 'standard', 'detailed'].indexOf(detailLevel)}
+                  disabled={isGenerating}
+                  onChange={(event) =>
+                    update({
+                      detailLevel: (['brief', 'standard', 'detailed'] as const)[
+                        Number(event.target.value)
+                      ],
+                    })
+                  }
+                  className="w-full accent-yellow-600 cursor-ew-resize disabled:cursor-not-allowed"
+                />
+                <span className="flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>{tr('简略', '簡潔', 'Brief')}</span>
+                  <span>{tr('标准', '標準', 'Standard')}</span>
+                  <span>{tr('详细', '詳細', 'Detailed')}</span>
+                </span>
+              </label>
             </>
           ) : (
             <>
