@@ -213,8 +213,8 @@ export function RenderStyleSettingsSection({
     renderStyle.nameplateGradientStops?.length >= 2
       ? [...renderStyle.nameplateGradientStops].sort((a, b) => a.position - b.position)
       : [
-          { id: 'start', color: '#6366f1', alpha: 92, position: 0 },
-          { id: 'end', color: '#ec4899', alpha: 82, position: 100 },
+          { id: 'start', color: '#1e3a8a', alpha: 94, position: 0 },
+          { id: 'end', color: '#0f172a', alpha: 94, position: 100 },
         ];
   const nameplateGradientStart = nameplateGradientStops[0];
   const nameplateGradientEnd = nameplateGradientStops[nameplateGradientStops.length - 1];
@@ -353,8 +353,8 @@ export function RenderStyleSettingsSection({
       ...stops,
       {
         id: nextId,
-        color: nextStop?.color || previousStop?.color || '#6366f1',
-        alpha: Math.round(((previousStop?.alpha ?? 86) + (nextStop?.alpha ?? 86)) / 2),
+        color: nextStop?.color || previousStop?.color || '#1e3a8a',
+        alpha: Math.round(((previousStop?.alpha ?? 94) + (nextStop?.alpha ?? 94)) / 2),
         position,
       },
     ]);
@@ -873,7 +873,7 @@ export function RenderStyleSettingsSection({
                     ? `center / cover url("${renderStyle.nameplateImageUrl.replace(/"/g, '\\"')}")`
                     : withAlpha(
                         renderStyle.nameplateColor,
-                        (renderStyle.nameplateColorAlpha ?? 86) / 100,
+                        (renderStyle.nameplateColorAlpha ?? 94) / 100,
                       ),
             }}
           />
@@ -913,7 +913,7 @@ export function RenderStyleSettingsSection({
                   language,
                   'componentsrendervideopanelsrenderStyleSettingsSectionText814',
                 )}
-                value={renderStyle.nameplateColorAlpha ?? 86}
+                value={renderStyle.nameplateColorAlpha ?? 94}
                 min={0}
                 max={100}
                 step={1}

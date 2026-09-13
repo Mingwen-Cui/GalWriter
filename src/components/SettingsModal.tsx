@@ -317,6 +317,69 @@ const buildArrowPath = (size: number, angle: number) => {
   return `M ${baseX} ${center - halfBase} L ${size} ${center} L ${baseX} ${center + halfBase} Z`;
 };
 
+// Settings-only anti-counterfeit watermark. Keep this source text intact so the
+// displayed mark can be matched against the official build.
+const SETTINGS_BACKGROUND_WATERMARK = String.raw`                                       ░▒▒▒░
+                                    ▒▓▓▓▓▓▓▓▓▓▒
+                                  ░▓▓▓▓▓▓▓▓▓▓▓▓▓░
+                                  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░
+                                 ░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░
+                                  ▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+                                   ▓▓▓▓▓▓▓▓▓▓▓▓▓░
+                                    ░▒▓▓▓▓▓▓▓▓░
+                                        ▓▓▓
+                                        ▓▓▓
+               ▒▒▒▒▒▒▒▒░               ░▓▓▓░                ▒▓▓▓▓▓▒░
+              ▒▒▒▒▒▒▒▒▒▒░              ░▓▓▓▒               ▒▓▓▓▓▓▓▓▓▓▒
+             ░▒▒▒▒▒▒▒▒▒▒▒              ▒▓▓▓▒░             ░▓▓▓▓▓▓▓▓▓▓▓
+             ░▒▒▒▒▒▒▒▒▒▒░             ▒▓▓▓▓▓▒             ░▒▓▓▓▓▓▓▓▓▓▒
+              ░▒▒▒▒▒▒▒▒░             ▒▓▓▓▓▓▓▓▒              ▒▓▓▓▓▓▓▓▒
+                  ░░░▒▒▒░          ▒▒▓▒░▒▒▒▒▒▓▓▒          ░▒▓▓▒░░░
+                      ▒▒▒▒▒░░░░▒▒▒▒▒▒░ ░▒▒▒▒ ░▒▓▓▓▒▒░░░░▒▓▓▓▒░
+                        ░▒▒▒▒▒▒▒▒▒░    ▒▒▒▒▒░   ░▒▒▒▓▓▓▓▒▒░
+                                     ░▒▒▒▒▒▒▒░
+                                   ░▒▒▒▒▒▒▒░▒▒▒░
+                            ░░░░▒▒▒▒▒░  ▒▒▒  ░▒▒▒▒▒░░░░
+                  ░░▒▒▒▒▒▒▒▒▒▒▒▒▒░░     ▒▒▒     ░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒░
+                ▒▒▒▒▒░     ░▒▒▒░        ▒▒▒        ░▒▒▒░     ░▒▒▒▒▒░
+              ▒▒▒░        ░░░░          ░░░          ░▒▒░        ░▒▒▒
+            ░▒▒▒          ░░░           ░░░           ░▒▒░         ▒▒▒░
+           ░▒▒░          ░▒▒            ░░░            ▒▒▒          ░▒▒░
+       ░▒▒▒▒▒▒         ░▒▒▒▒░           ░░░           ░▒▒▒▒░         ▒▒▒▒▒▒░
+     ░▒▒▒▒▒▒▒▒▒      ░▒▒▒▒▒▒▒▒░         ▒▒▒         ░▒▒▒▒▒▒▒▒░      ▒▒▒▒▒▒▒▒▒▒
+    ░▒▒▒▒▒▒▒▒▒▒▒    ░▒▒▒▒▒▒▒▒▒▒░        ▒▒▒        ░▒▒▒▒▒▒▒▒▒▒▒    ▒▒▒▒▒▒▒▒▒▒▒░
+    ░▒▒▒▒▒▒▒▒▒▒▒    ▒▒▒▒▒▒▒▒▒▒▒░        ▒▒▒        ░▒▒▒▒▒▒▒▒▒▒▒    ▒▒▒▒▒▒▒▒▒▒▒░
+     ░▒▒▒▒▒▒▒▒▒      ▒▒▒▒▒▒▒▒▒░         ▒▒▒         ░▒▒▒▒▒▒▒▒▒      ▒▒▒▒▒▒▒▒▒▒
+       ░▒▒▒▒▒░        ░░▒▒▒▒░           ▒▒▒           ░▒▒▒▒░░        ░▒▒▒▒▒▒
+                                     ░▒▒▒▒▒▒▒░
+                                    ▒▒▒▒▒▒▒▒▒▒▒
+                                    ▒▒▒▒▒▒▒▒▒▒▒
+                                    ▒▒▒▒▒▒▒▒▒▒▒
+                                     ▒▒▒▒▒▒▒▒▒
+                                       ░░▒▒░`;
+
+const SETTINGS_ANTICOUNTERFEIT_WATERMARK = String.raw`                   :==:
+                 =++++++=
+                :++++++++:
+                 =++++++=
+                  .-++-.
+       :--.         ==         .---.
+     :=====-       .==.       :+++++-
+     :=====-       -++-       :+++++-
+       :--=:     .======:     :==-:.
+           -=====-.:==:.-+++++-.
+                  :====-.
+          :::--===: -- :===--:::.
+      :--:...--.    --    .--...:-=:
+     -=.    :-      --      --     =-.
+  :---    .:--      --      -=:.    -=-:
+.=====-  :=====:    --    :=====:  -=====.
+.-====-  :=====:    -=    :=====:  -=====.
+  :::.     :::     .==.     :::.    .:-:
+                  ======
+                  ======
+                   .--:`;
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   showSettings,
   setShowSettings,
@@ -642,6 +705,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  // The console mark is emitted only for an opened settings dialog, matching
+  // the visible settings-only watermark without polluting normal app logs.
+  React.useEffect(() => {
+    if (!showSettings) return;
+    const domComment = document.createComment(
+      ` GalWriter AI · Settings anti-counterfeit mark\n${SETTINGS_ANTICOUNTERFEIT_WATERMARK}\n `,
+    );
+    // Appending to <html> places the mark immediately before </html> in F12's Elements tree.
+    document.documentElement.appendChild(domComment);
+    console.info(
+      '%cGalWriter AI · Settings anti-counterfeit mark\n%c%s',
+      'color:#4f46e5;font-weight:800;font-size:12px;',
+      'color:#4f46e5;font-family:monospace;font-size:8px;line-height:1;',
+      SETTINGS_ANTICOUNTERFEIT_WATERMARK,
+    );
+    return () => domComment.remove();
+  }, [showSettings]);
+
   if (!showSettings) return null;
 
   return (
@@ -649,8 +730,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <div
         className={`settings-modal-overlay fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-[300] flex items-center justify-center backdrop-blur-[2px] p-4 animate-in fade-in duration-200 ${theme === 'dark' ? 'dark' : ''}`}
       >
-        <div className="settings-modal-shell bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
-          <div className="settings-modal-header h-12 shrink-0 px-4 border-b border-[var(--header-border)] bg-[var(--app-bg)]/30 flex items-center gap-3">
+        <div className="settings-modal-shell relative bg-[var(--panel-bg)] backdrop-blur-[0px] rounded-2xl shadow-2xl w-full max-w-4xl h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-[var(--header-border)] animate-in zoom-in-95 duration-300">
+          {/* Official settings-only anti-counterfeit watermark. */}
+          <pre
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-8 -right-10 z-0 select-none whitespace-pre font-mono text-[7px] leading-[1] text-[var(--accent)] opacity-[0.065]"
+          >
+            {SETTINGS_BACKGROUND_WATERMARK}
+          </pre>
+          <div className="settings-modal-header relative z-10 h-12 shrink-0 px-4 border-b border-[var(--header-border)] bg-[var(--app-bg)]/30 flex items-center gap-3">
             <h2 className="flex-1 text-base font-black text-slate-800 dark:text-slate-100 tracking-tight">
               {s.settings}
             </h2>
@@ -675,7 +763,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
           </div>
 
-          <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div className="relative z-10 flex min-h-0 flex-1 overflow-hidden">
             {/* Sidebar Navigation */}
             <div className="settings-modal-sidebar w-52 bg-[var(--app-bg)]/30 border-r border-[var(--header-border)] flex flex-col p-5 shrink-0">
               <div className="settings-modal-tabs flex-1 space-y-1.5">

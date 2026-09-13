@@ -155,7 +155,7 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
       width: 34,
       height: 42,
       radius: 14,
-      fill: fill('solid', '#4f46e5', 86, defaultStops('#6366f1', '#ec4899')),
+      fill: fill('solid', '#172554', 94, defaultStops('#1e3a8a', '#0f172a')),
     }),
     {
       fontSize: 18,
@@ -187,11 +187,11 @@ export const getRenderObjects = (style: RenderStyle): RenderEditableObjects => {
   );
   const legacyNameplateFill = fill(
     style.nameplateBackgroundType,
-    style.nameplateColor || '#4f46e5',
-    style.nameplateColorAlpha ?? 86,
+    style.nameplateColor || '#172554',
+    style.nameplateColorAlpha ?? 94,
     style.nameplateGradientStops?.length
       ? style.nameplateGradientStops
-      : defaultStops('#6366f1', '#ec4899'),
+      : defaultStops('#1e3a8a', '#0f172a'),
     style.nameplateImageUrl,
   );
   const legacy: RenderEditableObjects = {

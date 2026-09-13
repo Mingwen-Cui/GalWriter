@@ -73,8 +73,8 @@ const getGradientStops = (style: RenderStyle) =>
   style.nameplateGradientStops?.length >= 2
     ? [...style.nameplateGradientStops].sort((a, b) => a.position - b.position)
     : [
-        { id: 'start', color: '#6366f1', alpha: 92, position: 0 },
-        { id: 'end', color: '#ec4899', alpha: 82, position: 100 },
+        { id: 'start', color: '#1e3a8a', alpha: 94, position: 0 },
+        { id: 'end', color: '#0f172a', alpha: 94, position: 100 },
       ];
 
 export const getNameplateCssBackground = (style: RenderStyle): CSSProperties => {
@@ -96,7 +96,7 @@ export const getNameplateCssBackground = (style: RenderStyle): CSSProperties => 
     };
   }
   return {
-    backgroundColor: colorWithAlpha(style.nameplateColor, style.nameplateColorAlpha ?? 86),
+    backgroundColor: colorWithAlpha(style.nameplateColor, style.nameplateColorAlpha ?? 94),
   };
 };
 
@@ -229,7 +229,7 @@ const fillNameplateBackground = async (
       );
       return;
     } catch {
-      ctx.fillStyle = colorWithAlpha(style.nameplateColor, style.nameplateColorAlpha ?? 86);
+      ctx.fillStyle = colorWithAlpha(style.nameplateColor, style.nameplateColorAlpha ?? 94);
       ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
       return;
     }
@@ -251,7 +251,7 @@ const fillNameplateBackground = async (
     ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
     return;
   }
-  ctx.fillStyle = colorWithAlpha(style.nameplateColor, style.nameplateColorAlpha ?? 86);
+  ctx.fillStyle = colorWithAlpha(style.nameplateColor, style.nameplateColorAlpha ?? 94);
   ctx.fillRect(layout.x, layout.y, layout.width, layout.height);
 };
 

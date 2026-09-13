@@ -412,13 +412,13 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         const stops = Array.isArray(style.nameplateGradientStops) && style.nameplateGradientStops.length >= 2
           ? style.nameplateGradientStops.slice().sort((a, b) => Number(a.position) - Number(b.position))
           : [
-              { color: "#6366f1", alpha: 92, position: 0 },
-              { color: "#ec4899", alpha: 82, position: 100 },
+              { color: "#1e3a8a", alpha: 94, position: 0 },
+              { color: "#0f172a", alpha: 94, position: 100 },
             ];
         const cssStops = stops.map((stop) => withAlpha(stop.color, Number(stop.alpha) / 100) + " " + clamp(stop.position, 0, 100, 0) + "%").join(", ");
         return "linear-gradient(" + clamp(style.nameplateGradientAngle, 0, 360, 90) + "deg, " + cssStops + ")";
       }
-      return withAlpha(style.nameplateColor || "#4f46e5", (Number(style.nameplateColorAlpha ?? 86) || 86) / 100);
+      return withAlpha(style.nameplateColor || "#172554", (Number(style.nameplateColorAlpha ?? 94) || 94) / 100);
     }
     const renderObjects = style.renderObjects || {};
     const dialogObject = renderObjects.dialogBox || {};

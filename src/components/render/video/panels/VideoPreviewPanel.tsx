@@ -60,71 +60,6 @@ type VideoPreviewPanelProps = {
   setCanvasSelected: (selected: boolean) => void;
 };
 
-const getAlignedTextX = (align: CanvasTextAlign, left: number, right: number) => {
-  if (align === 'center') return (left + right) / 2;
-  if (align === 'right' || align === 'end') return right;
-  return left;
-};
-
-const getRenderedTextFrame = ({
-  ctx,
-  lines,
-  align,
-  left,
-  right,
-  firstBaseline,
-  lineHeight,
-  fontSize,
-}: {
-  ctx: CanvasRenderingContext2D;
-  lines: string[];
-  align: CanvasTextAlign;
-  left: number;
-  right: number;
-  firstBaseline: number;
-  lineHeight: number;
-  fontSize: number;
-}) => {
-  const renderLines = lines.filter((line) => line.length > 0);
-  const anchorX = getAlignedTextX(align, left, right);
-  const fallbackAscent = fontSize * 0.82;
-  const fallbackDescent = fontSize * 0.24;
-  const bounds = renderLines.map((line, index) => {
-    const metrics = ctx.measureText(line);
-    const width = metrics.width;
-    const x =
-      align === 'center'
-        ? anchorX - width / 2
-        : align === 'right' || align === 'end'
-          ? anchorX - width
-          : anchorX;
-    const baseline = firstBaseline + index * lineHeight;
-    return {
-      left: x,
-      right: x + width,
-      top: baseline - (metrics.actualBoundingBoxAscent || fallbackAscent),
-      bottom: baseline + (metrics.actualBoundingBoxDescent || fallbackDescent),
-    };
-  });
-
-  if (!bounds.length) {
-    return {
-      x: anchorX,
-      y: firstBaseline - fallbackAscent,
-      width: 24,
-      height: fallbackAscent + fallbackDescent,
-    };
-  }
-  const x = Math.min(...bounds.map((bound) => bound.left));
-  const y = Math.min(...bounds.map((bound) => bound.top));
-  return {
-    x,
-    y,
-    width: Math.max(24, Math.max(...bounds.map((bound) => bound.right)) - x),
-    height: Math.max(fontSize, Math.max(...bounds.map((bound) => bound.bottom)) - y),
-  };
-};
-
 export function VideoPreviewPanel({
   language,
   resolution,
@@ -266,22 +201,18 @@ export function VideoPreviewPanel({
     });
     const frameFor = (kind: 'title' | 'body') => {
       const text = layout[kind];
-      if (!text.visible || !text.lines.length || text.alpha <= 0) return emptyFrame;
-      ctx.font = text.font;
-      ctx.textBaseline = 'alphabetic';
-      ctx.textAlign = 'left';
-      (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing =
-        `${(kind === 'title' ? videoRenderStyle.titleLetterSpacing : videoRenderStyle.bodyLetterSpacing) ?? 0}px`;
-      return getRenderedTextFrame({
-        ctx,
-        lines: text.lines,
-        align: kind === 'title' ? videoRenderStyle.titleAlign : videoRenderStyle.bodyAlign,
-        left: text.left,
-        right: text.right,
-        firstBaseline: text.firstBaseline,
-        lineHeight: text.lineHeight,
-        fontSize: text.fontSize,
-      });
+      if (!text.visible || text.alpha <= 0) return emptyFrame;
+      // Selection must follow the editable text box, rather than the tiny bounds of the
+      // currently revealed glyphs. This keeps title/body selectable during typewriter
+      // animation and makes short lines as easy to select as wrapped paragraphs.
+      const padding = Math.max(12, Math.round(text.fontSize * 0.35));
+      const lineCount = Math.max(1, text.lines.length);
+      return {
+        x: text.left - padding,
+        y: text.firstBaseline - Math.round(text.fontSize * 0.9) - padding,
+        width: Math.max(48, text.right - text.left) + padding * 2,
+        height: Math.max(text.lineHeight, lineCount * text.lineHeight) + padding * 2,
+      };
     };
     const title = frameFor('title');
     const body = frameFor('body');
