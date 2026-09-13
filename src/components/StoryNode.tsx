@@ -3755,38 +3755,6 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                               />
                             </label>
                           )}
-                          {presentationEditorPhase === 'inline' && switchableAssets.length > 1 && (
-                            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
-                              <div className="mb-2 text-[10px] font-bold text-blue-600">
-                                场景 Tag 动画
-                              </div>
-                              <InlineActionEditor
-                                action={switchAction}
-                                targetName={presentationMenu.name}
-                                targetKind="scene"
-                                switchableAssets={switchableAssets}
-                                onChange={updateInlineAction}
-                                onReset={() =>
-                                  updateInlineAction(
-                                    createInlinePresentationAction({
-                                      id: switchAction.id,
-                                      kind: 'scene',
-                                      sourceNodeId: presentationMenu.sourceNodeId,
-                                      name: presentationMenu.name,
-                                    }),
-                                  )
-                                }
-                                onPreviewBefore={(nextAction) =>
-                                  previewInlineAction(nextAction, 'before')
-                                }
-                                onPreviewAfter={(nextAction) =>
-                                  previewInlineAction(nextAction, 'after')
-                                }
-                                autoPreview={autoPreviewInlineAction}
-                                onAutoPreviewChange={setAutoPreviewInlineAction}
-                              />
-                            </div>
-                          )}
                           <label className="flex items-center gap-2">
                             <span className="shrink-0 font-bold">
                               缩放：{Math.round(current.scale * 100)}%

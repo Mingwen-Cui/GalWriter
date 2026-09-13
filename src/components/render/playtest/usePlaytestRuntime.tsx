@@ -1104,7 +1104,8 @@ export function usePlaytestRuntime(
       (layoutMode === 'classic' || !sceneImageUrl);
 
     if (
-      creativeInteraction ||
+      (creativeInteraction && (creativeInteraction.loading ||
+        (currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId) && creativeInteraction.options.length > 0))) ||
       !autoAdvance ||
       !presentationReady ||
       !animationCompleted ||
@@ -1122,7 +1123,9 @@ export function usePlaytestRuntime(
     if (hasAudio || hasVideo) {
       if (mediaStatusNodeId !== currentNodeId) return;
       if ((!hasAudio || currentAudioEnded) && (!hasVideo || currentVideoEnded)) {
-        advanceToTarget(autoAdvanceTarget);
+        if (creativeInteraction && currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId)) {
+          void creativeInteraction.onDecision('继续');
+        } else advanceToTarget(autoAdvanceTarget);
       }
       return;
     }
@@ -1133,7 +1136,9 @@ export function usePlaytestRuntime(
     autoAdvanceTimerRef.current = setTimeout(
       () => {
         if (sessionId !== playbackSessionRef.current) return;
-        advanceToTarget(autoAdvanceTarget);
+        if (creativeInteraction && currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId)) {
+          void creativeInteraction.onDecision('继续');
+        } else advanceToTarget(autoAdvanceTarget);
       },
       Math.max(0, autoAdvanceDelay) * 1000,
     );
@@ -1172,6 +1177,16 @@ export function usePlaytestRuntime(
     if (!animationCompleted) {
       finishInlinePlaybackRef.current?.();
     } else {
+      if (creativeInteraction) {
+        if (creativeInteraction.loading) return;
+        const atEnd = currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId);
+        if (atEnd) {
+          if (creativeInteraction.options.length === 0) void creativeInteraction.onDecision('继续');
+        } else if (outEdges.length === 1) {
+          advanceToTarget(outEdges[0].target);
+        }
+        return;
+      }
       // 如果打字完毕，且开启了“单选项隐藏居中弹窗”的设置，并且当前没有多分支选项（<= 1个分支）
       if (skipSingleChoicePopup && outEdges.length <= 1) {
         const nextTarget = outEdges.length === 1 ? outEdges[0].target : 'THE_END';
@@ -1256,7 +1271,9 @@ export function usePlaytestRuntime(
               nodeColor.toLowerCase() === '#ffffff' || nodeColor.toLowerCase() === 'white';
 
             const defaultLabel = outEdges.length === 1 ? t.continue : `${t.option} ${index + 1}`;
-            const label = targetTitle || edge.data?.label || defaultLabel;
+            // Branch labels describe the player's action; a destination title is
+            // only a fallback when the author did not provide that choice text.
+            const label = edge.data?.label || targetTitle || defaultLabel;
 
             if (isImmersive) {
               let customBg = 'rgba(255, 255, 255, 0.15)';

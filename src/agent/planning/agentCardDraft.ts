@@ -66,6 +66,8 @@ export type AssistantCardPlacementMode =
   | 'bridge-to-target';
 
 export type AssistantCardPlacementOptions = {
+  /** Place completed content without the canvas skeleton/typing animation. */
+  skipAnimation?: boolean;
   targetNodeId?: string;
   targetNodeIds?: string[];
   /** Mark the first generated story card as the playtest starting point. */

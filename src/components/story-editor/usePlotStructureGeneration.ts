@@ -13,6 +13,16 @@ import type { PlotStructureGenerateParams } from '../PlotStructureNode';
 import { MIN_STORY_CARD_HEIGHT } from './constants';
 import { formatStoryEditorText, getStoryEditorCopy } from './i18n';
 import { PLOT_STRUCTURE_DIRECTION_CONFIG } from './plotStructureDirection';
+import {
+  applyAssistantStoryTags,
+  buildAssistantMentionReferencesFromNodes,
+  resolveAssistantStorySceneMedia,
+} from './assistantMentions';
+import {
+  estimateStoryCardLayoutHeight,
+  getNodePlacementBounds,
+  rectsOverlap,
+} from './assistantCardPlacementLayout';
 
 type AlertOptions = {
   title: string;
@@ -56,7 +66,8 @@ export function usePlotStructureGeneration({
       const layoutDirection = plotStructureGenerateDirection;
       const layoutConfig = PLOT_STRUCTURE_DIRECTION_CONFIG[layoutDirection];
 
-      if (regionStoryNodes.length === 0) {
+      const lastStory = regionStoryNodes.filter((node) => node.type === 'storyNode').at(-1);
+      if (!lastStory) {
         await showDialogAlert({
           title: copy.plotUnable,
           description: copy.plotNoCards,
@@ -65,7 +76,11 @@ export function usePlotStructureGeneration({
         return;
       }
 
-      const existingContent = formatRegionStoryForPrompt(regionStoryNodes);
+      // Settings remain context; only a story card can anchor a continuation.
+      const existingContent = formatRegionStoryForPrompt([
+        ...regionStoryNodes.filter((node) => node.id !== lastStory.id),
+        lastStory,
+      ]);
       const detailText =
         detailLevel === 'brief'
           ? copy.plotBriefDetail
@@ -93,7 +108,7 @@ export function usePlotStructureGeneration({
           return;
         }
 
-        const lastNodeId = regionStoryNodes[regionStoryNodes.length - 1].id;
+        const lastNodeId = lastStory.id;
         const newIds = cards.map(() => uuidv4());
         const newEdges: Edge[] = [];
         let sourceId = lastNodeId;
@@ -138,38 +153,78 @@ export function usePlotStructureGeneration({
                 };
           let currentX = startPosition.x;
           let currentY = startPosition.y;
+          const references = buildAssistantMentionReferencesFromNodes(currentNodes);
+          const currentPresentation = (lastNode.data as StoryNodeData).presentation;
+          const activeSourceIds = new Set([
+            currentPresentation?.scene?.sourceNodeId,
+            ...(currentPresentation?.characters || []).map((character) => character.sourceNodeId),
+          ]);
+          const taggedReferences = references.map((reference) => ({
+            ...reference,
+            prependIfMissing: activeSourceIds.has(reference.id),
+          }));
+          const occupied = currentNodes
+            .filter((node) => node.id !== region?.id)
+            .map(getNodePlacementBounds);
 
           const newNodes: Node[] = cards.map((card, index) => {
             const newId = newIds[index];
+            const tagged = applyAssistantStoryTags(card.text, taggedReferences);
+            const sceneMedia = resolveAssistantStorySceneMedia(tagged.presentation, currentNodes);
+            const layoutHeight = estimateStoryCardLayoutHeight(
+              card.text,
+              Boolean(tagged.presentation || sceneMedia.imageUrl),
+            );
+            if (layoutDirection === 'up') currentY -= layoutHeight - cardHeight;
             const isOccupied = (x: number, y: number) =>
-              currentNodes.some(
-                (node) => Math.abs(node.position.x - x) < 50 && Math.abs(node.position.y - y) < 50,
+              occupied.some((bounds) =>
+                rectsOverlap(
+                  { minX: x, minY: y, maxX: x + cardWidth, maxY: y + layoutHeight },
+                  bounds,
+                  40,
+                ),
               );
 
             let attempts = 0;
-            while (isOccupied(currentX, currentY) && attempts < 10) {
+            while (isOccupied(currentX, currentY) && attempts < 100) {
               if (layoutConfig.collisionAxis === 'x') currentX += layoutConfig.collisionStep;
               else currentY += layoutConfig.collisionStep;
               attempts += 1;
+            }
+            if (isOccupied(currentX, currentY)) {
+              currentY =
+                Math.max(currentY, ...occupied.map((bounds) => bounds.maxY)) + offsetDistance;
             }
 
             const node: Node = {
               id: newId,
               type: 'storyNode',
               position: { x: currentX, y: currentY },
-              style: { width: cardWidth, height: cardHeight },
+              style: { width: cardWidth, height: layoutHeight },
               data: {
                 id: newId,
                 title: card.title,
-                text: card.text,
+                text: tagged.text,
+                presentation: tagged.presentation,
+                ...sceneMedia,
                 shape: 'square',
                 color: '#ffffff',
                 sizeMode: 'auto',
               } satisfies StoryNodeData,
             };
 
+            occupied.push({
+              minX: currentX,
+              minY: currentY,
+              maxX: currentX + cardWidth,
+              maxY: currentY + layoutHeight,
+            });
             if (layoutConfig.primaryAxis === 'x') currentX += layoutConfig.primaryDelta;
-            else currentY += layoutConfig.primaryDelta;
+            else
+              currentY +=
+                layoutDirection === 'up'
+                  ? -(cardHeight + offsetDistance)
+                  : layoutHeight + offsetDistance;
             return node;
           });
 

@@ -13,6 +13,8 @@ export type PlaytestCreativeInteraction = {
   turnId: string;
   /** The generated story card that represents this active creative turn. */
   nodeId?: string;
+  endNodeId?: string;
+  onPrefetch?: () => Promise<void>;
   story: string;
   question: string;
   options: string[];

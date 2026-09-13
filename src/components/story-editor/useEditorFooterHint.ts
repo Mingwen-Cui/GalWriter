@@ -18,7 +18,7 @@ const CHINESE_HINTS: Record<string, string> = {
   sceneNode:
     '场景卡片用于记录地点、物品、氛围和补充描述。勾选显示项后，卡片会把对应场景信息展示在画布上。',
   plotStructureNode:
-    '剧情结构卡片会根据背景区域里的卡片生成后续剧情。先把它放进背景区域，再填写方向和生成数量。',
+    '剧情结构卡片支持普通续写和进入故事创作。放入剧情所在区域，可从最后一张剧情卡续写，也可进入测试界面边玩边创作。',
   summaryNode:
     '文本汇总卡片可以整理连接进来的剧情内容。调整编号、箭头和标题选项，可以改变输出格式。',
   batchReplaceNode:
@@ -43,7 +43,7 @@ const ENGLISH_HINTS: Record<string, string> = {
   sceneNode:
     'Scene cards record locations, items, atmosphere, and extra description. Toggle visible fields to show those scene details on the canvas.',
   plotStructureNode:
-    'Plot structure cards generate continuations from cards inside a background area. Place one inside the area, then set direction and card count.',
+    'Plot structure cards can continue from the last story card in their area, or open the playtest to create the story as you play.',
   summaryNode:
     'Summary cards collect connected story content. Change numbering, arrows, and title options to adjust the output format.',
   batchReplaceNode:

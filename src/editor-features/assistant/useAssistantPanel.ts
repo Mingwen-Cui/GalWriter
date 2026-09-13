@@ -8,7 +8,7 @@ import type {
   AssistantCardPlacementMode,
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
-import type { CharacterNodeData } from '../../domain/project';
+import type { CharacterNodeData, CreativeStorySource } from '../../domain/project';
 import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import { localPersistenceService } from '../../editor-services/localPersistenceService';
@@ -278,7 +278,8 @@ interface UseAssistantPanelResult {
     flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
   ) => Promise<void>;
   creativeStorySession: CreativeStorySession | null;
-  handleStartCreativeStory: () => Promise<void>;
+  handleStartCreativeStory: (source?: CreativeStorySource) => Promise<void>;
+  handlePrefetchCreativeStory: () => Promise<void>;
   handleCreativeStoryDecision: (decision: string) => Promise<void>;
   handleWithdrawCreativeStoryDecision: () => void;
   handleReturnCreativeStoryToPreviousDecision: () => void;
@@ -1686,6 +1687,7 @@ The previous streaming response did not complete every placeholder card. Return 
     submitRolePreference: submitCreativeStoryRolePreference,
     surpriseMe: handleCreativeStorySurprise,
     start: handleStartCreativeStory,
+    prefetch: handlePrefetchCreativeStory,
     decide: handleCreativeStoryDecision,
     withdrawPendingDecision: handleWithdrawCreativeStoryDecision,
     returnToPreviousDecision: handleReturnCreativeStoryToPreviousDecision,
@@ -2191,7 +2193,7 @@ ${shortDramaLibraryReferenceContext}
         )
         .join('\n');
 
-      const numberLogicInstruction = `Number logic rule: Only create {"type":"number-condition"} cards when the user explicitly asks for affection, numeric values, value changes, conditional branches, route logic, hidden endings, or other complex logic. Do not use number-condition cards for ordinary story generation or normal setting cards. To control affection or another score, set "nodeValue" on relevant story cards, for example {"type":"story","title":"Affection rises","text":"...","nodeValue":5}. A number-condition card reads the accumulated upstream story nodeValue and may use {"type":"number-condition","key":"check","title":"Affection check","threshold":10,"ranges":[{"min":0,"max":9},{"min":10,"max":99}],"branchTargets":[{"handle":"less","target":"bad_end","label":"low affection"},{"handle":"greater","target":"good_end","label":"high affection"}]}. For any branching story, give cards stable "key" values and use "connectTo":["next_key"] or "branchTargets":[{"target":"ending_a"},{"target":"ending_b"}] so one card can connect to multiple later cards. When the user asks for multiple endings, create several ending story cards and connect the shared parent card to all of them with branchTargets, not a linear chain.`;
+      const numberLogicInstruction = `Number logic rule: Only create {"type":"number-condition"} cards when the user explicitly asks for affection, numeric values, value changes, conditional branches, route logic, hidden endings, or other complex logic. Do not use number-condition cards for ordinary story generation or normal setting cards. To control affection or another score, set "nodeValue" on relevant story cards, for example {"type":"story","title":"Affection rises","text":"...","nodeValue":5}. A number-condition card reads the accumulated upstream story nodeValue and may use {"type":"number-condition","key":"check","title":"Affection check","threshold":10,"ranges":[{"min":0,"max":9},{"min":10,"max":99}],"branchTargets":[{"handle":"less","target":"bad_end","label":"low affection"},{"handle":"greater","target":"good_end","label":"high affection"}]}. For any branching story, give cards stable "key" values and use "connectTo":["next_key"] or "branchTargets":[{"target":"ending_a","label":"Ask for the truth"},{"target":"ending_b","label":"Leave and investigate alone"}] so one card can connect to multiple later cards. Every playable branch must provide 2 to 3 concrete, materially different player-action labels and connect each label to its own immediate story direction; never place separate, unconnected storyline columns. When the user asks for multiple endings, create several ending story cards and connect the shared parent card to all of them with branchTargets, not a linear chain.`;
 
       const isArticleTeachingWorkflow = workflow.type === 'article-teach-generate';
       const articleTeachingSelectionInstruction = isArticleTeachingWorkflow
@@ -4055,6 +4057,7 @@ cards 必须正好有 3 张。`);
     handleStartAssistantFlow,
     creativeStorySession,
     handleStartCreativeStory,
+    handlePrefetchCreativeStory,
     handleCreativeStoryDecision,
     handleWithdrawCreativeStoryDecision,
     handleReturnCreativeStoryToPreviousDecision,

@@ -7,6 +7,7 @@ import type {
   AssistantCardPlacementOptions,
 } from '../../agent/planning/agentCardDraft';
 import type {
+  CreativeStorySource,
   CreativeStoryTraitKey,
   CreativeStoryTraitLevel,
   CreativeStoryTraitLevels,
@@ -384,9 +385,9 @@ const withCreativeSceneSettingCard = (
 const CREATIVE_STORY_BEAT_RULES = `演出长度约 3 到 10 句。
 规则：
 - 日常对白、情绪反应、环境描写：只返回正文，question 必须是 ""，options 必须是 []。
-- 仅在关系转折、不可逆后果、立场冲突或真正的路线分叉时，才提出一个具体问题，并给出对应选项。
+- 到达设定的选择间隔时，必须制造一个关系转折、不可逆后果、立场冲突或路线分叉，并提出一个具体问题。
 - 问题必须具体，指向当下可做的事或要表态的立场；禁止空泛的「你想怎么做」「接下来呢」。
-- 选项数量不限，可以只有 1 个；没有关键分歧时不要硬凑选项。
+- 有问题时 options 必须恰好有 3 项。三项分别要代表不同的行动、态度或调查方向，并会导致不同的后续发展；不能只是同一句话的语气改写，也不能只有 1 项。
 - 可根据剧情填写好感度：在 JSON 顶层给出整数 affectionDelta（可正可负），并在对应 story 卡上写 nodeValue（与本段变化一致）。
 - 必须填写 sceneName（当前演出发生的地点名）。若地点相对上一段发生变化，sceneName 必须换成新地点。
 - 同时填写 sceneEnvironment，值只能是 indoor 或 outdoor，仅用于内部场景预设，不要写进对白。`;
@@ -496,6 +497,28 @@ const normalizeOpeningPayload = (content: string): CreativeStoryOpeningPayload |
   }
 };
 
+const ensureCreativeChoiceAtInterval = (
+  session: CreativeStorySession,
+  payload: CreativeStoryOpeningPayload,
+): CreativeStoryOpeningPayload => {
+  const choiceInterval = Math.max(1, session.choiceInterval ?? 4);
+  const reachesChoicePoint = (session.cardsSinceChoice ?? 0) + payload.cards.length >= choiceInterval;
+  if (!reachesChoicePoint) return payload;
+  if (payload.options.length >= 3) {
+    return {
+      ...payload,
+      question: payload.question || '局势已经来到分歧点：你准备怎样行动？',
+      options: payload.options.slice(0, 3),
+    };
+  }
+
+  return {
+    ...payload,
+    question: '局势已经来到分歧点：你准备怎样行动？',
+    options: ['正面回应，要求立刻说清真相', '暂时按兵不动，先观察对方的反应', '绕开眼前的安排，独自追查新的线索'],
+  };
+};
+
 const buildFallbackContinuation = (
   session: CreativeStorySession,
   decision: string,
@@ -515,12 +538,12 @@ const buildFallbackContinuation = (
     affectionDelta: isContinue ? 0 : 1,
     sceneName,
     cards: [
-      {
+      ...(isContinue ? [] : [{
         type: 'story',
-        title: isContinue ? '继续' : '你的决定',
-        text: isContinue ? reply : `${player}选择了：${decision}`,
-        nodeValue: isContinue ? 0 : 1,
-      },
+        title: '你的决定',
+        text: `${player}选择了：${decision}`,
+        nodeValue: 1,
+      } satisfies AssistantCardDraft]),
       { type: 'story', title: '新的变化', text: reply },
     ],
   };
@@ -716,6 +739,15 @@ const getCreativeStoryOpenings = (
     ],
   );
 };
+
+type PreparedCreativeDecision = {
+  previous: CreativeStorySession['turns'][number] | undefined;
+  next: CreativeStoryOpeningPayload;
+  history: string;
+  summarize: boolean;
+  currentAffection: number;
+};
+const creativePrefetchCaches = new WeakMap<object, Map<string, Promise<PreparedCreativeDecision>>>();
 
 export const createCreativeStorySessionHandlers = ({
   activeTask,
@@ -1240,6 +1272,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
             affectionDelta,
             sceneName: openingSceneName,
             nodeId: placement?.nodeIds?.[sceneCardCount],
+            endNodeId: placement?.nodeIds?.at(-1),
             createdAt: now,
           },
         ],
@@ -1263,7 +1296,56 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
     }
   };
 
-  const start = async () => {
+  const start = async (source?: CreativeStorySource) => {
+    if (source) {
+      const lastStory = source.storyNodes.filter((node) => node.type === 'storyNode').at(-1);
+      if (!lastStory) return;
+      const existing = tasksRef.current.find((task) =>
+        task.creativeSession?.sourceToolNodeId === source.toolNodeId &&
+        (source.availableNodeIds || source.storyNodes.map((node) => node.id)).includes(task.creativeSession?.turns.at(-1)?.nodeId || ''),
+      );
+      continuationGenerationRef.current += 1;
+      setLoading(false);
+      workflowRef.current = { type: 'idle' };
+      const now = Date.now();
+      if (existing?.creativeSession) {
+        activeTaskIdRef.current = existing.id;
+        setActiveTaskId(existing.id);
+        updateSession(existing.id, {
+          ...existing.creativeSession, status: 'playing', pendingDecision: undefined, updatedAt: now,
+          choiceInterval: source.choiceInterval ?? 4, prefetchCount: source.prefetchCount ?? 3,
+        });
+      } else {
+        const session: CreativeStorySession = {
+          id: uuidv4(), sourceToolNodeId: source.toolNodeId,
+          choiceInterval: source.choiceInterval ?? 4, prefetchCount: source.prefetchCount ?? 3, cardsSinceChoice: 0,
+          status: 'playing', chapter: 1, affection: 0,
+          direction: { genreId: 'existing-story', genre: source.title },
+          background: source.scene,
+          turns: [{
+            id: uuidv4(), chapter: 1, story: lastStory.text, question: '', options: [],
+            nodeId: lastStory.id, endNodeId: lastStory.id, sceneName: source.scene?.name, createdAt: now,
+          }],
+          chapterSummaries: [source.storyNodes.filter((node) => node.id !== lastStory.id)
+            .map((node) => `${node.title}\n${node.text}`).join('\n\n')],
+          createdAt: now, updatedAt: now,
+        };
+        const task: AssistantTask = {
+          id: uuidv4(), title: source.title || creativeCopy.taskTitle,
+          createdAt: now, updatedAt: now, kind: 'creative-playtest', creativeSession: session,
+          messages: [],
+        };
+        activeTaskIdRef.current = task.id;
+        setTasks((current) => {
+          const nextTasks = [task, ...current];
+          tasksRef.current = nextTasks;
+          return nextTasks;
+        });
+        setActiveTaskId(task.id);
+      }
+      onOpenCreativePlaytest?.();
+      return;
+    }
     const existing = [...tasksRef.current]
       .sort((left, right) => right.updatedAt - left.updatedAt)
       .find((task) => task.creativeSession && task.creativeSession.status !== 'setup');
@@ -1304,18 +1386,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
     setActiveTaskId(task.id);
   };
 
-  const decide = async (decision: string) => {
-    const task = getTask(creativeStorySession?.id);
-    const session = task?.creativeSession;
-    const input = decision.trim();
-    if (!task || !session || !input || !hasTextApiKey) {
-      if (!hasTextApiKey) onMissingTextApiKeyRequest?.();
-      return;
-    }
-    const generation = ++continuationGenerationRef.current;
-    updateSession(task.id, { ...session, pendingDecision: input, updatedAt: Date.now() });
-    setLoading(true);
-    try {
+  const prepareDecision = async (session: CreativeStorySession, input: string) => {
       const previous = session.turns.at(-1);
       const leadName = session.lead?.name || '主要角色';
       const currentAffection = session.affection ?? 0;
@@ -1344,6 +1415,7 @@ ${chapterContext ? `${chapterContext}\n` : ''}${history}
 ${playerAction}
 
 ${CREATIVE_STORY_BEAT_RULES}
+选择节奏：每 ${session.choiceInterval ?? 4} 张剧情卡必须出现一次有意义的分歧。目前距上一次选择已有 ${session.cardsSinceChoice ?? 0} 张卡。若本次 cards 会让累计数量达到或超过该间隔，question 不能为空，options 必须恰好给出 3 项；三项要通往明显不同的后续方向。尚未到达间隔时，普通对白可以不提问。
 上一段场景名：${previous?.sceneName || session.background?.name || '未知'}。若本段地点改变，必须换成新的 sceneName 与对应 sceneEnvironment。
 ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，供开启新章节使用。' : ''}
 只返回 JSON：{"reply":"","question":"","options":[],"affectionDelta":0,"sceneName":"","sceneEnvironment":"indoor 或 outdoor","chapterSummary":"","cards":[{"type":"story","title":"","text":"","nodeValue":0}]}。cards 只能有 2 到 3 张 story 卡。有关键分歧时再填写具体 question 与 options；否则 question 为 ""，options 为 []。`;
@@ -1362,9 +1434,48 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
       } catch {
         continuation = null;
       }
-      // The player can withdraw while AI is writing; ignore that stale response.
+      const next = ensureCreativeChoiceAtInterval(
+        session,
+        continuation || buildFallbackContinuation(session, input),
+      );
+
+    return { previous, next, history, summarize, currentAffection };
+  };
+
+  const cachedDecision = (session: CreativeStorySession, input: string) => {
+    let cache = creativePrefetchCaches.get(continuationGenerationRef);
+    if (!cache) { cache = new Map(); creativePrefetchCaches.set(continuationGenerationRef, cache); }
+    const prefix = session.id + ':' + session.turns.at(-1)?.id + ':' + (session.choiceInterval ?? 4) + ':';
+    for (const key of cache.keys()) if (!key.startsWith(prefix)) cache.delete(key);
+    const key = prefix + input;
+    let prepared = cache.get(key);
+    if (!prepared) { prepared = prepareDecision(session, input); cache.set(key, prepared); }
+    return prepared;
+  };
+
+  const prefetch = async () => {
+    const session = getTask(creativeStorySession?.id)?.creativeSession;
+    if (!session || session.status !== 'playing' || session.pendingDecision || !hasTextApiKey) return;
+    const options = session.turns.at(-1)?.options || [];
+    const count = Math.max(1, Math.min(3, session.prefetchCount ?? 3));
+    await Promise.all((options.length ? options.slice(0, count) : ['继续'])
+      .map((input) => cachedDecision(session, input)));
+  };
+
+  const decide = async (decision: string) => {
+    const task = getTask(creativeStorySession?.id);
+    const session = task?.creativeSession;
+    const input = decision.trim();
+    if (!task || !session || !input || !hasTextApiKey) {
+      if (!hasTextApiKey) onMissingTextApiKeyRequest?.();
+      return;
+    }
+    const generation = ++continuationGenerationRef.current;
+    updateSession(task.id, { ...session, pendingDecision: input, updatedAt: Date.now() });
+    setLoading(true);
+    try {
+      const { previous, next, history, summarize, currentAffection } = await cachedDecision(session, input);
       if (generation !== continuationGenerationRef.current) return;
-      const next = continuation || buildFallbackContinuation(session, input);
       const affectionDelta = resolveAffectionDelta(next);
       const nextAffection = currentAffection + affectionDelta;
       const summary = summarize ? next.chapterSummary || `${session.chapter} 章：${history.slice(-260)}` : '';
@@ -1379,7 +1490,10 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
       let placement: AssistantCardPlacementResult | undefined;
       try {
         placement = await createAssistantCards([
-          ...(previous
+          // Placement groups scene settings first. Keep the input in the same
+          // order so returned node IDs still identify the correct story cards.
+          ...continuationSceneAndStoryCards.slice(0, sceneCardCount),
+          ...(previous && (input !== '继续' || previous.question)
             ? [
                 ...(previous.question
                   ? [{ type: 'story' as const, title: 'AI 创作提问', text: previous.question }]
@@ -1388,15 +1502,18 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
               ]
             : []),
           ...(summary ? [{ type: 'story' as const, title: `第 ${session.chapter} 章创作总结`, text: summary }] : []),
-          ...continuationSceneAndStoryCards,
-        ], 'append', previous?.nodeId ? { targetNodeIds: [previous.nodeId] } : undefined);
+          ...continuationSceneAndStoryCards.slice(sceneCardCount),
+        ], 'append', {
+          ...(previous?.nodeId ? { targetNodeIds: [previous.endNodeId || previous.nodeId] } : {}),
+          skipAnimation: true,
+        });
       } catch {
         placement = undefined;
       }
       if (generation !== continuationGenerationRef.current) return;
       const now = Date.now();
       const bookkeepingCount =
-        (previous ? 1 + (previous.question ? 1 : 0) : 0) + (summary ? 1 : 0);
+        (previous && (input !== '继续' || previous.question) ? 1 + (previous.question ? 1 : 0) : 0) + (summary ? 1 : 0);
       const nextTurn = {
         id: uuidv4(), chapter: summarize ? session.chapter + 1 : session.chapter,
         story: next.reply,
@@ -1408,11 +1525,13 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
         // summary; a scene setting card may also precede the new story cards.
         // The active playtest turn must point to the first new story card.
         nodeId: placement?.nodeIds?.[bookkeepingCount + sceneCardCount],
+        endNodeId: placement?.nodeIds?.at(-1),
         createdAt: now,
       };
       updateSession(task.id, {
         ...session, status: 'playing', chapter: nextTurn.chapter, pendingDecision: undefined,
         affection: nextAffection,
+        cardsSinceChoice: (previous?.options.length ? 0 : session.cardsSinceChoice ?? 0) + next.cards.length,
         turns: summarize ? [nextTurn] : [...session.turns.slice(0, -1), ...(previous ? [{ ...previous, decision: input }] : []), nextTurn],
         chapterSummaries: summary ? [...session.chapterSummaries, summary] : session.chapterSummaries, updatedAt: now,
       });
@@ -1473,6 +1592,7 @@ ${summarize ? '本章已较长，请同时给出 80 字以内 chapterSummary，�
     surpriseMe,
     start,
     decide,
+    prefetch,
     withdrawPendingDecision,
     returnToPreviousDecision,
     exit,

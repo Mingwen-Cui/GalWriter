@@ -191,12 +191,17 @@ export type CreativeStoryTurn = {
   affectionDelta?: number;
   /** The first canvas card for this turn, used to preserve and branch its route. */
   nodeId?: string;
+  endNodeId?: string;
   sceneName?: string;
   createdAt: number;
 };
 
 export type CreativeStorySession = {
   id: string;
+  sourceToolNodeId?: string;
+  choiceInterval?: number;
+  prefetchCount?: number;
+  cardsSinceChoice?: number;
   status: 'setup' | 'playing' | 'paused';
   chapter: number;
   direction?: CreativeStoryDirection;
@@ -683,6 +688,7 @@ export interface EditorNodeCallbacks {
   onDownloadSettingLibraryPreset?: (itemId: string) => Promise<void> | void;
   onDeleteSettingLibrary?: (itemId: string) => Promise<void> | void;
   onPlotStructureGenerate?: (params: unknown) => Promise<void> | void;
+  onEnterCreativeStory?: (source: CreativeStorySource) => Promise<void> | void;
   onSendToAssistant?: (target: string | string[]) => void;
   onHighlightStoryline?: (id: string) => void;
 }
@@ -961,12 +967,25 @@ export interface RegionStoryItem {
 }
 
 export interface PlotStructureNodeData extends BaseEditorNodeData {
+  creationMode?: 'continue' | 'play';
+  choiceInterval?: number;
+  prefetchCount?: number;
   cardCount?: number;
   detailLevel?: PlotDetailLevel;
   direction?: string;
   cachedRegionKey?: string;
   cachedRegionStoryNodes?: RegionStoryItem[];
 }
+
+export type CreativeStorySource = {
+  toolNodeId: string;
+  title: string;
+  choiceInterval?: number;
+  prefetchCount?: number;
+  scene?: { nodeId: string; name: string; imageUrl?: string };
+  availableNodeIds?: string[];
+  storyNodes: Array<RegionStoryItem & { type: string }>;
+};
 
 export type EditorNodeData =
   | StoryNodeData

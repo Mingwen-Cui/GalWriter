@@ -35,6 +35,7 @@ import {
 } from '../../lib/sceneTemplates';
 import {
   resolveAssistantAppendLayoutOrigin,
+  estimateStoryCardLayoutHeight,
   spawnCursorFromBounds,
   spawnCursorFromNodes,
 } from './assistantCardPlacementLayout';
@@ -788,7 +789,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             : card.type === 'number-condition'
               ? 300
               : SETTING_NODE_CARD_WIDTH,
-        height: card.type === 'story' ? AI_STORY_CARD_HEIGHT : getSettingCardLayoutHeight(card),
+        height: card.type === 'story' ? estimateStoryCardLayoutHeight(card.text || '') : getSettingCardLayoutHeight(card),
       }));
       const characterIndexes = remainingCards
         .map((card, index) => (card.type === 'character' ? index : -1))
@@ -1175,7 +1176,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           type: 'storyNode',
           position,
           selected: true,
-          style: { width: AI_STORY_CARD_WIDTH, height: AI_STORY_CARD_HEIGHT },
+          style: { width: AI_STORY_CARD_WIDTH, height: cardLayouts[index].height },
           data: {
             id,
             title: card.title || (language === 'zh' ? 'AI 剧情卡片' : 'AI Story Card'),
@@ -2450,7 +2451,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               node.type === 'sceneNode'),
         ).length;
 
-      const placement = await runAgentCardPlacement({
+      const placement = options?.skipAnimation || skipAssistantAgentAnimation
+        ? executeAssistantCardPlacement(cards, mode, options)
+        : await runAgentCardPlacement({
         cards,
         mode,
         options,
@@ -2875,6 +2878,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     handleStartAssistantFlow,
     creativeStorySession,
     handleStartCreativeStory,
+    handlePrefetchCreativeStory,
     handleCreativeStoryDecision,
     handleWithdrawCreativeStoryDecision,
     handleReturnCreativeStoryToPreviousDecision,
@@ -2963,6 +2967,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     handleStartAssistantFlow,
     creativeStorySession,
     handleStartCreativeStory,
+    handlePrefetchCreativeStory,
     handleCreativeStoryDecision,
     handleWithdrawCreativeStoryDecision,
     handleReturnCreativeStoryToPreviousDecision,

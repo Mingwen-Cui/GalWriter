@@ -218,7 +218,7 @@ export const useNodeActions = ({
       id: newId,
       type: 'plotStructureNode',
       position: { x: center.x - 130, y: center.y - 100 },
-      data: { id: newId, cardCount: 3, detailLevel: 'standard', direction: '' },
+      data: { id: newId, creationMode: 'continue', cardCount: 3, detailLevel: 'standard', direction: '' },
     };
     setNodes((currentNodes) => [...currentNodes, newNode]);
   }, [getCenterPosition, setNodes]);

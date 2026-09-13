@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   PictureInPicture2,
   PlayCircle,
+  PencilLine,
   RotateCcw,
   RotateCw,
   Send,
@@ -148,8 +149,10 @@ export function PlayTestModal(props: PlayTestProps) {
   const [immersiveControlsVisible, setImmersiveControlsVisible] = React.useState(true);
   const immersiveControlsTimerRef = React.useRef<number | null>(null);
   const [customCreativeDecision, setCustomCreativeDecision] = React.useState('');
+  const [creativeInputOpen, setCreativeInputOpen] = React.useState(false);
   const [creativeChoicesVisible, setCreativeChoicesVisible] = React.useState(false);
   const creativeInteraction = props.creativeInteraction;
+  const creativeAtTurnEnd = Boolean(creativeInteraction && currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId));
   const appliedCreativeTurnRef = React.useRef<string | null>(null);
   const creativeChoiceRevealDelayMs = 2000;
   const activeChoicesReady = creativeInteraction ? creativeChoicesVisible : choicesReady;
@@ -181,6 +184,13 @@ export function PlayTestModal(props: PlayTestProps) {
 
   React.useEffect(() => {
     setCustomCreativeDecision('');
+    setCreativeInputOpen(false);
+  }, [creativeInteraction?.turnId]);
+
+  const prefetchRef = React.useRef(creativeInteraction?.onPrefetch);
+  prefetchRef.current = creativeInteraction?.onPrefetch;
+  React.useEffect(() => {
+    if (creativeInteraction?.turnId) void prefetchRef.current?.();
   }, [creativeInteraction?.turnId]);
 
   // Creative choices appear only after typewriter finishes, then wait 2 seconds.
@@ -189,18 +199,20 @@ export function PlayTestModal(props: PlayTestProps) {
       setCreativeChoicesVisible(false);
       return;
     }
-    if (creativeInteraction.loading) {
+    if (creativeInteraction.loading || creativeInputOpen) {
       setCreativeChoicesVisible(true);
       return;
     }
     setCreativeChoicesVisible(false);
-    if (!choicesReady) return;
+    if (!choicesReady || !creativeAtTurnEnd || creativeInteraction.options.length === 0) return;
     const timer = window.setTimeout(() => {
       setCreativeChoicesVisible(true);
     }, creativeChoiceRevealDelayMs);
     return () => window.clearTimeout(timer);
   }, [
     choicesReady,
+    creativeAtTurnEnd,
+    creativeInputOpen,
     creativeInteraction,
     creativeInteraction?.loading,
     creativeInteraction?.turnId,
@@ -253,7 +265,6 @@ export function PlayTestModal(props: PlayTestProps) {
           : 'Or tell AI, in your own words, what should happen next…';
     const sendLabel =
       language === 'zh' ? '继续故事' : language === 'ja' ? '物語を続ける' : 'Continue story';
-    const continueLabel = language === 'zh' ? '继续' : language === 'ja' ? '続ける' : 'Continue';
     const affectionLabel =
       language === 'zh' ? '好感度' : language === 'ja' ? '好感度' : 'Affection';
     if (creativeInteraction.loading) {
@@ -287,7 +298,7 @@ export function PlayTestModal(props: PlayTestProps) {
         </section>
       );
     }
-    if (!creativeChoicesVisible) return null;
+    if (!creativeChoicesVisible || (!creativeInputOpen && creativeInteraction.options.length === 0)) return null;
     const hasOptions = creativeInteraction.options.length > 0;
     return (
       <section
@@ -306,14 +317,6 @@ export function PlayTestModal(props: PlayTestProps) {
         )}
         {creativeInteraction.question ? (
           <p className="mb-3 text-sm font-black leading-6">{creativeInteraction.question}</p>
-        ) : !hasOptions ? (
-          <p className="mb-3 text-sm font-bold leading-6 opacity-75">
-            {language === 'zh'
-              ? '本段没有关键分歧，可以继续往下看。'
-              : language === 'ja'
-                ? 'この段落に重要な分岐はありません。続きへ進めます。'
-                : 'No major branch here — you can continue.'}
-          </p>
         ) : null}
         {hasOptions ? (
           <div className="grid grid-cols-1 gap-2">
@@ -335,22 +338,7 @@ export function PlayTestModal(props: PlayTestProps) {
               </button>
             ))}
           </div>
-        ) : (
-          <button
-            type="button"
-            disabled={creativeInteraction.loading}
-            onClick={() => submitCreativeDecision('继续')}
-            className={`min-h-11 w-full rounded-xl border px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60 ${
-              isImmersive
-                ? 'border-amber-300 bg-white text-slate-700 hover:border-amber-500 hover:bg-amber-50'
-                : isDarkMode
-                  ? 'border-white/15 bg-white/5 hover:border-sky-400/70 hover:bg-sky-500/15'
-                  : 'border-slate-200 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'
-            }`}
-          >
-            {continueLabel}
-          </button>
-        )}
+        ) : null}
         <div className="mt-3 flex gap-2">
           <textarea
             value={customCreativeDecision}
@@ -658,6 +646,14 @@ export function PlayTestModal(props: PlayTestProps) {
 
   const renderPlaytestSecondaryActions = ({ includeClose = true } = {}) => (
     <>
+      {creativeInteraction && creativeAtTurnEnd && animationCompleted && !creativeInteraction.loading && (
+        <button onClick={() => { setCreativeInputOpen((open) => !open); setAutoAdvance(false); }}
+          title={language === 'zh' ? '我来决定故事方向' : 'Shape the story'}
+          aria-pressed={creativeInputOpen}
+          className={playtestRoundIconButtonClass + ' bg-white/15 hover:bg-white/25'}>
+          <PencilLine className="w-5 h-5" />
+        </button>
+      )}
       <button
         onClick={() => setAutoAdvance(!autoAdvance)}
         className={`${playtestRoundIconButtonClass} transition-colors ${

@@ -19,9 +19,16 @@ const CONTENT_NODE_TYPES = new Set([
   'characterNode',
   'sceneNode',
   'numberConditionNode',
+  'backgroundNode',
+  'groupNode',
+  'plotStructureNode',
+  'summaryNode',
+  'batchReplaceNode',
+  'textNode',
 ]);
 
-export const isAssistantPlacementContentNode = (node: Node) => CONTENT_NODE_TYPES.has(node.type || '');
+export const isAssistantPlacementContentNode = (node: Node) =>
+  CONTENT_NODE_TYPES.has(node.type || '');
 
 export const getAssistantPlacementNodeSize = (node: Node) => {
   const width =
@@ -82,9 +89,7 @@ export const collectContentPlacementRects = (
   excludeIds?: ReadonlySet<string>,
 ): PlacementBounds[] =>
   nodes
-    .filter(
-      (node) => isAssistantPlacementContentNode(node) && !excludeIds?.has(node.id),
-    )
+    .filter((node) => isAssistantPlacementContentNode(node) && !excludeIds?.has(node.id))
     .map(getNodePlacementBounds);
 
 export const rectsOverlap = (a: PlacementBounds, b: PlacementBounds, padding = 0) =>
@@ -94,6 +99,17 @@ export const rectsOverlap = (a: PlacementBounds, b: PlacementBounds, padding = 0
     a.maxY + padding <= b.minY ||
     b.maxY + padding <= a.minY
   );
+
+/** Reserve room for wrapped Chinese text and the scene/character preview. */
+export const estimateStoryCardLayoutHeight = (text: string, media = true, width = 300) => {
+  const columns = Math.max(1, Math.floor((width - 36) / 14));
+  const lines = text
+    .replace(/<br\s*\/?\s*>|<\/p>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .split('\n')
+    .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / columns)), 0);
+  return Math.max(AI_STORY_CARD_HEIGHT, 64 + (media ? 220 : 0) + lines * 24);
+};
 
 /**
  * Resolve the top-left origin for a new assistant card batch.

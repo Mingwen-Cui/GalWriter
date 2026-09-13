@@ -2104,6 +2104,12 @@ export function WebPlaytestPreview({
       language={language}
       onClose={() => setShowAudioPlaylist(false)}
       onToggleAudio={togglePlaylistAudio}
+      onJumpToNode={(nodeId) => {
+        restartPlaybackSession();
+        setHistory([]);
+        setCurrentNodeId(nodeId);
+      }}
+      currentBranchNodeIds={[...history, ...(currentNodeId ? [currentNodeId] : [])]}
     />
   );
 

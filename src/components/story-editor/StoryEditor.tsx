@@ -2095,6 +2095,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleStartAssistantFlow,
     creativeStorySession,
     handleStartCreativeStory,
+    handlePrefetchCreativeStory,
     handleCreativeStoryDecision,
     handleWithdrawCreativeStoryDecision,
     handleReturnCreativeStoryToPreviousDecision,
@@ -2710,6 +2711,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       settingLibraryItems: savedListItems,
       settingLibraryPresets: presetListItems,
       onPlotStructureGenerate: handlePlotStructureGenerate,
+      onEnterCreativeStory: handleStartCreativeStory,
       onConvertToGroup: convertBackgroundToDynamicGroup,
       onConvertToBackground: convertDynamicGroupToBackground,
       onSendToAssistant: handlePrefillAssistantFromRegion,
@@ -2750,6 +2752,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       savedListItems,
       presetListItems,
       handlePlotStructureGenerate,
+      handleStartCreativeStory,
       convertBackgroundToDynamicGroup,
       convertDynamicGroupToBackground,
       handlePrefillAssistantFromRegion,
@@ -3170,6 +3173,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
                 ? {
                     turnId: creativeStoryTurn.id,
                     nodeId: creativeStoryTurn.nodeId,
+                    endNodeId: creativeStoryTurn.endNodeId,
+                    onPrefetch: handlePrefetchCreativeStory,
                     story: creativeStoryTurn.story,
                     question: creativeStoryTurn.question,
                     options: creativeStoryTurn.options,
@@ -3534,7 +3539,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         onClose={() => setZenModeNodeId(null)}
       />
 
-      <AgentOverlay state={agentState} language={language} />
+      {playTestDisplayMode !== 'fullscreen' && (
+        <AgentOverlay state={agentState} language={language} />
+      )}
 
       {/* Global Toast Notification */}
       <EditorToast message={toast.message} visible={toast.visible} tone={toast.tone} />

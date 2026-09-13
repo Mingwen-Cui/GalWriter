@@ -15,7 +15,7 @@ import { useRef, useState } from 'react';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
-import { AudioPlaylistModal } from '../../AudioPlaylistModal';
+import { AudioPlaylistModal, type AudioPlaylistItem } from '../../AudioPlaylistModal';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { formatWebText } from './i18n';
 import { WebEditableElementFrame, type WebEditableResizeHandle } from './WebEditableElementFrame';
@@ -890,6 +890,8 @@ export function PreviewAudioPlaylistModal({
   language,
   onClose,
   onToggleAudio,
+  onJumpToNode,
+  currentBranchNodeIds,
 }: {
   open: boolean;
   items: PlayedAudio[];
@@ -898,21 +900,78 @@ export function PreviewAudioPlaylistModal({
   language: Language;
   onClose: () => void;
   onToggleAudio: (audio: PlayedAudio) => void;
+  onJumpToNode: (nodeId: string) => void;
+  currentBranchNodeIds: string[];
 }) {
+  const [autoExpandOnJump, setAutoExpandOnJump] = useState(true);
+  const [autoPlayOnJump, setAutoPlayOnJump] = useState(true);
+  const [showCurrentBranchOnly, setShowCurrentBranchOnly] = useState(false);
+  const copy =
+    language === 'zh'
+      ? {
+          expand: '展开全部',
+          collapse: '收起全部',
+          autoExpand: '跳转后收起播放列表',
+          autoPlay: '跳转后自动播放',
+          currentBranch: '仅显示当前分支',
+        }
+      : language === 'ja'
+        ? {
+            expand: 'すべて展開',
+            collapse: 'すべて折りたたむ',
+            autoExpand: '移動後にリストを閉じる',
+            autoPlay: '移動後に自動再生',
+            currentBranch: '現在の分岐だけ表示',
+          }
+        : {
+            expand: 'Expand all',
+            collapse: 'Collapse all',
+            autoExpand: 'Close playlist after jump',
+            autoPlay: 'Autoplay after jump',
+            currentBranch: 'Current branch only',
+          };
+  const playlistItems: AudioPlaylistItem[] = items
+    .filter((item) => !showCurrentBranchOnly || currentBranchNodeIds.includes(item.nodeId))
+    .map((item) => ({
+      ...item,
+      status: item.url === activeUrl ? 'current' : 'played',
+      minimized: false,
+    }));
+  const toggleItemAudio = (item: AudioPlaylistItem) => {
+    if (!item.url) return;
+    onToggleAudio({ nodeId: item.nodeId, title: item.title, url: item.url });
+  };
+
   return (
     <AudioPlaylistModal
       open={open}
-      items={items}
+      items={playlistItems}
       activeUrl={activeUrl}
       isPlaying={isPlaying}
       title={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText889')}
       hint={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText890')}
       emptyText={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText891')}
       closeLabel={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewControlsText896')}
+      expandAllLabel={copy.expand}
+      collapseAllLabel={copy.collapse}
+      autoExpandOnJump={autoExpandOnJump}
+      autoExpandOnJumpLabel={copy.autoExpand}
+      autoPlayOnJump={autoPlayOnJump}
+      autoPlayOnJumpLabel={copy.autoPlay}
+      showCurrentBranchOnly={showCurrentBranchOnly}
+      showCurrentBranchOnlyLabel={copy.currentBranch}
       dark
       scope="container"
       onClose={onClose}
-      onToggleAudio={onToggleAudio}
+      onToggleAudio={toggleItemAudio}
+      onJumpToItem={(item) => {
+        onJumpToNode(item.nodeId);
+        if (autoPlayOnJump) toggleItemAudio(item);
+        if (autoExpandOnJump) onClose();
+      }}
+      onAutoExpandOnJumpChange={() => setAutoExpandOnJump((value) => !value)}
+      onAutoPlayOnJumpChange={() => setAutoPlayOnJump((value) => !value)}
+      onShowCurrentBranchOnlyChange={() => setShowCurrentBranchOnly((value) => !value)}
     />
   );
 }

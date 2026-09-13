@@ -657,41 +657,6 @@ export const useMediaActions = ({
           nds.map((current) => {
             if (current.id !== id) return current;
 
-            if (type === 'character') {
-              const currentOutfits = (current.data.outfits as any[]) || [];
-              const previousAvatarUrl = current.data.avatarUrl as string | undefined;
-              const hasArchivedAvatar = currentOutfits.some(
-                (outfit) => outfit.imageUrl === previousAvatarUrl,
-              );
-              const archivedAvatarName =
-                language === 'zh'
-                  ? '上一张人物图片'
-                  : language === 'ja'
-                    ? '前のキャラクター画像'
-                    : 'Previous Character Image';
-              const nextOutfits =
-                previousAvatarUrl && previousAvatarUrl !== imageSrc && !hasArchivedAvatar
-                  ? [
-                      {
-                        id: uuidv4(),
-                        name: archivedAvatarName,
-                        imageUrl: previousAvatarUrl,
-                      },
-                      ...currentOutfits,
-                    ]
-                  : currentOutfits;
-
-              return {
-                ...current,
-                data: {
-                  ...current.data,
-                  avatarUrl: imageSrc,
-                  outfits: nextOutfits,
-                  generatedSettingImageId: undefined,
-                },
-              };
-            }
-
             const currentImages = (current.data.images as any[]) || [];
             const previousCoverImageUrl = current.data.coverImageUrl as string | undefined;
             const hasArchivedCover = currentImages.some(
@@ -727,28 +692,13 @@ export const useMediaActions = ({
           }),
         );
 
-        if (type === 'character') {
-          showToast(
-            language === 'zh'
-              ? '人物透明背景立绘已生成'
-              : language === 'ja'
-                ? '透明背景の立ち絵を生成しました'
-                : 'Transparent character sprite generated',
-          );
-        } else
-          showToast(
-            type === 'character'
-              ? language === 'zh'
-                ? '人物三视图已生成'
-                : language === 'ja'
-                  ? 'キャラクター三面図が生成されました'
-                  : 'Character three-view generated'
-              : language === 'zh'
-                ? '场景图片已生成'
-                : language === 'ja'
-                  ? 'シーン画像が生成されました'
-                  : 'Scene image generated',
-          );
+        showToast(
+          language === 'zh'
+            ? '场景图片已生成'
+            : language === 'ja'
+              ? 'シーン画像が生成されました'
+              : 'Scene image generated',
+        );
       } catch (error: any) {
         console.error('Setting image generation failed:', error);
         await showDialogAlert({
