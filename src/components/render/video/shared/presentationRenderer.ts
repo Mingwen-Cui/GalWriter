@@ -14,6 +14,7 @@ import {
   CHARACTER_STAGE_MAX_WIDTH_PERCENT,
   clampCharacterLayer,
   getCharacterEnterDelay,
+  getPresentationExitDuration,
   getPresentationMotionDuration,
   normalizeStoryPresentation,
 } from '../../../../lib/presentation';
@@ -176,8 +177,8 @@ const activeMotionState = (
   enterDelayMs = 0,
   exitDelayMs = 0,
 ) => {
-  const enterSeconds = Math.max(0, enter.duration) / 1000;
-  const exitSeconds = Math.max(0, exit.duration) / 1000;
+  const enterSeconds = getPresentationMotionDuration(enter) / 1000;
+  const exitSeconds = getPresentationMotionDuration(exit) / 1000;
   const enterStart = Math.max(0, enterDelayMs) / 1000;
   const exitDelaySeconds = Math.max(0, exitDelayMs) / 1000;
   if (enter.type !== 'none' && enterSeconds > 0 && elapsed < enterStart + enterSeconds) {
@@ -345,7 +346,7 @@ export const drawPresentationVisuals = async ({
   const presentationScaleX = scene?.scale || 1;
   const presentationScaleY = scene?.scale || 1;
   const characterEnterDelay = getCharacterEnterDelay(presentation);
-  const sceneExitDuration = getPresentationMotionDuration(scene?.exit);
+  const presentationExitDuration = getPresentationExitDuration(presentation);
   ctx.save();
   ctx.translate(0, 0);
   ctx.translate(width / 2, height / 2);
@@ -492,7 +493,7 @@ export const drawPresentationVisuals = async ({
         width,
         height,
         characterEnterDelay,
-        sceneExitDuration,
+        presentationExitDuration - getPresentationMotionDuration(config.exit),
       );
       const completedCharacterAction = latestPersistentInlineAction(
         completedInlineActions,

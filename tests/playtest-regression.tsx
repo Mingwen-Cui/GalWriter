@@ -7,6 +7,8 @@ import {
   type SharedCanvasSettings,
 } from '../src/components/render/canvas/canvasSettings';
 import { PlayTestModal } from '../src/components/render/playtest/PlayTestModal';
+import { drawRenderFrame } from '../src/components/render/video/preview/frameRenderer';
+import { useMediaDurations } from '../src/components/render/video/VideoRenderModal/useMediaDurations';
 import type { PlayTestProps } from '../src/components/render/playtest/types';
 import { DEFAULT_RENDER_STYLE } from '../src/components/render/video/VideoRenderModal/workspaceStorage';
 import type { RenderStyle } from '../src/components/render/video/shared/types';
@@ -21,11 +23,15 @@ import {
   getInlineActionDuration,
   inlinePlaybackStateAtTime,
   latestPersistentInlineAction,
+  presentationPlaybackStateAtTime,
 } from '../src/lib/inlinePresentationPlayback';
 import {
   createCharacterPresentation,
   createInlinePresentationAction,
   createScenePresentation,
+  getPresentationContentWindow,
+  getPresentationMotionDuration,
+  updatePresentationMotionType,
 } from '../src/lib/presentation';
 import '../src/index.css';
 
@@ -113,7 +119,37 @@ const presentation = (
   inlineActions,
 });
 const firstPresentation = presentation(false, firstActions);
+const customPresentation: StoryPresentation = {
+  ...presentation(false, []),
+  scene: {
+    ...presentation(false, []).scene!,
+    enter: { type: 'fade', duration: 0 },
+    exit: { type: 'fade', duration: 900 },
+  },
+  characters: [
+    {
+      ...presentation(false, []).characters[0],
+      enter: { type: 'fade', duration: 0 },
+      exit: { type: 'fade', duration: 300 },
+    },
+  ],
+  inlineActions: [
+    { ...action('custom-middle', 'character', 'blue'), action: 'pulse', duration: 700 },
+  ],
+};
+const customHtml = `前${chip('character', 'custom-middle')}后`;
+const customCard: Node = {
+  id: 'fixture-custom',
+  type: 'storyNode',
+  position: { x: 0, y: 750 },
+  data: {
+    title: '4 · 自定义入场 / 中场 / 出场',
+    text: customHtml,
+    presentation: customPresentation,
+  },
+};
 const cards: Node[] = [
+  customCard,
   {
     id: 'fixture-first',
     type: 'storyNode',
@@ -290,7 +326,132 @@ const checks = [
       return normalize(visibleHtml) === normalize(firstHtml);
     },
   ],
+  [
+    '从无动画选择入场会获得有效时长，已有自定义时长保留',
+    () =>
+      updatePresentationMotionType(createCharacterPresentation('test').enter, 'fade').duration ===
+        500 &&
+      updatePresentationMotionType({ type: 'fade', duration: 1300 }, 'slide-left').duration ===
+        1300,
+  ],
+  [
+    '历史零时长动画可播放，无动画仍不占时长',
+    () =>
+      getPresentationMotionDuration({ type: 'fade', duration: 0 }) === 500 &&
+      getPresentationMotionDuration({ type: 'none', duration: 500 }) === 0,
+  ],
+  [
+    '视频正文窗口位于全部入场之后、全部出场之前',
+    () => {
+      const window = getPresentationContentWindow(customPresentation, 5);
+      return window.start === 1 && window.end === 3.8;
+    },
+  ],
+  [
+    '视频入场不播放中场，中场按正文顺序执行，出场不重播',
+    () => {
+      const sample = (elapsed: number) =>
+        presentationPlaybackStateAtTime({
+          html: customHtml,
+          presentation: customPresentation,
+          elapsed,
+          duration: 5,
+          options: hiddenTags,
+        });
+      return (
+        sample(0.75).html === '' &&
+        !sample(0.75).activeAction &&
+        !sample(1.5).activeAction &&
+        sample(2.2).activeAction?.id === 'custom-middle' &&
+        !sample(4.3).activeAction &&
+        sample(4.3).html === '前后'
+      );
+    },
+  ],
 ] as const;
+
+const customTimeline = [customCard];
+function VideoPhaseRegression() {
+  const [report, setReport] = useState('尚未验证');
+  const [, setTimelineDurations] = useState<Record<string, number>>({});
+  const { getNodeMediaDuration } = useMediaDurations({
+    timelineNodes: customTimeline,
+    defaultSeconds: 3,
+    speed: 1,
+    setTimelineDurationById: setTimelineDurations,
+  });
+  const run = async () => {
+    setReport('正在渲染真实视频帧…');
+    try {
+      const allocatedDuration = await getNodeMediaDuration(customCard);
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 360;
+      const ctx = canvas.getContext('2d')!;
+      const originalDraw = ctx.drawImage.bind(ctx);
+      let samples: { src: string; alpha: number }[] = [];
+      ctx.drawImage = ((...args: Parameters<CanvasRenderingContext2D['drawImage']>) => {
+        if (args[0] instanceof HTMLImageElement)
+          samples.push({ src: args[0].src, alpha: ctx.globalAlpha });
+        return originalDraw(...args);
+      }) as CanvasRenderingContext2D['drawImage'];
+      const frames: { time: number; scene: number; character: number }[] = [];
+      for (const time of [0.25, 0.75, 1.5, 2.2, 3.9, 4.3]) {
+        samples = [];
+        await drawRenderFrame({
+          ctx,
+          node: customCard,
+          nodes: [customCard, ...sourceNodes],
+          width: 640,
+          height: 360,
+          renderStyle: DEFAULT_RENDER_STYLE,
+          videoTextScaleMode: 'literal',
+          animationLeadSeconds: 0,
+          isZh: true,
+          elapsed: time,
+          duration: 5,
+          ...hiddenTags,
+        });
+        frames.push({
+          time,
+          scene: samples.find((s) => s.src === day)?.alpha ?? -1,
+          character: samples.find((s) => s.src === blue)?.alpha ?? -1,
+        });
+      }
+      const [sceneEnter, characterEnter, middleIdle, middleAction, characterExit, sceneExit] =
+        frames;
+      const between = (v: number) => v > 0 && v < 1;
+      const pass =
+        Math.abs(allocatedDuration - 5.2) < 0.00001 &&
+        between(sceneEnter.scene) &&
+        sceneEnter.character === 0 &&
+        characterEnter.scene === 1 &&
+        between(characterEnter.character) &&
+        middleIdle.character === 1 &&
+        between(middleAction.character) &&
+        characterExit.scene === 1 &&
+        between(characterExit.character) &&
+        between(sceneExit.scene) &&
+        sceneExit.character === 0;
+      setReport(
+        `${pass ? 'PASS' : 'FAIL'} 视频预览与导出共用渲染器：场景入场 → 人物入场 → 中场 → 人物出场 → 场景出场\n` +
+          `自动片段时长=${allocatedDuration.toFixed(1)}s（入场 1s + 正文/中场 3s + 出场 1.2s）\n` +
+          frames
+            .map((f) => `${f.time}s 场景=${f.scene.toFixed(3)} 人物=${f.character.toFixed(3)}`)
+            .join('\n'),
+      );
+    } catch (error) {
+      setReport(`FAIL ${String(error)}`);
+    }
+  };
+  return (
+    <section>
+      <h2>视频阶段回归</h2>
+      <button onClick={run}>验证视频分阶段渲染</button>
+      <pre data-testid="video-phase-report">{report}</pre>
+    </section>
+  );
+}
 
 type AnimationSampleSession = {
   id: number;
@@ -718,6 +879,7 @@ function Fixture() {
           />
         </div>
         <h2>同步解析断言</h2>
+        <VideoPhaseRegression />
         <table>
           <tbody>
             {results.map((result) => (

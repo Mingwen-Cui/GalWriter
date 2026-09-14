@@ -33,6 +33,7 @@ import {
   getCharacterEnterDelay,
   getCharacterStageBounds,
   getPresentationExitDuration,
+  getPresentationEnterDuration,
   getPresentationMotionDuration,
   getPresentationTransform,
   getSceneExitDelay,
@@ -836,12 +837,7 @@ export function usePlaytestRuntime(
     [currentNodeId, navigateToNode, presentation, presentationExiting],
   );
 
-  const presentationEnterDuration =
-    getPresentationMotionDuration(presentation.scene?.enter) +
-    Math.max(
-      0,
-      ...presentation.characters.map((character) => getPresentationMotionDuration(character.enter)),
-    );
+  const presentationEnterDuration = getPresentationEnterDuration(presentation);
   useLayoutEffect(() => {
     setPresentationExiting(false);
     setPresentationVisible(false);
@@ -1823,11 +1819,11 @@ export function usePlaytestRuntime(
     transitionDuration: `${
       !presentationVisible && !presentationExiting
         ? 0
-        : activeSceneInlineAction
+        : activeSceneInlineAction && !presentationExiting
           ? sceneInlineDuration
           : sceneMotion?.type === 'none'
             ? 0
-            : sceneMotion?.duration || 0
+            : getPresentationMotionDuration(sceneMotion)
     }ms`,
     transitionDelay: `${presentationExiting ? getSceneExitDelay(presentation) : 0}ms`,
     transitionTimingFunction: 'ease-out',
@@ -1913,7 +1909,7 @@ export function usePlaytestRuntime(
             ...inlineActionCssVars(inlineAction),
             transformOrigin: 'bottom center',
             transitionProperty: 'opacity, transform',
-            transitionDuration: `${!presentationVisible && !presentationExiting ? 0 : inlineAction ? inlineDuration : motion.type === 'none' ? 0 : motion.duration}ms`,
+            transitionDuration: `${!presentationVisible && !presentationExiting ? 0 : inlineAction && !presentationExiting ? inlineDuration : getPresentationMotionDuration(motion)}ms`,
             transitionDelay: `${presentationExiting || !presentationVisible || inlineAction ? 0 : getCharacterEnterDelay(presentation)}ms`,
             transitionTimingFunction: 'ease-out',
           };

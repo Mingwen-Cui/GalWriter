@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 
 import type { InlinePresentationAction, StoryPresentation } from '../domain/project';
 import { isSwitchInlineAction } from './inlineAssetSwitch';
+import { getPresentationContentWindow } from './presentation';
 
 // Text fragments concatenate into the original rich-text structure. A tag
 // action inside a paragraph may split its opening and closing HTML tags.
@@ -400,4 +401,20 @@ export const inlinePlaybackStateAtTime = ({
     completedSwitchActions,
     completedInlineActions,
   };
+};
+
+/** Preview and video export share the same enter → content/actions → exit clock. */
+export const presentationPlaybackStateAtTime = (
+  input: Parameters<typeof inlinePlaybackStateAtTime>[0],
+) => {
+  if (!input.duration || input.elapsed === undefined) return inlinePlaybackStateAtTime(input);
+  const window = getPresentationContentWindow(input.presentation, input.duration);
+  if (input.elapsed < window.start) {
+    return inlinePlaybackStateAtTime({ ...input, html: '' });
+  }
+  return inlinePlaybackStateAtTime({
+    ...input,
+    elapsed: Math.min(window.duration, Math.max(0, input.elapsed - window.start)),
+    duration: Math.max(0.001, window.duration),
+  });
 };

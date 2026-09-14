@@ -52,6 +52,7 @@ import {
   hasCharacterPresentationClipboard,
   hasScenePresentationClipboard,
   normalizeStoryPresentation,
+  updatePresentationMotionType,
   pasteCharacterPresentationSettings,
   pasteScenePresentationSettings,
 } from '../lib/presentation';
@@ -1941,10 +1942,7 @@ export function ZenEditor({
                               presentationMenu.id,
                               (item) => ({
                                 ...item,
-                                [phase]: {
-                                  ...item[phase],
-                                  type,
-                                },
+                                [phase]: updatePresentationMotionType(item[phase], type),
                               }),
                               phase,
                             )
@@ -2375,10 +2373,7 @@ export function ZenEditor({
                               presentationMenu.id,
                               (item) => ({
                                 ...item,
-                                [phase]: {
-                                  ...item[phase],
-                                  type,
-                                },
+                                [phase]: updatePresentationMotionType(item[phase], type),
                               }),
                               phase,
                             )

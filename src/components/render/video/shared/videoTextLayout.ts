@@ -1,7 +1,10 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import type { StoryPresentation } from '../../../../domain/project';
-import { inlinePlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
-import { normalizeStoryPresentation } from '../../../../lib/presentation';
+import { presentationPlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
+import {
+  getPresentationContentWindow,
+  normalizeStoryPresentation,
+} from '../../../../lib/presentation';
 import { htmlToSpeechText } from '../../../../lib/tts';
 import { animatedTextState, revealCharacters } from '../canvas/textAnimation';
 import { getVideoTextForChinesePreference } from '../i18n';
@@ -40,11 +43,15 @@ export function resolveVideoTextLayout({
   hideSceneTags: boolean;
 }) {
   const rawBodyHtml = String(node.data?.text || '');
-  const inlineState = inlinePlaybackStateAtTime({
+  const presentation = normalizeStoryPresentation(
+    node.data?.presentation as StoryPresentation | undefined,
+  );
+  const contentWindow = getPresentationContentWindow(presentation, duration || 0);
+  const contentElapsed =
+    typeof elapsed === 'number' && duration ? Math.max(0, elapsed - contentWindow.start) : elapsed;
+  const inlineState = presentationPlaybackStateAtTime({
     html: rawBodyHtml,
-    presentation: normalizeStoryPresentation(
-      node.data?.presentation as StoryPresentation | undefined,
-    ),
+    presentation,
     elapsed,
     duration,
     options: { hideCharacterTags, hideSceneTags },
@@ -91,7 +98,7 @@ export function resolveVideoTextLayout({
       objects.title.animation.animation,
       titleLines,
       objects.title.animation.durationMs,
-      elapsed,
+      contentElapsed,
       forceFinalText,
       objects.title.animation.typewriterMode,
     );
@@ -110,7 +117,7 @@ export function resolveVideoTextLayout({
       objects.body.animation.animation,
       bodyLines,
       objects.body.animation.durationMs,
-      elapsed,
+      contentElapsed,
       forceFinalText,
       objects.body.animation.typewriterMode,
     );

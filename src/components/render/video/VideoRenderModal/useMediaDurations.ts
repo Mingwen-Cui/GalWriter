@@ -3,6 +3,16 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect } from 'react';
 
 import { getAudioDuration, loadVideo, validDuration } from '../shared/mediaUtils';
+import type { StoryPresentation } from '../../../../domain/project';
+import {
+  getPresentationEnterDuration,
+  getPresentationExitDuration,
+  normalizeStoryPresentation,
+} from '../../../../lib/presentation';
+import {
+  buildInlinePlaybackSteps,
+  getInlineActionDuration,
+} from '../../../../lib/inlinePresentationPlayback';
 
 export const useMediaDurations = ({
   timelineNodes,
@@ -15,6 +25,31 @@ export const useMediaDurations = ({
   speed: number;
   setTimelineDurationById: Dispatch<SetStateAction<Record<string, number>>>;
 }) => {
+  const getInlineMotionDuration = useCallback((node: FlowNode) => {
+    const presentation = normalizeStoryPresentation(
+      node.data?.presentation as StoryPresentation | undefined,
+    );
+    const steps = buildInlinePlaybackSteps(String(node.data?.text || ''), presentation, {
+      hideCharacterTags: false,
+      hideSceneTags: false,
+    });
+    const actionDurationMs = steps.reduce(
+      (sum, step) => (step.kind === 'action' ? sum + getInlineActionDuration(step.action) : sum),
+      0,
+    );
+    return actionDurationMs / 1000;
+  }, []);
+
+  const getPresentationNodeDuration = useCallback((node: FlowNode) => {
+    const presentation = normalizeStoryPresentation(
+      node.data?.presentation as StoryPresentation | undefined,
+    );
+    return (
+      (getPresentationEnterDuration(presentation) + getPresentationExitDuration(presentation)) /
+      1000
+    );
+  }, []);
+
   const getNodeMediaDuration = useCallback(
     async (node: FlowNode) => {
       const videoUrl = node.data?.videoUrl as string | undefined;
@@ -32,9 +67,13 @@ export const useMediaDurations = ({
       if (audioUrl) audioDuration = validDuration(await getAudioDuration(audioUrl));
 
       const mediaDuration = Math.max(videoDuration, audioDuration);
-      return mediaDuration > 0 ? mediaDuration : defaultSeconds;
+      const inlineDuration = getInlineMotionDuration(node);
+      const presentationDuration = getPresentationNodeDuration(node);
+      const renderedDuration =
+        presentationDuration + Math.max(mediaDuration, inlineDuration + 0.1, defaultSeconds);
+      return renderedDuration > 0 ? renderedDuration : defaultSeconds;
     },
-    [defaultSeconds],
+    [defaultSeconds, getInlineMotionDuration, getPresentationNodeDuration],
   );
 
   const getNodeRenderDuration = useCallback(

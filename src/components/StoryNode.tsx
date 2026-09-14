@@ -85,6 +85,7 @@ import {
   hasCharacterPresentationClipboard,
   hasScenePresentationClipboard,
   normalizeStoryPresentation,
+  updatePresentationMotionType,
   pasteCharacterPresentationSettings,
   pasteScenePresentationSettings,
 } from '../lib/presentation';
@@ -3533,10 +3534,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                     presentationMenu.sourceNodeId,
                                     (item) => ({
                                       ...item,
-                                      [phase]: {
-                                        ...item[phase],
-                                        type,
-                                      },
+                                      [phase]: updatePresentationMotionType(item[phase], type),
                                     }),
                                     phase,
                                   )
@@ -3826,10 +3824,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                                       presentationMenu.sourceNodeId,
                                       (item) => ({
                                         ...item,
-                                        [phase]: {
-                                          ...item[phase],
-                                          type,
-                                        },
+                                        [phase]: updatePresentationMotionType(item[phase], type),
                                       }),
                                       phase,
                                     )

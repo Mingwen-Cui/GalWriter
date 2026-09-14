@@ -188,7 +188,35 @@ export const pasteScenePresentationSettings = (current: ScenePresentation): Scen
 export const hasScenePresentationClipboard = () => scenePresentationClipboard !== null;
 
 export const getPresentationMotionDuration = (motion: PresentationMotion | undefined) =>
-  motion && motion.type !== 'none' ? Math.max(0, motion.duration || 0) : 0;
+  motion && motion.type !== 'none'
+    ? Number.isFinite(motion.duration) && motion.duration > 0
+      ? motion.duration
+      : 500
+    : 0;
+
+/** Selecting a motion from `none` must not retain its disabled, zero duration. */
+export const updatePresentationMotionType = (
+  motion: PresentationMotion,
+  type: PresentationAnimation,
+): PresentationMotion => ({
+  ...motion,
+  type,
+  duration: type === 'none' ? motion.duration : getPresentationMotionDuration({ ...motion, type }),
+});
+
+export const getPresentationEnterDuration = (presentation: StoryPresentation) =>
+  getCharacterEnterDelay(presentation) +
+  Math.max(
+    0,
+    ...presentation.characters.map((character) => getPresentationMotionDuration(character.enter)),
+  );
+
+/** Seconds on the video timeline; middle actions cannot overlap either edge. */
+export const getPresentationContentWindow = (presentation: StoryPresentation, duration: number) => {
+  const start = getPresentationEnterDuration(presentation) / 1000;
+  const end = Math.max(start, duration - getPresentationExitDuration(presentation) / 1000);
+  return { start, end, duration: end - start };
+};
 
 export const getCharacterEnterDelay = (presentation: StoryPresentation) =>
   getPresentationMotionDuration(presentation.scene?.enter);
