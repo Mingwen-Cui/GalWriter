@@ -1,3 +1,5 @@
+import { resolveSettingsPageElements } from './webMenuPageElements';
+import { PlayerSettingsControlsInspector } from './PlayerSettingsControlsInspector';
 import { themeRenderPatch, themeMenuPatch } from '../experienceThemes';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { LucideIcon } from 'lucide-react';
@@ -41,7 +43,7 @@ import { formatWebText } from './i18n';
 import { getWebSettingsCopy } from './i18n';
 import { StartMenuBackgroundInspector } from './StartMenuBackgroundInspector';
 import { StartMenuElementInspector } from './StartMenuElementInspector';
-import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
+import { buildArchivePageElements } from './webMenuPageElements';
 import type {
   WebPlaytestTestAction,
   WebPlaytestTestState,
@@ -431,6 +433,8 @@ export function WebWorkspace({
         'settingsBackgroundVideoMuted',
         'settingsBackgroundVideoFit',
         'settingsPageElements',
+        'settingsPageElementsInitialized',
+        'playerSettingsPanel',
         'startMenuMusicApplyToSettings',
       ],
       game: [
@@ -695,17 +699,16 @@ export function WebWorkspace({
     webChoiceColor,
     webChoiceTextColor,
   );
-  const defaultSettingsPageElements = buildSettingsPageElements(
+
+  const archivePageElements = webSettings.archivePageElements?.length
+    ? webSettings.archivePageElements
+    : defaultArchivePageElements;
+  const settingsPageElements = resolveSettingsPageElements(
+    webSettings,
     language,
     webChoiceColor,
     webChoiceTextColor,
   );
-  const archivePageElements = webSettings.archivePageElements?.length
-    ? webSettings.archivePageElements
-    : defaultArchivePageElements;
-  const settingsPageElements = webSettings.settingsPageElements?.length
-    ? webSettings.settingsPageElements
-    : defaultSettingsPageElements;
   const activeElementSettingsKey:
     | 'startMenuElements'
     | 'archivePageElements'
@@ -769,8 +772,10 @@ export function WebWorkspace({
         startMenuBackgroundImageUrl: template.backgroundUrl,
       });
     }
-    updateWebSettingsBulk(themeMenuPatch(template.id,language));
-    Object.entries(themeRenderPatch(template.id,webRenderStyle)).forEach(([key,value])=>updateWebRenderStyle(key as keyof RenderStyle,value as never));
+    updateWebSettingsBulk(themeMenuPatch(template.id, language));
+    Object.entries(themeRenderPatch(template.id, webRenderStyle)).forEach(([key, value]) =>
+      updateWebRenderStyle(key as keyof RenderStyle, value as never),
+    );
     setSelectedStartMenuElementId(null);
     setPreviewRefreshKey((key) => key + 1);
   };
@@ -842,12 +847,7 @@ export function WebWorkspace({
     if (pageMatch) {
       const key = pageMatch[1] === 'archive' ? 'archivePageElements' : 'settingsPageElements';
       const elementId = pageMatch[2];
-      const source =
-        webSettings[key].length > 0
-          ? webSettings[key]
-          : key === 'archivePageElements'
-            ? archivePageElements
-            : settingsPageElements;
+      const source = key === 'archivePageElements' ? archivePageElements : settingsPageElements;
       updateWebSettings(
         key,
         source.filter((candidate) => candidate.id !== elementId),
@@ -978,6 +978,15 @@ export function WebWorkspace({
   const currentSurfaceMeta = surfaceMeta[currentPreviewSurface];
   const surfaceInspector = (
     <WebSurfaceInspectorPanel>
+      {currentPreviewSurface === 'settings' && (
+        <PlayerSettingsControlsInspector
+          settings={webSettings}
+          language={language}
+          selectedId={selectedStartMenuElementId}
+          onSelect={setSelectedStartMenuElementId}
+          onUpdateElements={(elements) => updateWebSettings('settingsPageElements', elements)}
+        />
+      )}
       {selectedStartMenuElement ? (
         <StartMenuElementInspector
           element={selectedStartMenuElement}
@@ -1743,7 +1752,6 @@ JSON schema:
                   ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1656')
                   : formatWebText(language, 'componentsrenderwebWebWorkspaceText1656_2')}
               </span>
-              
             </div>
             <div className="w-36 shrink-0">
               <WebPillToggleGroup

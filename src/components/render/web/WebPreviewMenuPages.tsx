@@ -1,8 +1,9 @@
+import { playerControlCatalog } from './playerSettingsPanelConfig';
 import type React from 'react';
 import type { CSSProperties } from 'react';
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { PlayerSettingsPanel } from './WebPlayerSettingsPanel';
-import { PLAYER_SETTINGS_ROLES, type PlayerSettingsValues } from './playerSettingsPanel';
+import { PLAYER_SETTINGS_CSS, type PlayerSettingsValues } from './playerSettingsPanel';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
@@ -595,36 +596,42 @@ export function WebPreviewMenuPages({
             box={marqueeRef.current?.page === 'settings' ? marqueeBox : null}
             visible={previewMode === 'edit'}
           />
-          <PlayerSettingsPanel
-            language={language}
-            values={playerValues}
-            defaults={playerDefaults.current}
-            elements={settingsElements}
-            onClose={onCloseSettings}
-            onChange={(patch) => {
-              if (patch.autoAdvance !== undefined)
-                onUpdateSettings('autoAdvance', patch.autoAdvance);
-              if (patch.interactionMode !== undefined)
-                onUpdateSettings('interactionMode', patch.interactionMode);
-              if (patch.typewriterSpeed !== undefined)
-                onUpdateSettings('typewriterSpeed', patch.typewriterSpeed);
-              if (patch.textScale !== undefined) onUpdateSettings('textScale', patch.textScale);
-              if (patch.animationSpeed !== undefined)
-                onUpdateSettings('animationSpeed', patch.animationSpeed);
-              if (patch.soundEnabled !== undefined)
-                onUpdateSettings('soundEnabled', patch.soundEnabled);
-              if (
-                patch.controlsVisible !== undefined &&
-                patch.controlsVisible === previewControlsHidden
-              )
-                onToggleControls();
-            }}
-          />
+          <style>{PLAYER_SETTINGS_CSS}</style>
           <MenuPageElementLayer
             page="settings"
-            elements={settingsElements.filter(
-              (element) => !PLAYER_SETTINGS_ROLES.includes(element.role || ''),
-            )}
+            elements={settingsElements}
+            renderControl={(element) =>
+              playerControlCatalog(language).some((control) => control.id === element.role) ? (
+                <PlayerSettingsPanel
+                  config={settings.playerSettingsPanel}
+                  language={language}
+                  values={playerValues}
+                  defaults={playerDefaults.current}
+                  elements={[element]}
+                  element={element}
+                  onClose={onCloseSettings}
+                  onChange={(patch) => {
+                    if (patch.autoAdvance !== undefined)
+                      onUpdateSettings('autoAdvance', patch.autoAdvance);
+                    if (patch.interactionMode !== undefined)
+                      onUpdateSettings('interactionMode', patch.interactionMode);
+                    if (patch.typewriterSpeed !== undefined)
+                      onUpdateSettings('typewriterSpeed', patch.typewriterSpeed);
+                    if (patch.textScale !== undefined)
+                      onUpdateSettings('textScale', patch.textScale);
+                    if (patch.animationSpeed !== undefined)
+                      onUpdateSettings('animationSpeed', patch.animationSpeed);
+                    if (patch.soundEnabled !== undefined)
+                      onUpdateSettings('soundEnabled', patch.soundEnabled);
+                    if (
+                      patch.controlsVisible !== undefined &&
+                      patch.controlsVisible === previewControlsHidden
+                    )
+                      onToggleControls();
+                  }}
+                />
+              ) : null
+            }
             selectedElementId={selectedStartMenuElementId}
             selectedElementIds={selectedElementIds}
             previewMode={previewMode}
@@ -635,7 +642,10 @@ export function WebPreviewMenuPages({
             onUpdateElement={onUpdateSettingsElement}
             onDeleteElement={(id) => onDeletePageElement?.('settings', id)}
             onBeginElementDrag={beginElementDrag}
-            onAction={onButtonFunction}
+            onAction={(element) => {
+              if (element.role === 'back') onCloseSettings();
+              else onButtonFunction(element);
+            }}
             renderSuffix={() => ''}
           />
         </div>
@@ -665,6 +675,7 @@ type MenuPageElementLayerProps = {
   ) => void;
   onAction: (element: WebMenuElement) => void;
   renderSuffix?: (element: WebMenuElement) => string;
+  renderControl?: (element: WebMenuElement) => React.ReactNode;
   slotPreviewActive?: boolean;
   onToggleSlotPreview?: () => void;
 };
@@ -684,6 +695,7 @@ function MenuPageElementLayer({
   onBeginElementDrag,
   onAction,
   renderSuffix,
+  renderControl,
   slotPreviewActive = false,
   onToggleSlotPreview,
 }: MenuPageElementLayerProps) {
@@ -724,6 +736,7 @@ function MenuPageElementLayer({
             zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
           };
           const contentStyle: CSSProperties = {
+            fontFamily: element.fontFamily,
             fontSize: element.fontSize,
             fontWeight: element.fontWeight,
             color: element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
@@ -744,6 +757,8 @@ function MenuPageElementLayer({
                 : 'center';
 
           if (element.kind === 'button') {
+            const control = renderControl?.(element);
+            const ButtonShell = control ? 'div' : 'button';
             const isRenaming = renamingButton?.id === element.id;
             const background =
               element.fillEnabled === false
@@ -769,8 +784,8 @@ function MenuPageElementLayer({
                     : element.backgroundColor || (element.primary ? choiceColor : '#ffffff1a');
 
             return (
-              <>
-                <button
+              <Fragment key={element.id}>
+                <ButtonShell
                   key={element.id}
                   type="button"
                   className={`pointer-events-auto absolute border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
@@ -789,7 +804,8 @@ function MenuPageElementLayer({
                       ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
                       : {}),
                   }}
-                  disabled={!editable && element.disabled}
+                  aria-disabled={!editable && element.disabled}
+                  {...(!control ? { disabled: !editable && element.disabled } : {})}
                   onPointerDown={(event) => {
                     if (editable) onBeginElementDrag(page, event, element, 'move');
                   }}
@@ -804,7 +820,7 @@ function MenuPageElementLayer({
                       onSelectElement?.(element.id);
                       return;
                     }
-                    onAction(element);
+                    if (!control) onAction(element);
                   }}
                 >
                   {element.appearance && (
@@ -832,24 +848,33 @@ function MenuPageElementLayer({
                         }}
                       />
                     )}
-                  <span
-                    className="relative flex h-full w-full items-center gap-2 overflow-hidden px-4"
-                    style={{
-                      ...elementRadiusStyle(element, 12),
-                      justifyContent: suffix ? 'space-between' : justifyContent,
-                      textAlign: element.textAlign || 'center',
-                    }}
-                  >
-                    {element.textVisible !== false && (
-                      <span
-                        className="whitespace-pre-line"
-                        style={webElementTextPaintStyle(element)}
-                      >
-                        {element.text}
-                      </span>
-                    )}
-                    {suffix && <span className="text-xs opacity-70">{suffix}</span>}
-                  </span>
+                  {control ? (
+                    <div
+                      className="relative z-[1] h-full w-full"
+                      style={{ pointerEvents: editable || element.disabled ? 'none' : 'auto' }}
+                    >
+                      {control}
+                    </div>
+                  ) : (
+                    <span
+                      className="relative flex h-full w-full items-center gap-2 overflow-hidden px-4"
+                      style={{
+                        ...elementRadiusStyle(element, 12),
+                        justifyContent: suffix ? 'space-between' : justifyContent,
+                        textAlign: element.textAlign || 'center',
+                      }}
+                    >
+                      {element.textVisible !== false && (
+                        <span
+                          className="whitespace-pre-line"
+                          style={webElementTextPaintStyle(element)}
+                        >
+                          {element.text}
+                        </span>
+                      )}
+                      {suffix && <span className="text-xs opacity-70">{suffix}</span>}
+                    </span>
+                  )}
                   {editable && element.role && (
                     <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
                       {element.text || element.role}
@@ -893,7 +918,7 @@ function MenuPageElementLayer({
                         }
                       />
                     )}
-                </button>
+                </ButtonShell>
                 {isRenaming && (
                   <input
                     autoFocus
@@ -918,7 +943,7 @@ function MenuPageElementLayer({
                     onBlur={() => commitRename(element)}
                   />
                 )}
-              </>
+              </Fragment>
             );
           }
 

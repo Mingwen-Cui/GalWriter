@@ -1,3 +1,4 @@
+import type { PlayerSettingsPanelConfig } from '../../web/playerSettingsPanelConfig';
 import type { SurfaceAppearance } from '../../shared/paint/appearance';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { ReactNode } from 'react';
@@ -264,6 +265,7 @@ export type RenderEditableObjects = {
 
 export type WebMenuElement = {
   appearance?: SurfaceAppearance;
+  settingsControlForm?: 'switch' | 'segmented' | 'slider' | 'stepper' | 'select';
   id: string;
   kind: 'button' | 'text' | 'image';
   role?:
@@ -278,6 +280,9 @@ export type WebMenuElement = {
     | 'slot'
     | 'slotContinue'
     | 'slotDelete'
+    | 'mode'
+    | 'preview'
+    | 'reset'
     | 'auto'
     | 'speed'
     | 'textSize'
@@ -507,6 +512,9 @@ export type WebExportSettings = {
   startMenuElements: WebMenuElement[];
   archivePageElements: WebMenuElement[];
   settingsPageElements: WebMenuElement[];
+  settingsPageElementsInitialized?: boolean;
+  settingsPageRemovedElements?: WebMenuElement[];
+  playerSettingsPanel?: PlayerSettingsPanelConfig;
   previewToolbarElements: WebMenuElement[];
   dialogueOverlayElements: WebMenuElement[];
   startMenuPlacementBoundsLocked: boolean;

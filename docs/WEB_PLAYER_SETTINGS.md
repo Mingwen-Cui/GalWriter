@@ -1,29 +1,29 @@
-# 网页玩家设置页
+# 网页设置页：独立页面元素
 
-设置页采用自适应分组面板，包含文字呈现、打字间隔、文字大小、自动翻页、动画速度、声音和控制栏。文字大小、打字间隔和动画速度有阅读预览；恢复默认使用作品本身的初始设置。
+设置页使用 `WebExportSettings.settingsPageElements`，与主界面、存档页共用 `WebMenuElement` 元素模型和编辑操作。设置项没有固定大面板或固定分组。
 
-## 维护入口
+## 作者操作
 
-- `src/components/render/web/playerSettingsPanel.ts`：中英日文文案、语义化 HTML、样式和控件控制器。编辑器和离线导出必须共用此文件。
-- `src/components/render/web/WebPlayerSettingsPanel.tsx`：React 适配层。组件文件与共享模块使用不同的基础文件名，避免 Windows 下扩展名解析和大小写造成冲突。更新滑块时只同步数值，不能重建 DOM，以免丢失焦点或中断拖动。
-- `src/components/render/web/WebPreviewMenuPages.tsx`：设置页背景及 React 设置回调。
-- `src/components/render/web/webExport/webExportHtml.ts`：导出页面的播放效果、媒体静音、偏好存储和弹窗生命周期。
+- 在编辑模式点击元素，使用相同的选中框拖动、缩放、旋转；右侧通用 section 编辑位置、文字、填充、描边、阴影、圆角和功能。
+- 「设置页元素」列出所有真实元素，可选择、隐藏、删除。
+- 「添加按钮与功能」创建真实页面元素，同一功能可以添加多份；顶部原有添加文字、图片和自定义按钮入口继续可用。
+- 「恢复已删除元素」保留并恢复原元素属性；也可从功能库重新添加。
+- 允许删除全部元素，空页面不会自动重新填入默认按钮。
+- 测试模式操作开关、滑块、步进输入、分段选择；导出使用相同的功能绑定。
 
-`mountPlayerSettings` 会被序列化进导出 HTML，函数体必须自包含，不能引用模块外的运行时变量、导入或构建工具辅助函数。增加控件时同时接通 React 与导出的设置回调，不能只增加按钮或保存字段。
+## 数据与维护入口
 
-## 旧模板兼容
+- `settingsPageElements`：元素 id、位置、尺寸、旋转、可见性、文字与外观，以及 `role` 功能。
+- `WebMenuElement.settingsControlForm`：单个元素的控件形式，在「功能」section 中选择。它随复制、模板与导出保存。
+- `settingsPageElementsInitialized`：标记已经编辑过的元素数组，保证显式空数组也有效。
+- `settingsPageRemovedElements`：编辑器的删除恢复列表，不参与运行时页面。
+- `webMenuPageElements.ts`：统一解析旧设置页，迁移旧固定行的初始位置，保留自定义布局。
+- `WebPreviewMenuPages.tsx`：沿用通用元素外壳、选中框和拖动逻辑，给功能元素嵌入真实控件。
+- `StartMenuElementInspector.tsx`：通用属性与功能形式编辑。
+- `PlayerSettingsControlsInspector.tsx`：真实元素列表、添加与恢复，不再存储另一套元素尺寸。
+- `playerSettingsPanel.ts` / `WebPlayerSettingsPanel.tsx`：单个功能控件的语义化 HTML 和交互适配；组件与共享文件必须使用不同基础文件名，避免 Windows 模块解析冲突。
+- `webExportHtml.ts`：依照每个实际元素创建导出内容，保留位置、旋转、文字和外观，逐个绑定控件并同步播放器状态。
 
-`settingsPageElements` 中的 `title / back / auto / speed / textSize / animationSpeed / sound / controls` 角色映射到新面板。保留文案、可见性和禁用配置；返回按钮始终保留。内置控件的坐标和外框样式由新面板统一管理，不再按旧模板的自由定位按钮绘制。
+旧的 `playerSettingsPanel.controls` 仅用于导入旧配置时迁移可见性和形式；编辑后以真实元素为准。`mountPlayerSettings` 会被序列化进入导出 HTML，必须保持函数自包含。
 
-其他自定义元素继续使用原有自由定位图层。设置页背景仍使用原来的背景与填充数据。导出时也绘制这些自定义元素，并复用菜单动作绑定。
-
-## 行为约定
-
-- 打字间隔为每字 10–200 ms；与动画速度独立。立即显示模式禁用打字间隔滑块。
-- 文字大小为 85–130%；修改正文、标题 CSS 变量，不通过重新播放当前卡片实现字号变化。
-- 动画速度为 0.5–2×；调整转场、文字动效与对应计时，不修改音视频播放速率。
-- 声音关闭使用静音，不重置音轨时间；再次开启仍尊重作者对单个视频的静音设置。
-- 导出偏好单独存入作品的 localStorage，即使尚未开始游戏也会记住。载入旧存档时优先采用玩家当前偏好。恢复默认不会清除故事存档。
-- 设置弹窗打开时不自动跳转到下一卡片。支持 Escape、Tab 焦点循环和关闭后返回原焦点。
-
-本次依照用户要求未运行测试、构建或浏览器验收；实际导出播放由用户验收。
+本次按用户要求未运行测试、构建或浏览器验收。

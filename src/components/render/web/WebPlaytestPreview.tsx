@@ -1,3 +1,4 @@
+import { resolveSettingsPageElements } from './webMenuPageElements';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { Eye, EyeOff, House, ListMusic, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
@@ -69,7 +70,7 @@ import {
   writeWebSaveCollection,
 } from './webExport/webSaveSlots';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
-import { buildArchivePageElements, buildSettingsPageElements } from './webMenuPageElements';
+import { buildArchivePageElements } from './webMenuPageElements';
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
 import { WebPlaytestMediaLayers } from './WebPlaytestMediaLayers';
 import { WebPlaytestNameplates } from './WebPlaytestNameplates';
@@ -1324,18 +1325,17 @@ export function WebPlaytestPreview({
     () => buildArchivePageElements(language, choiceColor, choiceTextColor),
     [choiceColor, choiceTextColor, language],
   );
-  const defaultSettingsPageElements = React.useMemo(
-    () => buildSettingsPageElements(language, choiceColor, choiceTextColor),
-    [choiceColor, choiceTextColor, language],
-  );
+
   const archivePageElements =
     settings.archivePageElements && settings.archivePageElements.length > 0
       ? settings.archivePageElements
       : defaultArchivePageElements;
-  const settingsPageElements =
-    settings.settingsPageElements && settings.settingsPageElements.length > 0
-      ? settings.settingsPageElements
-      : defaultSettingsPageElements;
+  const settingsPageElements = resolveSettingsPageElements(
+    settings,
+    language,
+    choiceColor,
+    choiceTextColor,
+  );
   const defaultToolbarElements = React.useMemo<StartMenuElement[]>(
     () => buildRehearsalToolbarElements(language),
     [language],
@@ -1911,9 +1911,7 @@ export function WebPlaytestPreview({
             onUpdateSettings('archivePageElements', elements);
           }}
           onUpdateSettingsElement={(id, patch) => {
-            const source = settings.settingsPageElements?.length
-              ? settings.settingsPageElements
-              : defaultSettingsPageElements;
+            const source = settingsPageElements;
             onUpdateSettings(
               'settingsPageElements',
               source.map((element) => (element.id === id ? { ...element, ...patch } : element)),

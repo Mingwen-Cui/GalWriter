@@ -1,3 +1,4 @@
+import { resolveSettingsPageElements } from '../webMenuPageElements';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 import type { SurfaceAppearance } from '../../shared/paint/appearance';
@@ -392,7 +393,14 @@ export async function buildInteractiveWebZipBlob(
     startMenuButtonSize: options.settings?.startMenuButtonSize || 'normal',
     startMenuElements: options.settings?.startMenuElements || [],
     archivePageElements: options.settings?.archivePageElements || [],
-    settingsPageElements: options.settings?.settingsPageElements || [],
+    settingsPageElements: resolveSettingsPageElements(
+      options.settings || {},
+      options.language,
+      '#0ea5e9',
+      '#ffffff',
+    ),
+    settingsPageElementsInitialized: true,
+    playerSettingsPanel: options.settings?.playerSettingsPanel,
     previewToolbarElements: options.settings?.previewToolbarElements || [],
     dialogueOverlayElements: options.settings?.dialogueOverlayElements || [],
     startMenuPlacementBoundsLocked: options.settings?.startMenuPlacementBoundsLocked ?? false,
@@ -717,7 +725,16 @@ export async function buildInteractiveWebZipBlob(
     iconFolder?.file(fileName, svg);
   });
   const faviconPath = await addExportLogoAsset(iconFolder);
-  zip.file('index.html', makeIndexHtml(title, options.language, faviconPath));
+  zip.file(
+    'index.html',
+    makeIndexHtml(
+      title,
+      options.language,
+      faviconPath,
+      settings.playerSettingsPanel,
+      settings.settingsPageElements,
+    ),
+  );
   zip.file(
     'content.js',
     makeContentScript({

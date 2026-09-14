@@ -1,3 +1,5 @@
+import { webElementTextPaintStyle } from './webElementStyle';
+import type { PlayerSettingsPanelConfig } from './playerSettingsPanelConfig';
 import { useEffect, useMemo, useRef } from 'react';
 import type { Language } from '../../../lib/i18n';
 import type { WebMenuElement } from '../video/shared/types';
@@ -10,9 +12,11 @@ import {
 
 type Props = {
   language: Language;
+  config?: PlayerSettingsPanelConfig;
   values: PlayerSettingsValues;
   defaults: PlayerSettingsValues;
   elements: WebMenuElement[];
+  element?: WebMenuElement;
   onChange: (patch: Partial<PlayerSettingsValues>) => void;
   onClose: () => void;
 };
@@ -22,7 +26,17 @@ export function PlayerSettingsPanel(props: Props) {
   const latest = useRef(props);
   latest.current = props;
   const controller = useRef<ReturnType<typeof mountPlayerSettings> | null>(null);
-  const markup = useMemo(() => playerSettingsMarkup(props.language), [props.language]);
+  const configKey = JSON.stringify(props.config || {});
+  const widgetKey = JSON.stringify(props.element || null);
+  const markup = useMemo(
+    () =>
+      playerSettingsMarkup(
+        props.language,
+        JSON.parse(configKey),
+        JSON.parse(widgetKey) || undefined,
+      ),
+    [props.language, configKey, widgetKey],
+  );
   // Only template semantics change the markup. Slider updates must preserve focus and dragging.
   const elementConfig = JSON.stringify(
     props.elements.map(({ role, text, visible, disabled }) => ({ role, text, visible, disabled })),
@@ -37,6 +51,16 @@ export function PlayerSettingsPanel(props: Props) {
       () => latest.current.onClose(),
       JSON.parse(elementConfig),
     );
+    if (current.element) {
+      root.current?.querySelectorAll<HTMLElement>('[data-role-label]').forEach((label) => {
+        Object.assign(label.style, webElementTextPaintStyle(current.element!), {
+          fontFamily: current.element!.fontFamily || 'inherit',
+          fontWeight: String(current.element!.fontWeight || 500),
+          textAlign: current.element!.textAlign || 'left',
+          visibility: current.element!.textVisible === false ? 'hidden' : 'visible',
+        });
+      });
+    }
     return () => {
       controller.current?.destroy();
       controller.current = null;
@@ -47,10 +71,10 @@ export function PlayerSettingsPanel(props: Props) {
   }, [props.values]);
   return (
     <>
-      <style>{PLAYER_SETTINGS_CSS}</style>
+      {!props.element && <style>{PLAYER_SETTINGS_CSS}</style>}
       <div
         ref={root}
-        className="gw-ps-surface"
+        className={props.element ? 'gw-ps-widget-surface' : 'gw-ps-surface'}
         onPointerDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           event.stopPropagation();

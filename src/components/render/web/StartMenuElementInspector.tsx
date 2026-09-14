@@ -1,3 +1,4 @@
+import { playerControlCatalog } from './playerSettingsPanelConfig';
 import { CornerEditor, LayerOrderMenu } from '../shared/inspectors/GeometryPopovers';
 import { AppearanceStackInspector } from '../shared/inspectors/AppearanceStackInspector';
 import { webAppearance } from '../shared/paint/appearance';
@@ -141,6 +142,9 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
   ],
   settings: [
     'custom',
+    'mode',
+    'preview',
+    'reset',
     'back',
     'auto',
     'speed',
@@ -157,6 +161,9 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
 const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> => {
   if (language === 'ja') {
     return {
+      mode: '文字の表示',
+      preview: '読み方のプレビュー',
+      reset: '初期設定に戻す',
       custom: '機能なし',
       continue: 'ゲームを続ける',
       save: 'セーブ画面',
@@ -185,6 +192,9 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
   }
   if (language === 'en') {
     return {
+      mode: 'Text display',
+      preview: 'Reading preview',
+      reset: 'Restore defaults',
       custom: 'No action',
       continue: 'Continue game',
       save: 'Open saves',
@@ -212,6 +222,9 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
     };
   }
   return {
+    mode: '文字呈现',
+    preview: '阅读效果预览',
+    reset: '恢复默认',
     custom: '无功能',
     continue: '继续游戏',
     save: '打开存档页',
@@ -691,7 +704,11 @@ export function StartMenuElementInspector({
             }
           />
           {radiusPopoverOpen && (
-            <FloatingPopover language={language} popoverKey="corners" onClose={() => setRadiusPopoverOpen(false)}>
+            <FloatingPopover
+              language={language}
+              popoverKey="corners"
+              onClose={() => setRadiusPopoverOpen(false)}
+            >
               <RadiusPopover
                 language={language}
                 copy={inspectorCopy}
@@ -930,7 +947,11 @@ export function StartMenuElementInspector({
             )}
           </div>
           {popover?.group === 'text' && popover.type === 'solid' && (
-            <FloatingPopover language={language} popoverKey="solid" onClose={() => setPopover(null)}>
+            <FloatingPopover
+              language={language}
+              popoverKey="solid"
+              onClose={() => setPopover(null)}
+            >
               <SolidColorPopover
                 tone="fill"
                 text={text.popover}
@@ -1008,6 +1029,47 @@ export function StartMenuElementInspector({
             />
           }
         >
+          {surface === 'settings' &&
+            (() => {
+              const forms =
+                playerControlCatalog(language).find((item) => item.id === buttonFunction)?.forms ||
+                [];
+              if (!forms.length) return null;
+              const formLabel = {
+                switch: '开关 / Switch',
+                segmented: '分段按钮 / Segments',
+                slider: '滑块 / Slider',
+                stepper: '步进输入 / Stepper',
+                select: '下拉选择 / Dropdown',
+              };
+              return (
+                <label className="mb-3 block space-y-1">
+                  <span className="property-field-label">
+                    {language === 'zh' ? '控件形式' : language === 'ja' ? '形式' : 'Control form'}
+                  </span>
+                  <select
+                    className="h-8 w-full rounded-md bg-[var(--inspector-field)] px-2 text-xs"
+                    value={
+                      element.settingsControlForm && forms.includes(element.settingsControlForm)
+                        ? element.settingsControlForm
+                        : forms[0]
+                    }
+                    onChange={(event) =>
+                      onUpdate({
+                        settingsControlForm: event.target
+                          .value as WebMenuElement['settingsControlForm'],
+                      })
+                    }
+                  >
+                    {forms.map((form) => (
+                      <option key={form} value={form}>
+                        {formLabel[form]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              );
+            })()}
           {buttonFunction === 'link' && (
             <div className="mt-2 space-y-2">
               <label className="block space-y-1 px-1 text-[10px] font-bold text-slate-500">
@@ -1072,18 +1134,19 @@ export function StartMenuElementInspector({
               />
             </div>
           )}
-          {(['speed', 'textSize', 'animationSpeed'] as ButtonFunction[]).includes(
-            buttonFunction,
-          ) && (
-            <NumericButtonActionControl
-              role={buttonFunction as 'speed' | 'textSize' | 'animationSpeed'}
-              language={language}
-              value={element.actionValue}
-              inputMode={element.actionValueInputMode}
-              onChange={(actionValue) => onUpdate({ actionValue })}
-              onModeChange={(actionValueInputMode) => onUpdate({ actionValueInputMode })}
-            />
-          )}
+          {surface !== 'settings' &&
+            (['speed', 'textSize', 'animationSpeed'] as ButtonFunction[]).includes(
+              buttonFunction,
+            ) && (
+              <NumericButtonActionControl
+                role={buttonFunction as 'speed' | 'textSize' | 'animationSpeed'}
+                language={language}
+                value={element.actionValue}
+                inputMode={element.actionValueInputMode}
+                onChange={(actionValue) => onUpdate({ actionValue })}
+                onModeChange={(actionValueInputMode) => onUpdate({ actionValueInputMode })}
+              />
+            )}
         </Group>
       )}
 
@@ -1142,7 +1205,11 @@ export function StartMenuElementInspector({
             </button>
           </div>
           {popover?.group === 'image' && (
-            <FloatingPopover language={language} popoverKey="image" onClose={() => setPopover(null)}>
+            <FloatingPopover
+              language={language}
+              popoverKey="image"
+              onClose={() => setPopover(null)}
+            >
               <ImageFillPopover
                 tone="fill"
                 text={text.popover}
@@ -1170,8 +1237,6 @@ export function StartMenuElementInspector({
           )}
         </Group>
       )}
-
-      
     </div>
   );
 }
@@ -1450,7 +1515,12 @@ export function PortaledGradientPopover({
   closeLabel?: string;
 }) {
   return (
-    <FloatingPopover language={language} popoverKey="gradient" onClose={onClose} closeLabel={closeLabel}>
+    <FloatingPopover
+      language={language}
+      popoverKey="gradient"
+      onClose={onClose}
+      closeLabel={closeLabel}
+    >
       {children}
     </FloatingPopover>
   );

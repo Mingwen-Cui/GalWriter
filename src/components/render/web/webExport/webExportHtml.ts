@@ -1,3 +1,6 @@
+import type { WebMenuElement } from '../../video/shared/types';
+import { playerControlCatalog } from '../playerSettingsPanelConfig';
+import type { PlayerSettingsPanelConfig } from '../playerSettingsPanelConfig';
 import { appearanceRuntimeScript } from '../../shared/paint/appearanceRuntime';
 import type { Language } from '../../../../lib/i18n';
 import { formatWebText } from '../i18n';
@@ -5,11 +8,24 @@ import {
   mountPlayerSettings,
   playerSettingsMarkup,
   PLAYER_SETTINGS_CSS,
-  PLAYER_SETTINGS_ROLES,
 } from '../playerSettingsPanel';
 import { WEB_EXPORT_STYLES } from './webExportStyles';
 
-export const makeIndexHtml = (title: string, language: Language, faviconPath: string) => {
+export const makeIndexHtml = (
+  title: string,
+  language: Language,
+  faviconPath: string,
+  panelConfig?: PlayerSettingsPanelConfig,
+  pageElements: WebMenuElement[] = [],
+) => {
+  const widgetRoles = new Set(playerControlCatalog(language).map((item) => String(item.id)));
+  const widgets = JSON.stringify(
+    Object.fromEntries(
+      pageElements
+        .filter((element) => element.kind === 'button' && widgetRoles.has(element.role || ''))
+        .map((element) => [element.id, playerSettingsMarkup(language, panelConfig, element)]),
+    ),
+  ).replace(/</g, '\\u003c');
   const authorWebsite = formatWebText(language, 'webExportAuthorWebsite');
   return `<!doctype html>
 <html lang="${language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : 'en'}">
@@ -75,7 +91,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     <audio id="startMenuAudio" preload="auto" loop hidden></audio>
   </div>
   <div class="settings-backdrop" id="settingsBackdrop" role="dialog" aria-modal="true" aria-label="${language === 'zh' ? '播放设置' : language === 'ja' ? '再生設定' : 'Playback settings'}">
-    <div class="gw-ps-surface" id="playerSettingsRoot">${playerSettingsMarkup(language)}</div>
+    <div id="playerSettingsRoot" hidden></div>
     <div class="start-layer" id="settingsCustomLayer"></div>
   </div>
   <div class="settings-backdrop" id="saveBackdrop">
@@ -554,8 +570,6 @@ ${PLAYER_SETTINGS_CSS}</style>
     const saveClose = document.getElementById("saveClose");
     const saveList = document.getElementById("saveList");
     const settingsBackdrop = document.getElementById("settingsBackdrop");
-    // Keep player controls readable on narrow screens instead of scaling with the story canvas.
-    document.body.appendChild(settingsBackdrop);
     gwAppearance(startScreen,settings.surfaceAppearances?.start);
     gwAppearance(saveBackdrop,settings.surfaceAppearances?.archive);
     gwAppearance(settingsBackdrop,settings.surfaceAppearances?.settings);
@@ -627,7 +641,8 @@ ${PLAYER_SETTINGS_CSS}</style>
     const saveKey = "galwriter-web-saves:" + encodeURIComponent(String(content.title || "GalWriter"));
     const legacySaveKey = "galwriter-web-save:" + encodeURIComponent(String(content.title || "GalWriter"));
     let activeSaveId = null;
-    let playerSettingsController = null;
+    let settingsWidgetControllers = [];
+    const settingsWidgetMarkup = ${widgets};
     let settingsFocusReturn = null;
     let settingsNeedTextRefresh = false;
     let currentTextEnded = false;
@@ -903,12 +918,14 @@ ${PLAYER_SETTINGS_CSS}</style>
           wrapper.appendChild(image);
         } else if (element.kind === "button") {
           const action = actionByRole[element.role] || null;
-          const button = document.createElement("button");
+          const widget = layer === settingsCustomLayer ? settingsWidgetMarkup[element.id] : null;
+          const button = document.createElement(widget ? "div" : "button");
           button.type = "button";
           button.className = "start-element-button" + ((element.primary || action?.primary) ? " primary" : "");
           const buttonLabel = element.text || action?.label || "";
           button.textContent = "";
           button.disabled = Boolean(element.disabled || action?.disabled);
+          button.inert = Boolean(element.disabled);
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
           } else if (element.backgroundType === "image") {
@@ -949,7 +966,21 @@ ${PLAYER_SETTINGS_CSS}</style>
           if (Number.isFinite(Number(element.fontWeight))) button.style.fontWeight = String(Number(element.fontWeight));
           applyElementRadius(button, element, 12);
           if (element.blendMode) button.style.mixBlendMode = element.blendMode;
-          if (element.textVisible !== false) {
+          if (widget) {
+            button.style.overflow = "hidden";
+            const host = document.createElement('div');
+            host.className = 'gw-ps-widget-surface';
+            host.innerHTML = widget;
+            button.appendChild(host);
+            settingsWidgetControllers.push(mountSettingsWidget(host, playerSettingsValues(), playerDefaults, changePlayerSettings, closeSettingsPanel, [element]));
+            host.querySelectorAll('[data-role-label]').forEach((label) => {
+              applyTextPaint(label, element, element.textColor || '#f8fafc');
+              label.style.fontFamily = element.fontFamily || 'inherit';
+              label.style.fontWeight = String(element.fontWeight || 500);
+              label.style.visibility = element.textVisible === false ? 'hidden' : 'visible';
+            });
+          }
+          if (!widget && element.textVisible !== false) {
             const label = document.createElement("span");
             label.textContent = buttonLabel;
             label.style.position = "relative";
@@ -957,10 +988,14 @@ ${PLAYER_SETTINGS_CSS}</style>
             applyTextPaint(label, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
             button.appendChild(label);
           }
-          if (action?.onClick) button.addEventListener("click", () => {
+          if (!widget && action?.onClick) button.addEventListener("click", () => {
             if (layer === settingsCustomLayer && ["save", "new", "continue"].includes(element.role)) closeSettingsPanel();
             action.onClick();
           });
+          if (element.appearance) {
+            button.style.background = 'transparent'; button.style.border = '0'; button.style.boxShadow = 'none';
+            gwAppearance(button, element.appearance, [element.borderTopLeftRadius ?? element.borderRadius ?? 12, element.borderTopRightRadius ?? element.borderRadius ?? 12, element.borderBottomRightRadius ?? element.borderRadius ?? 12, element.borderBottomLeftRadius ?? element.borderRadius ?? 12].map((value) => value + 'px').join(' '));
+          }
           wrapper.appendChild(button);
         } else {
           const text = document.createElement("div");
@@ -1104,7 +1139,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       [regionAudio, sceneAmbientAudio].forEach((audio) => { if (audio) audio.muted = !settings.soundEnabled; });
     }
     function updateSettingsPanel() {
-      playerSettingsController?.sync(playerSettingsValues());
+      settingsWidgetControllers.forEach((controller) => controller.sync(playerSettingsValues()));
       syncPlayerPresentation();
     }
     function changePlayerSettings(patch) {
@@ -1122,10 +1157,12 @@ ${PLAYER_SETTINGS_CSS}</style>
       settingsFocusReturn = document.activeElement;
       if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
       updateSettingsPanel();
-      renderCustomStartMenu(readSave(), settingsCustomLayer, (settings.settingsPageElements || []).filter((element) => !${JSON.stringify(PLAYER_SETTINGS_ROLES)}.includes(element.role)));
+      settingsWidgetControllers.forEach((controller) => controller.destroy());
+      settingsWidgetControllers = [];
+      renderCustomStartMenu(readSave(), settingsCustomLayer, settings.settingsPageElements || []);
       settingsBackdrop.classList.add("open");
       syncStartMenuMusicForOverlay("settings", true);
-      playerSettingsRoot.querySelector('[data-action="close"]').focus({ preventScroll: true });
+      settingsCustomLayer.querySelector('button:not(:disabled),input:not(:disabled),select:not(:disabled)')?.focus({ preventScroll: true });
     }
     function closeSettingsPanel() {
       settingsBackdrop.classList.remove("open");
@@ -2181,14 +2218,14 @@ ${PLAYER_SETTINGS_CSS}</style>
     saveBackdrop.addEventListener("click", (event) => {
       if (event.target === saveBackdrop) saveBackdrop.classList.remove("open");
     });
-    playerSettingsController = (${mountPlayerSettings.toString()})(playerSettingsRoot, playerSettingsValues(), playerDefaults, changePlayerSettings, closeSettingsPanel, settings.settingsPageElements || []);
+    const mountSettingsWidget = (${mountPlayerSettings.toString()});
     settingsBackdrop.addEventListener("click", (event) => {
       if (event.target === settingsBackdrop || event.target === playerSettingsRoot) closeSettingsPanel();
     });
     settingsBackdrop.addEventListener("keydown", (event) => {
       if (event.key === "Escape") { event.preventDefault(); closeSettingsPanel(); return; }
       if (event.key !== "Tab") return;
-      const items = Array.from(settingsBackdrop.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')).filter((item) => item.getClientRects().length);
+      const items = Array.from(settingsBackdrop.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]')).filter((item) => item.getClientRects().length);
       const first = items[0], last = items[items.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }

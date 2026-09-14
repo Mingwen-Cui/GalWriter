@@ -1,3 +1,4 @@
+import { resolveSettingsPageElements } from '../../web/webMenuPageElements';
 import { useEffect, useState, useRef } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
@@ -303,13 +304,37 @@ export const useWebExportSettings = (
     else setWebRenderStyle((prev) => ({ ...prev, [key]: value }));
   };
 
+  const applySettingsPatch = (previous: WebExportSettings, patch: Partial<WebExportSettings>) => {
+    if (!('settingsPageElements' in patch))
+      return normalizeWebImageFillBaseColors({ ...previous, ...patch });
+    const next = patch.settingsPageElements || [];
+    const removed = resolveSettingsPageElements(
+      previous,
+      language,
+      webChoiceColor,
+      webChoiceTextColor,
+    ).filter((item) => !next.some((entry) => entry.id === item.id));
+    const archive = [
+      ...(previous.settingsPageRemovedElements || []).filter(
+        (item) => !removed.some((entry) => entry.id === item.id),
+      ),
+      ...removed,
+    ].filter((item) => !next.some((entry) => entry.id === item.id));
+    return normalizeWebImageFillBaseColors({
+      ...previous,
+      ...patch,
+      settingsPageElementsInitialized: true,
+      settingsPageRemovedElements: archive,
+    });
+  };
+
   const updateWebSettings = <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
   ) => {
     if (webSettings[key] === value) return;
     pushWebHistory();
-    setWebSettings((prev) => normalizeWebImageFillBaseColors({ ...prev, [key]: value }));
+    setWebSettings((prev) => applySettingsPatch(prev, { [key]: value }));
     const sharedPatch = canvasPatchFromWebSettings({ [key]: value } as Partial<WebExportSettings>);
     if (Object.keys(sharedPatch).length) sharedCanvas.update(sharedPatch);
   };
@@ -321,7 +346,7 @@ export const useWebExportSettings = (
     if (entries.length === 0) return;
     if (entries.every(([key, value]) => webSettings[key] === value)) return;
     pushWebHistory();
-    setWebSettings((prev) => normalizeWebImageFillBaseColors({ ...prev, ...patch }));
+    setWebSettings((prev) => applySettingsPatch(prev, patch));
     const sharedPatch = canvasPatchFromWebSettings(patch);
     if (Object.keys(sharedPatch).length) sharedCanvas.update(sharedPatch);
   };

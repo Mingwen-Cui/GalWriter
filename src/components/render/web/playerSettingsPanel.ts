@@ -1,3 +1,5 @@
+import type { WebMenuElement } from '../video/shared/types';
+import type { PlayerControlId, PlayerSettingsPanelConfig } from './playerSettingsPanelConfig';
 import type { Language } from '../../../lib/i18n';
 
 export type PlayerSettingsValues = {
@@ -133,10 +135,37 @@ const copy = {
 };
 
 // Both the editor and the standalone export consume this markup and controller.
-export function playerSettingsMarkup(language: Language) {
+export function playerSettingsMarkup(
+  language: Language,
+  config: PlayerSettingsPanelConfig = {},
+  element?: WebMenuElement,
+) {
   const t = copy[language === 'ja' ? 'ja' : language === 'en' ? 'en' : 'zh'];
+  if (element?.role)
+    config = {
+      ...config,
+      controls: {
+        ...config.controls,
+        [element.role]: { form: element.settingsControlForm, state: 'visible' },
+      },
+    };
+
+  const clamp = (value: number | undefined, min: number, max: number, fallback: number) =>
+    Number.isFinite(value) ? Math.min(max, Math.max(min, value!)) : fallback;
+  const height = clamp(config.height, 28, 64, 36);
+  const fontSize = element
+    ? clamp(element.fontSize, 4, 240, 16)
+    : clamp(config.fontSize, 12, 24, 16);
+  const radius = clamp(config.radius, 0, 32, 10);
+  const attrs = (id: PlayerControlId) => {
+    const control = config.controls?.[id] || {};
+    const state = ['visible', 'hidden', 'removed'].includes(control.state || '')
+      ? control.state
+      : '';
+    return `data-setting-role="${id}" data-panel-state="${state}" style="--ps-height:${clamp(control.height, 28, 64, height)}px;--ps-size:${element ? fontSize : clamp(control.fontSize, 12, 24, fontSize)}px;width:${clamp(control.width, 40, 100, 100)}%;" ${state === 'hidden' || state === 'removed' ? 'hidden' : ''}`;
+  };
   const range = (
-    role: string,
+    role: PlayerControlId,
     key: string,
     label: string,
     hint: string,
@@ -146,28 +175,75 @@ export function playerSettingsMarkup(language: Language) {
     unit: string,
     low: string,
     high: string,
-  ) => `
-    <div class="gw-ps-row" data-setting-role="${role}">
-      <label><span class="gw-ps-label"><span data-role-label>${label}</span><output data-value="${key}" data-unit="${unit}"></output></span>
-      <span class="gw-ps-hint">${hint}</span><input type="range" data-setting="${key}" min="${min}" max="${max}" step="${step}" aria-label="${label}" />
-      <span class="gw-ps-scale" aria-hidden="true"><span>${low}</span><span>${high}</span></span></label>
+  ) => {
+    const stepper = config.controls?.[role]?.form === 'stepper';
+    const input = `<input type="${stepper ? 'number' : 'range'}" data-setting="${key}" min="${min}" max="${max}" step="${step}" aria-label="${label}" />`;
+    return `<div class="gw-ps-row" ${attrs(role)}>
+      <label><span class="gw-ps-label"><span data-role-label>${label}</span><output data-value="${key}" data-unit="${unit}" ${stepper ? 'hidden' : ''}></output></span>
+      <span class="gw-ps-hint">${hint}</span>${stepper ? '' : input + `<span class="gw-ps-scale" aria-hidden="true"><span>${low}</span><span>${high}</span></span>`}</label>
+      ${stepper ? `<div class="gw-ps-stepper"><button type="button" data-step-setting="${key}" data-delta="-1" aria-label="${label} − ${step}">−</button>${input}<span>${unit}</span><button type="button" data-step-setting="${key}" data-delta="1" aria-label="${label} + ${step}">+</button></div>` : ''}
     </div>`;
-  const toggle = (role: string, key: string, label: string, hint: string) => `
-    <div class="gw-ps-row gw-ps-toggle-row" data-setting-role="${role}"><div><span class="gw-ps-label" data-role-label>${label}</span><p class="gw-ps-hint">${hint}</p></div>
-      <button class="gw-ps-toggle" type="button" role="switch" aria-checked="false" aria-label="${label}" data-setting="${key}"><span data-toggle-label>${t.off}</span><i aria-hidden="true"></i></button></div>`;
-  return `<section class="gw-ps-panel" aria-label="${t.title}" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">
+  };
+  const toggle = (role: PlayerControlId, key: string, label: string, hint: string) => {
+    const segmented = config.controls?.[role]?.form === 'segmented';
+    return `<div class="gw-ps-row ${segmented ? '' : 'gw-ps-toggle-row'}" ${attrs(role)}><div><span class="gw-ps-label" data-role-label>${label}</span><p class="gw-ps-hint">${hint}</p></div>
+      ${segmented ? `<div class="gw-ps-segments" role="group" aria-label="${label}"><button type="button" data-setting-choice="${key}" data-choice="true">${t.on}</button><button type="button" data-setting-choice="${key}" data-choice="false">${t.off}</button></div>` : `<button class="gw-ps-toggle" type="button" role="switch" aria-checked="false" aria-label="${label}" data-setting="${key}"><span data-toggle-label>${t.off}</span><i aria-hidden="true"></i></button>`}</div>`;
+  };
+  const modeMarkup = `<div class="gw-ps-row" ${attrs('mode')}><span class="gw-ps-label" data-role-label>${t.mode}</span>
+      ${config.controls?.mode?.form === 'select' ? `<select class="gw-ps-select" data-mode-select aria-label="${t.mode}"><option value="immediate">${t.immediate}</option><option value="typewriter">${t.typewriter}</option></select>` : `<div class="gw-ps-segments" role="group" aria-label="${t.mode}"><button type="button" data-mode="immediate">${t.immediate}</button><button type="button" data-mode="typewriter">${t.typewriter}</button></div>`}</div>`;
+  const previewMarkup = `<div class="gw-ps-preview" ${attrs('preview')}><div class="gw-ps-preview-head"><span data-role-label>${t.preview}</span><button type="button" data-action="replay">↻ ${t.replay}</button></div><p data-sample="${t.sample}">${t.sample}</p><div class="gw-ps-motion" aria-hidden="true"><i></i></div></div>`;
+  const resetMarkup = `<div ${attrs('reset')}><button type="button" data-action="reset"><span data-role-label>↺ ${t.reset}</span></button></div>`;
+  const widgets: Record<string, string> = {
+    mode: modeMarkup,
+    preview: previewMarkup,
+    reset: resetMarkup,
+    speed: range(
+      'speed',
+      'typewriterSpeed',
+      t.speed,
+      t.speedHint,
+      10,
+      200,
+      5,
+      ' ms',
+      t.fast,
+      t.slow,
+    ),
+    textSize: range('textSize', 'textScale', t.size, t.sizeHint, 85, 130, 5, '%', t.small, t.large),
+    animationSpeed: range(
+      'animationSpeed',
+      'animationSpeed',
+      t.animation,
+      t.animationHint,
+      0.5,
+      2,
+      0.25,
+      '×',
+      t.half,
+      t.double,
+    ),
+    auto: toggle('auto', 'autoAdvance', t.auto, t.autoHint),
+    sound: toggle('sound', 'soundEnabled', t.sound, t.soundHint),
+    controls: toggle('controls', 'controlsVisible', t.controls, t.controlsHint),
+  };
+  if (element)
+    return `<div class="gw-ps-panel gw-ps-widget" style="--ps-size:${fontSize}px;--ps-height:${height}px;--ps-radius:${clamp(element.borderRadius, 0, 100, radius)}px;" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">${widgets[element.role || ''] || ''}</div>`;
+  const appearance = ['soft', 'filled', 'outline'].includes(config.appearance || '')
+    ? config.appearance
+    : 'soft';
+  return `<section class="gw-ps-panel" data-appearance="${appearance}" style="--ps-height:${height}px;--ps-size:${fontSize}px;--ps-radius:${radius}px;" aria-label="${t.title}" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">
     <div class="gw-ps-head"><div><span class="gw-ps-eyebrow">PREFERENCES</span><h2 data-setting-role="title"><span data-role-label>${t.title}</span></h2><p>${t.intro}</p></div><button class="gw-ps-done" type="button" data-action="close" data-setting-role="back"><span data-role-label>${t.back}</span><span aria-hidden="true">✓</span></button></div>
     <div class="gw-ps-columns"><section class="gw-ps-group"><h3><span aria-hidden="true">Aa</span>${t.reading}</h3>
-      <div class="gw-ps-row"><span class="gw-ps-label">${t.mode}</span><div class="gw-ps-segments" role="group" aria-label="${t.mode}"><button type="button" data-mode="immediate">${t.immediate}</button><button type="button" data-mode="typewriter">${t.typewriter}</button></div></div>
+      ${modeMarkup}
       ${range('speed', 'typewriterSpeed', t.speed, t.speedHint, 10, 200, 5, ' ms', t.fast, t.slow)}
       ${range('textSize', 'textScale', t.size, t.sizeHint, 85, 130, 5, '%', t.small, t.large)}
-      <div class="gw-ps-preview"><div class="gw-ps-preview-head"><span>${t.preview}</span><button type="button" data-action="replay">↻ ${t.replay}</button></div><p data-sample="${t.sample}">${t.sample}</p><div class="gw-ps-motion" aria-hidden="true"><i></i></div></div>
+      ${previewMarkup}
     </section><section class="gw-ps-group"><h3><span aria-hidden="true">▷</span>${t.playback}</h3>
       ${toggle('auto', 'autoAdvance', t.auto, t.autoHint)}
       ${range('animationSpeed', 'animationSpeed', t.animation, t.animationHint, 0.5, 2, 0.25, '×', t.half, t.double)}
       ${toggle('sound', 'soundEnabled', t.sound, t.soundHint)}
       ${toggle('controls', 'controlsVisible', t.controls, t.controlsHint)}
-    </section></div><div class="gw-ps-footer"><button type="button" data-action="reset">↺ ${t.reset}</button><span data-status role="status">${t.saved}</span></div>
+    </section></div><div class="gw-ps-footer">${resetMarkup}<span data-status role="status">${t.saved}</span></div>
   </section>`;
 }
 
@@ -184,10 +260,10 @@ export function mountPlayerSettings(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let sampleAnimation: Animation | undefined;
   const panel = root.querySelector<HTMLElement>('.gw-ps-panel')!;
-  const sample = panel.querySelector<HTMLElement>('[data-sample]')!;
+  const sample = panel.querySelector<HTMLElement>('[data-sample]');
   const locks = new Set<Element>();
   panel.querySelectorAll<HTMLElement>('[data-setting-role]').forEach((row) => {
-    row.hidden = false;
+    row.hidden = ['hidden', 'removed'].includes(row.dataset.panelState || '');
     const label = row.querySelector<HTMLElement>('[data-role-label]');
     if (label) {
       label.dataset.defaultLabel ??= label.textContent || '';
@@ -204,24 +280,45 @@ export function mountPlayerSettings(
       (item) => item.dataset.settingRole === element.role,
     );
     if (!row) return;
-    row.hidden = element.visible === false;
+    row.hidden = row.dataset.panelState
+      ? row.dataset.panelState !== 'visible'
+      : element.visible === false;
     const label = row.querySelector<HTMLElement>('[data-role-label]');
     if (label && element.text) label.textContent = element.text;
     row
       .querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button')
       .forEach((control) => {
-        if (element.text) control.setAttribute('aria-label', element.text);
+        if (
+          element.text &&
+          !control.hasAttribute('data-step-setting') &&
+          !control.hasAttribute('data-setting-choice')
+        )
+          control.setAttribute('aria-label', element.text);
         if (element.disabled) {
           control.disabled = true;
           locks.add(control);
         }
       });
   });
+  const groups = Array.from(panel.querySelectorAll<HTMLElement>('.gw-ps-group'));
+  groups.forEach((group) => {
+    group.hidden = Array.from(group.querySelectorAll<HTMLElement>('[data-setting-role]')).every(
+      (row) => row.hidden,
+    );
+  });
+  const columns = panel.querySelector<HTMLElement>('.gw-ps-columns');
+  if (columns) {
+    columns.hidden = groups.every((group) => group.hidden);
+    columns.style.gridTemplateColumns =
+      groups.filter((group) => !group.hidden).length === 1 ? '1fr' : '';
+  }
   // Keep an exit available even if an older template hid its back element.
-  panel.querySelector<HTMLElement>('[data-action="close"]')!.hidden = false;
+  const closeButton = panel.querySelector<HTMLElement>('[data-action="close"]');
+  if (closeButton) closeButton.hidden = false;
   const replay = () => {
     clearTimeout(timer);
     sampleAnimation?.cancel();
+    if (!sample) return;
     const text = Array.from(sample.dataset.sample || '');
     sample.textContent = '';
     let index = 0;
@@ -279,17 +376,60 @@ export function mountPlayerSettings(
       .forEach((button) =>
         button.setAttribute('aria-pressed', String(button.dataset.mode === values.interactionMode)),
       );
-    sample.style.fontSize = `${(20 * values.textScale) / 100}px`;
+    panel.querySelectorAll<HTMLButtonElement>('[data-setting-choice]').forEach((button) => {
+      button.setAttribute(
+        'aria-pressed',
+        String(
+          values[button.dataset.settingChoice as keyof PlayerSettingsValues] ===
+            (button.dataset.choice === 'true'),
+        ),
+      );
+    });
+    const modeSelect = panel.querySelector<HTMLSelectElement>('[data-mode-select]');
+    if (modeSelect) modeSelect.value = values.interactionMode;
+    panel.querySelectorAll<HTMLButtonElement>('[data-step-setting]').forEach((button) => {
+      const field = panel.querySelector<HTMLInputElement>(
+        `input[data-setting="${button.dataset.stepSetting}"]`,
+      )!;
+      const current = Number(field.value);
+      button.disabled =
+        locks.has(button) ||
+        field.disabled ||
+        (Number(button.dataset.delta) < 0
+          ? current <= Number(field.min)
+          : current >= Number(field.max));
+    });
+    if (sample) sample.style.fontSize = `${(20 * values.textScale) / 100}px`;
   };
   const change = (patch: Partial<PlayerSettingsValues>) => {
     sync({ ...values, ...patch });
     onChange(patch);
-    panel.querySelector('[data-status]')!.textContent = panel.dataset.saved!;
+    const status = panel.querySelector('[data-status]');
+    if (status) status.textContent = panel.dataset.saved!;
   };
   const input = (event: Event) => {
-    if (!(event.target instanceof HTMLInputElement) || !event.target.dataset.setting) return;
-    change({ [event.target.dataset.setting]: Number(event.target.value) });
-    if (event.target.dataset.setting !== 'textScale') replay();
+    const field = event.target;
+    if (field instanceof HTMLSelectElement && field.hasAttribute('data-mode-select')) {
+      if (event.type === 'change') {
+        change({ interactionMode: field.value as PlayerSettingsValues['interactionMode'] });
+        replay();
+      }
+      return;
+    }
+    if (!(field instanceof HTMLInputElement) || !field.dataset.setting || field.disabled) return;
+    if ((field.type === 'number') !== (event.type === 'change')) return;
+    const raw = Number(field.value);
+    if (!field.value || !Number.isFinite(raw)) {
+      sync(values);
+      return;
+    }
+    const step = Number(field.step) || 1;
+    const value = Math.max(
+      Number(field.min),
+      Math.min(Number(field.max), Math.round(raw / step) * step),
+    );
+    change({ [field.dataset.setting]: value });
+    if (field.dataset.setting !== 'textScale') replay();
   };
   const click = (event: Event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>('button');
@@ -299,16 +439,33 @@ export function mountPlayerSettings(
     else if (button.dataset.action === 'reset') {
       change({ ...defaults });
       replay();
-      panel.querySelector('[data-status]')!.textContent = panel.dataset.resetDone!;
+      const status = panel.querySelector('[data-status]');
+      if (status) status.textContent = panel.dataset.resetDone!;
     } else if (button.dataset.mode) {
       change({ interactionMode: button.dataset.mode as PlayerSettingsValues['interactionMode'] });
       replay();
+    } else if (button.dataset.settingChoice) {
+      change({ [button.dataset.settingChoice]: button.dataset.choice === 'true' });
+    } else if (button.dataset.stepSetting) {
+      const field = panel.querySelector<HTMLInputElement>(
+        `input[data-setting="${button.dataset.stepSetting}"]`,
+      )!;
+      const next = Math.max(
+        Number(field.min),
+        Math.min(
+          Number(field.max),
+          Number(field.value) + Number(button.dataset.delta) * Number(field.step),
+        ),
+      );
+      change({ [button.dataset.stepSetting]: next });
+      if (button.dataset.stepSetting !== 'textScale') replay();
     } else if (button.dataset.setting) {
       const key = button.dataset.setting as keyof PlayerSettingsValues;
       change({ [key]: !values[key] });
     }
   };
   root.addEventListener('input', input);
+  root.addEventListener('change', input);
   root.addEventListener('click', click);
   sync(values);
   return {
@@ -317,6 +474,7 @@ export function mountPlayerSettings(
       clearTimeout(timer);
       sampleAnimation?.cancel();
       root.removeEventListener('input', input);
+      root.removeEventListener('change', input);
       root.removeEventListener('click', click);
     },
   };
@@ -369,6 +527,40 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-motion i { display:block; width:33.333%; height:100%; background:#a4c4ff; border-radius:5px; }
 .gw-ps-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; padding-top:24px; color:#a9b7cc; font-size:13px; }
 .gw-ps-footer button { border:1px solid #ffffff26; background:transparent; padding:10px 14px; border-radius:10px; }
+
+.gw-ps-row,.gw-ps-preview { margin-inline:auto; }
+.gw-ps-row { padding-block:max(12px,calc(var(--ps-height,36px) / 2)); }
+.gw-ps-label { font-size:var(--ps-size,16px); flex-wrap:wrap; }
+.gw-ps-panel button,.gw-ps-panel select,.gw-ps-panel input[type=number] { font-size:var(--ps-size,16px); }
+.gw-ps-panel .gw-ps-done,.gw-ps-footer button,.gw-ps-preview-head button { min-height:var(--ps-height,36px); border-radius:var(--ps-radius,10px); }
+.gw-ps-segments { border-radius:var(--ps-radius,10px); }
+.gw-ps-segments button { min-height:var(--ps-height,36px); border-radius:max(0px,calc(var(--ps-radius,10px) - 3px)); white-space:normal; overflow-wrap:anywhere; }
+.gw-ps-row input[type=range] { height:var(--ps-height,36px); margin:10px 0 0; background-size:100% 6px; background-repeat:no-repeat; background-position:center; }
+.gw-ps-select { display:block; width:100%; height:var(--ps-height,36px); margin-top:12px; padding-inline:12px; border:1px solid #ffffff30; border-radius:var(--ps-radius,10px); color:inherit; background:#17263c; }
+.gw-ps-toggle-row { flex-wrap:wrap; }
+.gw-ps-panel .gw-ps-toggle { min-height:var(--ps-height,36px); font-size:var(--ps-size,16px)!important; }
+.gw-ps-toggle i { height:clamp(20px,calc(var(--ps-height,36px) * .65),40px); width:clamp(36px,calc(var(--ps-height,36px) * 1.2),74px); }
+.gw-ps-toggle i::after { height:100%; width:auto; aspect-ratio:1; }
+.gw-ps-toggle[aria-checked=true] i::after { transform:translateX(calc(clamp(36px,calc(var(--ps-height,36px) * 1.2),74px) - clamp(20px,calc(var(--ps-height,36px) * .65),40px))); }
+.gw-ps-stepper { display:grid; grid-template-columns:var(--ps-height,36px) minmax(0,1fr) auto var(--ps-height,36px); align-items:center; margin-top:14px; min-height:var(--ps-height,36px); overflow:hidden; border:1px solid #ffffff30; border-radius:var(--ps-radius,10px); background:#ffffff09; }
+.gw-ps-stepper button { align-self:stretch; min-height:var(--ps-height,36px); border:0; background:#ffffff0c; }
+.gw-ps-stepper input { width:100%; min-width:0; color:inherit; text-align:center; background:transparent; border:0; padding:6px; appearance:textfield; }
+.gw-ps-stepper input::-webkit-inner-spin-button,.gw-ps-stepper input::-webkit-outer-spin-button { appearance:none; margin:0; }
+.gw-ps-stepper>span { padding-right:8px; font-size:12px; color:#a9b7cc; }
+.gw-ps-panel[data-appearance=filled] .gw-ps-segments,.gw-ps-panel[data-appearance=filled] .gw-ps-done,.gw-ps-panel[data-appearance=filled] .gw-ps-stepper,.gw-ps-panel[data-appearance=filled] .gw-ps-footer button,.gw-ps-panel[data-appearance=filled] .gw-ps-select { background:#2b4368; border-color:#789ed452; }
+.gw-ps-panel[data-appearance=outline] .gw-ps-segments,.gw-ps-panel[data-appearance=outline] .gw-ps-done,.gw-ps-panel[data-appearance=outline] .gw-ps-stepper,.gw-ps-panel[data-appearance=outline] .gw-ps-footer button,.gw-ps-panel[data-appearance=outline] .gw-ps-select { background:transparent; border:1px solid #a8caff65; }
+.gw-ps-panel[data-appearance=outline] .gw-ps-segments button[aria-pressed=true] { background:#a8caff1c; box-shadow:inset 0 0 0 1px #a8caff; }
+ .gw-ps-footer [data-setting-role=reset] button { width:100%; }
+.gw-ps-panel[data-appearance=outline] .gw-ps-toggle i { box-shadow:inset 0 0 0 1px #a8caff; }
+.gw-ps-panel[data-appearance=filled] .gw-ps-preview-head button { background:#2b4368; padding-inline:10px; }
+ .gw-ps-widget-surface { width:100%; height:100%; position:relative; }
+.gw-ps-panel.gw-ps-widget { white-space:normal; font:inherit; color:inherit; width:100%; height:100%; max-height:none; padding:12px 16px; overflow:auto; border:0; border-radius:inherit; background:transparent; box-shadow:none; }
+.gw-ps-widget .gw-ps-row,.gw-ps-widget .gw-ps-preview { padding:0; border:0; background:transparent; margin:0; box-shadow:none; }
+.gw-ps-widget .gw-ps-label { color:inherit; font-weight:inherit; }
+.gw-ps-widget-surface { z-index:1; }
+.gw-ps-widget .gw-ps-hint { color:inherit; opacity:.65; font-size:.8em; }
+.gw-ps-widget [data-setting-role=reset]>button { width:100%; min-height:var(--ps-height); padding:8px; border:0; background:transparent; color:inherit; }
+.gw-ps-widget .gw-ps-toggle-row { min-height:100%; }
 @container (max-width:700px) { .gw-ps-panel { padding:20px; border-radius:18px; } .gw-ps-columns { grid-template-columns:1fr; } .gw-ps-head h2 { font-size:24px; } .gw-ps-group { padding:16px; } .gw-ps-footer { flex-wrap:wrap; } }
 @media (prefers-reduced-motion:reduce) { .gw-ps-toggle i::after { transition:none; } }
 `;
