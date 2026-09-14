@@ -1,5 +1,6 @@
 export const WEB_EXPORT_STYLES = String.raw`
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body {
       margin: 0;
       width: 100vw;
@@ -13,8 +14,9 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     button { font: inherit; }
     .canvas-shell {
-      position: relative;
-      flex: 0 0 auto;
+      position: fixed;
+      left: 50%;
+      top: 50%;
       overflow: hidden;
       transform-origin: center center;
     }
@@ -27,6 +29,10 @@ export const WEB_EXPORT_STYLES = String.raw`
       background:
         linear-gradient(180deg, rgba(15, 23, 42, 0.20), rgba(15, 23, 42, 0.84)),
         #10131a;
+    }
+    /* The overlay toolbar does not occupy a grid row. Reserve the full canvas for the story. */
+    .app.immersive {
+      grid-template-rows: minmax(0, 1fr);
     }
     .app.immersive header {
       position: absolute;
@@ -179,6 +185,9 @@ export const WEB_EXPORT_STYLES = String.raw`
       overflow: hidden;
     }
     .app.immersive main {
+      grid-row: 1;
+      width: 100%;
+      height: 100%;
       padding: 0;
     }
     .backdrop {
@@ -544,7 +553,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       font-weight: 900;
     }
     .start-screen {
-      position: fixed;
+      position: absolute;
       inset: 0;
       z-index: 10000;
       display: none;

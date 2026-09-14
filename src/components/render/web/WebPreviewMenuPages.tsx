@@ -718,7 +718,7 @@ function MenuPageElementLayer({
         .filter((element) => editable || element.visible !== false)
         .map((element) => {
           const selected =
-            selectedElementId === element.id || selectedElementIds.includes(element.id);
+            editable && (selectedElementId === element.id || selectedElementIds.includes(element.id));
           const suffix = renderSuffix?.(element) || '';
           const commonStyle: CSSProperties = {
             left: `${element.x}%`,
@@ -790,7 +790,7 @@ function MenuPageElementLayer({
                   type="button"
                   className={`pointer-events-auto absolute border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
                     editable && selected ? 'overflow-visible cursor-move' : 'overflow-hidden'
-                  } ${editable ? 'cursor-move' : 'active:scale-[0.99]'}`}
+                  } ${editable ? 'cursor-move' : control ? '' : 'active:scale-[0.99]'}`}
                   style={{
                     ...commonStyle,
                     ...contentStyle,

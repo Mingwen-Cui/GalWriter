@@ -119,7 +119,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       const scale = Math.min(window.innerWidth / settings.canvasWidth, window.innerHeight / settings.canvasHeight);
       canvasShell.style.width = settings.canvasWidth + "px";
       canvasShell.style.height = settings.canvasHeight + "px";
-      canvasShell.style.transform = "scale(" + scale + ")";
+      canvasShell.style.transform = "translate(-50%, -50%) scale(" + scale + ")";
     };
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas, { passive: true });
@@ -2110,7 +2110,8 @@ ${PLAYER_SETTINGS_CSS}</style>
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
       watchZenButtonPosition();
 
-      // 鍦ㄤ笅涓€涓覆鏌撳抚涓Е鍙戝叆鍦哄姩鐢昏繃娓″埌姝ｅ父鐘舵€?      setTimeout(() => {
+      // Start entrance transitions after the initial styles have been applied.
+      setTimeout(() => {
         const mediaEl = stageEl.querySelector('.scene-image, #nodeVideo');
         if (mediaEl) {
           mediaEl.style.opacity = '1';

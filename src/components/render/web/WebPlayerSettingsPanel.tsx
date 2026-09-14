@@ -1,6 +1,6 @@
 import { webElementTextPaintStyle } from './webElementStyle';
 import type { PlayerSettingsPanelConfig } from './playerSettingsPanelConfig';
-import { useEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { Language } from '../../../lib/i18n';
 import type { WebMenuElement } from '../video/shared/types';
 import {
@@ -41,16 +41,21 @@ export function PlayerSettingsPanel(props: Props) {
   const elementConfig = JSON.stringify(
     props.elements.map(({ role, text, visible, disabled }) => ({ role, text, visible, disabled })),
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     const current = latest.current;
-    controller.current = mountPlayerSettings(
-      root.current!,
+    const host = root.current!;
+    // This controller owns the DOM. React must not replace its inputs on value updates,
+    // otherwise the controller retains detached nodes and native slider drags are lost.
+    host.innerHTML = markup;
+    const mounted = mountPlayerSettings(
+      host,
       current.values,
       current.defaults,
       (patch) => latest.current.onChange(patch),
       () => latest.current.onClose(),
       JSON.parse(elementConfig),
     );
+    controller.current = mounted;
     if (current.element) {
       root.current?.querySelectorAll<HTMLElement>('[data-role-label]').forEach((label) => {
         Object.assign(label.style, webElementTextPaintStyle(current.element!), {
@@ -62,11 +67,11 @@ export function PlayerSettingsPanel(props: Props) {
       });
     }
     return () => {
-      controller.current?.destroy();
-      controller.current = null;
+      mounted.destroy();
+      if (controller.current === mounted) controller.current = null;
     };
   }, [markup, elementConfig]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     controller.current?.sync(props.values);
   }, [props.values]);
   return (
@@ -80,7 +85,6 @@ export function PlayerSettingsPanel(props: Props) {
           event.stopPropagation();
           if (event.key === 'Escape') props.onClose();
         }}
-        dangerouslySetInnerHTML={{ __html: markup }}
       />
     </>
   );
