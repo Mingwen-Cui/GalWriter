@@ -403,11 +403,20 @@ export function WebPlaytestPreview({
     lastJumpedNodeRef.current = null;
   }, [clearPlaybackTimers]);
 
+  const animationRate = Math.max(0.5, Math.min(2, settings.animationSpeed ?? 1));
   const textScale = Math.max(0.7, Math.min(1.4, (settings.textScale ?? 100) / 100));
   const baseTitleStyle = buildTitleStyle(renderStyle, settings.canvasHeight);
   const baseBodyStyle = buildBodyStyle(renderStyle, settings.canvasHeight);
-  const titleStyle = { ...baseTitleStyle, fontSize: Number(baseTitleStyle.fontSize) * textScale };
-  const bodyStyle = { ...baseBodyStyle, fontSize: Number(baseBodyStyle.fontSize) * textScale };
+  const titleStyle = {
+    ...baseTitleStyle,
+    fontSize: Number(baseTitleStyle.fontSize) * textScale,
+    animationDuration: `${360 / animationRate}ms`,
+  };
+  const bodyStyle = {
+    ...baseBodyStyle,
+    fontSize: Number(baseBodyStyle.fontSize) * textScale,
+    animationDuration: `${(renderStyle.bodyAnimation === 'typewriter' ? 180 : 360) / animationRate}ms`,
+  };
   const dialogueShellStyle = buildDialogueShellStyle(
     renderStyle,
     settings.canvasWidth,
@@ -491,11 +500,13 @@ export function WebPlaytestPreview({
     nodes,
     storyPlaybackActive ? currentNode : null,
     storyPlaybackActive && currentNodeId !== 'THE_END',
+    !settings.soundEnabled,
   );
   useSceneAmbientSound(
     nodes,
     storyPlaybackActive ? currentNode : null,
     storyPlaybackActive && currentNodeId !== 'THE_END',
+    !settings.soundEnabled,
   );
   const outEdges = currentNodeId ? edges.filter((edge) => edge.source === currentNodeId) : [];
   const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
@@ -650,7 +661,7 @@ export function WebPlaytestPreview({
       currentVideoRef.current?.pause();
       return;
     }
-    if (storyPlaybackActive && settings.soundEnabled && audioUrl && currentAudioRef.current) {
+    if (storyPlaybackActive && audioUrl && currentAudioRef.current) {
       currentAudioRef.current.currentTime = 0;
       currentAudioRef.current.play().catch(() => {
         // Browser autoplay policies may require the first playback to be user initiated.
@@ -660,14 +671,7 @@ export function WebPlaytestPreview({
       currentVideoRef.current.currentTime = 0;
       currentVideoRef.current.play().catch(() => {});
     }
-  }, [
-    audioUrl,
-    currentNodeId,
-    currentVideoUrl,
-    settings.autoAdvance,
-    settings.soundEnabled,
-    storyPlaybackActive,
-  ]);
+  }, [audioUrl, currentNodeId, currentVideoUrl, settings.autoAdvance, storyPlaybackActive]);
 
   React.useEffect(() => {
     if (!playlistAudioUrl || !playlistAudioRef.current) return;
@@ -811,20 +815,17 @@ export function WebPlaytestPreview({
             ? source.match(/[^。！？.!?\n]+[。！？.!?]*|\n+/g) || Array.from(source)
             : Array.from(source);
       let index = 0;
-      timer = window.setInterval(
-        () => {
-          index += 1;
-          const visibleText = revealUnits.slice(0, index).join('');
-          setDisplayedPreviewText(committedHtml + visibleText);
-          if (index >= revealUnits.length) {
-            window.clearInterval(timer);
-            committedHtml += source;
-            stepIndex += 1;
-            playNext();
-          }
-        },
-        settings.typewriterSpeed / Math.max(0.5, settings.animationSpeed ?? 1),
-      );
+      timer = window.setInterval(() => {
+        index += 1;
+        const visibleText = revealUnits.slice(0, index).join('');
+        setDisplayedPreviewText(committedHtml + visibleText);
+        if (index >= revealUnits.length) {
+          window.clearInterval(timer);
+          committedHtml += source;
+          stepIndex += 1;
+          playNext();
+        }
+      }, settings.typewriterSpeed);
     };
     playNext();
     return () => {
@@ -1738,6 +1739,7 @@ export function WebPlaytestPreview({
         {settings.startMenuBackgroundMusicUrl && (
           <audio
             ref={startMenuAudioRef}
+            muted={!settings.soundEnabled}
             src={settings.startMenuBackgroundMusicUrl}
             preload="auto"
             loop={settings.startMenuMusicLoop !== false}
@@ -1745,7 +1747,7 @@ export function WebPlaytestPreview({
           />
         )}
         {settings.surfaceAppearances?.start && (
-          <SurfaceLayers value={settings.surfaceAppearances.start} />
+          <SurfaceLayers muted={!settings.soundEnabled} value={settings.surfaceAppearances.start} />
         )}
         {!settings.surfaceAppearances?.start &&
           getSurfaceBackground(settings, 'start').type === 'video' &&
@@ -1755,7 +1757,7 @@ export function WebPlaytestPreview({
               autoPlay
               playsInline
               loop={getSurfaceBackground(settings, 'start').videoLoop}
-              muted={getSurfaceBackground(settings, 'start').videoMuted}
+              muted={!settings.soundEnabled || getSurfaceBackground(settings, 'start').videoMuted}
               className={`pointer-events-none absolute inset-0 h-full w-full ${getSurfaceBackground(settings, 'start').videoFit === 'fit' ? 'object-contain' : 'object-cover'}`}
             />
           )}
@@ -2197,18 +2199,18 @@ export function WebPlaytestPreview({
         .join(' ') || 'none',
     transformOrigin: 'center center',
     filter: sceneVisualMediaStyle.filter,
-    animation: inlineActionAnimation(activeSceneInlineAction),
+    animation: inlineActionAnimation(activeSceneInlineAction, animationRate),
     ...inlineActionCssVars(activeSceneInlineAction),
     transitionProperty: 'opacity, transform',
     transitionDuration: activeSceneInlineAction
-      ? `${sceneInlineDuration}ms`
+      ? `${sceneInlineDuration / animationRate}ms`
       : settings.layoutMode === 'classic'
         ? '0ms'
-        : `${sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0}ms`,
+        : `${(sceneMotion?.type === 'none' ? 0 : sceneMotion?.duration || 0) / animationRate}ms`,
     transitionDelay:
       settings.layoutMode === 'classic' || !presentationExiting
         ? '0ms'
-        : `${getSceneExitDelay(presentation)}ms`,
+        : `${getSceneExitDelay(presentation) / animationRate}ms`,
     transitionTimingFunction: 'ease-out',
   };
   const sceneStyle =
@@ -2263,7 +2265,7 @@ export function WebPlaytestPreview({
         }
       }}
     >
-      <SurfaceLayers value={settings.surfaceAppearances?.game} />
+      <SurfaceLayers muted={!settings.soundEnabled} value={settings.surfaceAppearances?.game} />
       <style>
         {`@keyframes webPreviewFade { from { opacity: 0; } to { opacity: 1; } }
           @keyframes webPreviewSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}

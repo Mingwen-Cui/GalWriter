@@ -325,6 +325,7 @@ export function PreviewToolbar({
       {playlistAudioUrl && (
         <audio
           ref={playlistAudioRef}
+          muted={!settings.soundEnabled}
           src={playlistAudioUrl}
           preload="auto"
           onPlay={onPlaylistAudioPlay}

@@ -36,6 +36,7 @@ export const useRegionBackgroundMusic = (
   nodes: Node[],
   currentNode: Node | null | undefined,
   enabled = true,
+  muted = false,
 ) => {
   const match = useMemo(
     () => (enabled ? resolveRegionBackgroundMusic(nodes, currentNode) : null),
@@ -47,6 +48,12 @@ export const useRegionBackgroundMusic = (
     fadeOut: number;
     cancelFade?: () => void;
   } | null>(null);
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  useEffect(() => {
+    if (activeRef.current) activeRef.current.audio.muted = muted;
+  }, [muted]);
+
   const unlockCleanupRef = useRef<(() => void) | null>(null);
 
   const clearUnlockRetry = () => {
@@ -58,27 +65,33 @@ export const useRegionBackgroundMusic = (
     const nextKey = match ? `${match.regionId}:${match.music.url}` : '';
     const active = activeRef.current;
     const playWithUnlockRetry = (entry: NonNullable<typeof activeRef.current>) => {
-      entry.audio.play().then(clearUnlockRetry).catch((error) => {
-        console.info('Region background music autoplay was blocked', error);
-        if (activeRef.current !== entry) return;
-        clearUnlockRetry();
-        const retry = () => {
-          if (activeRef.current !== entry) {
-            clearUnlockRetry();
-            return;
-          }
-          entry.audio.play().then(clearUnlockRetry).catch(() => {});
-        };
-        const options: AddEventListenerOptions = { capture: true, passive: true };
-        window.addEventListener('pointerdown', retry, options);
-        window.addEventListener('keydown', retry, options);
-        window.addEventListener('touchend', retry, options);
-        unlockCleanupRef.current = () => {
-          window.removeEventListener('pointerdown', retry, options);
-          window.removeEventListener('keydown', retry, options);
-          window.removeEventListener('touchend', retry, options);
-        };
-      });
+      entry.audio
+        .play()
+        .then(clearUnlockRetry)
+        .catch((error) => {
+          console.info('Region background music autoplay was blocked', error);
+          if (activeRef.current !== entry) return;
+          clearUnlockRetry();
+          const retry = () => {
+            if (activeRef.current !== entry) {
+              clearUnlockRetry();
+              return;
+            }
+            entry.audio
+              .play()
+              .then(clearUnlockRetry)
+              .catch(() => {});
+          };
+          const options: AddEventListenerOptions = { capture: true, passive: true };
+          window.addEventListener('pointerdown', retry, options);
+          window.addEventListener('keydown', retry, options);
+          window.addEventListener('touchend', retry, options);
+          unlockCleanupRef.current = () => {
+            window.removeEventListener('pointerdown', retry, options);
+            window.removeEventListener('keydown', retry, options);
+            window.removeEventListener('touchend', retry, options);
+          };
+        });
     };
 
     if (active?.key === nextKey && match) {
@@ -92,6 +105,7 @@ export const useRegionBackgroundMusic = (
     const startNext = () => {
       if (!match) return;
       const audio = new Audio(match.music.url);
+      audio.muted = mutedRef.current;
       audio.preload = 'auto';
       audio.loop = match.music.loop;
       audio.volume = match.music.fadeIn > 0 ? 0 : match.music.volume;

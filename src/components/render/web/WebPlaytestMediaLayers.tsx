@@ -71,6 +71,7 @@ export function WebPlaytestMediaLayers({
   sceneVisualStyle,
   scenePresetEnabled = false,
 }: WebPlaytestMediaLayersProps) {
+  const animationRate = Math.max(0.5, Math.min(2, settings.animationSpeed ?? 1));
   return (
     <div className="absolute inset-0 overflow-hidden">
       <div
@@ -95,7 +96,7 @@ export function WebPlaytestMediaLayers({
             controls
             playsInline
             autoPlay={settings.videoAutoPlay || settings.autoAdvance}
-            muted={settings.videoAutoPlay}
+            muted={!settings.soundEnabled || settings.videoAutoPlay}
             onEnded={onVideoEnded}
             className="h-full w-full"
             style={sceneStyle}
@@ -115,7 +116,10 @@ export function WebPlaytestMediaLayers({
           <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
             {presentedCharacters.map(({ config, data, imageUrl }) => {
               const hasEnterCue = presentation.inlineActions?.some(
-                (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+                (action) =>
+                  action.timelinePhase === 'enter' &&
+                  action.kind === 'character' &&
+                  action.sourceNodeId === config.sourceNodeId,
               );
               const enterCueActive =
                 activeInlineAction?.timelinePhase === 'enter' &&
@@ -126,22 +130,34 @@ export function WebPlaytestMediaLayers({
                 activeInlineAction.kind === 'character' &&
                 activeInlineAction.sourceNodeId === config.sourceNodeId;
               const enterCueCompleted = completedInlineActions.some(
-                (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+                (action) =>
+                  action.timelinePhase === 'enter' &&
+                  action.kind === 'character' &&
+                  action.sourceNodeId === config.sourceNodeId,
               );
               const exitCueCompleted = completedInlineActions.some(
-                (action) => action.timelinePhase === 'exit' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+                (action) =>
+                  action.timelinePhase === 'exit' &&
+                  action.kind === 'character' &&
+                  action.sourceNodeId === config.sourceNodeId,
               );
-              const waitingForEnterCue = Boolean(hasEnterCue && !enterCueActive && !enterCueCompleted);
+              const waitingForEnterCue = Boolean(
+                hasEnterCue && !enterCueActive && !enterCueCompleted,
+              );
               const motion = presentationExiting || exitCueActive ? config.exit : config.enter;
               // Classic mode intentionally skips the card-level entrance, but a
               // Tag cue is an explicit timeline event and must still animate.
               const timelineCueAnimation = exitCueActive || exitCueCompleted || waitingForEnterCue;
               const animationActive =
                 timelineCueAnimation ||
-                (settings.layoutMode === 'immersive' && (presentationExiting || !presentationVisible));
+                (settings.layoutMode === 'immersive' &&
+                  (presentationExiting || !presentationVisible));
               const animationTransform =
                 animationActive && motion
-                  ? getPresentationTransform(motion.type, presentationExiting || exitCueActive || exitCueCompleted)
+                  ? getPresentationTransform(
+                      motion.type,
+                      presentationExiting || exitCueActive || exitCueCompleted,
+                    )
                   : '';
               const inlineAction =
                 activeInlineAction?.kind === 'character' &&
@@ -166,21 +182,23 @@ export function WebPlaytestMediaLayers({
                     zIndex: clampCharacterLayer(config.layer),
                     opacity: animationActive && motion.type === 'fade' ? 0 : 1,
                     transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-                    animation: inlineActionAnimation(inlineAction),
+                    animation: inlineActionAnimation(inlineAction, animationRate),
                     ...inlineActionCssVars(inlineAction),
                     transformOrigin: 'bottom center',
                     transitionProperty: 'opacity, transform',
                     transitionDuration: inlineAction
-                      ? `${inlineDuration}ms`
+                      ? `${inlineDuration / animationRate}ms`
                       : timelineCueAnimation
-                        ? `${motion.type === 'none' ? 0 : motion.duration}ms`
-                      : settings.layoutMode === 'classic'
-                        ? '0ms'
-                        : `${motion.type === 'none' ? 0 : motion.duration}ms`,
+                        ? `${(motion.type === 'none' ? 0 : motion.duration) / animationRate}ms`
+                        : settings.layoutMode === 'classic'
+                          ? '0ms'
+                          : `${(motion.type === 'none' ? 0 : motion.duration) / animationRate}ms`,
                     transitionDelay:
-                      timelineCueAnimation || settings.layoutMode === 'classic' || presentationExiting
+                      timelineCueAnimation ||
+                      settings.layoutMode === 'classic' ||
+                      presentationExiting
                         ? '0ms'
-                        : `${getCharacterEnterDelay(presentation)}ms`,
+                        : `${getCharacterEnterDelay(presentation) / animationRate}ms`,
                     transitionTimingFunction: 'ease-out',
                   }}
                 />

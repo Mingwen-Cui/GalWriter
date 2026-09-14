@@ -1,6 +1,8 @@
 import type React from 'react';
 import type { CSSProperties } from 'react';
 import { useRef, useState } from 'react';
+import { PlayerSettingsPanel } from './WebPlayerSettingsPanel';
+import { PLAYER_SETTINGS_ROLES, type PlayerSettingsValues } from './playerSettingsPanel';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
@@ -131,6 +133,16 @@ export function WebPreviewMenuPages({
   onDeletePageElement,
   onUpdateSettings,
 }: WebPreviewMenuPagesProps) {
+  const playerValues: PlayerSettingsValues = {
+    autoAdvance: settings.autoAdvance,
+    interactionMode: settings.interactionMode,
+    typewriterSpeed: Math.max(10, Math.min(200, settings.typewriterSpeed)),
+    textScale: settings.textScale,
+    animationSpeed: settings.animationSpeed,
+    soundEnabled: settings.soundEnabled,
+    controlsVisible: !previewControlsHidden,
+  };
+  const playerDefaults = useRef(playerValues);
   const archiveRootRef = useRef<HTMLDivElement>(null);
   const settingsRootRef = useRef<HTMLDivElement>(null);
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
@@ -472,7 +484,10 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
-          <SurfaceLayers value={settings.surfaceAppearances?.archive} />
+          <SurfaceLayers
+            muted={!settings.soundEnabled}
+            value={settings.surfaceAppearances?.archive}
+          />
           {previewMode === 'edit' &&
             gradientEditingSurface === 'archive' &&
             getSurfaceBackground(settings, 'archive').type === 'gradient' && (
@@ -551,7 +566,10 @@ export function WebPreviewMenuPages({
             if (previewMode === 'edit') event.preventDefault();
           }}
         >
-          <SurfaceLayers value={settings.surfaceAppearances?.settings} />
+          <SurfaceLayers
+            muted={!settings.soundEnabled}
+            value={settings.surfaceAppearances?.settings}
+          />
           {previewMode === 'edit' &&
             gradientEditingSurface === 'settings' &&
             getSurfaceBackground(settings, 'settings').type === 'gradient' && (
@@ -577,9 +595,36 @@ export function WebPreviewMenuPages({
             box={marqueeRef.current?.page === 'settings' ? marqueeBox : null}
             visible={previewMode === 'edit'}
           />
+          <PlayerSettingsPanel
+            language={language}
+            values={playerValues}
+            defaults={playerDefaults.current}
+            elements={settingsElements}
+            onClose={onCloseSettings}
+            onChange={(patch) => {
+              if (patch.autoAdvance !== undefined)
+                onUpdateSettings('autoAdvance', patch.autoAdvance);
+              if (patch.interactionMode !== undefined)
+                onUpdateSettings('interactionMode', patch.interactionMode);
+              if (patch.typewriterSpeed !== undefined)
+                onUpdateSettings('typewriterSpeed', patch.typewriterSpeed);
+              if (patch.textScale !== undefined) onUpdateSettings('textScale', patch.textScale);
+              if (patch.animationSpeed !== undefined)
+                onUpdateSettings('animationSpeed', patch.animationSpeed);
+              if (patch.soundEnabled !== undefined)
+                onUpdateSettings('soundEnabled', patch.soundEnabled);
+              if (
+                patch.controlsVisible !== undefined &&
+                patch.controlsVisible === previewControlsHidden
+              )
+                onToggleControls();
+            }}
+          />
           <MenuPageElementLayer
             page="settings"
-            elements={settingsElements}
+            elements={settingsElements.filter(
+              (element) => !PLAYER_SETTINGS_ROLES.includes(element.role || ''),
+            )}
             selectedElementId={selectedStartMenuElementId}
             selectedElementIds={selectedElementIds}
             previewMode={previewMode}
@@ -590,46 +635,8 @@ export function WebPreviewMenuPages({
             onUpdateElement={onUpdateSettingsElement}
             onDeleteElement={(id) => onDeletePageElement?.('settings', id)}
             onBeginElementDrag={beginElementDrag}
-            onAction={(element) => {
-              if (onButtonFunction(element)) return;
-              if (element.role === 'back') onCloseSettings();
-              if (element.role === 'auto') onUpdateSettings('autoAdvance', !settings.autoAdvance);
-              if (element.role === 'textSize') {
-                const values = [85, 100, 115, 130];
-                onUpdateSettings(
-                  'textScale',
-                  values[(values.indexOf(settings.textScale) + 1) % values.length],
-                );
-              }
-              if (element.role === 'animationSpeed') {
-                const values = [0.5, 1, 1.5, 2];
-                onUpdateSettings(
-                  'animationSpeed',
-                  values[(values.indexOf(settings.animationSpeed) + 1) % values.length],
-                );
-              }
-              if (element.role === 'sound')
-                onUpdateSettings('soundEnabled', !settings.soundEnabled);
-              if (element.role === 'controls') onToggleControls();
-            }}
-            renderSuffix={(element) => {
-              if (element.role === 'auto')
-                return settings.autoAdvance
-                  ? formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText571')
-                  : formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText571_2');
-              if (element.role === 'speed') return `${settings.typewriterSpeed}ms`;
-              if (element.role === 'textSize') return `${settings.textScale}%`;
-              if (element.role === 'animationSpeed') return `${settings.animationSpeed}×`;
-              if (element.role === 'sound')
-                return settings.soundEnabled
-                  ? formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText576')
-                  : formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText576_2');
-              if (element.role === 'controls')
-                return previewControlsHidden
-                  ? formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText578')
-                  : formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText578_2');
-              return '';
-            }}
+            onAction={onButtonFunction}
+            renderSuffix={() => ''}
           />
         </div>
       )}

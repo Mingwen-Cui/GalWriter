@@ -258,9 +258,9 @@ export const inlineActionSettledStyle = (
   return {};
 };
 
-export const inlineActionAnimation = (action?: InlinePresentationAction | null) => {
+export const inlineActionAnimation = (action?: InlinePresentationAction | null, speed = 1) => {
   if (!action || action.action === 'none') return undefined;
-  const duration = getInlineActionDuration(action);
+  const duration = getInlineActionDuration(action) / Math.max(0.5, speed);
   const repeats = Math.max(1, Math.round(action.repeats || 1));
   const repeatDuration = duration / repeats;
   if (action.action === 'shake-x')

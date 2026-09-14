@@ -6,9 +6,11 @@ import { paintLayerBackground } from './appearanceStyle';
 export function SurfaceLayers({
   value,
   radius = 0,
+  muted = false,
 }: {
   value?: SurfaceAppearance;
   radius?: number | string;
+  muted?: boolean;
 }) {
   if (!value) return null;
   return (
@@ -47,7 +49,7 @@ export function SurfaceLayers({
                 src={resolveKnownAppAssetUrl(f.videoUrl || '')}
                 autoPlay
                 loop={f.videoLoop !== false}
-                muted={f.videoMuted !== false}
+                muted={muted || f.videoMuted !== false}
                 playsInline
                 style={{
                   position: 'absolute',

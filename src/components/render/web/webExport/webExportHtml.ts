@@ -1,10 +1,15 @@
 import { appearanceRuntimeScript } from '../../shared/paint/appearanceRuntime';
 import type { Language } from '../../../../lib/i18n';
-import { formatWebText, getWebSettingsCopy } from '../i18n';
+import { formatWebText } from '../i18n';
+import {
+  mountPlayerSettings,
+  playerSettingsMarkup,
+  PLAYER_SETTINGS_CSS,
+  PLAYER_SETTINGS_ROLES,
+} from '../playerSettingsPanel';
 import { WEB_EXPORT_STYLES } from './webExportStyles';
 
 export const makeIndexHtml = (title: string, language: Language, faviconPath: string) => {
-  const settingsCopy = getWebSettingsCopy(language);
   const authorWebsite = formatWebText(language, 'webExportAuthorWebsite');
   return `<!doctype html>
 <html lang="${language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : 'en'}">
@@ -14,7 +19,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
   <title>${escapeHtml(title)}</title>
   <link rel="icon" href="${escapeHtml(faviconPath)}" />
   <script src="./content.js"></script>
-  <style>${WEB_EXPORT_STYLES}</style>
+  <style>${WEB_EXPORT_STYLES}
+${PLAYER_SETTINGS_CSS}</style>
 </head>
 <body>
   <div class="canvas-shell" id="canvasShell">
@@ -68,35 +74,9 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     <div class="start-layer" id="startLayer"></div>
     <audio id="startMenuAudio" preload="auto" loop hidden></audio>
   </div>
-  <div class="settings-backdrop" id="settingsBackdrop">
-    <div class="settings-panel" role="dialog" aria-modal="true">
-      <div class="settings-head">
-        <div class="settings-title" id="settingsTitle"></div>
-        <button class="settings-close" id="settingsClose" type="button" aria-label="Close">&#10005;</button>
-      </div>
-      <div class="settings-row">
-        <div class="settings-label">
-          <span id="settingAutoLabel"></span>
-          <button class="settings-toggle" id="settingAutoButton" type="button"></button>
-        </div>
-      </div>
-      <label class="settings-row">
-        <div class="settings-label">
-          <span id="settingSpeedLabel"></span>
-          <span class="settings-value" id="settingSpeedValue"></span>
-        </div>
-        <input id="settingSpeedInput" type="range" min="10" max="200" step="5" />
-      </label>
-      <label class="settings-row"><div class="settings-label"><span id="settingTextSizeLabel"></span><span class="settings-value" id="settingTextSizeValue"></span></div><input id="settingTextSizeInput" type="range" min="85" max="130" step="5" /></label>
-      <label class="settings-row"><div class="settings-label"><span id="settingAnimationSpeedLabel"></span><span class="settings-value" id="settingAnimationSpeedValue"></span></div><input id="settingAnimationSpeedInput" type="range" min="0.5" max="2" step="0.5" /></label>
-      <div class="settings-row"><div class="settings-label"><span id="settingSoundLabel"></span><button class="settings-toggle" id="settingSoundButton" type="button"></button></div></div>
-      <div class="settings-row">
-        <div class="settings-label">
-          <span id="settingControlsLabel"></span>
-          <button class="settings-toggle" id="settingControlsButton" type="button"></button>
-        </div>
-      </div>
-    </div>
+  <div class="settings-backdrop" id="settingsBackdrop" role="dialog" aria-modal="true" aria-label="${language === 'zh' ? '播放设置' : language === 'ja' ? '再生設定' : 'Playback settings'}">
+    <div class="gw-ps-surface" id="playerSettingsRoot">${playerSettingsMarkup(language)}</div>
+    <div class="start-layer" id="settingsCustomLayer"></div>
   </div>
   <div class="settings-backdrop" id="saveBackdrop">
     <div class="settings-panel save-panel" role="dialog" aria-modal="true">
@@ -185,6 +165,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     settings.startMenuButtonLayout = settings.startMenuButtonLayout === "horizontal" ? "horizontal" : "vertical";
     settings.startMenuButtonSize = ["compact", "normal", "large"].includes(settings.startMenuButtonSize) ? settings.startMenuButtonSize : "normal";
     settings.startMenuElements = Array.isArray(settings.startMenuElements) ? settings.startMenuElements : [];
+    settings.settingsPageElements = Array.isArray(settings.settingsPageElements) ? settings.settingsPageElements.filter(Boolean) : [];
     settings.startMenuPlacementBoundsLocked = Boolean(settings.startMenuPlacementBoundsLocked);
     settings.startMenuPlacementMinX = clamp(settings.startMenuPlacementMinX, 0, 94, 0);
     settings.startMenuPlacementMinY = clamp(settings.startMenuPlacementMinY, 0, 96, 0);
@@ -194,7 +175,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     settings.startMenuShowNewGame = settings.startMenuShowNewGame !== false;
     settings.startMenuShowSettings = settings.startMenuShowSettings !== false;
     settings.interactionMode = settings.interactionMode || "typewriter";
-    settings.typewriterSpeed = Math.max(0, Number(settings.typewriterSpeed) || 65);
+    settings.typewriterSpeed = clamp(settings.typewriterSpeed, 10, 200, 65);
     settings.autoAdvance = Boolean(settings.autoAdvance);
     settings.textScale = clamp(settings.textScale, 85, 130, 100);
     settings.animationSpeed = clamp(settings.animationSpeed, 0.5, 2, 1);
@@ -565,7 +546,6 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     const startLayer = document.getElementById("startLayer");
     const startMenuAudio = document.getElementById("startMenuAudio");
     const continueGameButton = document.getElementById("continueGameButton");
-    const settingsPanel = document.querySelector(".settings-panel");
     const saveSlotButton = document.getElementById("saveSlotButton");
     const newGameButton = document.getElementById("newGameButton");
     const settingsButton = document.getElementById("settingsButton");
@@ -574,32 +554,19 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     const saveClose = document.getElementById("saveClose");
     const saveList = document.getElementById("saveList");
     const settingsBackdrop = document.getElementById("settingsBackdrop");
+    // Keep player controls readable on narrow screens instead of scaling with the story canvas.
+    document.body.appendChild(settingsBackdrop);
     gwAppearance(startScreen,settings.surfaceAppearances?.start);
     gwAppearance(saveBackdrop,settings.surfaceAppearances?.archive);
     gwAppearance(settingsBackdrop,settings.surfaceAppearances?.settings);
 
-    const settingsTitle = document.getElementById("settingsTitle");
-    const settingsClose = document.getElementById("settingsClose");
-    const settingAutoLabel = document.getElementById("settingAutoLabel");
-    const settingAutoButton = document.getElementById("settingAutoButton");
-    const settingSpeedLabel = document.getElementById("settingSpeedLabel");
-    const settingSpeedValue = document.getElementById("settingSpeedValue");
-    const settingSpeedInput = document.getElementById("settingSpeedInput");
-    const settingTextSizeLabel = document.getElementById("settingTextSizeLabel");
-    const settingTextSizeValue = document.getElementById("settingTextSizeValue");
-    const settingTextSizeInput = document.getElementById("settingTextSizeInput");
-    const settingAnimationSpeedLabel = document.getElementById("settingAnimationSpeedLabel");
-    const settingAnimationSpeedValue = document.getElementById("settingAnimationSpeedValue");
-    const settingAnimationSpeedInput = document.getElementById("settingAnimationSpeedInput");
-    const settingSoundLabel = document.getElementById("settingSoundLabel");
-    const settingSoundButton = document.getElementById("settingSoundButton");
-    const settingControlsLabel = document.getElementById("settingControlsLabel");
-    const settingControlsButton = document.getElementById("settingControlsButton");
+    const playerSettingsRoot = document.getElementById("playerSettingsRoot");
+    const settingsCustomLayer = document.getElementById("settingsCustomLayer");
     titleEl.textContent = content.title || "GalWriter";
     startTitle.textContent = content.title || "GalWriter";
     if (settings.startMenuBackgroundMusicUrl) {
       startMenuAudio.src = settings.startMenuBackgroundMusicUrl;
-      startMenuAudio.volume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100 || 0.7));
+      startMenuAudio.volume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100));
       startMenuAudio.loop = Boolean(settings.startMenuMusicLoop);
     }
     startScreen.classList.add("template-" + settings.startMenuTemplate);
@@ -623,16 +590,9 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       }
     }
     applySurfaceBackground(startScreen, "startMenuBackground");
-    applySurfaceBackground(settingsPanel, "settingsBackground");
+    if (!settings.surfaceAppearances?.settings) applySurfaceBackground(settingsBackdrop, "settingsBackground");
     applySurfaceBackground(document.querySelector(".app"), "dialogueBackground");
     startActions.classList.toggle("horizontal", settings.startMenuButtonLayout === "horizontal");
-    settingsTitle.textContent = labels.settings;
-    settingAutoLabel.textContent = labels.autoPlay;
-    settingSpeedLabel.textContent = labels.textSpeed;
-    settingTextSizeLabel.textContent = ${JSON.stringify(settingsCopy.textSize)};
-    settingAnimationSpeedLabel.textContent = ${JSON.stringify(settingsCopy.animationSpeed)};
-    settingSoundLabel.textContent = ${JSON.stringify(settingsCopy.sound)};
-    settingControlsLabel.textContent = labels.controls;
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
     mainMenuButton.innerHTML = '<span aria-hidden="true">&#8962;</span><span>' + labels.mainMenu + '</span>';
@@ -667,6 +627,36 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     const saveKey = "galwriter-web-saves:" + encodeURIComponent(String(content.title || "GalWriter"));
     const legacySaveKey = "galwriter-web-save:" + encodeURIComponent(String(content.title || "GalWriter"));
     let activeSaveId = null;
+    let playerSettingsController = null;
+    let settingsFocusReturn = null;
+    let settingsNeedTextRefresh = false;
+    let currentTextEnded = false;
+    const playerPreferencesKey = saveKey + ":preferences";
+    const playerDefaults = playerSettingsValues();
+    function playerSettingsValues() {
+      return { autoAdvance: settings.autoAdvance, interactionMode: settings.interactionMode,
+        typewriterSpeed: settings.typewriterSpeed, textScale: settings.textScale,
+        animationSpeed: settings.animationSpeed, soundEnabled: settings.soundEnabled,
+        controlsVisible: !controlsHidden };
+    }
+    function restorePlayerPreferences() {
+      try {
+        const value = JSON.parse(localStorage.getItem(playerPreferencesKey) || "null");
+        if (!value || typeof value !== "object") return;
+        if (typeof value.autoAdvance === "boolean") settings.autoAdvance = value.autoAdvance;
+        if (["immediate", "typewriter"].includes(value.interactionMode)) settings.interactionMode = value.interactionMode;
+        settings.typewriterSpeed = clamp(value.typewriterSpeed, 10, 200, settings.typewriterSpeed);
+        settings.textScale = clamp(value.textScale, 85, 130, settings.textScale);
+        settings.animationSpeed = clamp(value.animationSpeed, 0.5, 2, settings.animationSpeed);
+        if (typeof value.soundEnabled === "boolean") settings.soundEnabled = value.soundEnabled;
+        if (typeof value.controlsVisible === "boolean") controlsHidden = !value.controlsVisible;
+      } catch (_) { /* Storage can be unavailable in a local-file browser session. */ }
+    }
+    function persistPlayerPreferences() {
+      try { localStorage.setItem(playerPreferencesKey, JSON.stringify(playerSettingsValues())); } catch (_) {}
+    }
+    restorePlayerPreferences();
+
 
     function readSaveCollection() {
       try {
@@ -714,6 +704,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           history: Array.isArray(history) ? history.filter((id) => nodeById.has(id)) : [],
           settings: {
             autoAdvance: Boolean(settings.autoAdvance),
+            interactionMode: settings.interactionMode,
             typewriterSpeed: Number(settings.typewriterSpeed) || 65,
             textScale: Number(settings.textScale) || 100,
             animationSpeed: Number(settings.animationSpeed) || 1,
@@ -746,7 +737,9 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         if (Number.isFinite(Number(save.settings.animationSpeed))) settings.animationSpeed = clamp(save.settings.animationSpeed, 0.5, 2, 1);
         if (typeof save.settings.soundEnabled === "boolean") settings.soundEnabled = save.settings.soundEnabled;
       }
+      if (["immediate", "typewriter"].includes(save.settings?.interactionMode)) settings.interactionMode = save.settings.interactionMode;
       controlsHidden = Boolean(save.controlsHidden);
+      restorePlayerPreferences();
       playedAudios = Array.isArray(save.playedAudios) ? save.playedAudios : [];
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
@@ -821,13 +814,26 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       saveBackdrop.classList.add("open");
     }
 
-    function renderCustomStartMenu(save) {
-      const hasCustomElements = settings.startMenuElements.length > 0;
-      startPanel.hidden = hasCustomElements;
-      startLayer.hidden = !hasCustomElements;
+    function renderCustomStartMenu(save, layer = startLayer, elements = settings.startMenuElements) {
+      const hasCustomElements = elements.length > 0;
+      if (layer === startLayer) startPanel.hidden = hasCustomElements;
+      layer.hidden = !hasCustomElements;
+      layer.innerHTML = "";
       if (!hasCustomElements) return;
-      startLayer.innerHTML = "";
+      elements.forEach((element) => {
+      if (!element || element.visible === false) return;
       const actionByRole = {
+        back: { label: labels.back, onClick: closeSettingsPanel },
+        return: { label: labels.back, onClick: closeSettingsPanel },
+        mainMenu: { label: labels.mainMenu, onClick: () => { closeSettingsPanel(); returnToMainMenu(); } },
+        fullscreen: { label: "Fullscreen", onClick: () => { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); else document.documentElement.requestFullscreen?.().catch(() => {}); } },
+        controlsToggle: { label: labels.controls, onClick: () => changePlayerSettings({ controlsVisible: controlsHidden }) },
+        audio: { label: labels.playlist, onClick: () => { closeSettingsPanel(); playlistBackdrop.classList.add("open"); } },
+        auto: { label: labels.autoPlay, onClick: () => changePlayerSettings({ autoAdvance: !settings.autoAdvance }) },
+        speed: { label: labels.textSpeed, onClick: () => changePlayerSettings({ typewriterSpeed: clamp(element.actionValue, 10, 200, 65) }) },
+        textSize: { label: "Text size", onClick: () => changePlayerSettings({ textScale: clamp(element.actionValue, 85, 130, 100) }) },
+        animationSpeed: { label: "Animation speed", onClick: () => changePlayerSettings({ animationSpeed: clamp(element.actionValue, 0.5, 2, 1) }) },
+        sound: { label: "Sound", onClick: () => changePlayerSettings({ soundEnabled: !settings.soundEnabled }) },
         continue: {
           label: labels.continue,
           disabled: !canContinueSave(save),
@@ -873,8 +879,6 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           },
         },
       };
-      settings.startMenuElements.forEach((element) => {
-        if (!element || element.visible === false) return;
         const wrapper = document.createElement("div");
         wrapper.className = "start-element";
         wrapper.style.left = Number(element.x || 0) + "%";
@@ -953,7 +957,10 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
             applyTextPaint(label, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
             button.appendChild(label);
           }
-          if (action?.onClick) button.addEventListener("click", action.onClick);
+          if (action?.onClick) button.addEventListener("click", () => {
+            if (layer === settingsCustomLayer && ["save", "new", "continue"].includes(element.role)) closeSettingsPanel();
+            action.onClick();
+          });
           wrapper.appendChild(button);
         } else {
           const text = document.createElement("div");
@@ -962,7 +969,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           applyCustomTextStyle(text, element);
           wrapper.appendChild(text);
         }
-        startLayer.appendChild(wrapper);
+        layer.appendChild(wrapper);
       });
     }
 
@@ -1005,7 +1012,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
 
     function playStartMenuMusic() {
       if (!settings.startMenuBackgroundMusicUrl) return;
-      const targetVolume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100 || 0.7));
+      const targetVolume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100));
       startMenuAudio.loop = Boolean(settings.startMenuMusicLoop);
       startMenuAudio.volume = Number(settings.startMenuMusicFadeIn) > 0 ? 0 : targetVolume;
       startMenuAudio.play().catch(() => {});
@@ -1033,6 +1040,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     function showStartMenu() {
       updateStartMenu();
       startScreen.classList.add("open");
+      syncPlayerPresentation();
       playStartMenuMusic();
     }
 
@@ -1082,30 +1090,55 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       startGameFromCurrent();
     }
 
-    function updateSettingsPanel() {
-      settingAutoButton.classList.toggle("on", Boolean(settings.autoAdvance));
-      settingAutoButton.setAttribute("aria-pressed", String(Boolean(settings.autoAdvance)));
-      settingSpeedInput.value = String(Math.max(10, Math.min(200, Number(settings.typewriterSpeed) || 65)));
-      settingSpeedValue.textContent = settingSpeedInput.value + "ms";
-      settingTextSizeInput.value = String(settings.textScale);
-      settingTextSizeValue.textContent = settings.textScale + "%";
-      settingAnimationSpeedInput.value = String(settings.animationSpeed);
-      settingAnimationSpeedValue.textContent = settings.animationSpeed + "×";
-      settingSoundButton.classList.toggle("on", Boolean(settings.soundEnabled));
-      settingSoundButton.setAttribute("aria-pressed", String(Boolean(settings.soundEnabled)));
-      settingControlsButton.classList.toggle("on", !controlsHidden);
-      settingControlsButton.setAttribute("aria-pressed", String(!controlsHidden));
+    function syncPlayerPresentation() {
+      const textScale = Math.min(8, Math.max(0.25, settings.canvasHeight / 720)) * settings.textScale / 100;
+      document.documentElement.style.setProperty("--title-size", Math.max(18, (Number(titleObject.fontSize ?? style.titleFontSize) || 18) * textScale) + "px");
+      document.documentElement.style.setProperty("--body-size", Math.max(16, (Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) * textScale) + "px");
+      document.documentElement.style.setProperty("--player-animation-speed", String(settings.animationSpeed));
+      document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
+      zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
+      document.querySelectorAll("audio,video").forEach((media) => {
+        if (!media.hasAttribute("data-author-muted")) media.setAttribute("data-author-muted", String(media.muted));
+        media.muted = !settings.soundEnabled || media.getAttribute("data-author-muted") === "true";
+      });
+      [regionAudio, sceneAmbientAudio].forEach((audio) => { if (audio) audio.muted = !settings.soundEnabled; });
     }
-
-    function openSettingsPanel() {
+    function updateSettingsPanel() {
+      playerSettingsController?.sync(playerSettingsValues());
+      syncPlayerPresentation();
+    }
+    function changePlayerSettings(patch) {
+      if (patch.controlsVisible !== undefined) controlsHidden = !patch.controlsVisible;
+      Object.keys(playerDefaults).forEach((key) => {
+        if (key !== "controlsVisible" && patch[key] !== undefined) settings[key] = patch[key];
+      });
+      if (patch.interactionMode !== undefined || patch.typewriterSpeed !== undefined) settingsNeedTextRefresh = true;
       updateSettingsPanel();
+      updateAutoButton();
+      persistPlayerPreferences();
+      writeSave();
+    }
+    function openSettingsPanel() {
+      settingsFocusReturn = document.activeElement;
+      if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+      updateSettingsPanel();
+      renderCustomStartMenu(readSave(), settingsCustomLayer, (settings.settingsPageElements || []).filter((element) => !${JSON.stringify(PLAYER_SETTINGS_ROLES)}.includes(element.role)));
       settingsBackdrop.classList.add("open");
       syncStartMenuMusicForOverlay("settings", true);
+      playerSettingsRoot.querySelector('[data-action="close"]').focus({ preventScroll: true });
     }
-
     function closeSettingsPanel() {
       settingsBackdrop.classList.remove("open");
       syncStartMenuMusicForOverlay("settings", false);
+      if (gameStarted && !startScreen.classList.contains("open")) {
+        if (settingsNeedTextRefresh) {
+          clearPlaybackTimers();
+          const node = nodeById.get(currentId);
+          if (node) applyTypewriter(document.getElementById("nodeText"), node.data.text || "", node.data.rawText || node.data.text || "", node.data.presentation || null, settings.interactionMode === "typewriter", true);
+        } else if (currentTextEnded) { showChoicesAndMaybeAdvance(); maybeAdvanceAfterMedia(); }
+      }
+      settingsNeedTextRefresh = false;
+      if (settingsFocusReturn?.isConnected) settingsFocusReturn.focus({ preventScroll: true });
     }
 
     function hasZenBottomRightSpace() {
@@ -1245,6 +1278,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       const startNext = () => {
         if (!music || !music.url) return;
         const audio = new Audio(music.url);
+        audio.muted = !settings.soundEnabled;
         regionAudio = audio;
         regionAudioKey = nextKey;
         audio.loop = music.loop !== false;
@@ -1299,6 +1333,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       const startNext = () => {
         if (!nextKey) return;
         const audio = new Audio(nextKey);
+        audio.muted = !settings.soundEnabled;
         sceneAmbientAudio = audio;
         sceneAmbientKey = nextKey;
         audio.loop = sound.loop !== false;
@@ -1434,12 +1469,12 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         const data = node.data;
         const sceneExit = data.presentation && data.presentation.scene && data.presentation.scene.exit;
         const sceneExitDuration =
-          sceneExit && sceneExit.type !== 'none' ? Math.max(0, sceneExit.duration || 0) : 0;
+          sceneExit && sceneExit.type !== 'none' ? Math.max(0, sceneExit.duration || 0) / settings.animationSpeed : 0;
         let characterExitDuration = 0;
         if (data.presentation && Array.isArray(data.presentation.characters)) {
           data.presentation.characters.forEach((char) => {
             if (char.exit && char.exit.type !== 'none') {
-              characterExitDuration = Math.max(characterExitDuration, char.exit.duration || 0);
+              characterExitDuration = Math.max(characterExitDuration, (char.exit.duration || 0) / settings.animationSpeed);
             }
           });
         }
@@ -1450,7 +1485,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           
           const mediaEl = stageEl.querySelector('.scene-image, #nodeVideo');
           if (mediaEl && sceneExit && sceneExit.type !== 'none') {
-            mediaEl.style.transition = 'opacity ' + sceneExit.duration + 'ms ease-out, transform ' + sceneExit.duration + 'ms ease-out';
+            mediaEl.style.transition = 'opacity ' + sceneExitDuration + 'ms ease-out, transform ' + sceneExitDuration + 'ms ease-out';
             mediaEl.style.transitionDelay = characterExitDuration + 'ms';
             if (sceneExit.type === 'fade') {
               mediaEl.style.opacity = '0';
@@ -1464,7 +1499,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
             data.presentation.characters.forEach((char, idx) => {
               const imgEl = charImgs[idx];
               if (imgEl && char.exit && char.exit.type !== 'none') {
-                const duration = char.exit.duration || 0;
+                const duration = (char.exit.duration || 0) / settings.animationSpeed;
                 imgEl.style.transition = 'opacity ' + duration + 'ms ease-out, transform ' + duration + 'ms ease-out';
                 if (char.exit.type === 'fade') {
                   imgEl.style.opacity = '0';
@@ -1636,7 +1671,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         : null;
       const targetUrl = media && media.imageUrl;
       if (!outgoing || !targetUrl) return;
-      const duration = Math.max(180, Number(action.duration) || 420);
+      const duration = Math.max(180, Number(action.duration) || 420) / settings.animationSpeed;
       const host = outgoing.parentElement;
       if (!host) return;
       const reveal = document.createElement('div');
@@ -1673,7 +1708,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         playSceneSwitch(action);
         return;
       }
-      const duration = Math.max(0, action.duration || 0);
+      const duration = Math.max(0, action.duration || 0) / settings.animationSpeed;
       const target =
         action.kind === "scene"
           ? stageEl.querySelector('.scene-image, #nodeVideo')
@@ -1711,7 +1746,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     }
 
     function applyTypewriter(element, html, rawHtml, presentation, enabled, revealChoices) {
-      if (!element) return;
+      if (revealChoices) currentTextEnded = false;
+      if (!element) { if (revealChoices) showChoicesAndMaybeAdvance(); return; }
       if (!enabled) {
         element.classList.remove("typewriter-reserved");
         element.innerHTML = html || "";
@@ -1746,7 +1782,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           const waitTimer = setTimeout(() => {
             stepIndex += 1;
             playNextStep();
-          }, Math.max(0, step.action.duration || 0));
+          }, Math.max(0, step.action.duration || 0) / settings.animationSpeed);
           typewriterTimers.push(waitTimer);
           return;
         }
@@ -1809,15 +1845,17 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
 
     function bindChoices() {
       stageEl.querySelectorAll("[data-target]").forEach((button) => {
-        button.addEventListener("click", (event) => {
+        button.onclick = (event) => {
           event.stopPropagation();
           autoAdvanceHoldId = null;
           goTo(button.getAttribute("data-target"));
-        });
+        };
       });
     }
 
     function showChoicesAndMaybeAdvance() {
+      currentTextEnded = true;
+      if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
       stageEl.querySelectorAll(".choices").forEach((element) => {
         element.hidden = false;
       });
@@ -1828,7 +1866,9 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           node.data &&
           (node.data.audioUrl || (node.data.videoUrl && !node.data.imageUrl)),
       );
+      if (hasMedia) { maybeAdvanceAfterMedia(); return; }
       if (
+        !settingsBackdrop.classList.contains("open") &&
         settings.autoAdvance &&
         autoAdvanceHoldId !== currentId &&
         !hasMedia &&
@@ -1836,7 +1876,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       ) {
         const sessionId = playbackSession;
         autoAdvanceTimer = setTimeout(() => {
-          if (sessionId !== playbackSession) return;
+          if (sessionId !== playbackSession || settingsBackdrop.classList.contains("open")) return;
           const next = outEdges(currentId)[0]?.target || "THE_END";
           goTo(next);
         }, 900);
@@ -1844,6 +1884,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     }
 
     function maybeAdvanceAfterMedia() {
+      if (!currentId || currentId === "THE_END" || !currentTextEnded || settingsBackdrop.classList.contains("open") || startScreen.classList.contains("open")) return;
       if (!settings.autoAdvance || autoAdvanceHoldId === currentId || outEdges(currentId).length > 1) return;
       if (currentAudioEnded && currentVideoEnded) {
         goTo(outEdges(currentId)[0]?.target || "THE_END");
@@ -1860,6 +1901,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     }
 
     function render() {
+      currentTextEnded = false;
       clearPlaybackTimers();
       backButton.disabled = history.length === 0;
       if (!currentId) {
@@ -1911,7 +1953,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       // 鍦烘櫙鍏ュ満鍙婂熀纭€鏍峰紡璁＄畻
       const sceneEnter = data.presentation && data.presentation.scene && data.presentation.scene.enter;
       const hasSceneEnter = sceneEnter && sceneEnter.type !== "none";
-      const sceneDuration = hasSceneEnter ? (sceneEnter.duration || 0) : 0;
+      const sceneDuration = hasSceneEnter ? (sceneEnter.duration || 0) / settings.animationSpeed : 0;
       const sceneCrop = data.presentation && data.presentation.scene && data.presentation.scene.cropMode;
       const sceneVisual = data.presentation && data.presentation.scene && data.presentation.scene.scenePresetEnabled
         ? data.presentation.scene.visualStyle || {}
@@ -1975,7 +2017,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
           data.presentation.characters.map((char) => {
             const charEnter = char.enter;
             const hasCharEnter = charEnter && charEnter.type !== "none";
-            const charDuration = hasCharEnter ? (charEnter.duration || 0) : 0;
+            const charDuration = hasCharEnter ? (charEnter.duration || 0) / settings.animationSpeed : 0;
             
             const basePosition = char.position === "left" ? 24 : char.position === "right" ? 76 : 50;
             const left = "calc(" + basePosition + "% + " + (char.offsetX / 10) + "%)";
@@ -2057,6 +2099,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
       gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
+      syncPlayerPresentation();
       const nodeAudio = document.getElementById("nodeAudio");
       if (nodeAudio) {
         nodeAudio.addEventListener("play", () => recordAudio(node, data.audioUrl));
@@ -2084,10 +2127,9 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
         data.text || "",
         data.rawText || data.text || "",
         data.presentation || null,
-        settings.interactionMode === "typewriter" || style.bodyAnimation === "typewriter",
+        settings.interactionMode === "typewriter",
         true
       );
-      if (settings.interactionMode !== "typewriter" && style.bodyAnimation !== "typewriter") showChoicesAndMaybeAdvance();
     }
 
     function escapeHtml(value) {
@@ -2128,11 +2170,8 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     });
     mainMenuButton.addEventListener("click", returnToMainMenu);
     autoButton.addEventListener("click", () => {
-      settings.autoAdvance = !settings.autoAdvance;
-      updateAutoButton();
-      updateSettingsPanel();
+      changePlayerSettings({ autoAdvance: !settings.autoAdvance });
       render();
-      writeSave();
     });
     continueGameButton.addEventListener("click", continueSavedGame);
     saveSlotButton.addEventListener("click", openSaveList);
@@ -2142,31 +2181,17 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
     saveBackdrop.addEventListener("click", (event) => {
       if (event.target === saveBackdrop) saveBackdrop.classList.remove("open");
     });
-    settingsClose.addEventListener("click", closeSettingsPanel);
+    playerSettingsController = (${mountPlayerSettings.toString()})(playerSettingsRoot, playerSettingsValues(), playerDefaults, changePlayerSettings, closeSettingsPanel, settings.settingsPageElements || []);
     settingsBackdrop.addEventListener("click", (event) => {
-      if (event.target === settingsBackdrop) closeSettingsPanel();
+      if (event.target === settingsBackdrop || event.target === playerSettingsRoot) closeSettingsPanel();
     });
-    settingAutoButton.addEventListener("click", () => {
-      settings.autoAdvance = !settings.autoAdvance;
-      updateAutoButton();
-      updateSettingsPanel();
-      if (!startScreen.classList.contains("open")) render();
-      writeSave();
-    });
-    settingSpeedInput.addEventListener("input", () => {
-      settings.typewriterSpeed = Math.max(0, Number(settingSpeedInput.value) || 65);
-      updateSettingsPanel();
-      writeSave();
-    });
-    settingTextSizeInput.addEventListener("input", () => { settings.textScale = clamp(settingTextSizeInput.value, 85, 130, 100); updateSettingsPanel(); render(); writeSave(); });
-    settingAnimationSpeedInput.addEventListener("input", () => { settings.animationSpeed = clamp(settingAnimationSpeedInput.value, 0.5, 2, 1); updateSettingsPanel(); writeSave(); });
-    settingSoundButton.addEventListener("click", () => { settings.soundEnabled = !settings.soundEnabled; if (!settings.soundEnabled) { playlistAudio.pause(); startMenuAudio.pause(); document.getElementById("nodeAudio")?.pause(); } updateSettingsPanel(); writeSave(); });
-    settingControlsButton.addEventListener("click", () => {
-      controlsHidden = !controlsHidden;
-      document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
-      zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
-      updateSettingsPanel();
-      writeSave();
+    settingsBackdrop.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { event.preventDefault(); closeSettingsPanel(); return; }
+      if (event.key !== "Tab") return;
+      const items = Array.from(settingsBackdrop.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')).filter((item) => item.getClientRects().length);
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     });
     playlistButton.addEventListener("click", () => {
       const open = !playlistBackdrop.classList.contains("open");
@@ -2192,6 +2217,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
       updateSettingsPanel();
+      persistPlayerPreferences();
       writeSave();
     });
     window.addEventListener("pagehide", writeSave);
@@ -2209,6 +2235,7 @@ export const makeIndexHtml = (title: string, language: Language, faviconPath: st
       continueFromText();
     });
     updateSettingsPanel();
+    updateAutoButton();
     if (settings.showStartMenu) {
       showStartMenu();
     } else {

@@ -484,9 +484,9 @@ export const WEB_EXPORT_STYLES = String.raw`
       background: color-mix(in srgb, var(--choice-color, #0ea5e9), transparent 68%);
       border-color: color-mix(in srgb, var(--choice-color, #0ea5e9), white 52%);
     }
-    .anim-fade { animation: fadeIn 360ms ease both; }
-    .anim-slideUp { animation: slideUp 360ms ease both; }
-    .anim-typewriter { animation: fadeIn 180ms ease both; }
+    .anim-fade { animation: fadeIn calc(360ms / var(--player-animation-speed, 1)) ease both; }
+    .anim-slideUp { animation: slideUp calc(360ms / var(--player-animation-speed, 1)) ease both; }
+    .anim-typewriter { animation: fadeIn calc(180ms / var(--player-animation-speed, 1)) ease both; }
     .inline-shake-x { animation: inlineShakeX var(--inline-action-step-duration, 400ms) ease var(--inline-action-count, 1) both; }
     .inline-shake-y { animation: inlineShakeY var(--inline-action-step-duration, 400ms) ease var(--inline-action-count, 1) both; }
     .inline-pulse { animation: inlinePulse var(--inline-action-step-duration, 400ms) ease var(--inline-action-count, 1) both; }
@@ -757,6 +757,9 @@ export const WEB_EXPORT_STYLES = String.raw`
       backdrop-filter: blur(8px);
     }
     .settings-backdrop.open { display: grid; }
+    #settingsBackdrop { padding:0; }
+    #settingsCustomLayer { z-index:20; pointer-events:none; }
+    #settingsCustomLayer .start-element { pointer-events:auto; }
     .settings-panel {
       width: min(420px, calc(100vw - 32px));
       display: grid;

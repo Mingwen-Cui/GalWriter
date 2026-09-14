@@ -339,6 +339,7 @@ export function WebPlaytestDialoguePanel({
         }}
       >
         <SurfaceLayers
+          muted={!settings.soundEnabled}
           value={getRenderObjects(renderStyle).dialogBox.appearance}
           radius={
             getRenderObjects(renderStyle)
@@ -447,6 +448,7 @@ export function WebPlaytestDialoguePanel({
           <audio
             key={currentNodeId}
             ref={currentAudioRef}
+            muted={!settings.soundEnabled}
             src={audioUrl}
             preload="auto"
             onPlay={onRecordCurrentAudio}
