@@ -1,4 +1,5 @@
 import { resolveSettingsPageElements } from '../webMenuPageElements';
+import { buildRehearsalToolbarElements } from '../webExperienceTemplates';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 import type { SurfaceAppearance } from '../../shared/paint/appearance';
@@ -402,7 +403,9 @@ export async function buildInteractiveWebZipBlob(
     ),
     settingsPageElementsInitialized: true,
     playerSettingsPanel: options.settings?.playerSettingsPanel,
-    previewToolbarElements: options.settings?.previewToolbarElements || [],
+    previewToolbarElements: options.settings?.previewToolbarElements?.length
+      ? options.settings.previewToolbarElements
+      : buildRehearsalToolbarElements(options.language),
     dialogueOverlayElements: options.settings?.dialogueOverlayElements || [],
     startMenuPlacementBoundsLocked: options.settings?.startMenuPlacementBoundsLocked ?? false,
     startMenuPlacementMinX: options.settings?.startMenuPlacementMinX ?? 0,

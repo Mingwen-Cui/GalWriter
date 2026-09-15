@@ -34,6 +34,13 @@ export const WEB_EXPORT_STYLES = String.raw`
     .app.immersive {
       grid-template-rows: minmax(0, 1fr);
     }
+    .app.has-playback-toolbar { grid-template-rows: minmax(0, 1fr); }
+    .playback-toolbar { position: absolute; inset: 0; z-index: 200; pointer-events: none; }
+    .playback-toolbar .start-element { pointer-events: auto; }
+    .playback-toolbar .start-element-button { display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .playback-toolbar svg { width: 14px; height: 14px; flex: 0 0 auto; }
+    .playback-toolbar button:disabled { opacity: .35; cursor: default; }
+    .playback-toolbar button[aria-pressed=true] { outline: 1px solid #7dd3fc; outline-offset: -1px; }
     .app.immersive header {
       position: absolute;
       left: 0;
@@ -238,6 +245,8 @@ export const WEB_EXPORT_STYLES = String.raw`
       z-index: 0;
       width: 100%;
       height: 100%;
+      max-width: none;
+      max-height: none;
       margin: 0;
       border: 0;
       border-radius: 0;

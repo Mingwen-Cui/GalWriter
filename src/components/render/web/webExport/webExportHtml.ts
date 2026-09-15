@@ -41,7 +41,7 @@ ${PLAYER_SETTINGS_CSS}</style>
 <body>
   <div class="canvas-shell" id="canvasShell">
   <div class="app">
-    <header>
+    <header hidden>
       <h1 id="projectTitle"></h1>
       <div class="toolbar">
         <button class="tool" id="backButton" type="button"></button>
@@ -72,6 +72,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       <button class="zen-toggle" id="zenButton" type="button" aria-label="Toggle controls"><img src="./icons/eye.svg" alt="" /></button>
       <audio id="playlistAudio" preload="auto" hidden></audio>
     </main>
+    <div class="playback-toolbar" id="playbackToolbar"></div>
   </div>
   <div class="start-screen" id="startScreen" role="dialog" aria-modal="true">
     <div class="start-panel">
@@ -576,6 +577,11 @@ ${PLAYER_SETTINGS_CSS}</style>
 
     const playerSettingsRoot = document.getElementById("playerSettingsRoot");
     const settingsCustomLayer = document.getElementById("settingsCustomLayer");
+    const playbackToolbar = document.getElementById("playbackToolbar");
+    document.querySelector('.app').classList.add('has-playback-toolbar');
+    // The playlist stays interactive when the obsolete header is hidden.
+    canvasShell.appendChild(playlistBackdrop);
+    settings.previewToolbarElements = Array.isArray(settings.previewToolbarElements) ? settings.previewToolbarElements : [];
     titleEl.textContent = content.title || "GalWriter";
     startTitle.textContent = content.title || "GalWriter";
     if (settings.startMenuBackgroundMusicUrl) {
@@ -837,13 +843,15 @@ ${PLAYER_SETTINGS_CSS}</style>
       if (!hasCustomElements) return;
       elements.forEach((element) => {
       if (!element || element.visible === false) return;
+      const isToolbar = layer === playbackToolbar;
+      if (isToolbar && ((!settings.showStartMenu && element.role === 'mainMenu') || (controlsHidden && element.role !== 'controlsToggle'))) return;
       const actionByRole = {
-        back: { label: labels.back, onClick: closeSettingsPanel },
-        return: { label: labels.back, onClick: closeSettingsPanel },
+        back: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: isToolbar ? () => backButton.click() : closeSettingsPanel },
+        return: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: isToolbar ? () => backButton.click() : closeSettingsPanel },
         mainMenu: { label: labels.mainMenu, onClick: () => { closeSettingsPanel(); returnToMainMenu(); } },
         fullscreen: { label: "Fullscreen", onClick: () => { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); else document.documentElement.requestFullscreen?.().catch(() => {}); } },
         controlsToggle: { label: labels.controls, onClick: () => changePlayerSettings({ controlsVisible: controlsHidden }) },
-        audio: { label: labels.playlist, onClick: () => { closeSettingsPanel(); playlistBackdrop.classList.add("open"); } },
+        audio: { label: labels.playlist, onClick: () => { if (!isToolbar) closeSettingsPanel(); playlistButton.click(); } },
         auto: { label: labels.autoPlay, onClick: () => changePlayerSettings({ autoAdvance: !settings.autoAdvance }) },
         speed: { label: labels.textSpeed, onClick: () => changePlayerSettings({ typewriterSpeed: clamp(element.actionValue, 10, 200, 65) }) },
         textSize: { label: "Text size", onClick: () => changePlayerSettings({ textScale: clamp(element.actionValue, 85, 130, 100) }) },
@@ -922,10 +930,14 @@ ${PLAYER_SETTINGS_CSS}</style>
           const button = document.createElement(widget ? "div" : "button");
           button.type = "button";
           button.className = "start-element-button" + ((element.primary || action?.primary) ? " primary" : "");
-          const buttonLabel = element.text || action?.label || "";
+          const buttonLabel = isToolbar ? element.text || "" : element.text || action?.label || "";
           button.textContent = "";
           button.disabled = Boolean(element.disabled || action?.disabled);
           button.inert = Boolean(element.disabled);
+          if (isToolbar) {
+            button.setAttribute('aria-label', element.text || action?.label || element.role || 'Button');
+            button.dataset.toolbarRole = element.role || '';
+          }
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
           } else if (element.backgroundType === "image") {
@@ -966,6 +978,15 @@ ${PLAYER_SETTINGS_CSS}</style>
           if (Number.isFinite(Number(element.fontWeight))) button.style.fontWeight = String(Number(element.fontWeight));
           applyElementRadius(button, element, 12);
           if (element.blendMode) button.style.mixBlendMode = element.blendMode;
+          if (isToolbar) {
+            const icon = playbackToolbarIcon(element.role);
+            if (icon) {
+              const iconHost = document.createElement('span');
+              iconHost.style.cssText = 'position:relative;z-index:1;display:flex';
+              iconHost.innerHTML = icon;
+              button.appendChild(iconHost);
+            }
+          }
           if (widget) {
             button.style.overflow = "hidden";
             const host = document.createElement('div');
@@ -1006,6 +1027,35 @@ ${PLAYER_SETTINGS_CSS}</style>
         }
         layer.appendChild(wrapper);
       });
+    }
+
+    function playbackToolbarIcon(role) {
+      const icons = {
+        audio: '<path d="M21 15V6M18 9h3M3 6h12M3 10h12M3 14h7"/><circle cx="18" cy="18" r="3"/>',
+        fullscreen: document.fullscreenElement
+          ? '<path d="M8 3v5H3m18 0h-5V3M3 16h5v5m8 0v-5h5"/>'
+          : '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/>',
+        return: '<path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/>',
+        back: '<path d="m12 19-7-7 7-7M5 12h14"/>',
+        mainMenu: '<path d="m3 10 9-7 9 7v10H3zM9 20v-7h6v7"/>',
+        settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/>',
+        controlsToggle: controlsHidden
+          ? '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>'
+          : '<path d="m3 3 18 18M10 5h2c6 0 10 7 10 7l-3 4M6 6c-2 2-4 6-4 6s4 7 10 7l4-1"/>',
+      };
+      const paths = icons[role];
+      return paths ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>' : '';
+    }
+    function updatePlaybackToolbar() {
+      renderCustomStartMenu(null, playbackToolbar, settings.previewToolbarElements);
+      playbackToolbar.querySelectorAll('[data-toolbar-role]').forEach((button) => {
+        const role = button.dataset.toolbarRole;
+        if (role === 'audio') button.setAttribute('aria-pressed', String(playlistBackdrop.classList.contains('open')));
+        if (role === 'fullscreen') button.setAttribute('aria-pressed', String(Boolean(document.fullscreenElement)));
+        if (role === 'controlsToggle') button.setAttribute('aria-pressed', String(!controlsHidden));
+      });
+      // Retain an escape from hidden controls when the authored toolbar has no toggle.
+      zenButton.hidden = !controlsHidden || settings.previewToolbarElements.some((element) => element.visible !== false && !element.disabled && element.role === 'controlsToggle');
     }
 
     function updateStartMenu() {
@@ -1126,6 +1176,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function syncPlayerPresentation() {
+      updatePlaybackToolbar();
       const textScale = Math.min(8, Math.max(0.25, settings.canvasHeight / 720)) * settings.textScale / 100;
       document.documentElement.style.setProperty("--title-size", Math.max(18, (Number(titleObject.fontSize ?? style.titleFontSize) || 18) * textScale) + "px");
       document.documentElement.style.setProperty("--body-size", Math.max(16, (Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) * textScale) + "px");
@@ -1938,6 +1989,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function render() {
+      updatePlaybackToolbar();
       currentTextEnded = false;
       clearPlaybackTimers();
       backButton.disabled = history.length === 0;
@@ -2235,17 +2287,21 @@ ${PLAYER_SETTINGS_CSS}</style>
       const open = !playlistBackdrop.classList.contains("open");
       playlistBackdrop.classList.toggle("open", open);
       playlistButton.setAttribute("aria-expanded", String(open));
+      updatePlaybackToolbar();
     });
     playlistClose.addEventListener("click", () => {
       playlistBackdrop.classList.remove("open");
       playlistButton.setAttribute("aria-expanded", "false");
+      updatePlaybackToolbar();
     });
     playlistBackdrop.addEventListener("click", (event) => {
       if (event.target !== playlistBackdrop) return;
       playlistBackdrop.classList.remove("open");
       playlistButton.setAttribute("aria-expanded", "false");
+      updatePlaybackToolbar();
     });
     playlistAudio.addEventListener("play", renderPlaylist);
+    document.addEventListener("fullscreenchange", updatePlaybackToolbar);
     playlistAudio.addEventListener("pause", renderPlaylist);
     playlistAudio.addEventListener("ended", renderPlaylist);
     window.addEventListener("resize", updateZenButtonPosition);
