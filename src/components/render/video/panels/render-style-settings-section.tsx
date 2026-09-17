@@ -28,7 +28,7 @@ import type { ComponentType } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DragSizeControl } from '../controls/RenderControls';
-import { getVideoRenderObjects, updateVideoTextAnimations } from '../shared/renderObjects';
+import { getVideoRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import type { RenderStyle, TextAlign, TextAnimation, TypewriterMode } from '../shared/types';
 import type { Language } from '../../../../lib/i18n';
 
@@ -522,8 +522,8 @@ export function RenderStyleSettingsSection({
     const objectAnimation = getVideoRenderObjects(renderStyle)[kind].animation;
     const setObjectAnimation = (updates: Partial<typeof objectAnimation>) =>
       updateRenderStyle(
-        'videoTextAnimations',
-        updateVideoTextAnimations(renderStyle, kind, updates),
+        'renderObjects',
+        updateRenderObject(renderStyle, kind, { animation: { ...objectAnimation, ...updates } }),
       );
     const animation = objectAnimation.animation;
     const isTypewriter = animation === 'typewriter';

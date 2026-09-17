@@ -1,92 +1,45 @@
-import type {
-  RenderEditableObject,
-  RenderEditableObjectKind,
-  RenderEditableTextObject,
-  RenderStyle,
-} from '../../video/shared/types';
-function syncLegacyFields(
-  kind: RenderEditableObjectKind,
-  object: RenderEditableObject | RenderEditableTextObject,
-  updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void,
-) {
-  if (kind === 'dialogBox') {
-    updateRenderStyle('dialogVisible', object.visible);
-    updateRenderStyle('dialogOffsetX', object.x);
-    updateRenderStyle('dialogOffsetY', object.y);
-    updateRenderStyle('dialogWidth', object.width);
-    updateRenderStyle('dialogHeight', object.height);
-    updateRenderStyle('dialogRadius', object.radius);
-    updateRenderStyle('dialogBackgroundType', object.fill.type);
-    updateRenderStyle('panelColor', object.fill.color);
-    updateRenderStyle('panelColorAlpha', object.fill.alpha);
-    updateRenderStyle('dialogGradientAngle', object.fill.gradientAngle);
-    updateRenderStyle('dialogGradientStops', object.fill.gradientStops);
-    updateRenderStyle('dialogImageUrl', object.fill.imageUrl);
-  }
-  if (kind === 'title' || kind === 'body') {
-    const textObject = object as RenderEditableTextObject;
-    const prefix = kind;
-    if (kind === 'title') updateRenderStyle('titleVisible', textObject.visible);
-    updateRenderStyle(`${prefix}FontFamily` as keyof RenderStyle, textObject.fontFamily as never);
-    updateRenderStyle(`${prefix}FontSize` as keyof RenderStyle, textObject.fontSize as never);
-    updateRenderStyle(`${prefix}Color` as keyof RenderStyle, textObject.fill.color as never);
-    updateRenderStyle(`${prefix}ColorAlpha` as keyof RenderStyle, textObject.fill.alpha as never);
-    updateRenderStyle(
-      `${prefix}StrokeColor` as keyof RenderStyle,
-      textObject.stroke.color as never,
-    );
-    updateRenderStyle(
-      `${prefix}StrokeWidth` as keyof RenderStyle,
-      textObject.stroke.width as never,
-    );
-    updateRenderStyle(`${prefix}Align` as keyof RenderStyle, textObject.textAlign as never);
-    updateRenderStyle(
-      `${prefix}LetterSpacing` as keyof RenderStyle,
-      textObject.letterSpacing as never,
-    );
-    updateRenderStyle(`${prefix}LineHeight` as keyof RenderStyle, textObject.lineHeight as never);
-    updateRenderStyle(
-      `${prefix}Animation` as keyof RenderStyle,
-      textObject.animation.animation as never,
-    );
-    updateRenderStyle(
-      `${prefix}TypewriterMode` as keyof RenderStyle,
-      textObject.animation.typewriterMode as never,
-    );
-  }
-  if (kind === 'nameplate') {
-    const textObject = object as RenderEditableTextObject;
-    updateRenderStyle('nameplateVisible', textObject.visible);
-    updateRenderStyle('nameplateOffsetX', textObject.x);
-    updateRenderStyle('nameplateOffsetY', textObject.y);
-    updateRenderStyle('nameplateScale', textObject.width);
-    updateRenderStyle('nameplateRadius', textObject.radius);
-    updateRenderStyle('nameplateFontFamily', textObject.fontFamily);
-    updateRenderStyle('nameplateFontSize', textObject.fontSize);
-    updateRenderStyle('nameplateTextColor', textObject.fill.color);
-    updateRenderStyle('nameplateTextColorAlpha', textObject.fill.alpha);
-    updateRenderStyle('nameplateBackgroundType', textObject.fill.type);
-    updateRenderStyle('nameplateColor', textObject.fill.color);
-    updateRenderStyle('nameplateColorAlpha', textObject.fill.alpha);
-    updateRenderStyle('nameplateGradientAngle', textObject.fill.gradientAngle);
-    updateRenderStyle('nameplateGradientStops', textObject.fill.gradientStops);
-    updateRenderStyle('nameplateImageUrl', textObject.fill.imageUrl);
-  }
+import { buildDefaultRenderObjects, getRenderObjects } from '../../video/shared/renderObjects';
+import type { RenderStyle, RenderEditableObjectKind } from '../../video/shared/types';
+
+// Inspector field names are commands/views over the object graph, never a second store.
+const fields: Record<string, [RenderEditableObjectKind, string, string?]> = {};
+for (const kind of ['title', 'body'] as const) {
+  for (const [suffix, field] of Object.entries({ Visible: 'visible', FontFamily: 'fontFamily', FontSize: 'fontSize', Align: 'textAlign', LetterSpacing: 'letterSpacing', LineHeight: 'lineHeight' })) fields[kind + suffix] = [kind, field];
+  for (const [suffix, field, child] of [['Color', 'fill', 'color'], ['ColorAlpha', 'fill', 'alpha'], ['StrokeColor', 'stroke', 'color'], ['StrokeWidth', 'stroke', 'width'], ['Animation', 'animation', 'animation'], ['TypewriterMode', 'animation', 'typewriterMode']]) fields[kind + suffix] = [kind, field, child];
+}
+for (const [prefix, kind] of [['dialog', 'dialogBox'], ['nameplate', 'nameplate']] as const) {
+  for (const [suffix, field] of Object.entries({ Visible: 'visible', OffsetX: 'x', OffsetY: 'y', Radius: 'radius', ...(kind === 'dialogBox' ? { Width: 'width', Height: 'height' } : { Scale: 'width', FontSize: 'fontSize', FontFamily: 'fontFamily' }) })) fields[prefix + suffix] = [kind, field];
+  for (const [suffix, child] of Object.entries({ BackgroundType: 'type', GradientAngle: 'gradientAngle', GradientStops: 'gradientStops', ImageUrl: 'imageUrl' })) fields[prefix + suffix] = [kind, 'fill', child];
+}
+fields.panelColor = ['dialogBox', 'fill', 'color'];
+fields.panelColorAlpha = ['dialogBox', 'fill', 'alpha'];
+fields.nameplateColor = ['nameplate', 'fill', 'color'];
+fields.nameplateColorAlpha = ['nameplate', 'fill', 'alpha'];
+
+/** Persist only authored values; derived fields are rebuilt at the boundary. */
+export function serializeAppearance(style: RenderStyle): RenderStyle {
+  const source = { ...style, renderObjects: getRenderObjects(style) } as unknown as Record<string, unknown>;
+  for (const key of Object.keys(fields)) delete source[key];
+  return source as unknown as RenderStyle;
 }
 
-/** Legacy scalar fields are derived for older renderers, never independently edited by inspectors. */
-export function applyStylePatch<K extends keyof RenderStyle>(
-  previous: RenderStyle,
-  key: K,
-  value: RenderStyle[K],
-): RenderStyle {
-  const next = { ...previous, [key]: value };
-  if (key === 'renderObjects' && next.renderObjects) {
-    for (const kind of ['dialogBox', 'title', 'body', 'nameplate'] as const) {
-      syncLegacyFields(kind, next.renderObjects[kind], (field, fieldValue) => {
-        Object.assign(next, { [field]: fieldValue });
-      });
-    }
+export function resolveAppearance(source: RenderStyle): RenderStyle {
+  const objects = source.renderObjects ?? buildDefaultRenderObjects();
+  const view = { ...source, renderObjects: objects } as unknown as Record<string, unknown>;
+  for (const [key, [kind, field, child]] of Object.entries(fields)) {
+    const value = (objects[kind] as unknown as Record<string, any>)[field];
+    view[key] = child ? value[child] : value;
   }
-  return next;
+  return view as unknown as RenderStyle;
+}
+
+export function applyStylePatch<K extends keyof RenderStyle>(previous: RenderStyle, key: K, value: RenderStyle[K]): RenderStyle {
+  const path = fields[key];
+  if (!path) return resolveAppearance({ ...previous, [key]: value });
+  const [kind, field, child] = path;
+  const objects = getRenderObjects(previous);
+  const object = objects[kind] as unknown as Record<string, any>;
+  const updated = { ...object, [field]: child ? { ...object[field], [child]: value } : value };
+  if (field === 'stroke' && child === 'width') updated.stroke.enabled = Number(value) > 0;
+  return resolveAppearance({ ...previous, renderObjects: { ...objects, [kind]: updated } } as RenderStyle);
 }

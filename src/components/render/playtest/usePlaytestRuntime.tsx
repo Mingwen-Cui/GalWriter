@@ -505,53 +505,6 @@ export function usePlaytestRuntime(
     ]
   ).map((radius) => scaleWindowMetric(Math.max(0, radius)));
   const dialogueCornerRadius = dialogueCornerRadii.map((radius) => `${radius}px`).join(' ');
-  // Keep the text on the centre line of the top-left rounded corner: its left
-  // and top inset must be the same as that corner's radius.
-  const dialogueContentInset =
-    dialogueCornerRadii[0] > 0 ? dialogueCornerRadii[0] : scaleWindowMetric(20);
-
-  const titleStyle: React.CSSProperties = {
-    display: titleObject.visible ? undefined : 'none',
-    fontFamily: renderStyle.titleFontFamily,
-    color: withAlpha(
-      colorInputValue(renderStyle.titleColor),
-      (renderStyle.titleColorAlpha ?? 100) / 100,
-    ),
-    WebkitTextStroke: textStroke(
-      scaleWindowMetric(renderStyle.titleStrokeWidth),
-      renderStyle.titleStrokeColor,
-    ),
-    fontSize: scaleWindowMetric(renderStyle.titleFontSize),
-    letterSpacing: `${scaleWindowMetric(renderStyle.titleLetterSpacing ?? 0)}px`,
-    lineHeight: renderStyle.titleLineHeight,
-    textAlign: renderStyle.titleAlign,
-    overflowWrap: 'anywhere',
-    width: `${titleObject.width}%`,
-    minHeight: `${scaleWindowMetric(titleObject.height)}px`,
-    transform: `translate(${scaleWindowMetric(titleObject.x)}px, ${scaleWindowMetric(titleObject.y)}px) rotate(${titleObject.rotation}deg) scale(${titleObject.flipX ? -1 : 1}, ${titleObject.flipY ? -1 : 1})`,
-  };
-
-  const bodyStyle: React.CSSProperties = {
-    display: bodyObject.visible ? undefined : 'none',
-    fontFamily: renderStyle.bodyFontFamily,
-    color: withAlpha(
-      colorInputValue(renderStyle.bodyColor),
-      (renderStyle.bodyColorAlpha ?? 100) / 100,
-    ),
-    WebkitTextStroke: textStroke(
-      scaleWindowMetric(renderStyle.bodyStrokeWidth),
-      renderStyle.bodyStrokeColor,
-    ),
-    fontSize: Math.max(scaleWindowMetric(renderStyle.bodyFontSize), scaleWindowMetric(26)),
-    letterSpacing: `${scaleWindowMetric(renderStyle.bodyLetterSpacing ?? 0)}px`,
-    lineHeight: renderStyle.bodyLineHeight,
-    textAlign: renderStyle.bodyAlign,
-    overflowWrap: 'anywhere',
-    width: `${bodyObject.width}%`,
-    minHeight: `${scaleWindowMetric(bodyObject.height)}px`,
-    transform: `translate(${scaleWindowMetric(bodyObject.x)}px, ${scaleWindowMetric(bodyObject.y)}px) rotate(${bodyObject.rotation}deg) scale(${bodyObject.flipX ? -1 : 1}, ${bodyObject.flipY ? -1 : 1})`,
-  };
-
   const dialogueShellStyle: React.CSSProperties = {
     ...(renderStyle.dialogVisible
       ? dialogueBackgroundStyle()
@@ -564,26 +517,8 @@ export function usePlaytestRuntime(
           backdropFilter: 'none',
         }),
     borderRadius: dialogueCornerRadius,
-    paddingLeft: dialogueContentInset,
-    paddingRight: dialogueContentInset,
-    paddingTop: dialogueContentInset,
-    paddingBottom: dialogueContentInset,
+    padding: 0,
     transform: `rotate(${dialogObject.rotation}deg) scale(${dialogObject.flipX ? -1 : 1}, ${dialogObject.flipY ? -1 : 1})`,
-  };
-  const dialogueFrameStyle: React.CSSProperties = {
-    width:
-      layoutMode === 'immersive'
-        ? `min(${renderStyle.dialogWidth}%, calc(100% - 24px))`
-        : `${renderStyle.dialogWidth}%`,
-    left:
-      layoutMode === 'immersive'
-        ? `${50 + Math.max(-100, Math.min(100, renderStyle.dialogOffsetX ?? 0)) * 0.5}%`
-        : undefined,
-    bottom:
-      layoutMode === 'immersive'
-        ? `calc(4% - ${Math.max(-100, Math.min(100, renderStyle.dialogOffsetY ?? 0)) * 0.28}%)`
-        : undefined,
-    transform: layoutMode === 'immersive' ? 'translateX(-50%)' : undefined,
   };
   const renderObjectSelectionClass = (kind: keyof typeof renderObjects) =>
     showSettings && renderStyle.selectedRenderObject === kind
@@ -2164,10 +2099,7 @@ export function usePlaytestRuntime(
     playbackSession,
     setPlaybackSession,
     emptyState,
-    titleStyle,
-    bodyStyle,
     dialogueShellStyle,
-    dialogueFrameStyle,
     focusButtonStyle,
     classicMediaContainerStyle,
     classicMediaFrameStyle,

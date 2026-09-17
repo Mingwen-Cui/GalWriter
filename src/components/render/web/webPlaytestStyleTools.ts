@@ -3,7 +3,6 @@ import type { CSSProperties } from 'react';
 
 import {
   resolvePresentationDialogueLayout,
-  resolvePresentationTextScale,
 } from '../video/shared/presentationLayout';
 import { getRenderObjects } from '../video/shared/renderObjects';
 import { webAnimationStyle } from '../video/shared/storyNodes';
@@ -109,46 +108,6 @@ export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSPrope
   };
 };
 
-const textAppearanceStyle=(object:RenderEditableObject):CSSProperties=>object.appearance?{
- backgroundImage:appearanceStyle(object.appearance).backgroundImage,backgroundSize:'cover',backgroundClip:'text',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',color:'transparent',zIndex:object.zIndex,
- textShadow:object.appearance.shadows.filter(s=>s.enabled&&!s.inset).map(s=>`${s.x}px ${s.y}px ${s.blur}px ${s.color}`).join(', ') || 'none',
- WebkitTextStroke:object.appearance.strokes.filter(s=>s.enabled).map(s=>`${s.width}px ${s.color}`)[0] || '0 transparent'
-}:{};
-
-export const buildTitleStyle = (renderStyle: RenderStyle, canvasHeight: number): CSSProperties => {
-  const scale = resolvePresentationTextScale(canvasHeight);
-  return {
-    ...textObjectStyle(renderStyle, 'title'),
-    fontFamily: renderStyle.titleFontFamily,
-    color: textColor(renderStyle, 'title'),
-    fontSize: Math.max(18, renderStyle.titleFontSize * scale),
-    letterSpacing: `${(renderStyle.titleLetterSpacing ?? 0) * scale}px`,
-    lineHeight: renderStyle.titleLineHeight,
-    textAlign: renderStyle.titleAlign,
-    overflowWrap: 'anywhere',
-    ...webAnimationStyle(renderStyle.titleAnimation),
-    textShadow: shadowPaint(getRenderObjects(renderStyle).title),
-    ...textAppearanceStyle(getRenderObjects(renderStyle).title),
-  };
-};
-
-export const buildBodyStyle = (renderStyle: RenderStyle, canvasHeight: number): CSSProperties => {
-  const scale = resolvePresentationTextScale(canvasHeight);
-  return {
-    ...textObjectStyle(renderStyle, 'body'),
-    fontFamily: renderStyle.bodyFontFamily,
-    color: textColor(renderStyle, 'body'),
-    fontSize: Math.max(16, renderStyle.bodyFontSize * scale),
-    letterSpacing: `${(renderStyle.bodyLetterSpacing ?? 0) * scale}px`,
-    lineHeight: renderStyle.bodyLineHeight,
-    textAlign: renderStyle.bodyAlign,
-    overflowWrap: 'anywhere',
-    ...webAnimationStyle(renderStyle.bodyAnimation),
-    textShadow: shadowPaint(getRenderObjects(renderStyle).body),
-    ...textAppearanceStyle(getRenderObjects(renderStyle).body),
-  };
-};
-
 export const buildDialogueShellStyle = (
   renderStyle: RenderStyle,
   canvasWidth: number,
@@ -188,50 +147,3 @@ export const buildDialogueShellStyle = (
   };
 };
 
-const objectTransform = (renderStyle: RenderStyle, kind: 'dialogBox' | 'title' | 'body') => {
-  const object = getRenderObjects(renderStyle)[kind];
-  const transforms = [
-    `translate(${object.x}px, ${object.y}px)`,
-    `rotate(${object.rotation}deg)`,
-    `scale(${object.flipX ? -1 : 1}, ${object.flipY ? -1 : 1})`,
-  ].filter(Boolean);
-  return transforms.length ? transforms.join(' ') : undefined;
-};
-
-const textObjectStyle = (renderStyle: RenderStyle, kind: 'title' | 'body'): CSSProperties => {
-  const object = getRenderObjects(renderStyle)[kind];
-  return {
-    display: object.visible ? undefined : 'none',
-    boxSizing: 'border-box',
-    overflow: 'hidden',
-    width: object.width ? `${object.width}%` : undefined,
-    height: object.height ? `${object.height}px` : undefined,
-    minHeight: object.height ? `${object.height}px` : undefined,
-    transform: objectTransform(renderStyle, kind),
-    textDecoration: [
-      object.underline ? 'underline' : '',
-      object.strikethrough ? 'line-through' : '',
-    ]
-      .filter(Boolean)
-      .join(' '),
-    fontWeight: object.fontWeight,
-    ...(object.fill.type === 'gradient' || object.fill.type === 'image'
-      ? {
-          backgroundImage: fillPaint(object.fill),
-          backgroundSize: object.fill.type === 'image' ? 'cover' : undefined,
-          backgroundPosition: object.fill.type === 'image' ? 'center' : undefined,
-          WebkitBackgroundClip: 'text',
-          backgroundClip: 'text',
-          color: 'transparent',
-        }
-      : {}),
-    ...(object.stroke.enabled && object.stroke.type === 'solid'
-      ? { WebkitTextStroke: textStroke(object.stroke.width, object.stroke.color) }
-      : {}),
-  };
-};
-
-const textColor = (renderStyle: RenderStyle, kind: 'title' | 'body') => {
-  const fill = getRenderObjects(renderStyle)[kind].fill;
-  return fill.type === 'solid' ? withAlpha(fill.color, fill.alpha / 100) : 'transparent';
-};

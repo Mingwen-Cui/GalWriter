@@ -1,3 +1,6 @@
+import { packDialogueText } from '../../shared/packedText';
+import { htmlToSpeechText } from '../../../../lib/tts';
+import { DEFAULT_RENDER_STYLE } from '../../video/VideoRenderModal/workspaceStorage';
 import { resolveSettingsPageElements } from '../webMenuPageElements';
 import { buildRehearsalToolbarElements } from '../webExperienceTemplates';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
@@ -199,76 +202,7 @@ const WEB_EXPORT_ICONS: Record<string, string> = {
   'eye-off.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"/><path d="M9.9 5.3A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.3 3.4"/><path d="M6.6 6.8C3.6 8.8 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.7-1.2"/></svg>`,
 };
 
-const DEFAULT_EXPORT_RENDER_STYLE: RenderStyle = {
-  selectedRenderObject: 'dialogBox',
-  renderObjects: buildDefaultRenderObjects(),
-  titleVisible: true,
-  titleFontSize: 28,
-  bodyFontSize: 18,
-  titleFontFamily: 'SimHei, "Noto Sans SC", sans-serif',
-  bodyFontFamily: 'SimHei, "Noto Sans SC", sans-serif',
-  titleColor: '#ffffff',
-  bodyColor: '#f8fafc',
-  titleColorAlpha: 100,
-  bodyColorAlpha: 100,
-  titleStrokeColor: '#000000',
-  bodyStrokeColor: '#000000',
-  titleStrokeWidth: 0,
-  bodyStrokeWidth: 0,
-  titleAlign: 'left',
-  bodyAlign: 'left',
-  titleLetterSpacing: 0,
-  bodyLetterSpacing: 0,
-  titleLineHeight: 1.25,
-  bodyLineHeight: 1.45,
-  titleAnimationLeadSeconds: 0,
-  bodyAnimationLeadSeconds: 0,
-  titleTypewriterMode: 'character',
-  bodyTypewriterMode: 'character',
-  panelColor: '#111827',
-  panelColorAlpha: 82,
-  dialogVisible: true,
-  dialogWidth: 86,
-  dialogHeight: 34,
-  dialogHeightMode: 'fixed',
-  dialogRadius: 24,
-  dialogOffsetX: 0,
-  dialogOffsetY: 0,
-  dialogTextPaddingX: 9,
-  dialogTextOffsetY: 0,
-  dialogBackgroundType: 'solid',
-  dialogGradientAngle: 90,
-  dialogGradientStartColor: 'rgba(17, 24, 39, 0)',
-  dialogGradientColor: 'rgba(17, 24, 39, 0.86)',
-  dialogGradientStops: [
-    { id: 'start', color: '#111827', alpha: 0, position: 0 },
-    { id: 'end', color: '#111827', alpha: 86, position: 100 },
-  ],
-  dialogImageUrl: '',
-  nameplateVisible: true,
-  nameplateInside: false,
-  nameplateFollowCharacter: true,
-  nameplateFontSize: 18,
-  nameplateFontFamily: 'SimHei, "Noto Sans SC", sans-serif',
-  nameplateScale: 100,
-  nameplateRadius: 14,
-  nameplateTextColor: '#ffffff',
-  nameplateTextColorAlpha: 100,
-  nameplateOffsetX: 0,
-  nameplateOffsetY: 0,
-  nameplateTextGap: 8,
-  nameplateBackgroundType: 'solid',
-  nameplateColor: '#172554',
-  nameplateColorAlpha: 94,
-  nameplateGradientAngle: 90,
-  nameplateGradientStops: [
-    { id: 'start', color: '#1e3a8a', alpha: 94, position: 0 },
-    { id: 'end', color: '#0f172a', alpha: 94, position: 100 },
-  ],
-  nameplateImageUrl: '',
-  titleAnimation: 'none',
-  bodyAnimation: 'typewriter',
-};
+
 
 export async function exportInteractiveWebZip(
   nodes: FlowNode[],
@@ -294,7 +228,7 @@ export async function buildInteractiveWebZipBlob(
   const assetMap = new Map<string, string>();
   const title = options.projectName?.trim() || 'galwriter-web';
   const style: WebExportStyle = {
-    ...DEFAULT_EXPORT_RENDER_STYLE,
+    ...DEFAULT_RENDER_STYLE,
     ...options.style,
     choiceColor: options.style?.choiceColor || '#0ea5e9',
     choiceTextColor: options.style?.choiceTextColor || '#ffffff',
@@ -685,11 +619,23 @@ export async function buildInteractiveWebZipBlob(
       };
     }
 
+    const dialogueText = await packDialogueText({ ...DEFAULT_RENDER_STYLE, ...options.style },
+      settings.canvasWidth, settings.canvasHeight, htmlToSpeechText(titleText),
+      htmlToSpeechText(filterMentionTags(nodeText(node), settings.hideCharacterTags, settings.hideSceneTags)),
+      node.data?.hideTitleInPlayback === true);
+    for (const kind of ['title', 'body'] as const) {
+      for (const [lineIndex, line] of dialogueText[kind].lines.entries()) {
+        const file = `text/${webNodes.length}-${kind}-${lineIndex}.png`;
+        zip.file(file, line.src.split(',')[1], { base64: true });
+        line.src = './' + file;
+      }
+    }
     webNodes.push({
       id: node.id,
       type: node.type,
       data: {
         title: titleText,
+        dialogueText,
         text: filterMentionTags(nodeText(node), settings.hideCharacterTags, settings.hideSceneTags),
         rawText: nodeText(node),
         color: typeof node.data?.color === 'string' ? node.data.color : undefined,

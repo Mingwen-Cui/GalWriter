@@ -1,3 +1,6 @@
+import { htmlToSpeechText } from '../../../lib/tts';
+import { filterMentionTags } from '../video/shared/storyNodes';
+import { PresentationText, useDialogueTextLayout, textBlockCss } from '../shared/PresentationText';
 import {
   FastForward,
   ListMusic,
@@ -129,10 +132,7 @@ export function PlayTestModal(props: PlayTestProps) {
     animationCompleted,
     timeLeft,
     emptyState,
-    titleStyle,
-    bodyStyle,
     dialogueShellStyle,
-    dialogueFrameStyle,
     classicMediaContainerStyle,
     classicMediaFrameStyle,
   } = usePlaytestRuntime(props, { windowContentWidth });
@@ -152,6 +152,18 @@ export function PlayTestModal(props: PlayTestProps) {
   const [creativeInputOpen, setCreativeInputOpen] = React.useState(false);
   const [creativeChoicesVisible, setCreativeChoicesVisible] = React.useState(false);
   const creativeInteraction = props.creativeInteraction;
+  const dialogueText = useDialogueTextLayout(renderStyle, canvasSettings.canvasWidth, canvasSettings.canvasHeight,
+    creativeInteraction?.sceneName || currentTitle || '',
+    htmlToSpeechText(filterMentionTags(String(currentNode?.data?.text || ''), canvasSettings.hideCharacterTags, canvasSettings.hideSceneTags)),
+    hideCurrentTitle && !creativeInteraction?.sceneName);
+  const sharedDialogueText = (['title', 'body'] as const).map(kind => (
+    <div key={kind} data-render-object={kind} className={renderObjectSelectionClass(kind)}
+      style={textBlockCss(dialogueText[kind], dialogueText.dialog)}
+      onClick={event => selectRenderObject(event, kind)}>
+      <PresentationText block={dialogueText[kind]} visibleCharacters={kind === 'body'
+        ? Array.from(htmlToSpeechText(displayedHtml || '')).length : Infinity} />
+    </div>
+  ));
   const creativeAtTurnEnd = Boolean(creativeInteraction && currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId));
   const appliedCreativeTurnRef = React.useRef<string | null>(null);
   const creativeChoiceRevealDelayMs = 2000;
@@ -1025,7 +1037,10 @@ export function PlayTestModal(props: PlayTestProps) {
                 >
                   <div
                     className="pointer-events-auto absolute flex flex-col items-stretch justify-end gap-4"
-                    style={dialogueFrameStyle}
+                    style={{ left: `${dialogueText.dialog.x / canvasSettings.canvasWidth * 100}%`,
+                      top: `${dialogueText.dialog.y / canvasSettings.canvasHeight * 100}%`,
+                      width: `${dialogueText.dialog.width / canvasSettings.canvasWidth * 100}%`,
+                      height: `${dialogueText.dialog.height / canvasSettings.canvasHeight * 100}%` }}
                   >
                     {/* 选项区域 - 文字上方 */}
                     {choicesPosition === 'aboveText' &&
@@ -1043,7 +1058,7 @@ export function PlayTestModal(props: PlayTestProps) {
                         handleTextContainerClick();
                       }}
                       className={`pointer-events-auto relative w-full overflow-visible rounded-2xl border border-white/10 py-4 text-white shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-6 duration-500 ${renderObjectSelectionClass('dialogBox')}`}
-                      style={dialogueShellStyle}
+                      style={{ ...dialogueShellStyle, padding: 0, height: '100%', flexShrink: 0, boxSizing: 'border-box' }}
                     >
                       {currentNode?.data.audioUrl && (
                         <audio
@@ -1057,25 +1072,7 @@ export function PlayTestModal(props: PlayTestProps) {
                         />
                       )}
 
-                      {renderStyle.titleVisible &&
-                        (!hideCurrentTitle || Boolean(creativeInteraction?.sceneName)) &&
-                        (creativeInteraction?.sceneName || currentTitle) && (
-                          <div
-                            className={`mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('title')}`}
-                            style={titleStyle}
-                            onClick={(event) => selectRenderObject(event, 'title')}
-                          >
-                            {creativeInteraction?.sceneName || currentTitle}
-                          </div>
-                        )}
-
-                      <div
-                        className={`whitespace-pre-wrap break-words drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${renderObjectSelectionClass('body')}`}
-                        style={bodyStyle}
-                        onClick={(event) => selectRenderObject(event, 'body')}
-                      >
-                        <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
-                      </div>
+                      {sharedDialogueText}
 
                       {false && !animationCompleted && (
                         <div className="absolute right-4 bottom-2 text-[10px] text-white/50 animate-pulse select-none">
@@ -1323,8 +1320,9 @@ export function PlayTestModal(props: PlayTestProps) {
                     borderRadius: dialogueCornerRadius,
                     borderTopLeftRadius: reserveClassicMediaSlot ? 0 : dialogueCornerRadii[0],
                     borderTopRightRadius: reserveClassicMediaSlot ? 0 : dialogueCornerRadii[1],
-                    paddingLeft: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
-                    paddingRight: `${Math.max(2, renderStyle.dialogTextPaddingX ?? 9)}%`,
+                    padding: 0,
+                    aspectRatio: `${dialogueText.dialog.width} / ${dialogueText.dialog.height}`,
+                    flexShrink: 0,
                   }}
                 >
                   {currentNode?.data.audioUrl && (
@@ -1338,24 +1336,7 @@ export function PlayTestModal(props: PlayTestProps) {
                       className="hidden"
                     />
                   )}
-                  {renderStyle.titleVisible &&
-                    (!hideCurrentTitle || Boolean(creativeInteraction?.sceneName)) &&
-                    (creativeInteraction?.sceneName || currentTitle) && (
-                      <div
-                        className={`mb-2 drop-shadow-sm ${renderObjectSelectionClass('title')}`}
-                        style={titleStyle}
-                        onClick={(event) => selectRenderObject(event, 'title')}
-                      >
-                        {creativeInteraction?.sceneName || currentTitle}
-                      </div>
-                    )}
-                  <div
-                    className={`whitespace-pre-wrap drop-shadow-sm ${renderObjectSelectionClass('body')}`}
-                    style={bodyStyle}
-                    onClick={(event) => selectRenderObject(event, 'body')}
-                  >
-                    <div dangerouslySetInnerHTML={{ __html: displayedHtml || '' }} />
-                  </div>
+                  {sharedDialogueText}
 
                   {false && !animationCompleted && (
                     <div className="absolute right-4 bottom-2 text-[10px] opacity-40 animate-pulse select-none">

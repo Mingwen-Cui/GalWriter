@@ -1,3 +1,4 @@
+import type { PackedDialogueText } from '../../shared/packedText';
 import type { RenderStyle, WebExportSettings } from '../../video/shared/types';
 
 export type { WebExportSettings };
@@ -19,6 +20,7 @@ export type WebExportNode = {
   type?: string;
   data: {
     title?: string;
+    dialogueText?: PackedDialogueText;
     text?: string;
     color?: string;
     imageUrl?: string;

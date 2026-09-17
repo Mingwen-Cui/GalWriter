@@ -1,6 +1,7 @@
+import { rasterizeTextBlock } from '../../shared/PresentationText';
+import { preparePresentationFonts } from '../../shared/presentationTextLayout';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { objectAnimationState } from '../canvas/textAnimation';
-import { drawVideoTextLine } from '../shared/canvasTextEffects';
 import { drawDialogueBox } from '../shared/dialogueBoxRenderer';
 import { drawNameplates } from '../shared/nameplateRenderer';
 import { drawPresentationVisuals } from '../shared/presentationRenderer';
@@ -27,24 +28,6 @@ type DrawRenderFrameInput = {
   canvasSettings?: SharedCanvasSettings;
 };
 
-const colorWithAlpha = (color: string, alpha: number) => {
-  const safeAlpha = Math.min(1, Math.max(0, alpha / 100));
-  const hex = color.trim();
-  if (/^#[0-9a-f]{6}$/i.test(hex)) {
-    const red = Number.parseInt(hex.slice(1, 3), 16);
-    const green = Number.parseInt(hex.slice(3, 5), 16);
-    const blue = Number.parseInt(hex.slice(5, 7), 16);
-    return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
-  }
-  return color;
-};
-
-const textX = (align: RenderStyle['titleAlign'], left: number, right: number) => {
-  if (align === 'center') return (left + right) / 2;
-  if (align === 'right') return right;
-  return left;
-};
-
 export const drawRenderFrame = async ({
   ctx,
   node,
@@ -62,6 +45,7 @@ export const drawRenderFrame = async ({
   hideSceneTags,
   canvasSettings,
 }: DrawRenderFrameInput) => {
+  await preparePresentationFonts(renderStyle, String(node.data?.text || '') + String(node.data?.title || ''));
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
   const layout = resolveVideoTextLayout({
     ctx,
@@ -120,36 +104,15 @@ export const drawRenderFrame = async ({
     ),
   );
   for (const kind of ['title', 'body'] as const) {
-    const text = layout[kind];
-    if (!text.visible || text.alpha <= 0) continue;
+    const block = layout[kind];
+    if (!block.visible || block.alpha <= 0) continue;
+    const { canvas, padding } = await rasterizeTextBlock(block);
     ctx.save();
-    try {
-      ctx.font = text.font;
-      ctx.textBaseline = 'alphabetic';
-      ctx.globalAlpha = text.alpha;
-      const align = kind === 'title' ? videoRenderStyle.titleAlign : videoRenderStyle.bodyAlign;
-      const color = kind === 'title' ? videoRenderStyle.titleColor : videoRenderStyle.bodyColor;
-      const alpha =
-        kind === 'title' ? videoRenderStyle.titleColorAlpha : videoRenderStyle.bodyColorAlpha;
-      const letterSpacing =
-        kind === 'title' ? videoRenderStyle.titleLetterSpacing : videoRenderStyle.bodyLetterSpacing;
-      for (const [index, line] of text.lines.entries()) {
-        await drawVideoTextLine(
-          ctx,
-          line,
-          textX(align, text.left, text.right),
-          text.firstBaseline + index * text.lineHeight,
-          {
-            align,
-            fillColor: colorWithAlpha(color, alpha),
-            letterSpacing,
-            object: objects[kind],
-            appearanceText: true,
-          },
-        );
-      }
-    } finally {
-      ctx.restore();
-    }
+    ctx.globalAlpha *= block.alpha;
+    const cx = (block.left + block.right) / 2, cy = block.top + block.height / 2;
+    ctx.translate(cx, cy); ctx.rotate(block.object.rotation * Math.PI / 180);
+    ctx.scale(block.object.flipX ? -1 : 1, block.object.flipY ? -1 : 1);
+    ctx.drawImage(canvas, block.left - cx - padding, block.top - cy - padding);
+    ctx.restore();
   }
 };

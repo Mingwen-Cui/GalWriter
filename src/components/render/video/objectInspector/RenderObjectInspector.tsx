@@ -53,7 +53,6 @@ import {
   getVideoRenderObjects,
   isTextRenderObject,
   updateRenderObject,
-  updateVideoTextAnimations,
 } from '../shared/renderObjects';
 import type {
   RenderEditableObject,
@@ -152,17 +151,6 @@ export function RenderObjectInspector({
   };
 
   const setObject = (updates: Partial<RenderEditableObject | RenderEditableTextObject>) => {
-    const isVideoTextAnimation =
-      surface === 'video' &&
-      (selectedKind === 'title' || selectedKind === 'body') &&
-      'animation' in updates;
-    if (isVideoTextAnimation) {
-      updateRenderStyle(
-        'videoTextAnimations',
-        updateVideoTextAnimations(renderStyle, selectedKind, updates.animation || {}),
-      );
-      return;
-    }
     const nextObjects = updateRenderObject(renderStyle, selectedKind, updates);
     updateRenderStyle('renderObjects', nextObjects);
   };

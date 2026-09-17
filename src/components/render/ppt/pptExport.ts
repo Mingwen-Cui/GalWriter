@@ -1,3 +1,6 @@
+import { preparePresentationFonts, resolveDialogueTextLayout } from '../shared/presentationTextLayout';
+import { rasterizeTextBlock } from '../shared/PresentationText';
+import { drawDialogueBox } from '../video/shared/dialogueBoxRenderer';
 import { renderAppearancePng } from '../shared/paint/appearanceCanvas';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import PptxGenJS from 'pptxgenjs';
@@ -647,373 +650,40 @@ export async function buildPptxBuffer({
     const title = objects.title;
     const body = objects.body;
     const nameplate = objects.nameplate;
-    const layout = resolvePresentationDialogueLayout(1920, 1080, style);
-    const panelX = (layout.x / 1920) * 13.333;
-    const panelY = (layout.y / 1080) * 7.5;
-    const panelW = (layout.width / 1920) * 13.333;
-    const panelH = (layout.height / 1080) * 7.5;
-    const panelPaddingX = (layout.paddingX / 1920) * 13.333;
-    const panelPaddingY = (layout.paddingY / 1080) * 7.5;
-    const panelFrame = page.frame(panelX, panelY, panelW, panelH);
-    const addTypewriterSlideText = ({
-      target,
-      objectNamePrefix,
-      text,
-      x,
-      y,
-      width,
-      lineHeight,
-      fontFace,
-      fontSize,
-      color,
-      bold,
-      align,
-      rotate,
-      start,
-      durationMs,
-      lineGapMs,
-    }: {
-      target: 'dialog-title' | 'dialog-body';
-      objectNamePrefix: string;
-      text: string;
-      x: number;
-      y: number;
-      width: number;
-      lineHeight: number;
-      fontFace?: string;
-      fontSize: number;
-      color: string;
-      bold: boolean;
-      align: 'left' | 'center' | 'right';
-      rotate: number;
-      start: 'onClick' | 'withPrevious' | 'afterPrevious';
-      durationMs: number;
-      lineGapMs: number;
-    }) => {
-      const lines = splitPptTextLines(text || ' ', Math.max(8, width * 72), fontSize, 40);
-      lines.forEach((line, index) => {
-        const objectName = `${objectNamePrefix}-line-${index + 1}`;
-        slide.addText(line, {
-          objectName,
-          ...page.frame(x, y + index * lineHeight, width, lineHeight + 0.04),
-          fontFace: toPptFontFace(fontFace || 'Arial'),
-          fontSize,
-          bold,
-          color: hex(color),
-          align,
-          breakLine: false,
-          fit: 'resize',
-          margin: 0,
-          valign: 'top',
-          rotate,
-        });
-        if (sceneSlideNumber) {
-          animationTargets.push({
-            slideNumber: sceneSlideNumber,
-            objectName,
-            animation: {
-              id: `${objectName}-typewriter`,
-              target,
-              phase: 'enter' as const,
-              effect: 'wipe' as const,
-              start:
-                index === 0
-                  ? start === 'onClick'
-                    ? ('withPrevious' as const)
-                    : start
-                  : ('afterPrevious' as const),
-              durationMs,
-              delayMs: index === 0 ? 0 : lineGapMs,
-              direction: 'left' as const,
-            },
-          });
-        }
-      });
-    };
-    const addCharacterTypewriterSlideText = ({
-      target,
-      objectNamePrefix,
-      text,
-      x,
-      y,
-      width,
-      lineHeight,
-      fontFace,
-      fontSize,
-      color,
-      bold,
-      align,
-      rotate,
-      start,
-      durationMs,
-    }: {
-      target: 'dialog-title' | 'dialog-body';
-      objectNamePrefix: string;
-      text: string;
-      x: number;
-      y: number;
-      width: number;
-      lineHeight: number;
-      fontFace?: string;
-      fontSize: number;
-      color: string;
-      bold: boolean;
-      align: 'left' | 'center' | 'right';
-      rotate: number;
-      start: 'onClick' | 'withPrevious' | 'afterPrevious';
-      durationMs: number;
-    }) => {
-      const charDurationMs = Math.max(60, Math.min(180, Math.round(durationMs / 6)));
-      const lines = splitPptTypewriterChars(text || ' ', Math.max(8, width * 72), fontSize, 60);
-      lines.forEach((line, lineIndex) => {
-        const totalLineWidthIn = line.widthPt / 72;
-        const startX =
-          align === 'center'
-            ? x + (width - totalLineWidthIn) / 2
-            : align === 'right'
-              ? x + width - totalLineWidthIn
-              : x;
-        let charX = startX;
-        line.glyphs.forEach((glyph, charIndex) => {
-          const objectName = `${objectNamePrefix}-line-${lineIndex + 1}-char-${charIndex + 1}`;
-          const charWidthIn = Math.max(0.04, glyph.widthPt / 72);
-          slide.addText(glyph.char === ' ' ? '\u00A0' : glyph.char, {
-            objectName,
-            ...page.frame(charX, y + lineIndex * lineHeight, charWidthIn + 0.02, lineHeight + 0.04),
-            fontFace: toPptFontFace(fontFace || 'Arial'),
-            fontSize,
-            bold,
-            color: hex(color),
-            align: 'center',
-            breakLine: false,
-            fit: 'resize',
-            margin: 0,
-            valign: 'top',
-            rotate,
-          });
-          if (sceneSlideNumber) {
-            animationTargets.push({
-              slideNumber: sceneSlideNumber,
-              objectName,
-              animation: {
-                id: `${objectName}-typewriter-char`,
-                target,
-                phase: 'enter' as const,
-                effect: 'fade' as const,
-                start: lineIndex === 0 && charIndex === 0 ? start : ('afterPrevious' as const),
-                durationMs: charDurationMs,
-                delayMs: 0,
-                direction: 'left' as const,
-              },
-            });
-          }
-          charX += charWidthIn + 0.02;
-        });
-      });
-    };
-
+    const layout = resolvePresentationDialogueLayout(settings.canvasWidth, settings.canvasHeight, style);
+    const panelX = (layout.x / settings.canvasWidth) * 13.333;
+    const panelY = (layout.y / settings.canvasHeight) * 7.5;
+    const panelW = (layout.width / settings.canvasWidth) * 13.333;
+    const panelH = (layout.height / settings.canvasHeight) * 7.5;
+    await preparePresentationFonts(style, sceneTitle + sceneBody);
+    const measuringCanvas = document.createElement('canvas');
+    measuringCanvas.width = settings.canvasWidth; measuringCanvas.height = settings.canvasHeight;
+    const context = measuringCanvas.getContext('2d')!;
+    const textLayout = resolveDialogueTextLayout(context, {
+      width: settings.canvasWidth, height: settings.canvasHeight, style, title: sceneTitle, body: sceneBody, hideTitle: scene.hideTitleInPlayback,
+    });
     if (panel.visible) {
+      await drawDialogueBox(context, settings.canvasWidth, settings.canvasHeight, style);
       const objectName = `ppt-dialog-panel-${scene.id}`;
-      slide.addShape(pptx.ShapeType.roundRect, {
-        objectName,
-        ...panelFrame,
-        rectRadius: Math.max(0.02, panel.radius / 180),
-        fill: { color: hex(panel.fill.color), transparency: 100 - panel.fill.alpha },
-        line: panel.stroke.enabled
-          ? {
-              color: hex(panel.stroke.color),
-              transparency: 100 - panel.stroke.alpha,
-              width: panel.stroke.width,
-            }
-          : { transparency: 100 },
-        rotate: panel.rotation,
-      });
+      slide.addImage({ objectName, data: measuringCanvas.toDataURL('image/png'), ...fullContentFrame });
       addAnimationTargets(objectName, 'dialog-panel');
     }
-    const hasTitle = title.visible && !scene.hideTitleInPlayback && Boolean(sceneTitle.trim());
-    const titleTypewriter = title.animation.animation === 'typewriter';
-    const titleTypewriterMode = title.animation.typewriterMode;
-    const hasSavedTitleAnimation = sceneAnimations.some(
-      (animation) => animation.target === 'dialog-title',
-    );
-    const titleX = panelX + panelPaddingX + title.x / 144;
-    const titleY = panelY + panelPaddingY + title.y / 144;
-    const titleW = Math.min(panelW - panelPaddingX * 2, (panelW * title.width) / 100);
-    const titleH = Math.max(0.18, title.height / 144);
-    const titleFontSize = Math.max(8 * page.scale, title.fontSize * 0.75 * page.scale);
-    if (hasTitle) {
-      if (titleTypewriter && !hasSavedTitleAnimation) {
-        if (titleTypewriterMode === 'character') {
-          addCharacterTypewriterSlideText({
-            target: 'dialog-title',
-            objectNamePrefix: `ppt-dialog-title-${scene.id}`,
-            text: sceneTitle,
-            x: titleX,
-            y: titleY,
-            width: titleW,
-            lineHeight: Math.max(0.2, (titleFontSize / 72) * (title.lineHeight || 1.25)),
-            fontFace: title.fontFamily,
-            fontSize: titleFontSize,
-            color: title.fill.color,
-            bold: title.fontWeight >= 700,
-            align: title.textAlign,
-            rotate: title.rotation,
-            start: sceneAnimations.length ? 'afterPrevious' : 'withPrevious',
-            durationMs: Math.max(500, title.animation.durationMs || 600),
-          });
-        } else {
-          addTypewriterSlideText({
-            target: 'dialog-title',
-            objectNamePrefix: `ppt-dialog-title-${scene.id}`,
-            text: sceneTitle,
-            x: titleX,
-            y: titleY,
-            width: titleW,
-            lineHeight: Math.max(0.2, (titleFontSize / 72) * (title.lineHeight || 1.25)),
-            fontFace: title.fontFamily,
-            fontSize: titleFontSize,
-            color: title.fill.color,
-            bold: title.fontWeight >= 700,
-            align: title.textAlign,
-            rotate: title.rotation,
-            start: sceneAnimations.length ? 'afterPrevious' : 'onClick',
-            durationMs: Math.max(500, title.animation.durationMs || 600),
-            lineGapMs: 140,
-          });
-        }
-      } else {
-        const objectName = `ppt-dialog-title-${scene.id}`;
-        slide.addText(sceneTitle, {
-          objectName,
-          ...page.frame(
-            panelX + panelPaddingX + title.x / 144,
-            panelY + panelPaddingY + title.y / 144,
-            Math.min(panelW - panelPaddingX * 2, (panelW * title.width) / 100),
-            Math.max(0.18, title.height / 144),
-          ),
-          fontFace: toPptFontFace(title.fontFamily),
-          fontSize: Math.max(8 * page.scale, title.fontSize * 0.75 * page.scale),
-          bold: title.fontWeight >= 700,
-          color: hex(title.fill.color),
-          align: title.textAlign,
-          margin: 0,
-          breakLine: false,
-          fit: 'resize',
-          valign: 'top',
-          rotate: title.rotation,
-        });
-        addAnimationTargets(objectName, 'dialog-title');
-      }
-    }
-    if (body.visible) {
-      const bodyX = panelX + panelPaddingX + body.x / 144;
-      const bodyY =
-        panelY + panelPaddingY + (hasTitle ? title.height / 144 + 0.08 : 0) + body.y / 144;
-      const bodyW = Math.min(panelW - panelPaddingX * 2, (panelW * body.width) / 100);
-      const bodyH = Math.max(0.2, body.height / 144);
-      const bodyFontSize = Math.max(8 * page.scale, body.fontSize * 0.75 * page.scale);
-      const bodyTypewriter = body.animation.animation === 'typewriter';
-      const bodyTypewriterMode = body.animation.typewriterMode;
-      const hasSavedBodyAnimation = sceneAnimations.some(
-        (animation) => animation.target === 'dialog-body',
-      );
-      const lineWipe = sceneAnimations.find(
-        (animation) =>
-          animation.target === 'dialog-body' &&
-          (animation.phase || 'enter') === 'enter' &&
-          animation.effect === 'wipe' &&
-          animation.textBuild?.mode === 'line-wipe',
-      );
-      if (lineWipe) {
-        const lines = splitPptTextLines(sceneBody || ' ', bodyW * 72, bodyFontSize, 40);
-        const lineHeight = Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45));
-        lines.forEach((line, index) => {
-          const objectName = `ppt-dialog-body-${scene.id}-line-${index + 1}`;
-          slide.addText(line, {
-            objectName,
-            ...page.frame(bodyX, bodyY + index * lineHeight, bodyW, lineHeight + 0.04),
-            fontFace: toPptFontFace(body.fontFamily),
-            fontSize: bodyFontSize,
-            bold: body.fontWeight >= 700,
-            color: hex(body.fill.color),
-            align: body.textAlign,
-            breakLine: false,
-            fit: 'resize',
-            margin: 0,
-            valign: 'top',
-            rotate: body.rotation,
-          });
-          if (sceneSlideNumber) {
-            animationTargets.push({
-              slideNumber: sceneSlideNumber,
-              objectName,
-              animation: {
-                ...lineWipe,
-                textBuild: undefined,
-                start: index === 0 ? lineWipe.start : 'afterPrevious',
-                delayMs: index === 0 ? lineWipe.delayMs : lineWipe.textBuild.lineGapMs,
-              },
-            });
-          }
-        });
-      } else {
-        if (bodyTypewriter && !hasSavedBodyAnimation) {
-          if (bodyTypewriterMode === 'character') {
-            addCharacterTypewriterSlideText({
-              target: 'dialog-body',
-              objectNamePrefix: `ppt-dialog-body-${scene.id}`,
-              text: sceneBody,
-              x: bodyX,
-              y: bodyY,
-              width: bodyW,
-              lineHeight: Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45)),
-              fontFace: body.fontFamily,
-              fontSize: bodyFontSize,
-              color: body.fill.color,
-              bold: body.fontWeight >= 700,
-              align: body.textAlign,
-              rotate: body.rotation,
-              start: sceneAnimations.length ? 'afterPrevious' : 'withPrevious',
-              durationMs: Math.max(500, body.animation.durationMs || 600),
-            });
-          } else {
-            addTypewriterSlideText({
-              target: 'dialog-body',
-              objectNamePrefix: `ppt-dialog-body-${scene.id}`,
-              text: sceneBody,
-              x: bodyX,
-              y: bodyY,
-              width: bodyW,
-              lineHeight: Math.max(0.2, (bodyFontSize / 72) * (body.lineHeight || 1.45)),
-              fontFace: body.fontFamily,
-              fontSize: bodyFontSize,
-              color: body.fill.color,
-              bold: body.fontWeight >= 700,
-              align: body.textAlign,
-              rotate: body.rotation,
-              start: sceneAnimations.length ? 'afterPrevious' : 'onClick',
-              durationMs: Math.max(500, body.animation.durationMs || 600),
-              lineGapMs: 160,
-            });
-          }
-        } else {
-          const objectName = `ppt-dialog-body-${scene.id}`;
-          slide.addText(sceneBody || ' ', {
-            objectName,
-            ...page.frame(bodyX, bodyY, bodyW, bodyH),
-            fontFace: toPptFontFace(body.fontFamily),
-            fontSize: bodyFontSize,
-            bold: body.fontWeight >= 700,
-            color: hex(body.fill.color),
-            align: body.textAlign,
-            breakLine: false,
-            fit: 'resize',
-            margin: 0,
-            valign: 'top',
-            rotate: body.rotation,
-          });
-          addAnimationTargets(objectName, 'dialog-body');
-        }
+    for (const kind of ['title', 'body'] as const) {
+      const block = textLayout[kind];
+      if (!block.visible) continue;
+      const target = kind === 'title' ? 'dialog-title' : 'dialog-body';
+      const { canvas, padding } = await rasterizeTextBlock(block);
+      const objectName = `ppt-${target}-${scene.id}`;
+      slide.addImage({ objectName, data: canvas.toDataURL('image/png'),
+        ...page.frame((block.left - padding) / settings.canvasWidth * 13.333, (block.top - padding) / settings.canvasHeight * 7.5,
+          canvas.width / settings.canvasWidth * 13.333, canvas.height / settings.canvasHeight * 7.5),
+        rotate: block.object.rotation, flipH: block.object.flipX, flipV: block.object.flipY });
+      addAnimationTargets(objectName, target);
+      if (sceneSlideNumber && !sceneAnimations.some(animation => animation.target === target)
+          && block.object.animation.animation === 'typewriter') {
+        animationTargets.push({ slideNumber: sceneSlideNumber, objectName,
+          animation: { id: `${objectName}-reveal`, target, phase: 'enter', effect: 'wipe',
+            start: 'withPrevious', durationMs: Math.max(300, block.object.animation.durationMs), delayMs: 0, direction: 'left' } });
       }
     }
     const speakerName = sceneNameplate;

@@ -1,3 +1,6 @@
+import { presentationPointerDelta } from '../shared/presentationPointer';
+import { htmlToSpeechText } from '../../../lib/tts';
+import { PresentationText, useDialogueTextLayout, textBlockCss } from '../shared/PresentationText';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import { formatWebText } from './i18n';
 import type React from 'react';
@@ -45,8 +48,6 @@ type WebPlaytestDialoguePanelProps = {
   currentAudioRef: RefObject<HTMLAudioElement | null>;
   settings: WebExportSettings;
   renderStyle: RenderStyle;
-  titleStyle: React.CSSProperties;
-  bodyStyle: React.CSSProperties;
   dialogueShellStyle: React.CSSProperties;
   hideCenteredTitle: boolean;
   nameplates:
@@ -80,8 +81,6 @@ export function WebPlaytestDialoguePanel({
   currentAudioRef,
   settings,
   renderStyle,
-  titleStyle,
-  bodyStyle,
   dialogueShellStyle,
   hideCenteredTitle,
   nameplates,
@@ -96,6 +95,8 @@ export function WebPlaytestDialoguePanel({
   onRecordCurrentAudio,
   onCurrentAudioEnded,
 }: WebPlaytestDialoguePanelProps) {
+  const textLayout = useDialogueTextLayout(renderStyle, settings.canvasWidth, settings.canvasHeight,
+    getNodeDisplayTitle(currentNode), htmlToSpeechText(text), hideCenteredTitle || currentNode?.data?.hideTitleInPlayback === true);
   const editMode = previewMode === 'edit';
   const [activeGuideLines, setActiveGuideLines] = useState<PixelGuideLine[]>([]);
   const [selectedRenderObjectKinds, setSelectedRenderObjectKinds] = useState<
@@ -157,6 +158,7 @@ export function WebPlaytestDialoguePanel({
     const targetStartX = containerRect ? targetRect.left - containerRect.left : 0;
     const targetStartY = containerRect ? targetRect.top - containerRect.top : 0;
     const guideBoxes = container ? collectPixelGuideBoxes(container, kind) : [];
+    const targetElement = event.currentTarget as HTMLElement;
     const startX = event.clientX;
     const startY = event.clientY;
     const initialX = object.x;
@@ -169,11 +171,11 @@ export function WebPlaytestDialoguePanel({
             renderStyle,
           )
         : null;
-    const canvasScale =
-      dialogueLayout && targetRect.width > 0 ? dialogueLayout.width / targetRect.width : 1;
+    const canvasScale = container && containerRect && containerRect.width > 0 ? container.offsetWidth / containerRect.width : 1;
     const move = (moveEvent: PointerEvent) => {
-      let nextX = initialX + moveEvent.clientX - startX;
-      let nextY = initialY + moveEvent.clientY - startY;
+      const delta = presentationPointerDelta(targetElement, moveEvent.clientX - startX, moveEvent.clientY - startY);
+      let nextX = initialX + delta.x;
+      let nextY = initialY + delta.y;
       if (dialogueLayout) {
         const offsets = resolvePresentationDialogueOffsets(
           settings.canvasWidth,
@@ -192,8 +194,9 @@ export function WebPlaytestDialoguePanel({
           height: targetRect.height,
           boxes: guideBoxes,
         });
-        nextX = initialX + snapped.x - targetStartX;
-        nextY = initialY + snapped.y - targetStartY;
+        const snappedDelta = presentationPointerDelta(targetElement, snapped.x - targetStartX, snapped.y - targetStartY);
+        nextX = initialX + snappedDelta.x;
+        nextY = initialY + snappedDelta.y;
         setActiveGuideLines(snapped.lines);
       } else {
         setActiveGuideLines([]);
@@ -320,6 +323,7 @@ export function WebPlaytestDialoguePanel({
         } ${editMode ? 'cursor-grab' : ''} ${selectionClass('dialogBox')}`}
         style={{
           ...dialogueShellStyle,
+          padding: 0,
           ...(getRenderObjects(renderStyle).dialogBox.appearance
             ? { background: 'transparent', boxShadow: 'none', border: 0 }
             : {}),
@@ -378,72 +382,19 @@ export function WebPlaytestDialoguePanel({
           ? nameplates(setActiveGuideLines, selectedRenderObjectKinds)
           : nameplates}
         {aboveChoices}
-        {(objects.title.visible || editMode) && !hideCenteredTitle && (
-          <h2
-            key={`${currentNodeId}-title-${renderStyle.titleAnimation}`}
-            className={`relative z-20 mb-2 font-black ${editMode ? 'cursor-grab' : ''} ${selectionClass('title')}`}
-            data-render-object="title"
-            style={{
-              ...titleStyle,
-              display: editMode ? undefined : titleStyle.display,
-              overflow: editMode ? 'visible' : titleStyle.overflow,
-              opacity: objects.title.visible ? titleStyle.opacity : 0.34,
-            }}
-            onClick={(event) => selectObject(event, 'title')}
-            onPointerDown={(event) => startDrag(event, 'title')}
-          >
-            {getNodeDisplayTitle(currentNode)}
-            {selectedFrame('title')}
-          </h2>
-        )}
-        <div
-          key={`${currentNodeId}-body-${renderStyle.bodyAnimation}`}
-          className={`relative mt-2 text-sm leading-relaxed text-slate-200 ${
-            settings.layoutMode === 'classic' && settings.interactionMode === 'typewriter'
-              ? 'relative'
-              : ''
-          } z-20 ${editMode ? 'cursor-grab' : ''} ${selectionClass('body')}`}
-          data-render-object="body"
-          style={{
-            ...bodyStyle,
-            display: editMode ? undefined : bodyStyle.display,
-            overflow: editMode ? 'visible' : bodyStyle.overflow,
-            opacity: objects.body.visible ? bodyStyle.opacity : 0.34,
-          }}
-          onClick={(event) => {
-            if (editMode) {
-              selectObject(event, 'body');
-              return;
-            }
-            onContinueFromText();
-          }}
-          onPointerDown={(event) => startDrag(event, 'body')}
-        >
-          {selectedFrame('body')}
-          {settings.interactionMode === 'typewriter' &&
-            (settings.layoutMode === 'classic' ? (
-              <>
-                <span className="invisible block whitespace-pre-wrap" aria-hidden="true">
-                  {stripHtml(text) || ' '}
-                </span>
-                <span
-                  className="absolute inset-0 block whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{ __html: displayedPreviewText || '' }}
-                />
-              </>
-            ) : (
-              <span dangerouslySetInnerHTML={{ __html: displayedPreviewText || '' }} />
-            ))}
-          {settings.interactionMode !== 'typewriter' && (
-            <span
-              dangerouslySetInnerHTML={{
-                __html:
-                  text ||
-                  formatWebText(language, 'componentsrenderwebWebPlaytestDialoguePanelText416'),
-              }}
-            />
-          )}
-        </div>
+        {(['title', 'body'] as const).map(kind => {
+          const block = textLayout[kind];
+          if (!block.visible && !editMode) return null;
+          return <div key={`${currentNodeId}-${kind}`} data-render-object={kind}
+            className={`z-20 ${editMode ? 'cursor-grab' : ''} ${selectionClass(kind)}`}
+            style={{ ...textBlockCss(block, textLayout.dialog), opacity: block.object.visible ? 1 : .34 }}
+            onClick={event => { if (editMode) selectObject(event, kind); else if (kind === 'body') onContinueFromText(); }}
+            onPointerDown={event => startDrag(event, kind)}>
+            <PresentationText block={block} visibleCharacters={kind === 'body' && !editMode && settings.interactionMode === 'typewriter'
+              ? Array.from(htmlToSpeechText(displayedPreviewText || '')).length : Infinity} />
+            {selectedFrame(kind)}
+          </div>;
+        })}
         {audioUrl && (
           <audio
             key={currentNodeId}

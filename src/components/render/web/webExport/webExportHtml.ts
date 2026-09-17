@@ -452,23 +452,8 @@ ${PLAYER_SETTINGS_CSS}</style>
       return "translate(" + x + "px, " + y + "px) rotate(" + rotation + "deg) scale(" + flipX + ", " + flipY + ")";
     }
     function dialogueLayout() {
-      const canvasWidth = Math.max(1, Number(settings.canvasWidth) || 1920);
-      const canvasHeight = Math.max(1, Number(settings.canvasHeight) || 1080);
-      const dialogWidth = clamp(Number(dialogObject.width ?? style.dialogWidth), 35, 100, 86) / 100;
-      const dialogHeight = clamp(Number(dialogObject.height ?? style.dialogHeight), 16, 75, 34) / 100;
-      const width = canvasWidth * dialogWidth;
-      const height = canvasHeight * dialogHeight;
-      const centeredX = (canvasWidth - width) / 2;
-      const baseY = canvasHeight - Math.max(24, canvasHeight * 0.045) - height;
-      const offsetX = clamp(Number(dialogObject.x ?? style.dialogOffsetX), -100, 100, 0);
-      const offsetY = clamp(Number(dialogObject.y ?? style.dialogOffsetY), -100, 100, 0);
-      return {
-        x: clamp(centeredX + centeredX * offsetX / 100, 0, canvasWidth - width),
-        y: clamp(baseY + offsetY / 100 * (offsetY < 0 ? Math.max(0, baseY) : Math.max(0, canvasHeight - height - baseY)), 0, canvasHeight - height),
-        width: width,
-        height: height,
-        paddingX: clamp(width * clamp(Number(style.dialogTextPaddingX) / 100, 0.02, 0.24, 0.09), 12, width * 0.32),
-      };
+      return content.nodes.find(node => node.data && node.data.dialogueText)?.data.dialogueText.dialog
+        || { x: 0, y: 0, width: settings.canvasWidth, height: settings.canvasHeight, paddingX: 0 };
     }
     const resolvedDialogLayout = dialogueLayout();
     const presentationTextScale = Math.min(8, Math.max(0.25, settings.canvasHeight / 720)) * (settings.textScale / 100);
@@ -1833,12 +1818,51 @@ ${PLAYER_SETTINGS_CSS}</style>
       }
     }
 
+    function mountResolvedText(node) {
+      const data = node.data.dialogueText;
+      if (!data) return;
+      const panel = stageEl.querySelector('.dialogue');
+      Object.assign(panel.style, { position: 'absolute', boxSizing: 'border-box', margin: '0', padding: '0',
+        left: data.dialog.x + 'px', top: data.dialog.y + 'px', width: data.dialog.width + 'px', height: data.dialog.height + 'px' });
+      const title = panel.querySelector('.title');
+      if (title) title.hidden = true;
+      const text = document.getElementById('nodeText');
+      Object.assign(text.style, { position: 'absolute', opacity: '0', pointerEvents: 'none', width: '1px', height: '1px', overflow: 'hidden' });
+      for (const kind of ['title', 'body']) {
+        const block = data[kind];
+        if (!block.visible) continue;
+        const host = document.createElement('div');
+        host.dataset.resolvedText = kind;
+        Object.assign(host.style, { position: 'absolute', pointerEvents: 'none', left: block.left + 'px', top: block.top + 'px',
+          width: block.width + 'px', height: block.height + 'px', transformOrigin: 'center',
+          transform: 'rotate(' + block.rotation + 'deg) scale(' + (block.flipX ? -1 : 1) + ',' + (block.flipY ? -1 : 1) + ')' });
+        block.lines.forEach((line, index) => {
+          const image = document.createElement('img');
+          image.src = line.src; image.alt = line.text; image.dataset.line = String(index);
+          Object.assign(image.style, { position: 'absolute', maxWidth: 'none', left: -line.padding + 'px',
+            top: line.top - line.padding + 'px', width: line.width + 'px', height: line.height + 'px' });
+          host.appendChild(image);
+        });
+        panel.appendChild(host);
+      }
+      text._revealText = function(count) {
+        panel.querySelectorAll('[data-resolved-text="body"] img').forEach(image => {
+          const line = data.body.lines[Number(image.dataset.line)];
+          const visible = Math.max(0, Math.min(line.advances.length - 1, count - line.start));
+          image.style.visibility = visible === 0 ? 'hidden' : 'visible';
+          const right = visible === line.advances.length - 1 ? 0 : Math.max(0, line.width - line.padding - line.alignOffset - line.advances[visible]);
+          image.style.clipPath = 'inset(0 ' + right + 'px 0 0)';
+        });
+      };
+    }
+
     function applyTypewriter(element, html, rawHtml, presentation, enabled, revealChoices) {
       if (revealChoices) currentTextEnded = false;
       if (!element) { if (revealChoices) showChoicesAndMaybeAdvance(); return; }
       if (!enabled) {
         element.classList.remove("typewriter-reserved");
         element.innerHTML = html || "";
+        if (element._revealText) element._revealText(Infinity);
         if (revealChoices) showChoicesAndMaybeAdvance();
         return;
       }
@@ -1857,11 +1881,13 @@ ${PLAYER_SETTINGS_CSS}</style>
       let committedText = "";
       let segmentTimer = 0;
       visible.textContent = "";
+      if (element._revealText) element._revealText(0);
       const playNextStep = () => {
         clearInterval(segmentTimer);
         const step = playbackSteps[stepIndex];
         if (!step) {
           visible.textContent = committedText;
+          if (element._revealText) element._revealText(Array.from(committedText).length);
           if (revealChoices) showChoicesAndMaybeAdvance();
           return;
         }
@@ -1884,6 +1910,7 @@ ${PLAYER_SETTINGS_CSS}</style>
         segmentTimer = setInterval(() => {
           segmentIndex += 1;
           visible.textContent = committedText + segmentUnits.slice(0, segmentIndex).join("");
+          if (element._revealText) element._revealText(Array.from(visible.textContent).length);
           if (segmentIndex >= segmentUnits.length) {
             clearInterval(segmentTimer);
             committedText += segmentText;
@@ -1894,24 +1921,6 @@ ${PLAYER_SETTINGS_CSS}</style>
         typewriterTimers.push(segmentTimer);
       };
       playNextStep();
-      return;
-      const units = style.bodyTypewriterMode === "line"
-        ? source.split(/(\\n+)/)
-        : (style.bodyTypewriterMode === "sentence" || style.bodyTypewriterMode === "word")
-          ? (source.match(/[^銆傦紒锛?!?\\n]+[銆傦紒锛?!?]*|\\n+/g) || Array.from(source))
-          : Array.from(source);
-      let index = 0;
-      visible.textContent = "";
-      const timer = setInterval(() => {
-        index += 1;
-        visible.textContent = units.slice(0, index).join("");
-        if (index >= units.length) {
-          clearInterval(timer);
-          typewriterTimers = typewriterTimers.filter((item) => item !== timer);
-          if (revealChoices) showChoicesAndMaybeAdvance();
-        }
-      }, settings.typewriterSpeed);
-      typewriterTimers.push(timer);
     }
 
     function choicesHtml(node, edges, className) {
@@ -2160,6 +2169,7 @@ ${PLAYER_SETTINGS_CSS}</style>
           (choicePosition === "belowText" ? renderChoices(node, edges, "below") : "") +
         '</div>' +
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
+      mountResolvedText(node);
       watchZenButtonPosition();
 
       // Start entrance transitions after the initial styles have been applied.

@@ -1,3 +1,5 @@
+import { presentationPointerDelta } from '../shared/presentationPointer';
+import { PresentationText, useDialogueTextLayout, textBlockCss } from '../shared/PresentationText';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import { themeRenderPatch } from '../experienceThemes';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
@@ -10,6 +12,7 @@ import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { homepageCoverTemplates } from '../homepageCoverTemplates';
 import {
   resolvePresentationDialogueLayout,
+  resolvePresentationDialogueOffsets,
   resolvePresentationTextScale,
 } from '../video/shared/presentationLayout';
 import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
@@ -1460,6 +1463,8 @@ export function SlideCanvas({
   const shouldFitContent = layout === 'LAYOUT_STANDARD' && layoutContentMode === 'fit';
   return (
     <div
+      data-presentation-width={webSettings.canvasWidth}
+      data-presentation-height={webSettings.canvasHeight}
       className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden rounded-xl border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
       style={{
         backgroundColor: canvasBackgroundColor,
@@ -1528,6 +1533,8 @@ export function SlideCanvas({
               <ChoicePreview scene={scene} colors={colors} onChoose={onChoose} />
             ) : (
               <ScenePreview
+                canvasWidth={webSettings.canvasWidth}
+                canvasHeight={webSettings.canvasHeight}
                 scene={scene}
                 videoLoop={videoLoop}
                 renderStyle={renderStyle}
@@ -1927,6 +1934,7 @@ function PptCoverTextBox({
 }
 
 function ScenePreview({
+  canvasWidth, canvasHeight,
   scene,
   videoLoop,
   renderStyle,
@@ -1942,6 +1950,7 @@ function ScenePreview({
   textOverrides,
   onUpdateText,
 }: {
+  canvasWidth: number; canvasHeight: number;
   scene: Scene;
   videoLoop: boolean;
   renderStyle: RenderStyle;
@@ -1972,17 +1981,15 @@ function ScenePreview({
     (animation) => animation.textBuild?.mode === 'line-wipe',
   );
   const hasTitle = title.visible && !scene.hideTitleInPlayback && Boolean(titleText.trim());
-  // Match the web preview's logical 720px-canvas text sizing on the 1080px stage.
-  const titlePaint = textPaint(title, true);
-  const bodyPaint = textPaint(body, true);
+  const textLayout = useDialogueTextLayout(renderStyle, canvasWidth, canvasHeight, titleText, bodyText, scene.hideTitleInPlayback);
   const panelStyle = objectPaint(panel);
-  const panelLayout = resolvePresentationDialogueLayout(1920, 1080, renderStyle);
+  const panelLayout = resolvePresentationDialogueLayout(canvasWidth, canvasHeight, renderStyle);
   const panelCss = {
-    left: `${panelLayout.x / 19.2}%`,
-    top: `${panelLayout.y / 10.8}%`,
-    width: `${panelLayout.width / 19.2}%`,
-    height: `${panelLayout.height / 10.8}%`,
-    padding: `${panelLayout.paddingY / 10.8}% ${panelLayout.paddingX / 19.2}%`,
+    left: `${panelLayout.x / canvasWidth * 100}%`,
+    top: `${panelLayout.y / canvasHeight * 100}%`,
+    width: `${panelLayout.width / canvasWidth * 100}%`,
+    height: `${panelLayout.height / canvasHeight * 100}%`,
+    padding: 0,
   };
   useEffect(() => {
     const video = videoRef.current;
@@ -2098,15 +2105,10 @@ function ScenePreview({
             onTextChange={(text) => onUpdateText?.('dialog-title', text)}
             className="absolute z-20"
             style={{
-              left: `${title.x}px`,
-              top: `${title.y}px`,
-              width: `${title.width}%`,
-              minHeight: `${title.height}px`,
-              height: 'auto',
-              ...titlePaint,
+              ...textBlockCss(textLayout.title, panelLayout),
             }}
           >
-            {titleText}
+            <PresentationText block={textLayout.title} />
           </PptEditableObject>
         ) : null}
         <PptEditableObject
@@ -2115,7 +2117,7 @@ function ScenePreview({
           label="对话正文"
           object={body}
           selected={selected}
-          animation={bodyAnimation ? [] : bodyAnimations}
+          animation={bodyAnimations}
           previewing={previewing}
           previewAtMs={previewAtMs}
           editable={editable}
@@ -2125,26 +2127,10 @@ function ScenePreview({
           onTextChange={(text) => onUpdateText?.('dialog-body', text)}
           className="absolute z-20 whitespace-pre-wrap"
           style={{
-            left: `${body.x}px`,
-            top: `calc(${hasTitle ? title.height + 8 : 0}px + ${body.y}px)`,
-            width: `${body.width}%`,
-            minHeight: `${body.height}px`,
-            height: 'auto',
-            ...bodyPaint,
+            ...textBlockCss(textLayout.body, panelLayout),
           }}
         >
-          {bodyAnimation?.textBuild?.mode === 'line-wipe' ? (
-            <PptLineWipePreview
-              text={bodyText}
-              widthPercent={body.width}
-              fontSize={body.fontSize * 0.75}
-              animation={bodyAnimation}
-              previewing={previewing}
-              previewAtMs={previewAtMs}
-            />
-          ) : (
-            bodyText
-          )}
+          <PresentationText block={textLayout.body} />
         </PptEditableObject>
       </PptEditableObject>
       {speakerName && nameplate.visible && renderStyle.nameplateVisible ? (
@@ -2387,11 +2373,18 @@ function PptEditableObject({
     const startX = event.clientX;
     const startY = event.clientY;
     const initial = object;
-    const move = (moveEvent: PointerEvent) =>
-      onUpdate(kind, {
-        x: Math.round(initial.x + moveEvent.clientX - startX),
-        y: Math.round(initial.y + moveEvent.clientY - startY),
-      });
+    const targetElement = event.currentTarget;
+    const canvas = targetElement.closest<HTMLElement>('[data-presentation-width]');
+    const canvasWidth = Number(canvas?.dataset.presentationWidth) || 1920;
+    const canvasHeight = Number(canvas?.dataset.presentationHeight) || 1080;
+    const styleForPosition = { renderObjects: { dialogBox: initial } } as RenderStyle;
+    const origin = kind === 'dialogBox' ? resolvePresentationDialogueLayout(canvasWidth, canvasHeight, styleForPosition) : null;
+    const move = (moveEvent: PointerEvent) => {
+      const delta = presentationPointerDelta(targetElement, moveEvent.clientX - startX, moveEvent.clientY - startY);
+      const position = origin ? resolvePresentationDialogueOffsets(canvasWidth, canvasHeight, styleForPosition, origin.x + delta.x, origin.y + delta.y)
+        : { x: initial.x + delta.x, y: initial.y + delta.y };
+      onUpdate(kind, position);
+    };
     const end = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
@@ -2406,9 +2399,10 @@ function PptEditableObject({
     const startX = event.clientX;
     const startY = event.clientY;
     const initial = object;
+    const resizeElement = event.currentTarget;
     const rect = event.currentTarget.parentElement?.getBoundingClientRect();
-    const widthScale = rect ? 100 / rect.width : 1;
-    const heightScale = rect ? 100 / rect.height : 1;
+    const widthScale = rect ? initial.width / rect.width : 1;
+    const heightScale = rect ? initial.height / rect.height : 1;
     const move = (moveEvent: PointerEvent) => {
       const dx = (moveEvent.clientX - startX) * widthScale;
       const dy = (moveEvent.clientY - startY) * heightScale;
@@ -2419,12 +2413,12 @@ function PptEditableObject({
       if (handle.includes('e')) width += dx;
       if (handle.includes('w')) {
         width -= dx;
-        x += moveEvent.clientX - startX;
+        x += presentationPointerDelta(resizeElement, moveEvent.clientX - startX, 0).x;
       }
       if (handle.includes('s')) height += dy;
       if (handle.includes('n')) {
         height -= dy;
-        y += moveEvent.clientY - startY;
+        y += presentationPointerDelta(resizeElement, 0, moveEvent.clientY - startY).y;
       }
       onUpdate(kind, {
         x: Math.round(x),

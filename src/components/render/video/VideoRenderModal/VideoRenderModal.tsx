@@ -3,8 +3,7 @@ import type { Node as FlowNode } from '@xyflow/react';
 import React,{ Suspense,useMemo,useRef,useState } from 'react';
 import { flushSync } from 'react-dom';
 import { canvasRatio,migrateVideoCanvasSettings } from '../../canvas/canvasDimensions';
-import { normalizeSharedCanvasSettings,type SharedCanvasSettings } from '../../canvas/canvasSettings';
-import { useWorkspaceAppearance } from '../../shared/inspectors/useWorkspaceAppearance';
+import { normalizeSharedCanvasSettings, useSharedCanvasSettings, type SharedCanvasSettings } from '../../canvas/canvasSettings';
 
 import { normalizeRenpyExportSettings } from '../../code/codeExport/model';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
@@ -152,9 +151,8 @@ export function VideoRenderModal({
   const [workspaceMode, setWorkspaceMode] = useState<RenderWorkspaceMode>(
     () => launchIntent?.workspaceMode || persistedWorkspace?.workspaceMode || 'video',
   );
-  const appearance = useWorkspaceAppearance(projectRenderStyle, updateProjectRenderStyle, persistedWorkspace?.appearanceOverrides);
-  const renderStyle = appearance.resolve(workspaceMode);
-  const updateRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => appearance.update(workspaceMode, key, value);
+  const renderStyle = projectRenderStyle;
+  const updateRenderStyle = updateProjectRenderStyle;
 
   const [workspaceSlideDirection, setWorkspaceSlideDirection] = useState<'forward' | 'backward'>(
     'forward',
@@ -246,10 +244,9 @@ export function VideoRenderModal({
         ? { showStartMenu: launchIntent.showStartMenu }
         : {}),
     },
-    renderStyle,
     past: persistedWorkspace?.webPast,
     future: persistedWorkspace?.webFuture,
-  }, {value: appearance.resolve('web'), update: (key, value) => appearance.update('web', key, value)});
+  }, {value: projectRenderStyle, update: (key, value) => updateProjectRenderStyle(key, value)});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () =>
       new Set(Array.isArray(persistedWorkspace?.selectedIds) ? persistedWorkspace.selectedIds : []),
@@ -309,13 +306,13 @@ export function VideoRenderModal({
   const [resolutionIndex, setResolutionIndex] = useState(() =>
     clampPersistedNumber(persistedWorkspace?.resolutionIndex, 1, 0, RESOLUTION_OPTIONS.length - 1),
   );
-  const [videoCanvasSettings, setVideoCanvasSettings] = useState(() => migrateVideoCanvasSettings(persistedWorkspace));
+  const sharedCanvas = useSharedCanvasSettings(workspaceKey);
+  const videoCanvasSettings = sharedCanvas.settings;
   const updateVideoCanvasSettings = (patch: Partial<SharedCanvasSettings>) => {
-    setVideoCanvasSettings(previous => {
-      const next = normalizeSharedCanvasSettings({...previous, ...patch});
-      if ((patch.canvasWidth !== undefined || patch.canvasHeight !== undefined) && patch.canvasRatioWidth === undefined && patch.canvasRatioHeight === undefined) Object.assign(next, canvasRatio(next.canvasWidth, next.canvasHeight));
-      return next;
-    });
+    const next = { ...patch };
+    if ((patch.canvasWidth !== undefined || patch.canvasHeight !== undefined) && patch.canvasRatioWidth === undefined && patch.canvasRatioHeight === undefined)
+      Object.assign(next, canvasRatio(patch.canvasWidth ?? videoCanvasSettings.canvasWidth, patch.canvasHeight ?? videoCanvasSettings.canvasHeight));
+    sharedCanvas.update(next);
   };
   const resolutionWidth = videoCanvasSettings.canvasWidth;
   const resolutionHeight = videoCanvasSettings.canvasHeight;
@@ -902,7 +899,6 @@ export function VideoRenderModal({
     resolutionIndex,
     resolutionWidth,
     resolutionHeight,
-    videoCanvasSettings,
     exportFormat,
     speed,
     defaultSeconds,
@@ -912,7 +908,6 @@ export function VideoRenderModal({
     videoCover: videoCover || undefined,
     outputDir,
     webOutputDir,
-    renderStyle,
     assetPanelWidth,
     assetCardLayout,
     assetCardScale,
@@ -936,12 +931,10 @@ export function VideoRenderModal({
     webChoiceColor,
     webChoiceTextColor,
     webSettings,
-    webRenderStyle: appearance.resolve('web'),
     webPast: webPast.slice(-50),
     webFuture: webFuture.slice(0, 50),
     pptPast: pptPast.slice(-50),
     pptFuture: pptFuture.slice(0, 50),
-    appearanceOverrides: appearance.overrides,
     schemaVersion: 2,
     savedAt: Date.now(),
   });
@@ -1429,7 +1422,6 @@ export function VideoRenderModal({
     codeSettings,
     codeTarget,
     renderStyle,
-    appearance.overrides,
     resolutionHeight,
     resolutionIndex,
     videoCanvasSettings,
@@ -1475,7 +1467,6 @@ export function VideoRenderModal({
       if (latestWorkspace) {
         writeRenderWorkspaceState(latestWorkspace.workspaceKey, {
           ...latestWorkspace.snapshot,
-          appearanceOverrides: appearance.overrides,
     schemaVersion: 2,
     savedAt: Date.now(),
         });
@@ -2007,7 +1998,6 @@ export function VideoRenderModal({
     isZh,
     webProjectName,
     defaultWebProjectName,
-    webRenderStyle: appearance.resolve('web'),
     webChoiceColor,
     webChoiceTextColor,
     webSettings,
@@ -2385,8 +2375,6 @@ export function VideoRenderModal({
             }
             setIsExportDialogOpen(true);
           }}
-          appearanceScope={workspaceMode === 'code' ? undefined : (appearance.overrides[workspaceMode] ? 'independent' : 'shared')}
-          onAppearanceScopeChange={(scope) => appearance.setIndependent(workspaceMode, scope === 'independent')}
           onClose={closeRenderWorkspace}
         />
 

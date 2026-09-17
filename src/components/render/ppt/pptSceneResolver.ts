@@ -1,3 +1,4 @@
+import { htmlToSpeechText } from '../../../lib/tts';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 
 import type {
@@ -151,7 +152,7 @@ export function resolvePptScenes(
       // Keep the same fallback order as web/playtest, including a card label.
       title: getNodeDisplayTitle(node).trim(),
       hideTitleInPlayback: data.hideTitleInPlayback === true,
-      text: stripHtml(filterMentionTags(data.text || '', true, true)),
+      text: htmlToSpeechText(filterMentionTags(data.text || '', true, true)),
       rawText: data.text || '',
       presentation,
       backgroundUrl: sceneMedia.imageUrl || settings.sceneBackgroundImageUrl,

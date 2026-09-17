@@ -1,4 +1,3 @@
-import type { WorkspaceAppearanceOverrides } from '../../shared/inspectors/useWorkspaceAppearance';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import type { RenpyExportSettings } from '../../code/codeExport/types';
@@ -23,10 +22,6 @@ import type {
 export const DEFAULT_RENDER_STYLE: RenderStyle = {
   selectedRenderObject: 'dialogBox',
   renderObjects: buildDefaultRenderObjects(),
-  videoTextAnimations: {
-    title: { animation: 'none', durationMs: 300, typewriterMode: 'character' },
-    body: { animation: 'typewriter', durationMs: 300, typewriterMode: 'character' },
-  },
   titleVisible: true,
   titleFontSize: 28,
   bodyFontSize: 18,
@@ -99,7 +94,6 @@ export const DESKTOP_RELEASE_URL = 'https://github.com/Mingwen-Cui/GalWriter/rel
 
 export type PersistedRenderWorkspaceState = {
   schemaVersion?: 2;
-  appearanceOverrides?: WorkspaceAppearanceOverrides;
   videoCanvasSettings?: SharedCanvasSettings;
   workspaceMode?: RenderWorkspaceMode;
   selectedIds?: string[];
@@ -130,7 +124,6 @@ export type PersistedRenderWorkspaceState = {
   videoCover?: VideoCoverSettings;
   outputDir?: string;
   webOutputDir?: string;
-  renderStyle?: Partial<RenderStyle>;
   assetPanelWidth?: number;
   assetCardLayout?: AssetCardLayout;
   assetCardScale?: number;
@@ -154,7 +147,6 @@ export type PersistedRenderWorkspaceState = {
   webChoiceColor?: string;
   webChoiceTextColor?: string;
   webSettings?: Partial<WebExportSettings>;
-  webRenderStyle?: Partial<RenderStyle>;
   webPast?: WebHistoryState[];
   webFuture?: WebHistoryState[];
   pptSettings?: Partial<PptExportSettings>;

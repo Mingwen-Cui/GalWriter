@@ -92,7 +92,7 @@ import {
   getStartMenuPlacementBounds,
   resizeCursorByHandle,
 } from './webPlaytestStartMenuTools';
-import { buildBodyStyle, buildDialogueShellStyle, buildTitleStyle } from './webPlaytestStyleTools';
+import { buildDialogueShellStyle } from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
 import { type SplitEditorSelection, WebSplitLayoutEditor } from './WebSplitLayoutEditor';
 
@@ -406,18 +406,6 @@ export function WebPlaytestPreview({
 
   const animationRate = Math.max(0.5, Math.min(2, settings.animationSpeed ?? 1));
   const textScale = Math.max(0.7, Math.min(1.4, (settings.textScale ?? 100) / 100));
-  const baseTitleStyle = buildTitleStyle(renderStyle, settings.canvasHeight);
-  const baseBodyStyle = buildBodyStyle(renderStyle, settings.canvasHeight);
-  const titleStyle = {
-    ...baseTitleStyle,
-    fontSize: Number(baseTitleStyle.fontSize) * textScale,
-    animationDuration: `${360 / animationRate}ms`,
-  };
-  const bodyStyle = {
-    ...baseBodyStyle,
-    fontSize: Number(baseBodyStyle.fontSize) * textScale,
-    animationDuration: `${(renderStyle.bodyAnimation === 'typewriter' ? 180 : 360) / animationRate}ms`,
-  };
   const dialogueShellStyle = buildDialogueShellStyle(
     renderStyle,
     settings.canvasWidth,
@@ -2351,8 +2339,6 @@ export function WebPlaytestPreview({
           currentAudioRef={currentAudioRef}
           settings={settings}
           renderStyle={renderStyle}
-          titleStyle={titleStyle}
-          bodyStyle={bodyStyle}
           dialogueShellStyle={dialogueShellStyle}
           hideCenteredTitle={hideCenteredTitle}
           nameplates={renderNameplates}
