@@ -54,7 +54,12 @@ export function VirtualPresentationStage({
   }, [fit, stageBaseHeight, stageBaseWidth]);
 
   return (
-    <div ref={containerRef} className={`relative overflow-hidden ${className}`} style={style}>
+    <div
+      ref={containerRef}
+      data-virtual-presentation-host="true"
+      className={`relative overflow-hidden ${className}`}
+      style={style}
+    >
       <div
         className="absolute overflow-hidden"
         data-presentation-width={stageBaseWidth}

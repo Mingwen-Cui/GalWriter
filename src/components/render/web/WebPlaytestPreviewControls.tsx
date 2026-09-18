@@ -1,3 +1,5 @@
+import { WebToolbarSelectionTools } from './WebToolbarSelectionTools';
+import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import {
   Eye,
@@ -356,6 +358,7 @@ export function PreviewFloatingElementLayer({
   previewMode,
   className = '',
   onSelectElement,
+  onSelectElements,
   onUpdateElement,
   onUpdateElements,
   getIcon,
@@ -371,6 +374,7 @@ export function PreviewFloatingElementLayer({
   previewMode: 'edit' | 'test';
   className?: string;
   onSelectElement?: (id: string | null) => void;
+  onSelectElements?: (ids: string[]) => void;
   onUpdateElement?: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateElements?: (elements: WebMenuElement[]) => void;
   getIcon?: (element: WebMenuElement) => ReactNode;
@@ -400,14 +404,58 @@ export function PreviewFloatingElementLayer({
     height: number;
   } | null>(null);
   const snapGuideElements = guideElements || elements;
+  const layerRef = useRef<HTMLDivElement>(null);
+  const effectiveSelectedIds = selectedElementId
+    ? selectedElementIds.includes(selectedElementId)
+      ? selectedElementIds
+      : [selectedElementId]
+    : [];
+  const selectOnly = (id: string | null) => {
+    onSelectElement?.(id);
+    onSelectElements?.(
+      id && effectiveSelectedIds.includes(id) ? effectiveSelectedIds : id ? [id] : [],
+    );
+  };
+  const snapToolbar = (changed: WebMenuElement, type: 'move' | 'resize') => {
+    const layer = layerRef.current;
+    if (!getIcon || !layer || !onUpdateElements || changed.kind !== 'button') return;
+    const peers = elements.filter(
+      (element) => element.kind === 'button' && element.id !== changed.id,
+    );
+    const nearby = peers.some(
+      (element) =>
+        (Math.abs(element.y - changed.y) * layer.clientHeight) / 100 < 20 &&
+        (Math.min(
+          Math.abs(changed.x - element.x - element.width),
+          Math.abs(element.x - changed.x - changed.width),
+        ) *
+          layer.clientWidth) /
+          100 <
+          40,
+    );
+    if (!nearby && type === 'move') return;
+    const source = elements.map((element) => (element.id === changed.id ? changed : element));
+    const buttons = source.filter((element) => element.kind === 'button');
+    const originalButtons = elements.filter((element) => element.kind === 'button');
+    const right = Math.max(...originalButtons.map((element) => element.x + element.width));
+    const top = Math.min(...(peers.length ? peers : buttons).map((element) => element.y));
+    onUpdateElements(
+      arrangeToolbarRow(
+        source,
+        layer.clientWidth,
+        layer.clientHeight,
+        toolbarRowGap(originalButtons),
+        right,
+        top,
+      ),
+    );
+  };
   const handleLayerPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (previewMode !== 'edit' || event.currentTarget !== event.target) return;
-    if (event.button === 0) {
-      setSelectedElementIds([]);
-      onSelectElement?.(null);
-      return;
-    }
-    if (event.button !== 2) return;
+    if (event.button !== 0 && event.button !== 2) return;
+    setSelectedElementIds([]);
+    onSelectElement?.(null);
+    onSelectElements?.([]);
     const rect = event.currentTarget.getBoundingClientRect();
     event.preventDefault();
     event.stopPropagation();
@@ -464,16 +512,18 @@ export function PreviewFloatingElementLayer({
     setMarqueeBox(null);
     setSelectedElementIds(nextIds);
     onSelectElement?.(nextIds[nextIds.length - 1] || null);
+    onSelectElements?.(nextIds);
   };
 
   return (
     <>
       <div
-        className={`absolute inset-0 z-[15] ${
+        className={`absolute inset-0 ${getIcon ? 'z-[16]' : 'z-[15]'} ${
           previewMode === 'edit' && elements.length > 0
             ? 'pointer-events-auto'
             : 'pointer-events-none'
         } ${className}`}
+        onClick={(event) => event.stopPropagation()}
         onPointerDown={handleLayerPointerDown}
         onPointerMove={updateMarquee}
         onPointerUp={finishMarquee}
@@ -483,6 +533,7 @@ export function PreviewFloatingElementLayer({
         }}
       />
       <div
+        ref={layerRef}
         data-toolbar-editor="true"
         className={`pointer-events-none absolute inset-0 z-[220] ${className}`}
       >
@@ -518,7 +569,7 @@ export function PreviewFloatingElementLayer({
             <ToolbarElement
               key={element.id}
               element={element}
-              selected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+              selected={effectiveSelectedIds.includes(element.id)}
               previewMode={previewMode}
               disabled={Boolean(isDisabled?.(element))}
               active={Boolean(isActive?.(element))}
@@ -527,12 +578,14 @@ export function PreviewFloatingElementLayer({
               displayLabel={getLabel?.(element)}
               guideElements={snapGuideElements}
               allElements={elements}
-              selectedElementIds={selectedElementIds}
+              selectedElementIds={effectiveSelectedIds}
               onSelect={(id) => {
                 setSelectedElementIds(id ? [id] : []);
                 onSelectElement?.(id);
+                onSelectElements?.(id ? [id] : []);
               }}
-              onSelectOnly={(id) => onSelectElement?.(id)}
+              onSelectOnly={selectOnly}
+              onDragEnd={snapToolbar}
               onUpdate={onUpdateElement}
               onUpdateElements={onUpdateElements}
               onGuideLinesChange={setActiveGuideLines}
@@ -542,6 +595,14 @@ export function PreviewFloatingElementLayer({
               }
             />
           ))}
+        {previewMode === 'edit' && (
+          <WebToolbarSelectionTools
+            elements={elements}
+            selectedIds={effectiveSelectedIds}
+            toolbar={Boolean(getIcon)}
+            onUpdate={onUpdateElements}
+          />
+        )}
       </div>
     </>
   );
@@ -566,6 +627,7 @@ function ToolbarElement({
   onGuideLinesChange,
   onAction,
   onDoubleClickButton,
+  onDragEnd,
 }: {
   element: WebMenuElement;
   selected: boolean;
@@ -585,6 +647,7 @@ function ToolbarElement({
   onGuideLinesChange?: (lines: WebAlignmentGuideLine[]) => void;
   onAction: () => void;
   onDoubleClickButton?: () => void;
+  onDragEnd?: (element: WebMenuElement, type: 'move' | 'resize') => void;
 }) {
   const editable = previewMode === 'edit';
   // Editing overlays include their own buttons (rotate, visibility, resize).
@@ -594,7 +657,8 @@ function ToolbarElement({
   const textEditorRef = useRef<HTMLSpanElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const beginTextEditing = () => {
-    if (!editable || toolbarControl || element.kind === 'image') return;
+    if (!editable || (toolbarControl && element.textVisible === false) || element.kind === 'image')
+      return;
     onSelect?.(element.id);
     setEditingText(true);
     window.requestAnimationFrame(() => {
@@ -642,14 +706,18 @@ function ToolbarElement({
     if (!rect) return;
     const startX = event.clientX;
     const startY = event.clientY;
-    const initial = toolbarControl
-      ? { ...element, width: (element.height * rect.height) / rect.width }
-      : element;
+    const initial =
+      toolbarControl && element.textVisible === false
+        ? { ...element, width: (element.height * rect.height) / rect.width }
+        : element;
     const centerX = rect.left + ((initial.x + initial.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
     const startAngle =
       Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
+    let latest = initial;
+    let moved = false;
     const move = (moveEvent: PointerEvent) => {
+      moved = true;
       if (type === 'rotate') {
         const angle =
           Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX) * (180 / Math.PI);
@@ -672,7 +740,7 @@ function ToolbarElement({
           width,
           height,
           rect,
-          elements: guideElements,
+          elements: guideElements.filter((item) => !groupIds.includes(item.id)),
           movingId: element.id,
         });
         x = snapped.x;
@@ -730,9 +798,12 @@ function ToolbarElement({
         height = snapped.height;
         onGuideLinesChange?.(snapped.lines);
       }
-      if (toolbarControl) {
-        if (type === 'resize' && (handle === 'e' || handle === 'w'))
-          height = (width * rect.width) / rect.height;
+      if (toolbarControl && element.textVisible === false) {
+        if (type === 'resize') {
+          const horizontal = handle?.includes('w') ? -dx : dx;
+          const vertical = handle?.includes('n') ? -dy : dy;
+          height = initial.height + (vertical + (horizontal * rect.width) / rect.height) / 2;
+        }
         height = Math.max(1, Math.min(100, height));
         width = (height * rect.height) / rect.width;
         if (type === 'resize' && handle?.includes('w')) x = initial.x + initial.width - width;
@@ -743,6 +814,7 @@ function ToolbarElement({
       }
       x = Math.max(0, Math.min(100 - width, x));
       y = Math.max(0, Math.min(100 - height, y));
+      latest = { ...initial, x, y, width, height };
       onUpdate(element.id, {
         x: Number(x.toFixed(2)),
         y: Number(y.toFixed(2)),
@@ -751,13 +823,16 @@ function ToolbarElement({
       });
     };
     const end = () => {
+      if (moved && !shouldMoveGroup && type !== 'rotate') onDragEnd?.(latest, type);
       onGuideLinesChange?.([]);
       document.body.style.cursor = '';
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
   };
 
   return (
@@ -766,49 +841,52 @@ function ToolbarElement({
       aria-label={displayLabel || element.text || toolbarRoleLabels[element.role!] || undefined}
       title={displayLabel || element.text || toolbarRoleLabels[element.role!] || undefined}
       aria-pressed={icon ? active : undefined}
-      className={`${toolbarControl ? 'gw-playback-control' : ''} pointer-events-auto absolute text-xs font-black text-white ${
+      className={`${toolbarControl ? `gw-playback-control ${element.textVisible !== false ? 'gw-playback-control-with-label' : ''}` : ''} pointer-events-auto absolute text-xs font-black text-white ${
         element.kind === 'text'
           ? 'bg-transparent shadow-none'
           : element.kind === 'image'
             ? 'border-0 bg-transparent shadow-none'
             : `shadow-lg ${active ? 'bg-sky-500/35 text-sky-100' : 'bg-white/12 hover:bg-white/20'}`
       } ${disabled ? 'opacity-35 grayscale' : ''}`}
-      style={{
-        left: `${element.x}%`,
-        top: `${element.y}%`,
-        width: toolbarControl ? 'auto' : `${element.width}%`,
-        aspectRatio: toolbarControl ? '1 / 1' : undefined,
-        height: `${element.height}%`,
-        transform: `rotate(${element.rotation || 0}deg)`,
-        opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
-        ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 8),
-        zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
-        background:
-          element.kind === 'button' && element.fillEnabled !== false && element.backgroundColor
-            ? element.backgroundColor
-            : undefined,
-        ...(element.kind !== 'text' || element.textStrokeTarget === 'box'
-          ? webElementBoxStyle(element)
-          : {}),
-        color: element.textColor || undefined,
-        fontFamily: element.fontFamily || undefined,
-        fontSize: element.fontSize || undefined,
-        fontWeight: element.fontWeight,
-        WebkitTextStroke:
-          element.kind === 'text' &&
-          element.textStrokeTarget !== 'box' &&
-          element.strokeEnabled !== false &&
-          (element.textStrokeWidth ?? 0) > 0
-            ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
-            : undefined,
-        letterSpacing: element.letterSpacing,
-        lineHeight: element.lineHeight,
-        ...(element.kind === 'text' ? webElementShadowStyle(element, 'text') : {}),
-        cursor: editable ? 'grab' : undefined,
-        ...(element.appearance
-          ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
-          : {}),
-      }}
+      style={
+        {
+          '--gw-toolbar-icon-size': `${Math.max(12, (element.height / 4.8) * 20)}px`,
+          left: `${element.x}%`,
+          top: `${element.y}%`,
+          width: `${element.width}%`,
+          aspectRatio: toolbarControl && element.textVisible === false ? '1 / 1' : undefined,
+          height: `${element.height}%`,
+          transform: `rotate(${element.rotation || 0}deg)`,
+          opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
+          ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 8),
+          zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
+          background:
+            element.kind === 'button' && element.fillEnabled !== false && element.backgroundColor
+              ? element.backgroundColor
+              : undefined,
+          ...(element.kind !== 'text' || element.textStrokeTarget === 'box'
+            ? webElementBoxStyle(element)
+            : {}),
+          color: element.textColor || undefined,
+          fontFamily: element.fontFamily || undefined,
+          fontSize: element.fontSize || undefined,
+          fontWeight: element.fontWeight,
+          WebkitTextStroke:
+            element.kind === 'text' &&
+            element.textStrokeTarget !== 'box' &&
+            element.strokeEnabled !== false &&
+            (element.textStrokeWidth ?? 0) > 0
+              ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
+              : undefined,
+          letterSpacing: element.letterSpacing,
+          lineHeight: element.lineHeight,
+          ...(element.kind === 'text' ? webElementShadowStyle(element, 'text') : {}),
+          cursor: editable ? 'grab' : undefined,
+          ...(element.appearance
+            ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+            : {}),
+        } as React.CSSProperties
+      }
       onPointerDown={(event) => beginDrag(event, 'move')}
       onClick={(event) => {
         event.stopPropagation();
@@ -819,7 +897,8 @@ function ToolbarElement({
             else beginTextEditing();
             return;
           }
-          onSelect?.(element.id);
+          if (selectedElementIds.includes(element.id)) onSelectOnly?.(element.id);
+          else onSelect?.(element.id);
           return;
         }
         if (!disabled) onAction();
@@ -862,7 +941,7 @@ function ToolbarElement({
         ) : (
           <>
             {icon}
-            {!toolbarControl && element.textVisible !== false && (
+            {element.textVisible !== false && (
               <span
                 ref={textEditorRef}
                 contentEditable={editable && editingText}
@@ -906,10 +985,10 @@ function ToolbarElement({
           />
         )}
       </span>
-      {selected && editable && onUpdate && (
+      {selected && editable && onUpdate && selectedElementIds.length < 2 && (
         <WebEditableElementFrame
           compact={toolbarControl}
-          ringClassName={toolbarControl ? 'rounded-full ring-1 ring-indigo-500' : undefined}
+          ringClassName="ring-1 ring-indigo-500"
           showAuxiliaryControls={!toolbarControl}
           visible={element.visible !== false}
           onRotatePointerDown={(event) => beginDrag(event, 'rotate')}

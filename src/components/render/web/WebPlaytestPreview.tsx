@@ -112,6 +112,7 @@ import { WebDialogueHistory, WebStoryEnding, WebPlaybackSettings } from './WebPl
 import type { PlayerSettingsValues } from './playerSettingsPanel';
 import { playbackSettingButtonRoles } from './playerSettingsPanelConfig';
 import { WEB_PLAYBACK_UI_CSS, webStoryTitle, webToolbarButtonLabel } from './webPlaybackUi';
+import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -518,14 +519,34 @@ export function WebPlaytestPreview({
     currentNodeId && currentNodeId !== 'THE_END'
       ? runtimeNodes.find((node) => node.id === currentNodeId)
       : null;
-  const storyPlaybackActive =
+  const storySurfaceActive =
     !isPreviewStartMenuOpen &&
     !isPreviewStartSettingsOpen &&
     !isPreviewArchiveOpen &&
-    !showDialogueHistory &&
-    !showAudioPlaylist &&
-    !playbackSettingsButton &&
     (previewMode === 'edit' || previewGameStarted);
+  const storyPlaybackActive =
+    storySurfaceActive && !showDialogueHistory && !showAudioPlaylist && !playbackSettingsButton;
+  const playbackPausedRef = useRef(!storyPlaybackActive);
+  playbackPausedRef.current = !storyPlaybackActive;
+  const lastMediaNodeRef = useRef<string | null>(null);
+  React.useEffect(() => {
+    if (storyPlaybackActive || !storySurfaceActive) return;
+    const animations = new Set<Animation>();
+    previewRootRef.current
+      ?.querySelectorAll('[data-story-visual], [data-dialogue-box]')
+      .forEach((element) => {
+        element.getAnimations({ subtree: true }).forEach((animation) => {
+          if (animation.playState === 'running') {
+            animations.add(animation);
+            animation.pause();
+          }
+        });
+      });
+    return () =>
+      animations.forEach((animation) => {
+        if (animation.playState === 'paused') animation.play();
+      });
+  }, [storyPlaybackActive, storySurfaceActive]);
   useRegionBackgroundMusic(
     nodes,
     storyPlaybackActive ? currentNode : null,
@@ -693,19 +714,21 @@ export function WebPlaytestPreview({
 
   React.useEffect(() => {
     if (!storyPlaybackActive) {
-      restartPlaybackSession();
+      if (!storySurfaceActive) restartPlaybackSession();
       currentAudioRef.current?.pause();
       currentVideoRef.current?.pause();
       return;
     }
+    const nodeChanged = lastMediaNodeRef.current !== currentNodeId;
+    lastMediaNodeRef.current = currentNodeId;
     if (storyPlaybackActive && audioUrl && currentAudioRef.current) {
-      currentAudioRef.current.currentTime = 0;
+      if (nodeChanged) currentAudioRef.current.currentTime = 0;
       currentAudioRef.current.play().catch(() => {
         // Browser autoplay policies may require the first playback to be user initiated.
       });
     }
     if (storyPlaybackActive && settings.autoAdvance && currentVideoUrl && currentVideoRef.current) {
-      currentVideoRef.current.currentTime = 0;
+      if (nodeChanged) currentVideoRef.current.currentTime = 0;
       currentVideoRef.current.play().catch(() => {});
     }
   }, [
@@ -714,6 +737,7 @@ export function WebPlaytestPreview({
     currentVideoUrl,
     settings.autoAdvance,
     storyPlaybackActive,
+    storySurfaceActive,
     restartPlaybackSession,
   ]);
 
@@ -741,12 +765,17 @@ export function WebPlaytestPreview({
       getPresentationExitDuration(presentation) / Math.max(0.5, settings.animationSpeed ?? 1);
     const sessionId = playbackSessionRef.current;
     setPresentationExiting(true);
-    transitionTimerRef.current = window.setTimeout(() => {
-      transitionTimerRef.current = null;
+    const completeTransition = () => {
       if (sessionId !== playbackSessionRef.current) return;
+      if (playbackPausedRef.current) {
+        transitionTimerRef.current = window.setTimeout(completeTransition, 32);
+        return;
+      }
+      transitionTimerRef.current = null;
       if (currentNodeId) setHistory((prev) => [...prev, currentNodeId]);
       setCurrentNodeId(targetId);
-    }, exitDuration);
+    };
+    transitionTimerRef.current = window.setTimeout(completeTransition, exitDuration);
   };
 
   const handleChoiceClick = (targetId: string) => {
@@ -759,11 +788,23 @@ export function WebPlaytestPreview({
     setActiveInlineAction(null);
     setCompletedSwitchActions([]);
     setCompletedInlineActions([]);
-    if (!storyPlaybackActive) {
+    if (!storySurfaceActive) {
       setDisplayedPreviewText(text);
       setAnimationDone(false);
       return;
     }
+    const scheduleStep = (callback: () => void, delay: number) => {
+      let remaining = delay;
+      let previous = performance.now();
+      const tick = () => {
+        const now = performance.now();
+        if (!playbackPausedRef.current) remaining -= now - previous;
+        previous = now;
+        if (remaining <= 0 && !playbackPausedRef.current) callback();
+        else inlineActionTimerRef.current = window.setTimeout(tick, 32);
+      };
+      return window.setTimeout(tick, Math.min(32, Math.max(0, delay)));
+    };
     if (settings.interactionMode !== 'typewriter') {
       const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
         hideCharacterTags: settings.hideCharacterTags,
@@ -806,7 +847,7 @@ export function WebPlaytestPreview({
         setActiveInlineAction(action);
         const duration =
           Math.max(180, action.duration || 420) / Math.max(0.5, settings.animationSpeed ?? 1);
-        inlineActionTimerRef.current = window.setTimeout(() => {
+        inlineActionTimerRef.current = scheduleStep(() => {
           setActiveInlineAction(null);
           setCompletedSwitchActions((previous) => [...previous, action]);
           setCompletedInlineActions((previous) => [...previous, action]);
@@ -814,7 +855,9 @@ export function WebPlaytestPreview({
         }, duration);
       };
       playSwitch(0);
-      return;
+      return () => {
+        if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
+      };
     }
     setAnimationDone(false);
     const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
@@ -838,7 +881,7 @@ export function WebPlaytestPreview({
 
       if (step.kind === 'action') {
         setActiveInlineAction(step.action);
-        inlineActionTimerRef.current = window.setTimeout(
+        inlineActionTimerRef.current = scheduleStep(
           () => {
             setActiveInlineAction(null);
             if (step.action.action === 'switch' && step.action.targetAssetId) {
@@ -865,6 +908,7 @@ export function WebPlaytestPreview({
             : Array.from(source);
       let index = 0;
       timer = window.setInterval(() => {
+        if (playbackPausedRef.current) return;
         index += 1;
         const visibleText = revealUnits.slice(0, index).join('');
         setDisplayedPreviewText(committedHtml + visibleText);
@@ -882,7 +926,7 @@ export function WebPlaytestPreview({
       if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
     };
   }, [
-    storyPlaybackActive,
+    storySurfaceActive,
     currentNodeId,
     presentation,
     renderStyle.bodyTypewriterMode,
@@ -997,7 +1041,7 @@ export function WebPlaytestPreview({
 
   React.useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsPreviewFullscreen(document.fullscreenElement === previewRootRef.current);
+      setIsPreviewFullscreen(Boolean(document.fullscreenElement?.contains(previewRootRef.current)));
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -1206,12 +1250,14 @@ export function WebPlaytestPreview({
   const togglePreviewFullscreen = async () => {
     const previewRoot = previewRootRef.current;
     if (!previewRoot) return;
+    const fullscreenHost =
+      previewRoot.closest<HTMLElement>('[data-virtual-presentation-host]') || previewRoot;
     try {
-      if (document.fullscreenElement === previewRoot) {
+      if (document.fullscreenElement === fullscreenHost) {
         await document.exitFullscreen();
         return;
       }
-      await previewRoot.requestFullscreen();
+      await fullscreenHost.requestFullscreen();
     } catch (fullscreenError) {
       console.warn('Could not toggle web preview fullscreen:', fullscreenError);
     }
@@ -1430,9 +1476,23 @@ export function WebPlaytestPreview({
         settings.canvasWidth,
         settings.canvasHeight,
       );
+      const updated = source.map((element) =>
+        element.id === id ? { ...element, ...patch } : element,
+      );
+      const buttons = source.filter((element) => element.kind === 'button');
+      const adjustLabels = ['text', 'textVisible', 'fontSize'].some((key) => key in patch);
       onUpdateSettings(
         'previewToolbarElements',
-        source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+        adjustLabels && buttons.length
+          ? arrangeToolbarRow(
+              updated,
+              settings.canvasWidth,
+              settings.canvasHeight,
+              toolbarRowGap(buttons),
+              Math.max(...buttons.map((element) => element.x + element.width)),
+              Math.min(...buttons.map((element) => element.y)),
+            )
+          : updated,
       );
     },
     [
@@ -2134,6 +2194,7 @@ export function WebPlaytestPreview({
         )}
         <PreviewFloatingElementLayer
           elements={toolbarLayerElements}
+          onSelectElements={onSelectStartMenuElements}
           guideElements={floatingGuideElements}
           selectedElementId={selectedStartMenuElementId}
           previewMode={previewMode}
@@ -2314,7 +2375,7 @@ export function WebPlaytestPreview({
 
   if (!root) {
     return (
-      <div className="flex h-full min-h-[320px] items-center justify-center rounded-lg border border-dashed border-[var(--vr-border-strong)] bg-[var(--vr-panel)] text-sm font-bold text-[var(--vr-text-muted)]">
+      <div className="flex h-full min-h-[320px] items-center justify-center rounded-none border border-dashed border-[var(--vr-border-strong)] bg-[var(--vr-panel)] text-sm font-bold text-[var(--vr-text-muted)]">
         {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText2045')}
       </div>
     );
@@ -2326,7 +2387,7 @@ export function WebPlaytestPreview({
     return (
       <div
         ref={previewRootRef}
-        className="relative flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
+        className="relative flex h-full min-h-[320px] flex-col overflow-hidden rounded-none border border-white/10 bg-slate-950 text-white shadow-sm"
       >
         {renderPreviewToolbar()}
         {renderAudioPlaylistModal()}
@@ -2457,7 +2518,7 @@ export function WebPlaytestPreview({
   return (
     <div
       ref={previewRootRef}
-      className="relative h-full min-h-[320px] overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-white shadow-sm"
+      className="relative h-full min-h-[320px] overflow-hidden rounded-none border border-white/10 bg-slate-950 text-white shadow-sm"
       style={
         settings.layoutMode === 'classic'
           ? { ...dialogueBackgroundStyle, ...getSceneBackgroundStyle(settings) }
@@ -2530,7 +2591,7 @@ export function WebPlaytestPreview({
         {renderAudioPlaylistModal()}
         {renderDialogueHistory()}
         {renderFloatingElements()}
-        <div className="absolute inset-0 min-h-0 p-0">
+        <div data-story-visual="true" className="absolute inset-0 min-h-0 p-0">
           <div
             className={`flex h-full min-h-0 items-center justify-center overflow-hidden relative ${
               settings.layoutMode === 'immersive' ? 'rounded-none' : 'bg-slate-950'

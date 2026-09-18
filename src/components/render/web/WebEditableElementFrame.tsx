@@ -3,16 +3,7 @@ import type React from 'react';
 
 export type WebEditableResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
-export const webEditableResizeHandles: WebEditableResizeHandle[] = [
-  'n',
-  's',
-  'e',
-  'w',
-  'nw',
-  'ne',
-  'se',
-  'sw',
-];
+export const webEditableResizeHandles: WebEditableResizeHandle[] = ['nw', 'ne', 'se', 'sw'];
 
 const positionClass: Record<WebEditableResizeHandle, string> = {
   n: 'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2',
@@ -23,28 +14,6 @@ const positionClass: Record<WebEditableResizeHandle, string> = {
   nw: 'left-0 top-0 -translate-x-1/2 -translate-y-1/2',
   se: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2',
   sw: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2',
-};
-
-const shapeClass: Record<WebEditableResizeHandle, string> = {
-  n: 'h-5 w-full',
-  s: 'h-5 w-full',
-  e: 'h-full w-5',
-  w: 'h-full w-5',
-  ne: 'h-5 w-5',
-  nw: 'h-5 w-5',
-  se: 'h-5 w-5',
-  sw: 'h-5 w-5',
-};
-
-const visibleHandleClass: Record<WebEditableResizeHandle, string> = {
-  n: 'bg-transparent',
-  s: 'bg-transparent',
-  e: 'bg-transparent',
-  w: 'bg-transparent',
-  ne: 'border border-indigo-200 bg-white shadow',
-  nw: 'border border-indigo-200 bg-white shadow',
-  se: 'border border-indigo-200 bg-white shadow',
-  sw: 'border border-indigo-200 bg-white shadow',
 };
 
 const cursorByHandle: Record<WebEditableResizeHandle, string> = {
@@ -59,9 +28,8 @@ const cursorByHandle: Record<WebEditableResizeHandle, string> = {
 };
 
 export function WebEditableElementFrame({
-  compact = false,
   visible,
-  ringClassName = 'ring-2 ring-indigo-500',
+  ringClassName = 'ring-1 ring-indigo-500',
   onToggleVisible,
   onDelete,
   onRotatePointerDown,
@@ -168,7 +136,7 @@ export function WebEditableElementFrame({
           <span
             key={handle}
             tabIndex={-1}
-            className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${compact ? 'grid h-3 w-3 place-items-center' : `${shapeClass[handle]} ${visibleHandleClass[handle]}`}`}
+            className={`pointer-events-auto absolute z-[270] grid h-3 w-3 place-items-center ${positionClass[handle]}`}
             style={{
               cursor: cursorByHandle[handle],
               pointerEvents: 'auto',
@@ -183,9 +151,7 @@ export function WebEditableElementFrame({
             onClick={(event) => event.stopPropagation()}
             aria-label="Resize border"
           >
-            {compact && (
-              <span className="pointer-events-none block h-1.5 w-1.5 rounded-sm border border-indigo-400 bg-white" />
-            )}
+            <span className="pointer-events-none block h-1.5 w-1.5 border border-indigo-400 bg-white" />
           </span>
         ))}
     </>

@@ -651,22 +651,48 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     let historyOpen = false;
     let historyCleanup = null;
     let historyHost = null;
+    let suspendedStoryMedia = [];
+    let suspendedStoryAnimations = [];
     function storyPlaybackActive() { return gameStarted && !historyOpen && !startScreen.classList.contains('open') && !settingsBackdrop.classList.contains('open') && !saveBackdrop.classList.contains('open') && !playlistBackdrop.classList.contains('open'); }
+    function pauseStoryForPopup() {
+      if (autoAdvanceTimer) clearTimeout(autoAdvanceTimer);
+      autoAdvanceTimer = null;
+      const media = [...stageEl.querySelectorAll('audio,video'), regionAudio, sceneAmbientAudio].filter(Boolean);
+      for (const item of media) {
+        if (!item.paused && !suspendedStoryMedia.includes(item)) suspendedStoryMedia.push(item);
+        item.pause();
+      }
+      for (const animation of stageEl.getAnimations({ subtree: true })) {
+        if (animation.playState === 'running') {
+          suspendedStoryAnimations.push(animation);
+          animation.pause();
+        }
+      }
+    }
+    function resumeStoryAfterPopup() {
+      if (!storyPlaybackActive()) return;
+      suspendedStoryMedia.forEach(media => {
+        if (media.isConnected || media === regionAudio || media === sceneAmbientAudio) media.play().catch(() => {});
+      });
+      suspendedStoryAnimations.forEach(animation => { if (animation.playState === 'paused') animation.play(); });
+      suspendedStoryMedia = [];
+      suspendedStoryAnimations = [];
+      if (currentTextEnded) { showChoicesAndMaybeAdvance(); maybeAdvanceAfterMedia(); }
+      updatePlaybackToolbar();
+    }
     function closeDialogueHistory(resume = true) {
       historyCleanup?.(); historyCleanup = null;
       historyHost?.remove(); historyHost = null;
       historyOpen = false;
       playlistAudio.pause();
-      if (resume && gameStarted && currentId !== 'THE_END') render();
+      if (resume && gameStarted && currentId !== 'THE_END') resumeStoryAfterPopup();
       else updatePlaybackToolbar();
     }
     function openDialogueHistory() {
       if (historyOpen) { closeDialogueHistory(); return; }
-      restartPlaybackSession();
-      stageEl.querySelectorAll('audio,video').forEach(media => media.pause());
+      pauseStoryForPopup();
       playlistAudio.pause();
       playlistBackdrop.classList.remove('open');
-      syncRegionMusic(null); syncSceneAmbient(null);
       historyOpen = true;
       const path = [...history, ...(currentId && currentId !== 'THE_END' ? [currentId] : [])];
       const entries = path.flatMap((id, index) => {
@@ -969,7 +995,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         wrapper.style.top = Number(element.y || 0) + "%";
         wrapper.style.width = Math.max(1, Number(element.width || 10)) + "%";
         wrapper.style.height = Math.max(1, Number(element.height || 6)) + "%";
-        if (isToolbar && element.kind === "button") { wrapper.style.width = "auto"; wrapper.style.aspectRatio = "1 / 1"; }
+        if (isToolbar && element.kind === "button" && element.textVisible === false) wrapper.style.aspectRatio = "1 / 1";
         wrapper.style.transform = "rotate(" + Number(element.rotation || 0) + "deg) scale(" + (Number(element.scale) || 1) + ")";
         wrapper.style.opacity = element.backgroundType === "gradient"
           ? "1"
@@ -991,7 +1017,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           const widget = layer === settingsCustomLayer ? settingsWidgetMarkup[element.id] : null;
           const button = document.createElement(widget ? "div" : "button");
           button.type = "button";
-          button.className = "start-element-button" + (isToolbar ? ' gw-playback-control' : '') + ((element.primary || action?.primary) ? " primary" : "");
+          button.className = "start-element-button" + (isToolbar ? ' gw-playback-control' + (element.textVisible !== false ? ' gw-playback-control-with-label' : '') : '') + ((element.primary || action?.primary) ? " primary" : "");
           const buttonLabel = isToolbar ? toolbarButtonLabel(element.role, element.text || '', content.language, Boolean(document.fullscreenElement), controlsHidden, settings.autoAdvance, element.id === 'toolbar-auto') : element.text || action?.label || '';
           button.textContent = "";
           button.disabled = Boolean(element.disabled || action?.disabled);
@@ -1001,6 +1027,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
             button.title = buttonLabel || action?.label || element.role || 'Button';
             if (element.id === 'toolbar-auto') button.setAttribute('aria-pressed', String(settings.autoAdvance));
             button.dataset.toolbarRole = element.role || '';
+            button.style.setProperty('--gw-toolbar-icon-size', Math.max(12, Number(element.height || 4.8) / 4.8 * 20) + 'px');
           }
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
@@ -1066,13 +1093,18 @@ ${WEB_PLAYBACK_UI_CSS}</style>
               label.style.visibility = element.textVisible === false ? 'hidden' : 'visible';
             });
           }
-          if (!isToolbar && !widget && element.textVisible !== false) {
+          if (!widget && element.textVisible !== false) {
             const label = document.createElement("span");
             label.textContent = buttonLabel;
             label.style.position = "relative";
             label.style.zIndex = "1";
-            applyTextPaint(label, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
-            button.appendChild(label);
+            if (isToolbar) {
+              label.className = 'gw-playback-label';
+              (button.querySelector('.gw-playback-control-content') || button).appendChild(label);
+            } else {
+              applyTextPaint(label, element, element.primary ? style.choiceTextColor || "#ffffff" : "#f8fafc");
+              button.appendChild(label);
+            }
           }
           if (!widget && action?.onClick) button.addEventListener("click", () => {
             if (layer === settingsCustomLayer && ["save", "new", "continue"].includes(element.role)) closeSettingsPanel();
@@ -1285,9 +1317,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     }
     function openPlaybackSetting(element) {
       settingsFocusReturn = document.activeElement;
-      restartPlaybackSession();
-      stageEl.querySelectorAll('audio,video').forEach(media => media.pause());
-      playlistAudio.pause(); syncRegionMusic(null); syncSceneAmbient(null);
+      pauseStoryForPopup();
+      playlistAudio.pause();
       settingsWidgetControllers.forEach(controller => controller.destroy());
       settingsWidgetControllers = [];
       settingsPopupOpen = true;
@@ -1324,8 +1355,13 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         settingsWidgetControllers.forEach(controller => controller.destroy()); settingsWidgetControllers = [];
         playerSettingsRoot.replaceChildren(); playerSettingsRoot.hidden = true;
         settingsCustomLayer.hidden = false;
+        if (settingsNeedTextRefresh) {
+          clearPlaybackTimers();
+          const node = nodeById.get(currentId);
+          if (node) applyTypewriter(document.getElementById('nodeText'), node.data.text || '', node.data.rawText || node.data.text || '', node.data.presentation || null, settings.interactionMode === 'typewriter', true);
+        }
         settingsNeedTextRefresh = false;
-        if (gameStarted && !startScreen.classList.contains('open') && currentId !== 'THE_END') render();
+        resumeStoryAfterPopup();
         if (settingsFocusReturn?.isConnected) settingsFocusReturn.focus({ preventScroll: true });
         return;
       }
@@ -1377,9 +1413,29 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       typewriterTimers = [];
     }
 
+    // Keep the same story DOM and remaining delay while a playback popup is open.
+    function schedulePlaybackStep(callback, delay) {
+      let remaining = Math.max(0, delay);
+      let previous = performance.now();
+      const timer = setInterval(() => {
+        const now = performance.now();
+        if (storyPlaybackActive()) remaining -= now - previous;
+        previous = now;
+        if (remaining <= 0 && storyPlaybackActive()) {
+          clearInterval(timer);
+          typewriterTimers = typewriterTimers.filter(value => value !== timer);
+          callback();
+        }
+      }, 16);
+      typewriterTimers.push(timer);
+      return timer;
+    }
+
     function restartPlaybackSession() {
       playbackSession += 1;
       clearPlaybackTimers();
+      suspendedStoryMedia = [];
+      suspendedStoryAnimations = [];
       isTransitioning = false;
       lastJumpedNode = null;
     }
@@ -1717,7 +1773,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       
       if (exitDuration > 0) {
         const sessionId = playbackSession;
-        setTimeout(() => {
+        schedulePlaybackStep(() => {
           if (sessionId !== playbackSession) return;
           isTransitioning = false;
           if (currentId) history.push(currentId);
@@ -1894,7 +1950,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         flash.style.opacity = '1';
         flash.style.transform = 'translateX(122.414%)';
       }));
-      const timer = setTimeout(() => {
+      const timer = schedulePlaybackStep(() => {
         outgoing.src = targetUrl;
         reveal.remove();
         flash.remove();
@@ -1940,7 +1996,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         if (action.action === "brightness") target.classList.add("inline-brightness");
       }
       if (!isPersistentInlineAction(action)) {
-        const resetTimer = setTimeout(() => clearInlineActionElement(target), duration);
+        const resetTimer = schedulePlaybackStep(() => clearInlineActionElement(target), duration);
         typewriterTimers.push(resetTimer);
       }
     }
@@ -2015,7 +2071,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         }
         if (step.kind === "action") {
           applyInlineAction(step.action);
-          const waitTimer = setTimeout(() => {
+          const waitTimer = schedulePlaybackStep(() => {
             stepIndex += 1;
             playNextStep();
           }, Math.max(0, step.action.duration || 0) / settings.animationSpeed);
@@ -2030,6 +2086,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
             : Array.from(segmentText);
         let segmentIndex = 0;
         segmentTimer = setInterval(() => {
+          if (!storyPlaybackActive()) return;
           segmentIndex += 1;
           visible.textContent = committedText + segmentUnits.slice(0, segmentIndex).join("");
           if (element._revealText) element._revealText(Array.from(visible.textContent).length);
@@ -2426,10 +2483,10 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     });
     playlistButton.addEventListener("click", () => {
       const open = !playlistBackdrop.classList.contains("open");
-      if (open) { restartPlaybackSession(); stageEl.querySelectorAll('audio,video').forEach(media => media.pause()); syncRegionMusic(null); syncSceneAmbient(null); }
+      if (open) pauseStoryForPopup();
       playlistBackdrop.classList.toggle("open", open);
       playlistButton.setAttribute("aria-expanded", String(open));
-      if (!open) { playlistAudio.pause(); render(); }
+      if (!open) { playlistAudio.pause(); resumeStoryAfterPopup(); }
       updatePlaybackToolbar();
     });
     playlistClose.addEventListener("click", () => playlistButton.click());

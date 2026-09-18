@@ -14,6 +14,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     button { font: inherit; }
     .canvas-shell {
+      border-radius: 0;
       position: fixed;
       left: 50%;
       top: 50%;
@@ -21,6 +22,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       transform-origin: center center;
     }
     .app {
+      border-radius: 0;
       width: 100%;
       height: 100%;
       display: grid;

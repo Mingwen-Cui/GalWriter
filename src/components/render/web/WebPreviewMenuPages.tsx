@@ -718,7 +718,8 @@ function MenuPageElementLayer({
         .filter((element) => editable || element.visible !== false)
         .map((element) => {
           const selected =
-            editable && (selectedElementId === element.id || selectedElementIds.includes(element.id));
+            editable &&
+            (selectedElementId === element.id || selectedElementIds.includes(element.id));
           const suffix = renderSuffix?.(element) || '';
           const commonStyle: CSSProperties = {
             left: `${element.x}%`,
@@ -923,7 +924,7 @@ function MenuPageElementLayer({
                   <input
                     autoFocus
                     aria-label="Rename button"
-                    className="pointer-events-auto absolute border border-indigo-300 bg-slate-950/92 px-4 text-center font-black text-white outline-none ring-2 ring-indigo-500"
+                    className="pointer-events-auto absolute border border-indigo-300 bg-slate-950/92 px-4 text-center font-black text-white outline-none ring-1 ring-indigo-500"
                     style={{
                       ...commonStyle,
                       ...contentStyle,

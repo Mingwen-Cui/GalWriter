@@ -135,7 +135,7 @@ export function WebPlaytestDialoguePanel({
   const selectionClass = (kind: RenderEditableObjectKind) =>
     editMode &&
     (renderStyle.selectedRenderObject === kind || selectedRenderObjectKinds.includes(kind))
-      ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-transparent'
+      ? 'ring-1 ring-indigo-500'
       : '';
   const selectObject = (event: React.MouseEvent, kind: RenderEditableObjectKind) => {
     if (!editMode) return;

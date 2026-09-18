@@ -317,6 +317,7 @@ export type WebMenuElement = {
   textGradientStops?: Array<{ id: string; color: string; alpha: number; position: number }>;
   textBlendMode?: string;
   textVisible?: boolean;
+  toolbarLayoutVersion?: number;
   textStrokeColor?: string;
   textStrokeWidth?: number;
   textStrokeTarget?: 'text' | 'box';

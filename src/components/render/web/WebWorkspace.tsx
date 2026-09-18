@@ -1,3 +1,4 @@
+import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { resolveWebToolbarElements } from './webExperienceTemplates';
 import { resolveSettingsPageElements } from './webMenuPageElements';
 import { PlayerSettingsControlsInspector } from './PlayerSettingsControlsInspector';
@@ -826,7 +827,7 @@ export function WebWorkspace({
       const dialogue = webSettings.dialogueOverlayElements || [];
       if (toolbar.some((element) => element.id === id)) {
         const element = toolbar.find((item) => item.id === id)!;
-        if (element.kind === 'button') {
+        if (element.kind === 'button' && (patch.textVisible ?? element.textVisible) === false) {
           if (patch.height !== undefined)
             patch = {
               ...patch,
@@ -840,7 +841,16 @@ export function WebWorkspace({
         }
         updateWebSettings(
           'previewToolbarElements',
-          toolbar.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+          ['textVisible', 'text', 'fontSize', 'height', 'width'].some((key) => key in patch)
+            ? arrangeToolbarRow(
+                toolbar.map((element) => (element.id === id ? { ...element, ...patch } : element)),
+                webSettings.canvasWidth,
+                webSettings.canvasHeight,
+                toolbarRowGap(toolbar),
+                Math.max(...toolbar.map((element) => element.x + element.width)),
+                Math.min(...toolbar.map((element) => element.y)),
+              )
+            : toolbar.map((element) => (element.id === id ? { ...element, ...patch } : element)),
         );
         return;
       }
@@ -1228,18 +1238,26 @@ export function WebWorkspace({
     if (currentPreviewSurface === 'start') {
       updateWebSettings('startMenuElements', [...(webSettings.startMenuElements || []), button]);
     } else if (currentPreviewSurface === 'game') {
-      updateWebSettings('previewToolbarElements', [
-        ...resolvedToolbarElements,
-        {
-          ...button,
-          x: 2,
-          y: 10,
-          width: (4.8 * webSettings.canvasHeight) / webSettings.canvasWidth,
-          height: 4.8,
-          fontSize: 12,
-          textVisible: false,
-        },
-      ]);
+      updateWebSettings(
+        'previewToolbarElements',
+        arrangeToolbarRow(
+          [
+            ...resolvedToolbarElements,
+            {
+              ...button,
+              x: 2,
+              y: 10,
+              width: (4.8 * webSettings.canvasHeight) / webSettings.canvasWidth,
+              height: 4.8,
+              fontSize: 12,
+              textVisible: false,
+            },
+          ],
+          webSettings.canvasWidth,
+          webSettings.canvasHeight,
+          toolbarRowGap(resolvedToolbarElements),
+        ),
+      );
     } else {
       const key =
         currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
