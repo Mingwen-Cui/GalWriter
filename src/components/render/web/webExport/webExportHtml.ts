@@ -1,3 +1,4 @@
+import { mountPresentationText } from '../../shared/presentationTextDom';
 import type { WebMenuElement } from '../../video/shared/types';
 import { playerControlCatalog } from '../playerSettingsPanelConfig';
 import type { PlayerSettingsPanelConfig } from '../playerSettingsPanelConfig';
@@ -1166,6 +1167,9 @@ ${PLAYER_SETTINGS_CSS}</style>
       document.documentElement.style.setProperty("--title-size", Math.max(18, (Number(titleObject.fontSize ?? style.titleFontSize) || 18) * textScale) + "px");
       document.documentElement.style.setProperty("--body-size", Math.max(16, (Number(bodyObject.fontSize ?? style.bodyFontSize) || 18) * textScale) + "px");
       document.documentElement.style.setProperty("--player-animation-speed", String(settings.animationSpeed));
+      stageEl.querySelectorAll('[data-resolved-text] > div').forEach(host => {
+        host.style.transform = 'scale(' + settings.textScale / 100 + ')';
+      });
       document.querySelector(".app").classList.toggle("controls-hidden", controlsHidden);
       zenButton.innerHTML = '<img src="./icons/' + (controlsHidden ? 'eye-off.svg' : 'eye.svg') + '" alt="" />';
       document.querySelectorAll("audio,video").forEach((media) => {
@@ -1818,6 +1822,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       }
     }
 
+    const mountPresentationText = ${mountPresentationText.toString()};
     function mountResolvedText(node) {
       const data = node.data.dialogueText;
       if (!data) return;
@@ -1827,32 +1832,26 @@ ${PLAYER_SETTINGS_CSS}</style>
       const title = panel.querySelector('.title');
       if (title) title.hidden = true;
       const text = document.getElementById('nodeText');
+      text.setAttribute('aria-hidden', 'true');
       Object.assign(text.style, { position: 'absolute', opacity: '0', pointerEvents: 'none', width: '1px', height: '1px', overflow: 'hidden' });
+      const hosts = {};
       for (const kind of ['title', 'body']) {
         const block = data[kind];
         if (!block.visible) continue;
-        const host = document.createElement('div');
-        host.dataset.resolvedText = kind;
-        Object.assign(host.style, { position: 'absolute', pointerEvents: 'none', left: block.left + 'px', top: block.top + 'px',
+        const frame = document.createElement('div');
+        frame.dataset.resolvedText = kind;
+        Object.assign(frame.style, { position: 'absolute', left: block.left + 'px', top: block.top + 'px',
           width: block.width + 'px', height: block.height + 'px', transformOrigin: 'center',
           transform: 'rotate(' + block.rotation + 'deg) scale(' + (block.flipX ? -1 : 1) + ',' + (block.flipY ? -1 : 1) + ')' });
-        block.lines.forEach((line, index) => {
-          const image = document.createElement('img');
-          image.src = line.src; image.alt = line.text; image.dataset.line = String(index);
-          Object.assign(image.style, { position: 'absolute', maxWidth: 'none', left: -line.padding + 'px',
-            top: line.top - line.padding + 'px', width: line.width + 'px', height: line.height + 'px' });
-          host.appendChild(image);
-        });
-        panel.appendChild(host);
+        const host = document.createElement('div');
+        mountPresentationText(host, block);
+        host.style.transform = 'scale(' + settings.textScale / 100 + ')';
+        frame.appendChild(host);
+        panel.appendChild(frame);
+        hosts[kind] = host;
       }
       text._revealText = function(count) {
-        panel.querySelectorAll('[data-resolved-text="body"] img').forEach(image => {
-          const line = data.body.lines[Number(image.dataset.line)];
-          const visible = Math.max(0, Math.min(line.advances.length - 1, count - line.start));
-          image.style.visibility = visible === 0 ? 'hidden' : 'visible';
-          const right = visible === line.advances.length - 1 ? 0 : Math.max(0, line.width - line.padding - line.alignOffset - line.advances[visible]);
-          image.style.clipPath = 'inset(0 ' + right + 'px 0 0)';
-        });
+        if (hosts.body) mountPresentationText(hosts.body, data.body, count);
       };
     }
 

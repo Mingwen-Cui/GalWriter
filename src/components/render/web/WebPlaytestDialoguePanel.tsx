@@ -95,8 +95,14 @@ export function WebPlaytestDialoguePanel({
   onRecordCurrentAudio,
   onCurrentAudioEnded,
 }: WebPlaytestDialoguePanelProps) {
-  const textLayout = useDialogueTextLayout(renderStyle, settings.canvasWidth, settings.canvasHeight,
-    getNodeDisplayTitle(currentNode), htmlToSpeechText(text), hideCenteredTitle || currentNode?.data?.hideTitleInPlayback === true);
+  const textLayout = useDialogueTextLayout(
+    renderStyle,
+    settings.canvasWidth,
+    settings.canvasHeight,
+    getNodeDisplayTitle(currentNode),
+    htmlToSpeechText(text),
+    hideCenteredTitle || currentNode?.data?.hideTitleInPlayback === true,
+  );
   const editMode = previewMode === 'edit';
   const [activeGuideLines, setActiveGuideLines] = useState<PixelGuideLine[]>([]);
   const [selectedRenderObjectKinds, setSelectedRenderObjectKinds] = useState<
@@ -171,9 +177,16 @@ export function WebPlaytestDialoguePanel({
             renderStyle,
           )
         : null;
-    const canvasScale = container && containerRect && containerRect.width > 0 ? container.offsetWidth / containerRect.width : 1;
+    const canvasScale =
+      container && containerRect && containerRect.width > 0
+        ? container.offsetWidth / containerRect.width
+        : 1;
     const move = (moveEvent: PointerEvent) => {
-      const delta = presentationPointerDelta(targetElement, moveEvent.clientX - startX, moveEvent.clientY - startY);
+      const delta = presentationPointerDelta(
+        targetElement,
+        moveEvent.clientX - startX,
+        moveEvent.clientY - startY,
+      );
       let nextX = initialX + delta.x;
       let nextY = initialY + delta.y;
       if (dialogueLayout) {
@@ -194,7 +207,11 @@ export function WebPlaytestDialoguePanel({
           height: targetRect.height,
           boxes: guideBoxes,
         });
-        const snappedDelta = presentationPointerDelta(targetElement, snapped.x - targetStartX, snapped.y - targetStartY);
+        const snappedDelta = presentationPointerDelta(
+          targetElement,
+          snapped.x - targetStartX,
+          snapped.y - targetStartY,
+        );
         nextX = initialX + snappedDelta.x;
         nextY = initialY + snappedDelta.y;
         setActiveGuideLines(snapped.lines);
@@ -382,18 +399,36 @@ export function WebPlaytestDialoguePanel({
           ? nameplates(setActiveGuideLines, selectedRenderObjectKinds)
           : nameplates}
         {aboveChoices}
-        {(['title', 'body'] as const).map(kind => {
+        {(['title', 'body'] as const).map((kind) => {
           const block = textLayout[kind];
           if (!block.visible && !editMode) return null;
-          return <div key={`${currentNodeId}-${kind}`} data-render-object={kind}
-            className={`z-20 ${editMode ? 'cursor-grab' : ''} ${selectionClass(kind)}`}
-            style={{ ...textBlockCss(block, textLayout.dialog), opacity: block.object.visible ? 1 : .34 }}
-            onClick={event => { if (editMode) selectObject(event, kind); else if (kind === 'body') onContinueFromText(); }}
-            onPointerDown={event => startDrag(event, kind)}>
-            <PresentationText block={block} visibleCharacters={kind === 'body' && !editMode && settings.interactionMode === 'typewriter'
-              ? Array.from(htmlToSpeechText(displayedPreviewText || '')).length : Infinity} />
-            {selectedFrame(kind)}
-          </div>;
+          return (
+            <div
+              key={`${currentNodeId}-${kind}`}
+              data-render-object={kind}
+              className={`z-20 ${editMode ? 'cursor-grab' : ''} ${selectionClass(kind)}`}
+              style={{
+                ...textBlockCss(block, textLayout.dialog),
+                opacity: block.object.visible ? 1 : 0.34,
+              }}
+              onClick={(event) => {
+                if (editMode) selectObject(event, kind);
+                else if (kind === 'body') onContinueFromText();
+              }}
+              onPointerDown={(event) => startDrag(event, kind)}
+            >
+              <PresentationText
+                block={block}
+                scale={(settings.textScale ?? 100) / 100}
+                visibleCharacters={
+                  kind === 'body' && !editMode && settings.interactionMode === 'typewriter'
+                    ? Array.from(htmlToSpeechText(displayedPreviewText || '')).length
+                    : Infinity
+                }
+              />
+              {selectedFrame(kind)}
+            </div>
+          );
         })}
         {audioUrl && (
           <audio

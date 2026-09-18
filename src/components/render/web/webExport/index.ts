@@ -202,8 +202,6 @@ const WEB_EXPORT_ICONS: Record<string, string> = {
   'eye-off.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"/><path d="M9.9 5.3A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.3 3.4"/><path d="M6.6 6.8C3.6 8.8 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.7-1.2"/></svg>`,
 };
 
-
-
 export async function exportInteractiveWebZip(
   nodes: FlowNode[],
   edges: FlowEdge[],
@@ -619,17 +617,16 @@ export async function buildInteractiveWebZipBlob(
       };
     }
 
-    const dialogueText = await packDialogueText({ ...DEFAULT_RENDER_STYLE, ...options.style },
-      settings.canvasWidth, settings.canvasHeight, htmlToSpeechText(titleText),
-      htmlToSpeechText(filterMentionTags(nodeText(node), settings.hideCharacterTags, settings.hideSceneTags)),
-      node.data?.hideTitleInPlayback === true);
-    for (const kind of ['title', 'body'] as const) {
-      for (const [lineIndex, line] of dialogueText[kind].lines.entries()) {
-        const file = `text/${webNodes.length}-${kind}-${lineIndex}.png`;
-        zip.file(file, line.src.split(',')[1], { base64: true });
-        line.src = './' + file;
-      }
-    }
+    const dialogueText = await packDialogueText(
+      style as RenderStyle,
+      settings.canvasWidth,
+      settings.canvasHeight,
+      htmlToSpeechText(titleText),
+      htmlToSpeechText(
+        filterMentionTags(nodeText(node), settings.hideCharacterTags, settings.hideSceneTags),
+      ),
+      node.data?.hideTitleInPlayback === true,
+    );
     webNodes.push({
       id: node.id,
       type: node.type,

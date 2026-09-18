@@ -1,5 +1,7 @@
-import { preparePresentationFonts, resolveDialogueTextLayout } from '../shared/presentationTextLayout';
-import { rasterizeTextBlock } from '../shared/PresentationText';
+import {
+  preparePresentationFonts,
+  resolveDialogueTextLayout,
+} from '../shared/presentationTextLayout';
 import { drawDialogueBox } from '../video/shared/dialogueBoxRenderer';
 import { renderAppearancePng } from '../shared/paint/appearanceCanvas';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
@@ -29,7 +31,6 @@ import {
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
-import { splitPptTextLines, splitPptTypewriterChars } from './pptTextLines';
 import {
   finalizePptxForPowerPoint,
   type PptAnimationExportTarget,
@@ -650,40 +651,115 @@ export async function buildPptxBuffer({
     const title = objects.title;
     const body = objects.body;
     const nameplate = objects.nameplate;
-    const layout = resolvePresentationDialogueLayout(settings.canvasWidth, settings.canvasHeight, style);
+    const layout = resolvePresentationDialogueLayout(
+      settings.canvasWidth,
+      settings.canvasHeight,
+      style,
+    );
     const panelX = (layout.x / settings.canvasWidth) * 13.333;
     const panelY = (layout.y / settings.canvasHeight) * 7.5;
     const panelW = (layout.width / settings.canvasWidth) * 13.333;
     const panelH = (layout.height / settings.canvasHeight) * 7.5;
     await preparePresentationFonts(style, sceneTitle + sceneBody);
     const measuringCanvas = document.createElement('canvas');
-    measuringCanvas.width = settings.canvasWidth; measuringCanvas.height = settings.canvasHeight;
+    measuringCanvas.width = settings.canvasWidth;
+    measuringCanvas.height = settings.canvasHeight;
     const context = measuringCanvas.getContext('2d')!;
     const textLayout = resolveDialogueTextLayout(context, {
-      width: settings.canvasWidth, height: settings.canvasHeight, style, title: sceneTitle, body: sceneBody, hideTitle: scene.hideTitleInPlayback,
+      width: settings.canvasWidth,
+      height: settings.canvasHeight,
+      style,
+      title: sceneTitle,
+      body: sceneBody,
+      hideTitle: scene.hideTitleInPlayback,
     });
     if (panel.visible) {
       await drawDialogueBox(context, settings.canvasWidth, settings.canvasHeight, style);
       const objectName = `ppt-dialog-panel-${scene.id}`;
-      slide.addImage({ objectName, data: measuringCanvas.toDataURL('image/png'), ...fullContentFrame });
+      slide.addImage({
+        objectName,
+        data: measuringCanvas.toDataURL('image/png'),
+        ...fullContentFrame,
+      });
       addAnimationTargets(objectName, 'dialog-panel');
     }
     for (const kind of ['title', 'body'] as const) {
       const block = textLayout[kind];
       if (!block.visible) continue;
       const target = kind === 'title' ? 'dialog-title' : 'dialog-body';
-      const { canvas, padding } = await rasterizeTextBlock(block);
       const objectName = `ppt-${target}-${scene.id}`;
-      slide.addImage({ objectName, data: canvas.toDataURL('image/png'),
-        ...page.frame((block.left - padding) / settings.canvasWidth * 13.333, (block.top - padding) / settings.canvasHeight * 7.5,
-          canvas.width / settings.canvasWidth * 13.333, canvas.height / settings.canvasHeight * 7.5),
-        rotate: block.object.rotation, flipH: block.object.flipX, flipV: block.object.flipY });
+      const object = block.object;
+      const pointScale = (7.5 / settings.canvasHeight) * 72 * page.scale;
+      const fill = object.appearance?.fills.find((layer) => layer.enabled && layer.opacity > 0);
+      const outline = object.appearance
+        ? object.appearance.strokes.find((layer) => layer.enabled)
+        : object.stroke.enabled
+          ? object.stroke
+          : undefined;
+      const textColor = fill?.color || object.fill.color;
+      const colorAlpha = /^#[0-9a-f]{8}$/i.test(textColor)
+        ? parseInt(textColor.slice(7, 9), 16) / 255
+        : 1;
+      // Native editable text: fixed line breaks and metrics, with no PowerPoint autofit/reflow.
+      slide.addText(block.lines.join('\n'), {
+        objectName,
+        ...page.frame(
+          (block.left / settings.canvasWidth) * 13.333,
+          (block.top / settings.canvasHeight) * 7.5,
+          ((block.right - block.left) / settings.canvasWidth) * 13.333,
+          (block.height / settings.canvasHeight) * 7.5,
+        ),
+        fontFace: toPptFontFace(object.fontFamily),
+        lang: language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja-JP' : 'en-US',
+        fontSize: block.fontSize * pointScale,
+        bold: object.fontWeight >= 700,
+        color: hex(textColor),
+        transparency:
+          100 -
+          colorAlpha *
+            (object.appearance
+              ? (fill?.opacity ?? 0)
+              : object.fill.enabled
+                ? object.fill.alpha
+                : 0),
+        charSpacing: block.letterSpacing * pointScale,
+        lineSpacing: block.lineHeight * pointScale,
+        paraSpaceBefore: 0,
+        paraSpaceAfter: 0,
+        margin: 0,
+        valign: 'top',
+        align: object.textAlign,
+        fit: 'none',
+        wrap: false,
+        underline: object.underline,
+        strike: object.strikethrough,
+        outline: outline
+          ? { color: hex(outline.color), size: outline.width * pointScale }
+          : undefined,
+        rotate: object.rotation,
+        flipH: object.flipX,
+        flipV: object.flipY,
+      });
       addAnimationTargets(objectName, target);
-      if (sceneSlideNumber && !sceneAnimations.some(animation => animation.target === target)
-          && block.object.animation.animation === 'typewriter') {
-        animationTargets.push({ slideNumber: sceneSlideNumber, objectName,
-          animation: { id: `${objectName}-reveal`, target, phase: 'enter', effect: 'wipe',
-            start: 'withPrevious', durationMs: Math.max(300, block.object.animation.durationMs), delayMs: 0, direction: 'left' } });
+      if (
+        sceneSlideNumber &&
+        !sceneAnimations.some((animation) => animation.target === target) &&
+        block.object.animation.animation === 'typewriter'
+      ) {
+        animationTargets.push({
+          slideNumber: sceneSlideNumber,
+          objectName,
+          animation: {
+            id: `${objectName}-reveal`,
+            target,
+            phase: 'enter',
+            effect: 'wipe',
+            start: 'withPrevious',
+            durationMs: Math.max(300, block.object.animation.durationMs),
+            delayMs: 0,
+            direction: 'left',
+          },
+        });
       }
     }
     const speakerName = sceneNameplate;

@@ -13,7 +13,6 @@ import { homepageCoverTemplates } from '../homepageCoverTemplates';
 import {
   resolvePresentationDialogueLayout,
   resolvePresentationDialogueOffsets,
-  resolvePresentationTextScale,
 } from '../video/shared/presentationLayout';
 import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
 import type {
@@ -68,7 +67,6 @@ import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCan
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
-import { splitPptTextLines } from './pptTextLines';
 import { AnimationRibbon, SlideList, SlideSorter } from './PptWorkspaceControls';
 import { PlayerOverlay, PptFooterBar } from './PptWorkspaceFooter';
 import {
@@ -1934,7 +1932,8 @@ function PptCoverTextBox({
 }
 
 function ScenePreview({
-  canvasWidth, canvasHeight,
+  canvasWidth,
+  canvasHeight,
   scene,
   videoLoop,
   renderStyle,
@@ -1950,7 +1949,8 @@ function ScenePreview({
   textOverrides,
   onUpdateText,
 }: {
-  canvasWidth: number; canvasHeight: number;
+  canvasWidth: number;
+  canvasHeight: number;
   scene: Scene;
   videoLoop: boolean;
   renderStyle: RenderStyle;
@@ -1981,14 +1981,21 @@ function ScenePreview({
     (animation) => animation.textBuild?.mode === 'line-wipe',
   );
   const hasTitle = title.visible && !scene.hideTitleInPlayback && Boolean(titleText.trim());
-  const textLayout = useDialogueTextLayout(renderStyle, canvasWidth, canvasHeight, titleText, bodyText, scene.hideTitleInPlayback);
+  const textLayout = useDialogueTextLayout(
+    renderStyle,
+    canvasWidth,
+    canvasHeight,
+    titleText,
+    bodyText,
+    scene.hideTitleInPlayback,
+  );
   const panelStyle = objectPaint(panel);
   const panelLayout = resolvePresentationDialogueLayout(canvasWidth, canvasHeight, renderStyle);
   const panelCss = {
-    left: `${panelLayout.x / canvasWidth * 100}%`,
-    top: `${panelLayout.y / canvasHeight * 100}%`,
-    width: `${panelLayout.width / canvasWidth * 100}%`,
-    height: `${panelLayout.height / canvasHeight * 100}%`,
+    left: `${(panelLayout.x / canvasWidth) * 100}%`,
+    top: `${(panelLayout.y / canvasHeight) * 100}%`,
+    width: `${(panelLayout.width / canvasWidth) * 100}%`,
+    height: `${(panelLayout.height / canvasHeight) * 100}%`,
     padding: 0,
   };
   useEffect(() => {
@@ -2169,54 +2176,6 @@ function ScenePreview({
   );
 }
 
-function PptLineWipePreview({
-  text,
-  widthPercent,
-  fontSize,
-  animation,
-  previewing,
-  previewAtMs,
-}: {
-  text: string;
-  widthPercent: number;
-  fontSize: number;
-  animation: PptObjectAnimation;
-  previewing: boolean;
-  previewAtMs?: number;
-}) {
-  const lines = splitPptTextLines(
-    text || ' ',
-    Math.max(72, widthPercent * 7.2),
-    Math.max(8, fontSize),
-  );
-  const baseStart =
-    (animation as PptObjectAnimation & { timelineStartMs?: number }).timelineStartMs ??
-    animation.delayMs;
-  const gap = animation.textBuild?.lineGapMs || 0;
-  return (
-    <span className="block">
-      {lines.map((line, index) => {
-        const start = baseStart + index * (animation.durationMs + gap);
-        const elapsed = previewAtMs === undefined ? undefined : previewAtMs - start;
-        const progress =
-          elapsed === undefined ? 1 : Math.max(0, Math.min(1, elapsed / animation.durationMs));
-        const style = previewing
-          ? {
-              animation: `ppt-wipe-${animation.direction} ${animation.durationMs}ms ease ${start}ms both`,
-            }
-          : previewAtMs === undefined
-            ? undefined
-            : { clipPath: `inset(0 ${100 - progress * 100}% 0 0)` };
-        return (
-          <span key={`${index}-${line}`} className="block overflow-hidden" style={style}>
-            {line || ' '}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
 const alphaColor = (value: string, alpha: number) => {
   const normalized = /^#[0-9a-f]{6}$/i.test(value) ? value : '#111827';
   const red = Number.parseInt(normalized.slice(1, 3), 16);
@@ -2245,7 +2204,8 @@ const objectPaint = (object: RenderEditableObject): React.CSSProperties => ({
   background: fillPaint(object),
   backgroundSize: object.fill.type === 'image' ? 'cover' : undefined,
   backgroundPosition: object.fill.type === 'image' ? 'center' : undefined,
-  borderRadius: object.corners?.map((radius) => `${Math.max(0, radius)}px`).join(' ') || object.radius,
+  borderRadius:
+    object.corners?.map((radius) => `${Math.max(0, radius)}px`).join(' ') || object.radius,
   border: object.stroke.enabled
     ? `${object.stroke.width}px solid ${alphaColor(object.stroke.color, object.stroke.alpha)}`
     : undefined,
@@ -2256,15 +2216,9 @@ const objectPaint = (object: RenderEditableObject): React.CSSProperties => ({
   transformOrigin: 'center',
   boxSizing: 'border-box',
 });
-const textPaint = (
-  object: RenderEditableObject,
-  scaleForPresentation = false,
-): React.CSSProperties => {
+const textPaint = (object: RenderEditableObject): React.CSSProperties => {
   const text = object as import('../video/shared/types').RenderEditableTextObject;
   const gradient = text.fill.type === 'gradient' || text.fill.type === 'image';
-  const presentationTextScale = scaleForPresentation
-    ? resolvePresentationTextScale(PPT_CONTENT_HEIGHT)
-    : 1;
   return {
     color: gradient ? 'transparent' : alphaColor(text.fill.color, text.fill.alpha),
     backgroundImage: gradient ? fillPaint(text) : undefined,
@@ -2274,9 +2228,9 @@ const textPaint = (
       ? `${text.stroke.width}px ${text.stroke.color}`
       : undefined,
     fontFamily: text.fontFamily,
-    fontSize: text.fontSize * presentationTextScale,
+    fontSize: text.fontSize,
     fontWeight: text.fontWeight,
-    letterSpacing: text.letterSpacing * presentationTextScale,
+    letterSpacing: text.letterSpacing,
     lineHeight: text.lineHeight,
     textAlign: text.textAlign,
     textDecoration:
@@ -2378,10 +2332,24 @@ function PptEditableObject({
     const canvasWidth = Number(canvas?.dataset.presentationWidth) || 1920;
     const canvasHeight = Number(canvas?.dataset.presentationHeight) || 1080;
     const styleForPosition = { renderObjects: { dialogBox: initial } } as RenderStyle;
-    const origin = kind === 'dialogBox' ? resolvePresentationDialogueLayout(canvasWidth, canvasHeight, styleForPosition) : null;
+    const origin =
+      kind === 'dialogBox'
+        ? resolvePresentationDialogueLayout(canvasWidth, canvasHeight, styleForPosition)
+        : null;
     const move = (moveEvent: PointerEvent) => {
-      const delta = presentationPointerDelta(targetElement, moveEvent.clientX - startX, moveEvent.clientY - startY);
-      const position = origin ? resolvePresentationDialogueOffsets(canvasWidth, canvasHeight, styleForPosition, origin.x + delta.x, origin.y + delta.y)
+      const delta = presentationPointerDelta(
+        targetElement,
+        moveEvent.clientX - startX,
+        moveEvent.clientY - startY,
+      );
+      const position = origin
+        ? resolvePresentationDialogueOffsets(
+            canvasWidth,
+            canvasHeight,
+            styleForPosition,
+            origin.x + delta.x,
+            origin.y + delta.y,
+          )
         : { x: initial.x + delta.x, y: initial.y + delta.y };
       onUpdate(kind, position);
     };

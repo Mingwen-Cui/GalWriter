@@ -1,4 +1,5 @@
-import { rasterizeTextBlock } from '../../shared/PresentationText';
+import { drawVideoTextLine } from '../shared/canvasTextEffects';
+import { colorWithAlpha } from '../shared/nameplateRenderer';
 import { preparePresentationFonts } from '../../shared/presentationTextLayout';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { objectAnimationState } from '../canvas/textAnimation';
@@ -45,7 +46,10 @@ export const drawRenderFrame = async ({
   hideSceneTags,
   canvasSettings,
 }: DrawRenderFrameInput) => {
-  await preparePresentationFonts(renderStyle, String(node.data?.text || '') + String(node.data?.title || ''));
+  await preparePresentationFonts(
+    renderStyle,
+    String(node.data?.text || '') + String(node.data?.title || ''),
+  );
   const videoRenderStyle = getVideoTextRenderStyle(renderStyle, videoTextScaleMode, height);
   const layout = resolveVideoTextLayout({
     ctx,
@@ -106,13 +110,48 @@ export const drawRenderFrame = async ({
   for (const kind of ['title', 'body'] as const) {
     const block = layout[kind];
     if (!block.visible || block.alpha <= 0) continue;
-    const { canvas, padding } = await rasterizeTextBlock(block);
     ctx.save();
     ctx.globalAlpha *= block.alpha;
-    const cx = (block.left + block.right) / 2, cy = block.top + block.height / 2;
-    ctx.translate(cx, cy); ctx.rotate(block.object.rotation * Math.PI / 180);
+    const cx = (block.left + block.right) / 2,
+      cy = block.top + block.height / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate((block.object.rotation * Math.PI) / 180);
     ctx.scale(block.object.flipX ? -1 : 1, block.object.flipY ? -1 : 1);
-    ctx.drawImage(canvas, block.left - cx - padding, block.top - cy - padding);
+    ctx.font = block.font;
+    ctx.textBaseline = 'alphabetic';
+    ctx.letterSpacing = `${block.letterSpacing}px`;
+    for (const [index, line] of block.lines.entries()) {
+      const offset =
+        block.object.textAlign === 'center'
+          ? (block.right - block.left - block.widths[index]) / 2
+          : block.object.textAlign === 'right'
+            ? block.right - block.left - block.widths[index]
+            : 0;
+      const x = block.left + offset - cx,
+        y = block.firstBaseline + index * block.lineHeight - cy;
+      await drawVideoTextLine(ctx, line, x, y, {
+        align: 'left',
+        letterSpacing: block.letterSpacing,
+        fillColor: colorWithAlpha(block.object.fill.color, block.object.fill.alpha),
+        object: block.object,
+        appearanceText: true,
+      });
+      ctx.fillStyle = colorWithAlpha(block.object.fill.color, block.object.fill.alpha);
+      if (block.object.underline)
+        ctx.fillRect(
+          x,
+          y + block.fontSize * 0.12,
+          ctx.measureText(line).width,
+          Math.max(1, block.fontSize / 16),
+        );
+      if (block.object.strikethrough)
+        ctx.fillRect(
+          x,
+          y - block.fontSize * 0.3,
+          ctx.measureText(line).width,
+          Math.max(1, block.fontSize / 16),
+        );
+    }
     ctx.restore();
   }
 };
