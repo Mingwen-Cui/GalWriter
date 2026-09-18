@@ -1,6 +1,10 @@
 import { mountPresentationText } from '../../shared/presentationTextDom';
 import type { WebMenuElement } from '../../video/shared/types';
-import { playerControlCatalog } from '../playerSettingsPanelConfig';
+import {
+  playerControlCatalog,
+  playbackSettingButtonConfig,
+  playbackSettingButtonRoles,
+} from '../playerSettingsPanelConfig';
 import type { PlayerSettingsPanelConfig } from '../playerSettingsPanelConfig';
 import { appearanceRuntimeScript } from '../../shared/paint/appearanceRuntime';
 import type { Language } from '../../../../lib/i18n';
@@ -10,6 +14,14 @@ import {
   playerSettingsMarkup,
   PLAYER_SETTINGS_CSS,
 } from '../playerSettingsPanel';
+import {
+  WEB_PLAYBACK_UI_CSS,
+  webPlaybackCopy,
+  webToolbarButtonLabel,
+  webStoryTitle,
+  mountWebHistory,
+  mountWebEnding,
+} from '../webPlaybackUi';
 import { WEB_EXPORT_STYLES } from './webExportStyles';
 
 export const makeIndexHtml = (
@@ -27,6 +39,14 @@ export const makeIndexHtml = (
         .map((element) => [element.id, playerSettingsMarkup(language, panelConfig, element)]),
     ),
   ).replace(/</g, '\\u003c');
+  const popupMarkup = JSON.stringify(
+    Object.fromEntries(
+      playbackSettingButtonRoles.map((role) => [
+        role,
+        playerSettingsMarkup(language, playbackSettingButtonConfig(panelConfig, role)),
+      ]),
+    ),
+  ).replace(/</g, '\u003c');
   const authorWebsite = formatWebText(language, 'webExportAuthorWebsite');
   return `<!doctype html>
 <html lang="${language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja' : 'en'}">
@@ -37,7 +57,8 @@ export const makeIndexHtml = (
   <link rel="icon" href="${escapeHtml(faviconPath)}" />
   <script src="./content.js"></script>
   <style>${WEB_EXPORT_STYLES}
-${PLAYER_SETTINGS_CSS}</style>
+${PLAYER_SETTINGS_CSS}
+${WEB_PLAYBACK_UI_CSS}</style>
 </head>
 <body>
   <div class="canvas-shell" id="canvasShell">
@@ -108,6 +129,12 @@ ${PLAYER_SETTINGS_CSS}</style>
   </div>
   <script>
     const content = window.GALWRITER_CONTENT || { nodes: [], edges: [], title: "GalWriter" };
+    const playbackCopy = ${JSON.stringify(webPlaybackCopy(language))};
+    const mountHistory = (${mountWebHistory.toString()});
+    const mountEnding = (${mountWebEnding.toString()});
+    const storyTitle = (${webStoryTitle.toString()});
+    const toolbarButtonLabel = (${webToolbarButtonLabel.toString()});
+    const popupSettingsMarkup = ${popupMarkup};
     const style = content.style || {};
     const settings = content.settings || {};
     settings.canvasWidth = Math.min(7680, Math.max(320, Math.round(Number(settings.canvasWidth) || 1920)));
@@ -620,6 +647,43 @@ ${PLAYER_SETTINGS_CSS}</style>
     let currentAudioEnded = true;
     let currentVideoEnded = true;
     let gameStarted = !settings.showStartMenu;
+    let settingsPopupOpen = false;
+    let historyOpen = false;
+    let historyCleanup = null;
+    let historyHost = null;
+    function storyPlaybackActive() { return gameStarted && !historyOpen && !startScreen.classList.contains('open') && !settingsBackdrop.classList.contains('open') && !saveBackdrop.classList.contains('open') && !playlistBackdrop.classList.contains('open'); }
+    function closeDialogueHistory(resume = true) {
+      historyCleanup?.(); historyCleanup = null;
+      historyHost?.remove(); historyHost = null;
+      historyOpen = false;
+      playlistAudio.pause();
+      if (resume && gameStarted && currentId !== 'THE_END') render();
+      else updatePlaybackToolbar();
+    }
+    function openDialogueHistory() {
+      if (historyOpen) { closeDialogueHistory(); return; }
+      restartPlaybackSession();
+      stageEl.querySelectorAll('audio,video').forEach(media => media.pause());
+      playlistAudio.pause();
+      playlistBackdrop.classList.remove('open');
+      syncRegionMusic(null); syncSceneAmbient(null);
+      historyOpen = true;
+      const path = [...history, ...(currentId && currentId !== 'THE_END' ? [currentId] : [])];
+      const entries = path.flatMap((id, index) => {
+        const node = nodeById.get(id);
+        if (!node || node.type === 'numberConditionNode' || node.data?.skip) return [];
+        const text = document.createElement('div'); text.innerHTML = node.data.text || '';
+        return [{ index, title: node.data.hideTitleInPlayback ? '' : storyTitle(node.data.title), text: text.textContent || '', audioUrl: node.data.audioUrl }];
+      });
+      historyHost = document.createElement('div'); canvasShell.appendChild(historyHost);
+      historyCleanup = mountHistory(historyHost, entries, playbackCopy, () => closeDialogueHistory(), index => {
+        closeDialogueHistory(false); restartPlaybackSession(); history = path.slice(0, index); currentId = path[index]; autoAdvanceHoldId = currentId; render(); writeSave();
+      }, index => {
+        const node = nodeById.get(path[index]);
+        if (node?.data?.audioUrl) togglePlaylistAudio({ nodeId: node.id, title: storyTitle(node.data.title), url: node.data.audioUrl });
+      });
+      updatePlaybackToolbar();
+    }
     let regionAudio = null;
     let regionAudioKey = "";
     let regionFadeFrame = 0;
@@ -832,6 +896,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       const isToolbar = layer === playbackToolbar;
       if (isToolbar && ((!settings.showStartMenu && element.role === 'mainMenu') || (controlsHidden && element.role !== 'controlsToggle'))) return;
       const actionByRole = {
+        history: { label: playbackCopy.history, onClick: openDialogueHistory },
         back: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: isToolbar ? () => backButton.click() : closeSettingsPanel },
         return: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: isToolbar ? () => backButton.click() : closeSettingsPanel },
         mainMenu: { label: labels.mainMenu, onClick: () => { closeSettingsPanel(); returnToMainMenu(); } },
@@ -888,12 +953,23 @@ ${PLAYER_SETTINGS_CSS}</style>
           },
         },
       };
+        if (isToolbar && popupSettingsMarkup[element.role]) {
+          actionByRole[element.role] = { label: element.text || element.role, onClick: () => {
+            if (element.id === 'toolbar-auto') {
+              autoAdvanceHoldId = null;
+              changePlayerSettings({ autoAdvance: !settings.autoAdvance });
+              if (!settings.autoAdvance) { if (autoAdvanceTimer) clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+              else if (currentTextEnded) showChoicesAndMaybeAdvance();
+            } else openPlaybackSetting(element);
+          } };
+        }
         const wrapper = document.createElement("div");
         wrapper.className = "start-element";
         wrapper.style.left = Number(element.x || 0) + "%";
         wrapper.style.top = Number(element.y || 0) + "%";
         wrapper.style.width = Math.max(1, Number(element.width || 10)) + "%";
         wrapper.style.height = Math.max(1, Number(element.height || 6)) + "%";
+        if (isToolbar && element.kind === "button") { wrapper.style.width = "auto"; wrapper.style.aspectRatio = "1 / 1"; }
         wrapper.style.transform = "rotate(" + Number(element.rotation || 0) + "deg) scale(" + (Number(element.scale) || 1) + ")";
         wrapper.style.opacity = element.backgroundType === "gradient"
           ? "1"
@@ -915,13 +991,15 @@ ${PLAYER_SETTINGS_CSS}</style>
           const widget = layer === settingsCustomLayer ? settingsWidgetMarkup[element.id] : null;
           const button = document.createElement(widget ? "div" : "button");
           button.type = "button";
-          button.className = "start-element-button" + ((element.primary || action?.primary) ? " primary" : "");
-          const buttonLabel = isToolbar ? element.text || "" : element.text || action?.label || "";
+          button.className = "start-element-button" + (isToolbar ? ' gw-playback-control' : '') + ((element.primary || action?.primary) ? " primary" : "");
+          const buttonLabel = isToolbar ? toolbarButtonLabel(element.role, element.text || '', content.language, Boolean(document.fullscreenElement), controlsHidden, settings.autoAdvance, element.id === 'toolbar-auto') : element.text || action?.label || '';
           button.textContent = "";
           button.disabled = Boolean(element.disabled || action?.disabled);
           button.inert = Boolean(element.disabled);
           if (isToolbar) {
-            button.setAttribute('aria-label', element.text || action?.label || element.role || 'Button');
+            button.setAttribute('aria-label', buttonLabel || action?.label || element.role || 'Button');
+            button.title = buttonLabel || action?.label || element.role || 'Button';
+            if (element.id === 'toolbar-auto') button.setAttribute('aria-pressed', String(settings.autoAdvance));
             button.dataset.toolbarRole = element.role || '';
           }
           if (element.fillEnabled === false) {
@@ -968,6 +1046,7 @@ ${PLAYER_SETTINGS_CSS}</style>
             const icon = playbackToolbarIcon(element.role);
             if (icon) {
               const iconHost = document.createElement('span');
+              iconHost.className = 'gw-playback-control-content';
               iconHost.style.cssText = 'position:relative;z-index:1;display:flex';
               iconHost.innerHTML = icon;
               button.appendChild(iconHost);
@@ -987,7 +1066,7 @@ ${PLAYER_SETTINGS_CSS}</style>
               label.style.visibility = element.textVisible === false ? 'hidden' : 'visible';
             });
           }
-          if (!widget && element.textVisible !== false) {
+          if (!isToolbar && !widget && element.textVisible !== false) {
             const label = document.createElement("span");
             label.textContent = buttonLabel;
             label.style.position = "relative";
@@ -999,7 +1078,7 @@ ${PLAYER_SETTINGS_CSS}</style>
             if (layer === settingsCustomLayer && ["save", "new", "continue"].includes(element.role)) closeSettingsPanel();
             action.onClick();
           });
-          if (element.appearance) {
+          if (element.appearance && !isToolbar) {
             button.style.background = 'transparent'; button.style.border = '0'; button.style.boxShadow = 'none';
             gwAppearance(button, element.appearance, [element.borderTopLeftRadius ?? element.borderRadius ?? 12, element.borderTopRightRadius ?? element.borderRadius ?? 12, element.borderBottomRightRadius ?? element.borderRadius ?? 12, element.borderBottomLeftRadius ?? element.borderRadius ?? 12].map((value) => value + 'px').join(' '));
           }
@@ -1029,13 +1108,16 @@ ${PLAYER_SETTINGS_CSS}</style>
           ? '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>'
           : '<path d="m3 3 18 18M10 5h2c6 0 10 7 10 7l-3 4M6 6c-2 2-4 6-4 6s4 7 10 7l4-1"/>',
       };
-      const paths = icons[role];
+      icons.history = '<path d="M3 12a9 9 0 1 0 3-6.7M3 3v6h6M12 7v5l3 2"/>';
+      icons.auto = settings.autoAdvance ? '<path d="M8 5v14M16 5v14" stroke-width="4"/>' : '<path d="m8 5 11 7-11 7z"/>';
+      const paths = icons[role] || icons.settings;
       return paths ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>' : '';
     }
     function updatePlaybackToolbar() {
       renderCustomStartMenu(null, playbackToolbar, settings.previewToolbarElements);
       playbackToolbar.querySelectorAll('[data-toolbar-role]').forEach((button) => {
         const role = button.dataset.toolbarRole;
+        if (role === 'history') button.setAttribute('aria-pressed', String(historyOpen));
         if (role === 'audio') button.setAttribute('aria-pressed', String(playlistBackdrop.classList.contains('open')));
         if (role === 'fullscreen') button.setAttribute('aria-pressed', String(Boolean(document.fullscreenElement)));
         if (role === 'controlsToggle') button.setAttribute('aria-pressed', String(!controlsHidden));
@@ -1109,6 +1191,11 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function showStartMenu() {
+      gameStarted = false;
+      restartPlaybackSession();
+      stageEl.querySelectorAll('audio,video').forEach(media => media.pause());
+      playlistAudio.pause();
+      syncRegionMusic(null); syncSceneAmbient(null);
       updateStartMenu();
       startScreen.classList.add("open");
       syncPlayerPresentation();
@@ -1122,6 +1209,7 @@ ${PLAYER_SETTINGS_CSS}</style>
 
     function returnToMainMenu() {
       if (!settings.showStartMenu) return;
+      if (historyOpen) closeDialogueHistory(false);
       writeSave();
       restartPlaybackSession();
       gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
@@ -1146,6 +1234,8 @@ ${PLAYER_SETTINGS_CSS}</style>
 
     function startNewGame() {
       if (!root) return;
+      if (historyOpen) closeDialogueHistory(false);
+      playedAudios = []; playlistAudio.pause(); playlistAudio.removeAttribute('src');
       restartPlaybackSession();
       history = [];
       currentId = root ? root.id : null;
@@ -1193,7 +1283,29 @@ ${PLAYER_SETTINGS_CSS}</style>
       persistPlayerPreferences();
       writeSave();
     }
+    function openPlaybackSetting(element) {
+      settingsFocusReturn = document.activeElement;
+      restartPlaybackSession();
+      stageEl.querySelectorAll('audio,video').forEach(media => media.pause());
+      playlistAudio.pause(); syncRegionMusic(null); syncSceneAmbient(null);
+      settingsWidgetControllers.forEach(controller => controller.destroy());
+      settingsWidgetControllers = [];
+      settingsPopupOpen = true;
+      settingsBackdrop.classList.add('open', 'gw-playback-settings');
+      settingsCustomLayer.hidden = true;
+      playerSettingsRoot.hidden = false;
+      playerSettingsRoot.innerHTML = popupSettingsMarkup[element.role] || popupSettingsMarkup.settings;
+      settingsWidgetControllers.push(mountSettingsWidget(playerSettingsRoot, playerSettingsValues(), playerDefaults, patch => {
+        if (patch.autoAdvance !== undefined) autoAdvanceHoldId = null;
+        changePlayerSettings(patch);
+      }, closeSettingsPanel, []));
+      playerSettingsRoot.querySelector('button')?.focus({ preventScroll: true });
+    }
     function openSettingsPanel() {
+      settingsPopupOpen = false;
+      settingsBackdrop.classList.remove('gw-playback-settings');
+      playerSettingsRoot.hidden = true;
+      settingsCustomLayer.hidden = false;
       settingsFocusReturn = document.activeElement;
       if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
       updateSettingsPanel();
@@ -1205,7 +1317,18 @@ ${PLAYER_SETTINGS_CSS}</style>
       settingsCustomLayer.querySelector('button:not(:disabled),input:not(:disabled),select:not(:disabled)')?.focus({ preventScroll: true });
     }
     function closeSettingsPanel() {
-      settingsBackdrop.classList.remove("open");
+      const wasPopup = settingsPopupOpen;
+      settingsPopupOpen = false;
+      settingsBackdrop.classList.remove('open', 'gw-playback-settings');
+      if (wasPopup) {
+        settingsWidgetControllers.forEach(controller => controller.destroy()); settingsWidgetControllers = [];
+        playerSettingsRoot.replaceChildren(); playerSettingsRoot.hidden = true;
+        settingsCustomLayer.hidden = false;
+        settingsNeedTextRefresh = false;
+        if (gameStarted && !startScreen.classList.contains('open') && currentId !== 'THE_END') render();
+        if (settingsFocusReturn?.isConnected) settingsFocusReturn.focus({ preventScroll: true });
+        return;
+      }
       syncStartMenuMusicForOverlay("settings", false);
       if (gameStarted && !startScreen.classList.contains("open")) {
         if (settingsNeedTextRefresh) {
@@ -1533,7 +1656,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function goTo(id) {
-      if (isTransitioning) return;
+      if (!storyPlaybackActive() || isTransitioning) return;
       if (autoAdvanceTimer) {
         clearTimeout(autoAdvanceTimer);
         autoAdvanceTimer = null;
@@ -1837,7 +1960,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       const hosts = {};
       for (const kind of ['title', 'body']) {
         const block = data[kind];
-        if (!block.visible) continue;
+        if (!block.visible || (kind === 'title' && !storyTitle(node.data.title))) continue;
         const frame = document.createElement('div');
         frame.dataset.resolvedText = kind;
         Object.assign(frame.style, { position: 'absolute', left: block.left + 'px', top: block.top + 'px',
@@ -1950,6 +2073,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function showChoicesAndMaybeAdvance() {
+      if (!storyPlaybackActive()) return;
       currentTextEnded = true;
       if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
       stageEl.querySelectorAll(".choices").forEach((element) => {
@@ -1972,7 +2096,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       ) {
         const sessionId = playbackSession;
         autoAdvanceTimer = setTimeout(() => {
-          if (sessionId !== playbackSession || settingsBackdrop.classList.contains("open")) return;
+          if (sessionId !== playbackSession || !storyPlaybackActive()) return;
           const next = outEdges(currentId)[0]?.target || "THE_END";
           goTo(next);
         }, 900);
@@ -1980,7 +2104,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function maybeAdvanceAfterMedia() {
-      if (!currentId || currentId === "THE_END" || !currentTextEnded || settingsBackdrop.classList.contains("open") || startScreen.classList.contains("open")) return;
+      if (!storyPlaybackActive() || !currentId || currentId === "THE_END" || !currentTextEnded || settingsBackdrop.classList.contains("open") || startScreen.classList.contains("open")) return;
       if (!settings.autoAdvance || autoAdvanceHoldId === currentId || outEdges(currentId).length > 1) return;
       if (currentAudioEnded && currentVideoEnded) {
         goTo(outEdges(currentId)[0]?.target || "THE_END");
@@ -1988,7 +2112,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function continueFromText() {
-      if (!currentId || currentId === "THE_END") return;
+      if (!storyPlaybackActive() || !currentId || currentId === "THE_END") return;
       autoAdvanceHoldId = null;
       const edges = outEdges(currentId);
       if (edges.length <= 1) {
@@ -1997,6 +2121,7 @@ ${PLAYER_SETTINGS_CSS}</style>
     }
 
     function render() {
+      if (!storyPlaybackActive()) return;
       updatePlaybackToolbar();
       currentTextEnded = false;
       clearPlaybackTimers();
@@ -2011,7 +2136,14 @@ ${PLAYER_SETTINGS_CSS}</style>
       if (currentId === "THE_END") {
         syncRegionMusic(null);
         syncSceneAmbient(null);
-        stageEl.innerHTML = '<div class="end">' + labels.end + '</div>';
+        playlistAudio.pause();
+        const lastImage = stageEl.querySelector('.scene-image');
+        if (lastImage?.src) backdropEl.style.backgroundImage = 'url("' + lastImage.src.replace(/"/g, '%22') + '")';
+        stageEl.replaceChildren();
+        const ending = document.createElement('div'); stageEl.appendChild(ending);
+        mountEnding(ending, playbackCopy, settings.showStartMenu, startNewGame, () => {
+          if (settings.showStartMenu) returnToMainMenu(); else ending.remove();
+        });
         return;
       }
       const node = nodeById.get(currentId);
@@ -2041,7 +2173,7 @@ ${PLAYER_SETTINGS_CSS}</style>
       syncSceneAmbient(data.presentation && data.presentation.scene && data.presentation.scene.ambientSound || null);
       const edges = outEdges(currentId);
       const choicePosition = settings.choicesPosition || "belowText";
-      const hideCenteredTitle = style.titleVisible === false || data.hideTitleInPlayback === true;
+      const hideCenteredTitle = style.titleVisible === false || data.hideTitleInPlayback === true || !storyTitle(data.title);
       const image = data.imageUrl || "";
       const video = data.videoUrl || "";
       currentAudioEnded = !data.audioUrl;
@@ -2294,20 +2426,16 @@ ${PLAYER_SETTINGS_CSS}</style>
     });
     playlistButton.addEventListener("click", () => {
       const open = !playlistBackdrop.classList.contains("open");
+      if (open) { restartPlaybackSession(); stageEl.querySelectorAll('audio,video').forEach(media => media.pause()); syncRegionMusic(null); syncSceneAmbient(null); }
       playlistBackdrop.classList.toggle("open", open);
       playlistButton.setAttribute("aria-expanded", String(open));
+      if (!open) { playlistAudio.pause(); render(); }
       updatePlaybackToolbar();
     });
-    playlistClose.addEventListener("click", () => {
-      playlistBackdrop.classList.remove("open");
-      playlistButton.setAttribute("aria-expanded", "false");
-      updatePlaybackToolbar();
-    });
+    playlistClose.addEventListener("click", () => playlistButton.click());
     playlistBackdrop.addEventListener("click", (event) => {
       if (event.target !== playlistBackdrop) return;
-      playlistBackdrop.classList.remove("open");
-      playlistButton.setAttribute("aria-expanded", "false");
-      updatePlaybackToolbar();
+      playlistButton.click();
     });
     playlistAudio.addEventListener("play", renderPlaylist);
     document.addEventListener("fullscreenchange", updatePlaybackToolbar);

@@ -59,6 +59,7 @@ const cursorByHandle: Record<WebEditableResizeHandle, string> = {
 };
 
 export function WebEditableElementFrame({
+  compact = false,
   visible,
   ringClassName = 'ring-2 ring-indigo-500',
   onToggleVisible,
@@ -71,6 +72,7 @@ export function WebEditableElementFrame({
   showVisibilityControl = true,
   showResizeHandles = true,
 }: {
+  compact?: boolean;
   visible: boolean;
   ringClassName?: string;
   onToggleVisible: (event: React.MouseEvent<HTMLElement>) => void;
@@ -166,7 +168,7 @@ export function WebEditableElementFrame({
           <span
             key={handle}
             tabIndex={-1}
-            className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${shapeClass[handle]} ${visibleHandleClass[handle]}`}
+            className={`pointer-events-auto absolute z-[270] ${positionClass[handle]} ${compact ? 'grid h-3 w-3 place-items-center' : `${shapeClass[handle]} ${visibleHandleClass[handle]}`}`}
             style={{
               cursor: cursorByHandle[handle],
               pointerEvents: 'auto',
@@ -180,7 +182,11 @@ export function WebEditableElementFrame({
             }}
             onClick={(event) => event.stopPropagation()}
             aria-label="Resize border"
-          />
+          >
+            {compact && (
+              <span className="pointer-events-none block h-1.5 w-1.5 rounded-sm border border-indigo-400 bg-white" />
+            )}
+          </span>
         ))}
     </>
   );

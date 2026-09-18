@@ -25,6 +25,48 @@ export type PlayerSettingsPanelConfig = {
   controls?: Partial<Record<PlayerControlId, PlayerControlConfig>>;
 };
 
+export const playbackSettingButtonRoles: readonly string[] = [
+  'settings',
+  'mode',
+  'speed',
+  'textSize',
+  'auto',
+  'animationSpeed',
+  'sound',
+  'controls',
+  'preview',
+  'reset',
+];
+
+export function playbackSettingButtonConfig(
+  config: PlayerSettingsPanelConfig | undefined,
+  role: string,
+): PlayerSettingsPanelConfig {
+  const ids: PlayerControlId[] = [
+    'mode',
+    'speed',
+    'textSize',
+    'auto',
+    'animationSpeed',
+    'sound',
+    'controls',
+    'preview',
+    'reset',
+  ];
+  return {
+    ...config,
+    controls: Object.fromEntries(
+      ids.map((id) => [
+        id,
+        {
+          ...config?.controls?.[id],
+          state: role === 'settings' || id === role ? 'visible' : 'removed',
+        },
+      ]),
+    ),
+  };
+}
+
 export const playerControlCatalog = (language: Language) => {
   const labels =
     language === 'en'

@@ -31,6 +31,7 @@ type PresentedCharacter = {
 };
 
 type WebPlaytestMediaLayersProps = {
+  playbackActive?: boolean;
   currentNodeId: string | null;
   currentImageUrl: string;
   currentVideoUrl: string;
@@ -52,6 +53,7 @@ type WebPlaytestMediaLayersProps = {
 };
 
 export function WebPlaytestMediaLayers({
+  playbackActive = true,
   currentNodeId,
   currentImageUrl,
   currentVideoUrl,
@@ -95,7 +97,7 @@ export function WebPlaytestMediaLayers({
             src={currentVideoUrl}
             controls
             playsInline
-            autoPlay={settings.videoAutoPlay || settings.autoAdvance}
+            autoPlay={playbackActive && (settings.videoAutoPlay || settings.autoAdvance)}
             muted={!settings.soundEnabled || settings.videoAutoPlay}
             onEnded={onVideoEnded}
             className="h-full w-full"

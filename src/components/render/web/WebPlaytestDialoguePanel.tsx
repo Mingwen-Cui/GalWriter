@@ -27,6 +27,8 @@ import {
   snapPixelBoxToGuides,
 } from './webPixelAlignmentGuides';
 
+import { webStoryTitle } from './webPlaybackUi';
+
 const resizeCursorByHandle: Record<WebEditableResizeHandle, string> = {
   n: 'ns-resize',
   s: 'ns-resize',
@@ -99,7 +101,7 @@ export function WebPlaytestDialoguePanel({
     renderStyle,
     settings.canvasWidth,
     settings.canvasHeight,
-    getNodeDisplayTitle(currentNode),
+    webStoryTitle(getNodeDisplayTitle(currentNode)),
     htmlToSpeechText(text),
     hideCenteredTitle || currentNode?.data?.hideTitleInPlayback === true,
   );

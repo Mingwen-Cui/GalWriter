@@ -1,6 +1,18 @@
 import { resolveSettingsPageElements } from './webMenuPageElements';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import { Eye, EyeOff, House, ListMusic, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  House,
+  History,
+  Play,
+  Pause,
+  Settings,
+  ListMusic,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
+} from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
@@ -59,7 +71,7 @@ import {
   snapElementBoxToElementGuides,
   snapResizeBoxToElementGuides,
 } from './webElementAlignmentGuides';
-import { buildRehearsalToolbarElements } from './webExperienceTemplates';
+import { buildRehearsalToolbarElements, resolveWebToolbarElements } from './webExperienceTemplates';
 import {
   getActiveWebSaveSlot,
   readWebSaveCollection,
@@ -95,6 +107,11 @@ import {
 import { buildDialogueShellStyle } from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
 import { type SplitEditorSelection, WebSplitLayoutEditor } from './WebSplitLayoutEditor';
+
+import { WebDialogueHistory, WebStoryEnding, WebPlaybackSettings } from './WebPlaybackDialogs';
+import type { PlayerSettingsValues } from './playerSettingsPanel';
+import { playbackSettingButtonRoles } from './playerSettingsPanelConfig';
+import { WEB_PLAYBACK_UI_CSS, webStoryTitle, webToolbarButtonLabel } from './webPlaybackUi';
 
 type WebPlaytestPreviewProps = {
   nodes: FlowNode[];
@@ -188,6 +205,20 @@ export function WebPlaytestPreview({
     [playableNodes],
   );
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(() => root?.id || null);
+  const [playbackSettingsButton, setPlaybackSettingsButton] = useState<WebMenuElement | null>(null);
+  const playbackSettingsValues: PlayerSettingsValues = {
+    autoAdvance: settings.autoAdvance,
+    interactionMode: settings.interactionMode,
+    typewriterSpeed: settings.typewriterSpeed,
+    textScale: settings.textScale,
+    animationSpeed: settings.animationSpeed,
+    soundEnabled: settings.soundEnabled,
+    controlsVisible: true,
+  };
+  const playbackSettingsDefaults = useRef(playbackSettingsValues);
+  const [showDialogueHistory, setShowDialogueHistory] = useState(false);
+  const [endingDismissed, setEndingDismissed] = useState(false);
+  const endingImageRef = useRef('');
   const [history, setHistory] = useState<string[]>([]);
   const [conditionResult, setConditionResult] = useState<{ total: number; label: string } | null>(
     null,
@@ -436,33 +467,37 @@ export function WebPlaytestPreview({
     );
   }, [root, runtimeNodes]);
 
+  const previousPreviewMode = useRef(previewMode);
   React.useEffect(() => {
-    // Edit mode is controlled by requestedSurface below. Resetting these states
-    // here during a preset update briefly exposes the dialogue preview and can
-    // overwrite the editor's current surface selection.
-    if (previewMode !== 'test') return;
-
+    if (settings.showStartMenu) return;
+    setPreviewStartMenuOpen(false);
     setPreviewStartSettingsOpen(false);
     setPreviewArchiveOpen(false);
-    setPreviewStartMenuOpen(settings.showStartMenu);
-    setPreviewGameStarted(!settings.showStartMenu);
-
-    restartPlaybackSession();
-    autoAdvanceHoldNodeRef.current = root?.id || null;
-    setHistory([]);
-    setCurrentNodeId(root?.id || null);
-  }, [previewMode, restartPlaybackSession, root?.id, settings.showStartMenu]);
+    setPreviewGameStarted(true);
+  }, [settings.showStartMenu]);
+  React.useLayoutEffect(() => {
+    const enteringTest = previewMode === 'test' && previousPreviewMode.current !== 'test';
+    previousPreviewMode.current = previewMode;
+    if (!enteringTest) return;
+    const surface = settings.showStartMenu ? requestedSurface || 'start' : 'game';
+    setPreviewStartMenuOpen(surface !== 'game');
+    setPreviewStartSettingsOpen(surface === 'settings');
+    setPreviewArchiveOpen(surface === 'archive');
+    setPreviewGameStarted(surface === 'game');
+  }, [previewMode, requestedSurface, settings.showStartMenu]);
 
   React.useEffect(() => {
     if (previewMode !== 'edit' || !settings.showStartMenu || !requestedSurface) return;
 
     if (requestedSurface === 'game') {
+      setPreviewGameStarted(true);
       setPreviewStartSettingsOpen(false);
       setPreviewArchiveOpen(false);
       setPreviewStartMenuOpen(false);
       return;
     }
 
+    setPreviewGameStarted(false);
     setPreviewStartMenuOpen(true);
     setPreviewStartSettingsOpen(requestedSurface === 'settings');
     setPreviewArchiveOpen(requestedSurface === 'archive');
@@ -484,7 +519,13 @@ export function WebPlaytestPreview({
       ? runtimeNodes.find((node) => node.id === currentNodeId)
       : null;
   const storyPlaybackActive =
-    previewMode !== 'test' || (previewGameStarted && !isPreviewStartMenuOpen);
+    !isPreviewStartMenuOpen &&
+    !isPreviewStartSettingsOpen &&
+    !isPreviewArchiveOpen &&
+    !showDialogueHistory &&
+    !showAudioPlaylist &&
+    !playbackSettingsButton &&
+    (previewMode === 'edit' || previewGameStarted);
   useRegionBackgroundMusic(
     nodes,
     storyPlaybackActive ? currentNode : null,
@@ -502,7 +543,7 @@ export function WebPlaytestPreview({
   const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';
   const audioUrl = typeof currentNode?.data?.audioUrl === 'string' ? currentNode.data.audioUrl : '';
   const audioTitle =
-    getNodeDisplayTitle(currentNode) ||
+    webStoryTitle(getNodeDisplayTitle(currentNode)) ||
     stripHtml(getNodeDisplayText(currentNode)).trim().replace(/\s+/g, ' ').slice(0, 42) ||
     formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText498');
   const presentation = useMemo(
@@ -584,6 +625,12 @@ export function WebPlaytestPreview({
         } => Boolean(item),
       );
   }, [activeInlineAction, completedSwitchActions, presentation.characters, nodes]);
+  React.useEffect(() => {
+    if (currentNodeId !== 'THE_END') {
+      endingImageRef.current = currentImageUrl;
+      setEndingDismissed(false);
+    }
+  }, [currentImageUrl, currentNodeId]);
   const rawText = getNodeDisplayText(currentNode);
   const text = filterMentionTags(rawText, true, true);
   const shouldHideSingleChoice = settings.skipSingleChoicePopup && outEdges.length <= 1;
@@ -646,6 +693,7 @@ export function WebPlaytestPreview({
 
   React.useEffect(() => {
     if (!storyPlaybackActive) {
+      restartPlaybackSession();
       currentAudioRef.current?.pause();
       currentVideoRef.current?.pause();
       return;
@@ -660,7 +708,14 @@ export function WebPlaytestPreview({
       currentVideoRef.current.currentTime = 0;
       currentVideoRef.current.play().catch(() => {});
     }
-  }, [audioUrl, currentNodeId, currentVideoUrl, settings.autoAdvance, storyPlaybackActive]);
+  }, [
+    audioUrl,
+    currentNodeId,
+    currentVideoUrl,
+    settings.autoAdvance,
+    storyPlaybackActive,
+    restartPlaybackSession,
+  ]);
 
   React.useEffect(() => {
     if (!playlistAudioUrl || !playlistAudioRef.current) return;
@@ -704,6 +759,11 @@ export function WebPlaytestPreview({
     setActiveInlineAction(null);
     setCompletedSwitchActions([]);
     setCompletedInlineActions([]);
+    if (!storyPlaybackActive) {
+      setDisplayedPreviewText(text);
+      setAnimationDone(false);
+      return;
+    }
     if (settings.interactionMode !== 'typewriter') {
       const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
         hideCharacterTags: settings.hideCharacterTags,
@@ -822,6 +882,7 @@ export function WebPlaytestPreview({
       if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
     };
   }, [
+    storyPlaybackActive,
     currentNodeId,
     presentation,
     renderStyle.bodyTypewriterMode,
@@ -836,6 +897,7 @@ export function WebPlaytestPreview({
 
   React.useEffect(() => {
     if (
+      !storyPlaybackActive ||
       !settings.autoAdvance ||
       currentNodeId === 'THE_END' ||
       autoAdvanceHoldNodeRef.current === currentNodeId ||
@@ -867,6 +929,7 @@ export function WebPlaytestPreview({
       }
     };
   }, [
+    storyPlaybackActive,
     animationDone,
     audioUrl,
     currentAudioEnded,
@@ -881,6 +944,7 @@ export function WebPlaytestPreview({
 
   React.useLayoutEffect(() => {
     if (
+      !storyPlaybackActive ||
       !currentNodeId ||
       currentNodeId === 'THE_END' ||
       currentNodeId === lastJumpedNodeRef.current
@@ -929,7 +993,7 @@ export function WebPlaytestPreview({
       setHistory((previous) => [...previous, currentNodeId]);
       setCurrentNodeId(nextEdge?.target || 'THE_END');
     }
-  }, [currentNodeId, edges, history, runtimeNodes]);
+  }, [currentNodeId, edges, history, runtimeNodes, storyPlaybackActive]);
 
   React.useEffect(() => {
     const handleFullscreenChange = () => {
@@ -1002,13 +1066,17 @@ export function WebPlaytestPreview({
   };
 
   const continueFromText = () => {
-    if (currentNodeId === 'THE_END' || !currentNode) return;
+    if (!storyPlaybackActive || currentNodeId === 'THE_END' || !currentNode) return;
     autoAdvanceHoldNodeRef.current = null;
     if (!canClickContinue) return;
     goTo(outEdges[0]?.target || 'THE_END');
   };
 
   const reset = () => {
+    setEndingDismissed(false);
+    setShowDialogueHistory(false);
+    setPlayedAudios([]);
+    setPlaylistAudioUrl(null);
     restartPlaybackSession();
     autoAdvanceHoldNodeRef.current = root?.id || null;
     setHistory([]);
@@ -1016,8 +1084,11 @@ export function WebPlaytestPreview({
     setCurrentNodeId(root?.id || null);
   };
 
+  const consumedTestActionId = useRef<number | null>(null);
   React.useEffect(() => {
-    if (!testAction || previewMode !== 'test') return;
+    if (!testAction || previewMode !== 'test' || consumedTestActionId.current === testAction.id)
+      return;
+    consumedTestActionId.current = testAction.id;
     if (testAction.type === 'restart') {
       reset();
       return;
@@ -1093,6 +1164,8 @@ export function WebPlaytestPreview({
     const now = Date.now();
     setActivePreviewSaveId(`save-${now}-${Math.random().toString(36).slice(2, 8)}`);
     setPreviewGameStarted(true);
+    setPreviewStartMenuOpen(false);
+    setPreviewArchiveOpen(false);
     reset();
   };
 
@@ -1122,6 +1195,9 @@ export function WebPlaytestPreview({
     currentAudioRef.current?.pause();
     currentVideoRef.current?.pause();
     setShowAudioPlaylist(false);
+    setShowDialogueHistory(false);
+    playlistAudioRef.current?.pause();
+    setPreviewGameStarted(false);
     setPreviewStartSettingsOpen(false);
     setPreviewArchiveOpen(false);
     setPreviewStartMenuOpen(true);
@@ -1147,6 +1223,18 @@ export function WebPlaytestPreview({
     window.open(url, element.linkTarget || '_blank', 'noopener,noreferrer');
   };
   const applySharedButtonFunction = (element: WebMenuElement) => {
+    if (element.id === 'toolbar-auto' && element.role === 'auto') {
+      autoAdvanceHoldNodeRef.current = null;
+      onUpdateSettings('autoAdvance', !settings.autoAdvance);
+      return true;
+    }
+    if (!isPreviewStartMenuOpen && playbackSettingButtonRoles.includes(element.role || '')) {
+      setShowAudioPlaylist(false);
+      setShowDialogueHistory(false);
+      playlistAudioRef.current?.pause();
+      setPlaybackSettingsButton(element);
+      return true;
+    }
     if (element.role === 'link') {
       openExternalLink(element);
       return true;
@@ -1325,25 +1413,35 @@ export function WebPlaytestPreview({
     choiceTextColor,
   );
   const defaultToolbarElements = React.useMemo<StartMenuElement[]>(
-    () => buildRehearsalToolbarElements(language),
-    [language],
+    () => buildRehearsalToolbarElements(language, settings.canvasWidth, settings.canvasHeight),
+    [language, settings.canvasWidth, settings.canvasHeight],
   );
-  const toolbarElements =
-    settings.previewToolbarElements && settings.previewToolbarElements.length > 0
-      ? settings.previewToolbarElements
-      : defaultToolbarElements;
+  const toolbarElements = resolveWebToolbarElements(
+    settings.previewToolbarElements,
+    language,
+    settings.canvasWidth,
+    settings.canvasHeight,
+  );
   const updateToolbarElement = React.useCallback(
     (id: string, patch: Partial<StartMenuElement>) => {
-      const source =
-        settings.previewToolbarElements && settings.previewToolbarElements.length > 0
-          ? settings.previewToolbarElements
-          : defaultToolbarElements;
+      const source = resolveWebToolbarElements(
+        settings.previewToolbarElements,
+        language,
+        settings.canvasWidth,
+        settings.canvasHeight,
+      );
       onUpdateSettings(
         'previewToolbarElements',
         source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
       );
     },
-    [defaultToolbarElements, onUpdateSettings, settings.previewToolbarElements],
+    [
+      language,
+      onUpdateSettings,
+      settings.previewToolbarElements,
+      settings.canvasWidth,
+      settings.canvasHeight,
+    ],
   );
   const visibleStartMenuActionRoles = new Set(
     startMenuElements
@@ -1938,7 +2036,7 @@ export function WebPlaytestPreview({
         items={outEdges.map((edge, index) => {
           const target = playableNodes.find((node) => node.id === edge.target);
           const label =
-            getNodeDisplayTitle(target) ||
+            webStoryTitle(getNodeDisplayTitle(target)) ||
             edge.data?.label ||
             (outEdges.length === 1
               ? formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1888')
@@ -1989,13 +2087,51 @@ export function WebPlaytestPreview({
 
   const renderFloatingElements = () => {
     const toolbarLayerElements = toolbarElements.filter(
-      (element) => settings.showStartMenu || element.role !== 'mainMenu',
+      (element) =>
+        (settings.showStartMenu || element.role !== 'mainMenu') &&
+        (!previewControlsHidden || previewMode === 'edit' || element.role === 'controlsToggle'),
     );
     const dialogueOverlayElements = settings.dialogueOverlayElements || [];
     const floatingGuideElements = [...toolbarLayerElements, ...dialogueOverlayElements];
 
     return (
       <>
+        <style>{WEB_PLAYBACK_UI_CSS}</style>
+        {playbackSettingsButton && (
+          <WebPlaybackSettings
+            language={language}
+            role={playbackSettingsButton.role || 'settings'}
+            config={{
+              ...settings.playerSettingsPanel,
+              controls: {
+                ...settings.playerSettingsPanel?.controls,
+                [playbackSettingsButton.role || 'settings']: {
+                  form: playbackSettingsButton.settingsControlForm,
+                },
+              },
+            }}
+            values={{ ...playbackSettingsValues, controlsVisible: !previewControlsHidden }}
+            defaults={playbackSettingsDefaults.current}
+            onClose={() => setPlaybackSettingsButton(null)}
+            onChange={(patch) => {
+              if (patch.controlsVisible !== undefined)
+                setPreviewControlsHidden(!patch.controlsVisible);
+              if (patch.autoAdvance !== undefined) {
+                autoAdvanceHoldNodeRef.current = null;
+                onUpdateSettings('autoAdvance', patch.autoAdvance);
+              }
+              if (patch.interactionMode !== undefined)
+                onUpdateSettings('interactionMode', patch.interactionMode);
+              if (patch.typewriterSpeed !== undefined)
+                onUpdateSettings('typewriterSpeed', patch.typewriterSpeed);
+              if (patch.textScale !== undefined) onUpdateSettings('textScale', patch.textScale);
+              if (patch.animationSpeed !== undefined)
+                onUpdateSettings('animationSpeed', patch.animationSpeed);
+              if (patch.soundEnabled !== undefined)
+                onUpdateSettings('soundEnabled', patch.soundEnabled);
+            }}
+          />
+        )}
         <PreviewFloatingElementLayer
           elements={toolbarLayerElements}
           guideElements={floatingGuideElements}
@@ -2016,8 +2152,27 @@ export function WebPlaytestPreview({
               toolbarElements.map((element) => nextById.get(element.id) || element),
             );
           }}
+          getLabel={(element) =>
+            webToolbarButtonLabel(
+              element.role,
+              element.text,
+              language,
+              isPreviewFullscreen,
+              previewControlsHidden,
+              settings.autoAdvance,
+              element.id === 'toolbar-auto',
+            )
+          }
           getIcon={(element) =>
-            element.role === 'audio' ? (
+            element.role === 'auto' ? (
+              settings.autoAdvance ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )
+            ) : element.role === 'history' ? (
+              <History className="h-4 w-4" />
+            ) : element.role === 'audio' ? (
               <ListMusic className="h-3.5 w-3.5" />
             ) : element.role === 'fullscreen' ? (
               isPreviewFullscreen ? (
@@ -2033,14 +2188,25 @@ export function WebPlaytestPreview({
               ) : (
                 <EyeOff className="h-3.5 w-3.5" />
               )
-            ) : (
+            ) : element.role === 'mainMenu' ? (
               <House className="h-3.5 w-3.5" />
-            )
+            ) : element.kind === 'button' ? (
+              <Settings className="h-4 w-4" />
+            ) : null
           }
-          isActive={(element) => element.role === 'audio' && showAudioPlaylist}
+          isActive={(element) =>
+            (element.role === 'audio' && showAudioPlaylist) ||
+            (element.role === 'history' && showDialogueHistory) ||
+            (element.id === 'toolbar-auto' && settings.autoAdvance) ||
+            element.id === playbackSettingsButton?.id
+          }
           isDisabled={(element) => element.role === 'return' && history.length === 0}
           onAction={(element) => {
             if (applySharedButtonFunction(element)) return;
+            if (element.role === 'history') {
+              setShowDialogueHistory(true);
+              setShowAudioPlaylist(false);
+            }
             if (element.role === 'audio') setShowAudioPlaylist((visible) => !visible);
             if (element.role === 'fullscreen') void togglePreviewFullscreen();
             if (element.role === 'return') back();
@@ -2050,6 +2216,7 @@ export function WebPlaytestPreview({
         />
         <PreviewFloatingElementLayer
           elements={dialogueOverlayElements}
+          onAction={applySharedButtonFunction}
           guideElements={floatingGuideElements}
           selectedElementId={selectedStartMenuElementId}
           previewMode={previewMode}
@@ -2082,6 +2249,50 @@ export function WebPlaytestPreview({
       </>
     );
   };
+
+  const dialoguePath = [
+    ...history,
+    ...(currentNodeId && currentNodeId !== 'THE_END' ? [currentNodeId] : []),
+  ];
+  const renderDialogueHistory = () =>
+    showDialogueHistory && (
+      <WebDialogueHistory
+        language={language}
+        entries={dialoguePath.flatMap((id, index) => {
+          const node = runtimeNodes.find((item) => item.id === id);
+          if (!node || node.type !== 'storyNode' || node.data?.skip === true) return [];
+          return [
+            {
+              index,
+              title: node.data?.hideTitleInPlayback ? '' : webStoryTitle(getNodeDisplayTitle(node)),
+              text: stripHtml(filterMentionTags(getNodeDisplayText(node), true, true)),
+              audioUrl: typeof node.data?.audioUrl === 'string' ? node.data.audioUrl : undefined,
+            },
+          ];
+        })}
+        onClose={() => {
+          playlistAudioRef.current?.pause();
+          setShowDialogueHistory(false);
+        }}
+        onJump={(index) => {
+          restartPlaybackSession();
+          playlistAudioRef.current?.pause();
+          setHistory(dialoguePath.slice(0, index));
+          autoAdvanceHoldNodeRef.current = dialoguePath[index];
+          setCurrentNodeId(dialoguePath[index]);
+          setShowDialogueHistory(false);
+        }}
+        onAudio={(index) => {
+          const node = runtimeNodes.find((item) => item.id === dialoguePath[index]);
+          if (typeof node?.data?.audioUrl === 'string')
+            togglePlaylistAudio({
+              nodeId: node.id,
+              title: webStoryTitle(getNodeDisplayTitle(node)),
+              url: node.data.audioUrl,
+            });
+        }}
+      />
+    );
 
   const renderAudioPlaylistModal = () => (
     <PreviewAudioPlaylistModal
@@ -2119,10 +2330,25 @@ export function WebPlaytestPreview({
       >
         {renderPreviewToolbar()}
         {renderAudioPlaylistModal()}
+        {renderDialogueHistory()}
         {renderFloatingElements()}
-        <div className="grid flex-1 place-items-center p-6 text-center text-2xl font-black text-[var(--vr-text)]">
-          {formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText2066')}
-        </div>
+        {endingImageRef.current && (
+          <img
+            src={endingImageRef.current}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        {!endingDismissed && (
+          <WebStoryEnding
+            language={language}
+            hasMenu={settings.showStartMenu}
+            onRestart={startPreviewNewGame}
+            onClose={() =>
+              settings.showStartMenu ? returnToStartMenu() : setEndingDismissed(true)
+            }
+          />
+        )}
       </div>
     );
   }
@@ -2206,6 +2432,7 @@ export function WebPlaytestPreview({
 
   const renderMediaLayers = () => (
     <WebPlaytestMediaLayers
+      playbackActive={storyPlaybackActive}
       currentNodeId={currentNodeId}
       currentImageUrl={currentImageUrl}
       currentVideoUrl={currentVideoUrl}
@@ -2301,6 +2528,7 @@ export function WebPlaytestPreview({
       >
         {renderPreviewToolbar()}
         {renderAudioPlaylistModal()}
+        {renderDialogueHistory()}
         {renderFloatingElements()}
         <div className="absolute inset-0 min-h-0 p-0">
           <div

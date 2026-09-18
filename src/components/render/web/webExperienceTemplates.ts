@@ -260,7 +260,11 @@ export const buildRehearsalSettingsPageElements = (
   ];
 };
 
-export const buildRehearsalToolbarElements = (language: Language): WebMenuElement[] => {
+export const buildRehearsalToolbarElements = (
+  language: Language,
+  canvasWidth = 1920,
+  canvasHeight = 1080,
+): WebMenuElement[] => {
   const toolbarButton = (
     id: string,
     role: WebMenuElement['role'],
@@ -271,39 +275,119 @@ export const buildRehearsalToolbarElements = (language: Language): WebMenuElemen
     ...button(id, role, value, x, 2.4, width, 4.8, '#0ea5e9', '#ffffff'),
     fontSize: 12,
     backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 8,
+    borderRadius: 9999,
+    textVisible: false,
   });
   return [
+    toolbarButton(
+      'toolbar-main',
+      'mainMenu',
+      language === 'zh' ? '主菜单' : language === 'ja' ? 'メニュー' : 'Menu',
+      2,
+      10,
+    ),
+    toolbarButton(
+      'toolbar-controls-toggle',
+      'controlsToggle',
+      language === 'zh' ? '隐藏控制栏' : language === 'ja' ? '操作を隠す' : 'Hide controls',
+      13,
+      17,
+    ),
+    toolbarButton(
+      'toolbar-return',
+      'return',
+      language === 'zh' ? '回退' : language === 'ja' ? '戻る' : 'Back',
+      31,
+      9,
+    ),
+    toolbarButton(
+      'toolbar-auto',
+      'auto',
+      language === 'zh' ? '自动播放' : language === 'ja' ? '自動再生' : 'Auto play',
+      41,
+      13,
+    ),
+    toolbarButton(
+      'toolbar-history',
+      'history',
+      language === 'zh' ? '对话历史' : language === 'ja' ? '会話履歴' : 'History',
+      55,
+      13,
+    ),
     toolbarButton(
       'toolbar-audio',
       'audio',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText259'),
-      57.2,
-      8.4,
+      69,
+      10,
     ),
     toolbarButton(
       'toolbar-fullscreen',
       'fullscreen',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText260'),
-      66.4,
-      9.8,
+      80,
+      13,
     ),
-    toolbarButton(
-      'toolbar-return',
-      'return',
-      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText261'),
-      77.2,
-      8.4,
-    ),
-    toolbarButton(
-      'toolbar-main',
-      'mainMenu',
-      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText262'),
-      86.4,
-      9.6,
-    ),
-    toolbarButton('toolbar-controls-toggle', 'controlsToggle', '', 47.8, 8.4),
-  ];
+  ].map((element, index) => {
+    const diameter = (4.8 * Math.max(1, canvasHeight)) / Math.max(1, canvasWidth);
+    return { ...element, x: 2 + index * (diameter + 0.8), width: diameter };
+  });
+};
+
+// Upgrade the old built-in row once; subsequent authored positions and sizes remain editable.
+export const resolveWebToolbarElements = (
+  elements: WebMenuElement[] | undefined,
+  language: Language,
+  canvasWidth = 1920,
+  canvasHeight = 1080,
+): WebMenuElement[] => {
+  const defaults = buildRehearsalToolbarElements(language, canvasWidth, canvasHeight);
+  if (!elements?.length) return defaults;
+  const builtInIds = new Set(defaults.map((element) => element.id));
+  const isLegacyRow =
+    elements.some((element) => builtInIds.has(element.id)) &&
+    (!elements.some((element) => element.id === 'toolbar-auto') ||
+      elements.some((element) => builtInIds.has(element.id) && element.textVisible !== false));
+  if (isLegacyRow) {
+    const row = defaults.map((fallback) => {
+      const previous = elements.find((element) => element.id === fallback.id);
+      if (!previous) return fallback;
+      return {
+        ...previous,
+        x: fallback.x,
+        y: fallback.y,
+        width: fallback.width,
+        height: fallback.height,
+        borderRadius: 9999,
+        textVisible: false,
+        text: ['mainMenu', 'return', 'controlsToggle'].includes(fallback.role || '')
+          ? fallback.text
+          : previous.text || fallback.text,
+      };
+    });
+    return [...row, ...elements.filter((element) => !builtInIds.has(element.id))];
+  }
+  if (elements.some((element) => element.role === 'history')) return elements;
+  const history = defaults.find((element) => element.role === 'history')!;
+  let candidate = { ...history };
+  for (let y = 2.4; y <= 18; y += 6) {
+    for (let x = 2; x <= 88; x += 10) {
+      if (
+        elements.every(
+          (element) =>
+            element.visible === false ||
+            x + candidate.width <= element.x ||
+            x >= element.x + element.width ||
+            y + candidate.height <= element.y ||
+            y >= element.y + element.height,
+        )
+      ) {
+        candidate = { ...candidate, x, y };
+        return [...elements, candidate];
+      }
+    }
+  }
+  return [...elements, candidate];
 };
 
 export const buildRehearsalStartMenuElements = (

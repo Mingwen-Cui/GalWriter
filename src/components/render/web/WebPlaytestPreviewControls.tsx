@@ -45,10 +45,21 @@ const floatingResizeCursorByHandle: Record<WebEditableResizeHandle, string> = {
 };
 
 const toolbarRoleLabels: Partial<Record<NonNullable<WebMenuElement['role']>, string>> = {
+  history: '对话历史',
   audio: '音频',
   fullscreen: '最大化',
-  return: '返回',
-  mainMenu: '主界面',
+  return: '回退',
+  mainMenu: '主菜单',
+  auto: '自动播放',
+  settings: '播放设置',
+  mode: '文字呈现',
+  speed: '打字间隔',
+  textSize: '文字大小',
+  animationSpeed: '动画速度',
+  sound: '播放声音',
+  controls: '显示控制栏',
+  preview: '阅读效果预览',
+  reset: '恢复默认',
   controlsToggle: '显示/隐藏控制栏',
 };
 
@@ -348,6 +359,7 @@ export function PreviewFloatingElementLayer({
   onUpdateElement,
   onUpdateElements,
   getIcon,
+  getLabel,
   isActive,
   isDisabled,
   onAction,
@@ -362,6 +374,7 @@ export function PreviewFloatingElementLayer({
   onUpdateElement?: (id: string, patch: Partial<WebMenuElement>) => void;
   onUpdateElements?: (elements: WebMenuElement[]) => void;
   getIcon?: (element: WebMenuElement) => ReactNode;
+  getLabel?: (element: WebMenuElement) => string;
   isActive?: (element: WebMenuElement) => boolean;
   isDisabled?: (element: WebMenuElement) => boolean;
   onAction?: (element: WebMenuElement) => void;
@@ -510,6 +523,8 @@ export function PreviewFloatingElementLayer({
               disabled={Boolean(isDisabled?.(element))}
               active={Boolean(isActive?.(element))}
               icon={getIcon?.(element)}
+              toolbarControl={Boolean(getIcon) && element.kind === 'button'}
+              displayLabel={getLabel?.(element)}
               guideElements={snapGuideElements}
               allElements={elements}
               selectedElementIds={selectedElementIds}
@@ -539,6 +554,8 @@ function ToolbarElement({
   disabled,
   active,
   icon,
+  toolbarControl = Boolean(icon),
+  displayLabel,
   guideElements,
   allElements,
   selectedElementIds,
@@ -556,6 +573,8 @@ function ToolbarElement({
   disabled: boolean;
   active: boolean;
   icon: ReactNode;
+  toolbarControl?: boolean;
+  displayLabel?: string;
   guideElements: WebMenuElement[];
   allElements: WebMenuElement[];
   selectedElementIds: string[];
@@ -575,7 +594,7 @@ function ToolbarElement({
   const textEditorRef = useRef<HTMLSpanElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const beginTextEditing = () => {
-    if (!editable || element.kind === 'image') return;
+    if (!editable || toolbarControl || element.kind === 'image') return;
     onSelect?.(element.id);
     setEditingText(true);
     window.requestAnimationFrame(() => {
@@ -623,8 +642,10 @@ function ToolbarElement({
     if (!rect) return;
     const startX = event.clientX;
     const startY = event.clientY;
-    const initial = element;
-    const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
+    const initial = toolbarControl
+      ? { ...element, width: (element.height * rect.height) / rect.width }
+      : element;
+    const centerX = rect.left + ((initial.x + initial.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
     const startAngle =
       Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
@@ -709,8 +730,17 @@ function ToolbarElement({
         height = snapped.height;
         onGuideLinesChange?.(snapped.lines);
       }
-      width = Math.max(3, Math.min(60, width));
-      height = Math.max(3, Math.min(100, height));
+      if (toolbarControl) {
+        if (type === 'resize' && (handle === 'e' || handle === 'w'))
+          height = (width * rect.width) / rect.height;
+        height = Math.max(1, Math.min(100, height));
+        width = (height * rect.height) / rect.width;
+        if (type === 'resize' && handle?.includes('w')) x = initial.x + initial.width - width;
+        if (type === 'resize' && handle?.includes('n')) y = initial.y + initial.height - height;
+      } else {
+        width = Math.max(1, Math.min(100, width));
+        height = Math.max(1, Math.min(100, height));
+      }
       x = Math.max(0, Math.min(100 - width, x));
       y = Math.max(0, Math.min(100 - height, y));
       onUpdate(element.id, {
@@ -733,7 +763,10 @@ function ToolbarElement({
   return (
     <ElementContainer
       {...(!editable ? { type: 'button', disabled } : {})}
-      className={`pointer-events-auto absolute text-xs font-black text-white ${
+      aria-label={displayLabel || element.text || toolbarRoleLabels[element.role!] || undefined}
+      title={displayLabel || element.text || toolbarRoleLabels[element.role!] || undefined}
+      aria-pressed={icon ? active : undefined}
+      className={`${toolbarControl ? 'gw-playback-control' : ''} pointer-events-auto absolute text-xs font-black text-white ${
         element.kind === 'text'
           ? 'bg-transparent shadow-none'
           : element.kind === 'image'
@@ -743,7 +776,8 @@ function ToolbarElement({
       style={{
         left: `${element.x}%`,
         top: `${element.y}%`,
-        width: `${element.width}%`,
+        width: toolbarControl ? 'auto' : `${element.width}%`,
+        aspectRatio: toolbarControl ? '1 / 1' : undefined,
         height: `${element.height}%`,
         transform: `rotate(${element.rotation || 0}deg)`,
         opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
@@ -791,21 +825,25 @@ function ToolbarElement({
         if (!disabled) onAction();
       }}
     >
-      {element.appearance && (
+      {element.appearance && !toolbarControl && (
         <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
       )}
-      {editable && element.kind === 'button' && element.role && toolbarRoleLabels[element.role] && (
-        <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
-          {toolbarRoleLabels[element.role]}
-        </span>
-      )}
+      {editable &&
+        !toolbarControl &&
+        element.kind === 'button' &&
+        element.role &&
+        toolbarRoleLabels[element.role] && (
+          <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
+            {toolbarRoleLabels[element.role]}
+          </span>
+        )}
       <span
-        className={`flex h-full w-full items-center gap-1.5 overflow-hidden ${
+        className={`gw-playback-control-content flex h-full w-full items-center gap-1.5 overflow-hidden ${
           element.kind === 'button' ? 'px-2' : ''
         }`}
         style={{
           ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 8),
-          justifyContent,
+          justifyContent: toolbarControl ? 'center' : justifyContent,
           textAlign: element.textAlign || 'center',
         }}
       >
@@ -824,12 +862,12 @@ function ToolbarElement({
         ) : (
           <>
             {icon}
-            {element.textVisible !== false && (
+            {!toolbarControl && element.textVisible !== false && (
               <span
                 ref={textEditorRef}
                 contentEditable={editable && editingText}
                 suppressContentEditableWarning
-                className={`min-w-0 whitespace-pre-line outline-none ${
+                className={`min-w-0 ${toolbarControl ? 'gw-playback-label' : 'whitespace-pre-line'} outline-none ${
                   editable && !editingText ? 'cursor-text' : ''
                 } ${editable && editingText ? 'opacity-50 caret-white' : ''}`}
                 onPointerDown={(event) => {
@@ -847,7 +885,7 @@ function ToolbarElement({
                   }
                 }}
               >
-                {element.text ||
+                {(editingText ? element.text : (displayLabel ?? element.text)) ||
                   (editable && !editingText && element.kind === 'button' ? '双击编辑' : '')}
               </span>
             )}
@@ -870,6 +908,9 @@ function ToolbarElement({
       </span>
       {selected && editable && onUpdate && (
         <WebEditableElementFrame
+          compact={toolbarControl}
+          ringClassName={toolbarControl ? 'rounded-full ring-1 ring-indigo-500' : undefined}
+          showAuxiliaryControls={!toolbarControl}
           visible={element.visible !== false}
           onRotatePointerDown={(event) => beginDrag(event, 'rotate')}
           onToggleVisible={(event) => {

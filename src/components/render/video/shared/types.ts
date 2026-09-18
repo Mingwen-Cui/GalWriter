@@ -292,6 +292,7 @@ export type WebMenuElement = {
     | 'return'
     | 'mainMenu'
     | 'controlsToggle'
+    | 'history'
     | 'link'
     | 'volume';
   text: string;

@@ -155,7 +155,27 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
     'volume',
     'link',
   ],
-  game: ['custom', 'audio', 'fullscreen', 'return', 'mainMenu', 'controlsToggle', 'volume', 'link'],
+  game: [
+    'custom',
+    'settings',
+    'mode',
+    'speed',
+    'textSize',
+    'auto',
+    'animationSpeed',
+    'sound',
+    'controls',
+    'preview',
+    'reset',
+    'history',
+    'audio',
+    'fullscreen',
+    'return',
+    'mainMenu',
+    'controlsToggle',
+    'volume',
+    'link',
+  ],
 };
 
 const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> => {
@@ -179,6 +199,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       animationSpeed: 'アニメーション速度',
       sound: 'サウンド',
       controls: '操作表示',
+      history: '会話履歴',
       audio: '音声リスト',
       fullscreen: '全画面',
       return: '一つ戻る',
@@ -210,6 +231,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       animationSpeed: 'Animation speed',
       sound: 'Sound',
       controls: 'Show controls',
+      history: 'Dialogue history',
       audio: 'Audio playlist',
       fullscreen: 'Fullscreen',
       return: 'Go back',
@@ -240,10 +262,11 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
     animationSpeed: '动画速度',
     sound: '音效开关',
     controls: '显示控制栏',
+    history: '对话历史',
     audio: '音频播放列表',
-    fullscreen: '全屏',
-    return: '返回上一页',
-    mainMenu: '返回主界面',
+    fullscreen: '最大化 / 最小化',
+    return: '回退',
+    mainMenu: '主菜单',
     controlsToggle: '显示/隐藏控制栏',
     link: '打开超链接',
     volume: '设置音量',
@@ -1029,7 +1052,7 @@ export function StartMenuElementInspector({
             />
           }
         >
-          {surface === 'settings' &&
+          {(surface === 'settings' || surface === 'game') &&
             (() => {
               const forms =
                 playerControlCatalog(language).find((item) => item.id === buttonFunction)?.forms ||
@@ -1135,6 +1158,7 @@ export function StartMenuElementInspector({
             </div>
           )}
           {surface !== 'settings' &&
+            surface !== 'game' &&
             (['speed', 'textSize', 'animationSpeed'] as ButtonFunction[]).includes(
               buttonFunction,
             ) && (

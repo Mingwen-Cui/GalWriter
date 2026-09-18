@@ -2,7 +2,7 @@ import { packDialogueText } from '../../shared/packedText';
 import { htmlToSpeechText } from '../../../../lib/tts';
 import { DEFAULT_RENDER_STYLE } from '../../video/VideoRenderModal/workspaceStorage';
 import { resolveSettingsPageElements } from '../webMenuPageElements';
-import { buildRehearsalToolbarElements } from '../webExperienceTemplates';
+import { resolveWebToolbarElements } from '../webExperienceTemplates';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 import type { SurfaceAppearance } from '../../shared/paint/appearance';
@@ -170,13 +170,11 @@ const addExportLogoAsset = async (iconFolder: JSZip | null) => {
   }
 };
 
+import { webStoryTitle } from '../webPlaybackUi';
+
 const nodeTitle = (node: FlowNode) =>
-  String(
-    node.data?.title ||
-      node.data?.characterName ||
-      node.data?.sceneName ||
-      node.data?.label ||
-      'Untitled',
+  webStoryTitle(
+    node.data?.title || node.data?.characterName || node.data?.sceneName || node.data?.label || '',
   );
 
 const nodeText = (node: FlowNode) =>
@@ -335,9 +333,12 @@ export async function buildInteractiveWebZipBlob(
     ),
     settingsPageElementsInitialized: true,
     playerSettingsPanel: options.settings?.playerSettingsPanel,
-    previewToolbarElements: options.settings?.previewToolbarElements?.length
-      ? options.settings.previewToolbarElements
-      : buildRehearsalToolbarElements(options.language),
+    previewToolbarElements: resolveWebToolbarElements(
+      options.settings?.previewToolbarElements,
+      options.language,
+      options.settings?.canvasWidth,
+      options.settings?.canvasHeight,
+    ),
     dialogueOverlayElements: options.settings?.dialogueOverlayElements || [],
     startMenuPlacementBoundsLocked: options.settings?.startMenuPlacementBoundsLocked ?? false,
     startMenuPlacementMinX: options.settings?.startMenuPlacementMinX ?? 0,

@@ -1,3 +1,4 @@
+import { resolveWebToolbarElements } from './webExperienceTemplates';
 import { resolveSettingsPageElements } from './webMenuPageElements';
 import { PlayerSettingsControlsInspector } from './PlayerSettingsControlsInspector';
 import { themeRenderPatch, themeMenuPatch } from '../experienceThemes';
@@ -654,7 +655,6 @@ export function WebWorkspace({
   const showSettingDescriptions = false;
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [startMenuPreviewMode, setStartMenuPreviewMode] = useState<'edit' | 'test'>('edit');
-  const [testToolsOpen, setTestToolsOpen] = useState(false);
   const [testToolsWidth, setTestToolsWidth] = useState(360);
   const [testDebugInfoVisible, setTestDebugInfoVisible] = useState(false);
   const [testState, setTestState] = useState<WebPlaytestTestState | null>(null);
@@ -709,6 +709,12 @@ export function WebWorkspace({
     webChoiceColor,
     webChoiceTextColor,
   );
+  const resolvedToolbarElements = resolveWebToolbarElements(
+    webSettings.previewToolbarElements,
+    language,
+    webSettings.canvasWidth,
+    webSettings.canvasHeight,
+  );
   const activeElementSettingsKey:
     | 'startMenuElements'
     | 'archivePageElements'
@@ -727,10 +733,7 @@ export function WebWorkspace({
       : activeElementSettingsKey === 'settingsPageElements'
         ? settingsPageElements
         : activeElementSettingsKey === 'previewToolbarElements'
-          ? [
-              ...(webSettings.previewToolbarElements || []),
-              ...(webSettings.dialogueOverlayElements || []),
-            ]
+          ? [...resolvedToolbarElements, ...(webSettings.dialogueOverlayElements || [])]
           : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
@@ -819,9 +822,22 @@ export function WebWorkspace({
   };
   const updateActivePageElement = (id: string, patch: Partial<WebMenuElement>) => {
     if (currentPreviewSurface === 'game') {
-      const toolbar = webSettings.previewToolbarElements || [];
+      const toolbar = resolvedToolbarElements;
       const dialogue = webSettings.dialogueOverlayElements || [];
       if (toolbar.some((element) => element.id === id)) {
+        const element = toolbar.find((item) => item.id === id)!;
+        if (element.kind === 'button') {
+          if (patch.height !== undefined)
+            patch = {
+              ...patch,
+              width: (patch.height * webSettings.canvasHeight) / webSettings.canvasWidth,
+            };
+          else if (patch.width !== undefined)
+            patch = {
+              ...patch,
+              height: (patch.width * webSettings.canvasWidth) / webSettings.canvasHeight,
+            };
+        }
         updateWebSettings(
           'previewToolbarElements',
           toolbar.map((element) => (element.id === id ? { ...element, ...patch } : element)),
@@ -938,7 +954,7 @@ export function WebWorkspace({
       );
 
     if (currentPreviewSurface === 'game') {
-      const toolbar = webSettings.previewToolbarElements || [];
+      const toolbar = resolvedToolbarElements;
       const dialogue = webSettings.dialogueOverlayElements || [];
       updateWebSettings('previewToolbarElements', applyAlignment(toolbar));
       updateWebSettings('dialogueOverlayElements', applyAlignment(dialogue));
@@ -1207,14 +1223,22 @@ export function WebWorkspace({
       textColor: '#ffffff',
       backgroundType: 'solid',
       backgroundColor: '#4f46e5',
-      borderRadius: 12,
+      borderRadius: 9999,
     };
     if (currentPreviewSurface === 'start') {
       updateWebSettings('startMenuElements', [...(webSettings.startMenuElements || []), button]);
     } else if (currentPreviewSurface === 'game') {
       updateWebSettings('previewToolbarElements', [
-        ...(webSettings.previewToolbarElements || []),
-        { ...button, x: 76, y: 12, width: 14, height: 5.6, fontSize: 12 },
+        ...resolvedToolbarElements,
+        {
+          ...button,
+          x: 2,
+          y: 10,
+          width: (4.8 * webSettings.canvasHeight) / webSettings.canvasWidth,
+          height: 4.8,
+          fontSize: 12,
+          textVisible: false,
+        },
       ]);
     } else {
       const key =
@@ -1251,7 +1275,12 @@ export function WebWorkspace({
       const sourceKey = dialogueElements.some((element) => element.id === elementClipboard.id)
         ? 'dialogueOverlayElements'
         : 'previewToolbarElements';
-      updateWebSettings(sourceKey, [...(webSettings[sourceKey] || []), pasted]);
+      updateWebSettings(sourceKey, [
+        ...(sourceKey === 'previewToolbarElements'
+          ? resolvedToolbarElements
+          : webSettings[sourceKey] || []),
+        pasted,
+      ]);
     } else {
       const sourceKey =
         currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
@@ -1609,10 +1638,7 @@ JSON schema:
     <main
       className="min-h-0 grid bg-[var(--vr-bg)]"
       style={{
-        gridTemplateColumns:
-          startMenuPreviewMode === 'test' && !testToolsOpen
-            ? 'minmax(0, 1fr)'
-            : `minmax(0, 1fr) minmax(280px, ${testToolsWidth}px)`,
+        gridTemplateColumns: `minmax(0, 1fr) minmax(280px, ${testToolsWidth}px)`,
       }}
     >
       <section className="min-h-0 min-w-0 bg-[var(--vr-surface-soft)] flex flex-col">
@@ -1667,18 +1693,6 @@ JSON schema:
             >
               <RotateCw className="h-4 w-4" />
             </button>
-            {startMenuPreviewMode === 'test' && (
-              <button
-                type="button"
-                onClick={() => setTestToolsOpen((open) => !open)}
-                className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-black transition-colors ${testToolsOpen ? 'bg-[var(--vr-accent)] text-white' : 'bg-[var(--vr-surface)] text-[var(--vr-text-soft)] ring-1 ring-[var(--vr-border)] hover:text-[var(--vr-text)]'}`}
-                aria-pressed={testToolsOpen}
-                title={webCopy.testTools}
-              >
-                <Gamepad2 className="h-3.5 w-3.5" />
-                {formatWebText(language, 'componentsrenderwebWebWorkspaceText1589')}
-              </button>
-            )}
           </div>
         </div>
         <div className="min-h-0 flex-1 p-4 xl:p-5">
@@ -1698,11 +1712,7 @@ JSON schema:
               settings={webSettings}
               projectTitle={webProjectName}
               previewMode={startMenuPreviewMode}
-              requestedSurface={
-                startMenuPreviewMode === 'edit' && webSettings.showStartMenu
-                  ? editPreviewSurface
-                  : undefined
-              }
+              requestedSurface={webSettings.showStartMenu ? editPreviewSurface : 'game'}
               selectedStartMenuElementId={selectedStartMenuElementId}
               imageCropEditingElementId={imageCropEditingElementId}
               gradientEditingSurface={gradientEditingSurface}
@@ -1731,7 +1741,7 @@ JSON schema:
         </div>
       </section>
 
-      {(startMenuPreviewMode !== 'test' || testToolsOpen) && (
+      {
         <aside className="relative min-h-0 border-l border-[var(--vr-border)] bg-[var(--vr-surface)] backdrop-blur-xl flex flex-col">
           {true && (
             <div
@@ -1762,9 +1772,9 @@ JSON schema:
                 ]}
                 onChange={(value) => {
                   const nextMode = value as 'edit' | 'test';
+                  setEditPreviewSurface(currentPreviewSurface);
+                  setSelectedStartMenuElementId(null);
                   setStartMenuPreviewMode(nextMode);
-                  if (nextMode === 'test') setTestToolsOpen(false);
-                  setPreviewRefreshKey((key) => key + 1);
                 }}
               />
             </div>
@@ -2377,7 +2387,7 @@ JSON schema:
             )}
           </div>
         </aside>
-      )}
+      }
     </main>
   );
 }
