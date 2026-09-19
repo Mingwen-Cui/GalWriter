@@ -1,4 +1,4 @@
-import { Check, Monitor, Search, Trash2, Upload, X } from 'lucide-react';
+import { Check, Monitor, RefreshCw, Search, Trash2, Upload, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 
@@ -45,6 +45,7 @@ export function CustomFontUploadButton({
   const [commonOptions, setCommonOptions] = useState(options);
   const [localFonts, setLocalFonts] = useState<LocalFont[]>([]);
   const [localFontSearch, setLocalFontSearch] = useState('');
+  const [localFontsDetected, setLocalFontsDetected] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [licenseAcknowledged, setLicenseAcknowledged] = useState(readFontLicenseAcknowledgement);
   const [licenseChecked, setLicenseChecked] = useState(false);
@@ -58,6 +59,7 @@ export function CustomFontUploadButton({
     searchLocal: getVideoText(language, 'fontManagerSearchLocal'),
     noMatch: getVideoText(language, 'fontManagerNoMatch'),
     detect: getVideoText(language, 'fontManagerDetect'),
+    refresh: getVideoText(language, 'fontManagerRefreshLocal'),
     detecting: getVideoText(language, 'fontManagerDetecting'),
     localHint: getVideoText(language, 'fontManagerLocalHint'),
     browserUnsupported: getVideoText(language, 'fontManagerBrowserUnsupported'),
@@ -112,10 +114,12 @@ export function CustomFontUploadButton({
     } catch {
       // Keep the acknowledgement for the current session when storage is unavailable.
     }
+    void detectLocalFonts(true);
   };
 
-  const detectLocalFonts = async () => {
-    if (!licenseAcknowledged) return;
+  const detectLocalFonts = async (force = false) => {
+    if (!licenseAcknowledged && !force) return;
+    setLocalFontsDetected(false);
     const queryLocalFonts = (
       window as Window & {
         queryLocalFonts?: () => Promise<LocalFont[]>;
@@ -123,6 +127,7 @@ export function CustomFontUploadButton({
     ).queryLocalFonts;
     if (!queryLocalFonts) {
       setError(labels.browserUnsupported);
+      setLocalFontsDetected(true);
       return;
     }
     setDetecting(true);
@@ -140,6 +145,7 @@ export function CustomFontUploadButton({
       setError(labels.permissionDenied);
     } finally {
       setDetecting(false);
+      setLocalFontsDetected(true);
     }
   };
 
@@ -253,9 +259,7 @@ export function CustomFontUploadButton({
                   {!licenseAcknowledged ? (
                     <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                       <h3 className="text-sm font-bold text-amber-950">{labels.licenseTitle}</h3>
-                      <p className="mt-2 text-xs leading-5 text-amber-900">
-                        {labels.licenseBody}
-                      </p>
+                      <p className="mt-2 text-xs leading-5 text-amber-900">{labels.licenseBody}</p>
                       <label className="mt-3 flex items-start gap-2 text-xs text-amber-950">
                         <input
                           type="checkbox"
@@ -284,12 +288,31 @@ export function CustomFontUploadButton({
                       </div>
                       <button
                         type="button"
-                        onClick={detectLocalFonts}
+                        onClick={() => void detectLocalFonts()}
                         disabled={detecting || !licenseAcknowledged}
-                        className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60"
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60"
+                        title={
+                          detecting
+                            ? labels.detecting
+                            : localFontsDetected
+                              ? labels.refresh
+                              : labels.detect
+                        }
+                        aria-label={
+                          detecting
+                            ? labels.detecting
+                            : localFontsDetected
+                              ? labels.refresh
+                              : labels.detect
+                        }
                       >
-                        <Search className="h-3.5 w-3.5" />
-                        {detecting ? labels.detecting : labels.detect}
+                        {detecting ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : localFontsDetected ? (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        ) : (
+                          <Search className="h-3.5 w-3.5" />
+                        )}
                       </button>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
@@ -308,10 +331,11 @@ export function CustomFontUploadButton({
                         <button
                           type="button"
                           onClick={() => inputRef.current?.click()}
-                          className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-3 text-xs font-bold text-white hover:bg-amber-700"
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+                          title={labels.upload}
+                          aria-label={labels.upload}
                         >
                           <Upload className="h-3.5 w-3.5" />
-                          {labels.upload}
                         </button>
                       ) : null}
                     </div>

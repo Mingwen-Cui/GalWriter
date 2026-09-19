@@ -15,6 +15,7 @@ export const videoZh = {
   fontManagerSearchLocal: '搜索本机字体',
   fontManagerNoMatch: '没有匹配的本机字体。',
   fontManagerDetect: '检测本机字体',
+  fontManagerRefreshLocal: '重新检测本机字体',
   fontManagerDetecting: '检测中…',
   fontManagerLocalHint: '在受支持的浏览器中允许读取本机字体；也可以直接上传字体文件。',
   fontManagerBrowserUnsupported: '当前浏览器不支持读取本机字体，请使用上传字体功能。',

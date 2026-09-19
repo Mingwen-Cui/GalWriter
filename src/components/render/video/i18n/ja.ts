@@ -16,6 +16,7 @@ export const videoJa = {
   fontManagerSearchLocal: 'ローカルフォントを検索',
   fontManagerNoMatch: '一致するローカルフォントはありません。',
   fontManagerDetect: 'ローカルフォントを検出',
+  fontManagerRefreshLocal: 'ローカルフォントを再検出',
   fontManagerDetecting: '検出中…',
   fontManagerLocalHint:
     '対応ブラウザでローカルフォントへのアクセスを許可するか、フォントファイルを直接アップロードしてください。',

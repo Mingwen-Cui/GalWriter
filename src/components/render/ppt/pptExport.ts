@@ -751,7 +751,7 @@ export async function buildPptxBuffer({
         align: object.textAlign,
         fit: 'none',
         wrap: false,
-        underline: object.underline,
+        underline: object.underline ? { style: 'sng' } : undefined,
         strike: object.strikethrough,
         outline: outline
           ? { color: hex(outline.color), size: outline.width * pointScale }

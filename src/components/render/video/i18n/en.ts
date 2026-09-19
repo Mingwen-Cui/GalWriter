@@ -15,6 +15,7 @@ export const videoEn = {
   fontManagerSearchLocal: 'Search local fonts',
   fontManagerNoMatch: 'No matching local fonts.',
   fontManagerDetect: 'Detect local fonts',
+  fontManagerRefreshLocal: 'Refresh local fonts',
   fontManagerDetecting: 'Detecting…',
   fontManagerLocalHint:
     'Allow local-font access in a supported browser, or upload a font file directly.',
