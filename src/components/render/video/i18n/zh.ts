@@ -12,6 +12,8 @@ export const videoZh = {
   fontManagerSubtitle: '管理常用字体、检测本机字体或上传字体文件。',
   fontManagerCommon: '常用字体',
   fontManagerLocal: '本机字体',
+  fontManagerSearchLocal: '搜索本机字体',
+  fontManagerNoMatch: '没有匹配的本机字体。',
   fontManagerDetect: '检测本机字体',
   fontManagerDetecting: '检测中…',
   fontManagerLocalHint: '在受支持的浏览器中允许读取本机字体；也可以直接上传字体文件。',

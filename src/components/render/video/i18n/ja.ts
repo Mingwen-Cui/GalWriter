@@ -13,6 +13,8 @@ export const videoJa = {
     'よく使うフォントの管理、ローカルフォントの検出、フォントファイルのアップロードを行います。',
   fontManagerCommon: 'よく使うフォント',
   fontManagerLocal: 'ローカルフォント',
+  fontManagerSearchLocal: 'ローカルフォントを検索',
+  fontManagerNoMatch: '一致するローカルフォントはありません。',
   fontManagerDetect: 'ローカルフォントを検出',
   fontManagerDetecting: '検出中…',
   fontManagerLocalHint:

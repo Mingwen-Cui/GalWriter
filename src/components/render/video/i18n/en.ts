@@ -12,6 +12,8 @@ export const videoEn = {
   fontManagerSubtitle: 'Manage common fonts, detect local fonts, or upload a font file.',
   fontManagerCommon: 'Common fonts',
   fontManagerLocal: 'Local fonts',
+  fontManagerSearchLocal: 'Search local fonts',
+  fontManagerNoMatch: 'No matching local fonts.',
   fontManagerDetect: 'Detect local fonts',
   fontManagerDetecting: 'Detecting…',
   fontManagerLocalHint:
