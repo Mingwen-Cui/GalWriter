@@ -290,6 +290,10 @@ export type WebMenuElement = {
     | 'save'
     | 'continue'
     | 'flowOverview'
+    | 'flowDirection'
+    | 'flowFitView'
+    | 'flowBranch'
+    | 'flowMinimap'
     | 'new'
     | 'settings'
     | 'title'
@@ -547,6 +551,8 @@ export type WebExportSettings = {
   flowOverviewMusicFadeOut: number;
   flowOverviewMusicLoop: boolean;
   flowOverviewElements: WebMenuElement[];
+  flowOverviewLayoutDirection: 'right' | 'down' | 'left' | 'up';
+  flowOverviewCardSizes?: Record<string, { width: number; height: number }>;
   flowOverviewMinimapWidth: number;
   flowOverviewMinimapHeight: number;
   startMenuBackgroundMusicUrl: string;

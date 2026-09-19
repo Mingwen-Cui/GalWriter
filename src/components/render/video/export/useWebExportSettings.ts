@@ -60,6 +60,8 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   flowOverviewMusicFadeOut: 0,
   flowOverviewMusicLoop: true,
   flowOverviewElements: [],
+  flowOverviewLayoutDirection: 'right',
+  flowOverviewCardSizes: {},
   flowOverviewMinimapWidth: 220,
   flowOverviewMinimapHeight: 160,
   startMenuBackgroundMusicUrl: '',
@@ -125,6 +127,112 @@ const normalizeImageFillBaseColor = (element: WebMenuElement) => {
   return { ...element, backgroundImageBackgroundColor: element.backgroundColor };
 };
 
+const defaultFlowOverviewElements: WebMenuElement[] = [
+  {
+    id: 'flow-direction-control',
+    kind: 'button',
+    role: 'flowDirection',
+    text: '',
+    visible: true,
+    x: 88.2,
+    y: 0.8,
+    width: 2.2,
+    height: 4.2,
+    scale: 1,
+    rotation: 0,
+    textVisible: false,
+    backgroundColor: '#625BF6',
+    borderColor: '#625BF6',
+    borderWidth: 1,
+    borderRadius: 8,
+    textColor: '#ffffff',
+    fillEnabled: true,
+    strokeEnabled: true,
+    shadowEnabled: false,
+  },
+  {
+    id: 'flow-fit-view-control',
+    kind: 'button',
+    role: 'flowFitView',
+    text: '',
+    visible: true,
+    x: 90.8,
+    y: 0.8,
+    width: 2.2,
+    height: 4.2,
+    scale: 1,
+    rotation: 0,
+    textVisible: false,
+    backgroundColor: '#ffffff',
+    borderColor: '#dbe2ea',
+    borderWidth: 1,
+    borderRadius: 8,
+    textColor: '#64748b',
+    fillEnabled: true,
+    strokeEnabled: true,
+    shadowEnabled: false,
+  },
+  {
+    id: 'flow-current-branch',
+    kind: 'button',
+    role: 'flowBranch',
+    text: '开始',
+    visible: true,
+    x: 1.5,
+    y: 7,
+    width: 14,
+    height: 6,
+    scale: 1,
+    rotation: 0,
+    textVisible: true,
+    textAlign: 'left',
+    backgroundColor: '#ffffffd9',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 12,
+    textColor: '#334155',
+    fontSize: 13,
+    fontWeight: 800,
+    fillEnabled: true,
+    strokeEnabled: true,
+    shadowEnabled: true,
+    shadowOpacity: 16,
+    shadowBlur: 12,
+    shadowOffsetY: 3,
+  },
+  {
+    id: 'flow-minimap',
+    kind: 'button',
+    role: 'flowMinimap',
+    text: '',
+    visible: true,
+    x: 79,
+    y: 75,
+    width: 19,
+    height: 21,
+    scale: 1,
+    rotation: 0,
+    textVisible: false,
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 14,
+    fillEnabled: false,
+    strokeEnabled: false,
+    shadowEnabled: false,
+  },
+];
+
+const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSettings => {
+  const elements = settings.flowOverviewElements || [];
+  const controls = defaultFlowOverviewElements.filter(
+    (defaultElement) => !elements.some((element) => element.role === defaultElement.role),
+  );
+  return controls.length > 0
+    ? { ...settings, flowOverviewElements: [...controls, ...elements] }
+    : settings;
+};
+
 const normalizeWebImageFillBaseColors = (settings: WebExportSettings): WebExportSettings => {
   const keys = [
     'startMenuElements',
@@ -170,20 +278,26 @@ export const useWebExportSettings = (
     () => initial?.choiceTextColor || '#ffffff',
   );
   const [webSettings, setWebSettings] = useState<WebExportSettings>(() =>
-    normalizeWebImageFillBaseColors({
-      ...DEFAULT_WEB_SETTINGS,
-      ...defaultPreset.settings,
-      ...initial?.settings,
-      ...sharedCanvas.settings,
-    }),
+    ensureFlowOverviewControls(
+      normalizeWebImageFillBaseColors({
+        ...DEFAULT_WEB_SETTINGS,
+        ...defaultPreset.settings,
+        ...initial?.settings,
+        ...sharedCanvas.settings,
+      }),
+    ),
   );
   useEffect(() => {
     setWebSettings((previous) =>
-      normalizeWebImageFillBaseColors({ ...previous, ...sharedCanvas.settings }),
+      ensureFlowOverviewControls(
+        normalizeWebImageFillBaseColors({ ...previous, ...sharedCanvas.settings }),
+      ),
     );
   }, [sharedCanvas.settings]);
   useEffect(() => {
-    setWebSettings((previous) => normalizeWebImageFillBaseColors(previous));
+    setWebSettings((previous) =>
+      ensureFlowOverviewControls(normalizeWebImageFillBaseColors(previous)),
+    );
   }, [webSettings]);
   const webRenderStyle = styleBinding.value;
   const applyRenderStyle = (style: RenderStyle) => {

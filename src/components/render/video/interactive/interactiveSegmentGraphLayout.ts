@@ -113,12 +113,14 @@ export const segmentLinkPath = (
   cardHeight: number,
   direction: LayoutDirection,
   radius: number,
+  toCardWidth = cardWidth,
+  toCardHeight = cardHeight,
 ) => {
   if (direction === 'down' || direction === 'up') {
     const startX = from.x + cardWidth / 2;
     const startY = direction === 'down' ? from.y + cardHeight : from.y;
-    const endX = to.x + cardWidth / 2;
-    const endY = direction === 'down' ? to.y : to.y + cardHeight;
+    const endX = to.x + toCardWidth / 2;
+    const endY = direction === 'down' ? to.y : to.y + toCardHeight;
     const verticalDirection = endY >= startY ? 1 : -1;
     const handle = Math.max(radius * 2, Math.min(180, Math.abs(endY - startY) * 0.46));
     return `M${startX},${startY} C${startX},${startY + verticalDirection * handle} ${endX},${endY - verticalDirection * handle} ${endX},${endY}`;
@@ -126,8 +128,8 @@ export const segmentLinkPath = (
 
   const startX = direction === 'right' ? from.x + cardWidth : from.x;
   const startY = from.y + cardHeight / 2;
-  const endX = direction === 'right' ? to.x : to.x + cardWidth;
-  const endY = to.y + cardHeight / 2;
+  const endX = direction === 'right' ? to.x : to.x + toCardWidth;
+  const endY = to.y + toCardHeight / 2;
   const horizontalDirection = endX >= startX ? 1 : -1;
   const handle = Math.max(radius * 2, Math.min(180, Math.abs(endX - startX) * 0.46));
   return `M${startX},${startY} C${startX + horizontalDirection * handle},${startY} ${endX - horizontalDirection * handle},${endY} ${endX},${endY}`;

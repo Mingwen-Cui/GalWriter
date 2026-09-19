@@ -1,10 +1,10 @@
 export const renderObjectInspectorZh = {
   object: {
-    dialogBox: '对话框背景',
+    dialogBox: '话框',
     title: '标题',
     body: '正文',
-    nameplate: '人物名牌',
-    choice: '故事选项',
+    nameplate: '人名',
+    choice: '选择',
   },
   group: {
     position: '位置',

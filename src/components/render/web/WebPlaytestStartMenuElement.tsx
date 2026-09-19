@@ -1,6 +1,7 @@
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useRef, useState } from 'react';
+import { ArrowRight, RotateCw } from 'lucide-react';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
@@ -69,6 +70,8 @@ type WebPlaytestStartMenuElementProps = {
   choiceColor: string;
   choiceTextColor: string;
   language: Language;
+  dynamicText?: string;
+  flowMinimap?: ReactNode;
   onEnsureStartMenuElements: () => void;
   onSelectElement: (id: string) => void;
   onSetEditingElement: (id: string | null) => void;
@@ -95,6 +98,8 @@ export function WebPlaytestStartMenuElement({
   choiceColor,
   choiceTextColor,
   language,
+  dynamicText,
+  flowMinimap,
   onEnsureStartMenuElements,
   onSelectElement,
   onSetEditingElement,
@@ -180,7 +185,12 @@ export function WebPlaytestStartMenuElement({
     if (!hasCustomStartMenuElements) onEnsureStartMenuElements();
     onSelectElement(element.id);
   };
-  const visibleText = element.textVisible === false ? '' : element.text;
+  const visibleText =
+    element.textVisible === false
+      ? ''
+      : element.role === 'flowBranch' && dynamicText !== undefined
+        ? dynamicText || element.text
+        : element.text;
   const openImagePicker = (event: React.MouseEvent<HTMLElement>) => {
     if (previewMode !== 'edit') return;
     event.preventDefault();
@@ -202,7 +212,10 @@ export function WebPlaytestStartMenuElement({
         onSetEditingElement(element.id);
       }}
       onPointerDown={(event) => {
-        if (previewMode === 'edit') event.stopPropagation();
+        if (previewMode === 'edit' && !imageCropEditing) {
+          event.stopPropagation();
+          onBeginDrag(event, element, 'move');
+        }
       }}
       onBlur={(event) => {
         onUpdateElement(element.id, {
@@ -254,18 +267,55 @@ export function WebPlaytestStartMenuElement({
                 : language === 'ja'
                   ? 'フロー概要'
                   : 'Flow overview'
-              : element.role === 'link'
-                ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText238')
-                : element.role === 'volume'
-                  ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText240')
-                  : formatWebText(
-                      language,
-                      'componentsrenderwebWebPlaytestStartMenuElementText241',
-                    );
+              : element.role === 'flowDirection'
+                ? language === 'zh'
+                  ? '切换流程方向'
+                  : language === 'ja'
+                    ? 'フロー方向を切り替え'
+                    : 'Cycle flow direction'
+                : element.role === 'flowFitView'
+                  ? language === 'zh'
+                    ? '适应流程图'
+                    : language === 'ja'
+                      ? '全体を表示'
+                      : 'Fit flow view'
+                  : element.role === 'flowBranch'
+                    ? language === 'zh'
+                      ? '当前分支提示'
+                      : language === 'ja'
+                        ? '現在の分岐'
+                        : 'Current branch'
+                    : element.role === 'flowMinimap'
+                      ? language === 'zh'
+                        ? '流程图导航'
+                        : language === 'ja'
+                          ? 'フローミニマップ'
+                          : 'Flow minimap'
+                      : element.role === 'link'
+                        ? formatWebText(
+                            language,
+                            'componentsrenderwebWebPlaytestStartMenuElementText238',
+                          )
+                        : element.role === 'volume'
+                          ? formatWebText(
+                              language,
+                              'componentsrenderwebWebPlaytestStartMenuElementText240',
+                            )
+                          : formatWebText(
+                              language,
+                              'componentsrenderwebWebPlaytestStartMenuElementText241',
+                            );
+
+  const FlowControlIcon =
+    element.role === 'flowDirection'
+      ? ArrowRight
+      : element.role === 'flowFitView'
+        ? RotateCw
+        : null;
 
   return (
     <div
-      className={`absolute origin-center pointer-events-auto ${previewMode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`absolute origin-center pointer-events-auto ${previewMode === 'edit' ? 'cursor-grab touch-none select-none active:cursor-grabbing' : ''}`}
       data-selectable-element-id={element.id}
       style={{
         ...elementStyle,
@@ -286,7 +336,9 @@ export function WebPlaytestStartMenuElement({
           {functionLabel}
         </div>
       )}
-      {element.kind === 'image' ? (
+      {element.role === 'flowMinimap' && flowMinimap ? (
+        <div className="h-full w-full pointer-events-auto">{flowMinimap}</div>
+      ) : element.kind === 'image' ? (
         element.imageUrl ? (
           <>
             <img
@@ -347,6 +399,11 @@ export function WebPlaytestStartMenuElement({
         <button
           type="button"
           onPointerDown={(event) => {
+            if (previewMode === 'edit' && !imageCropEditing) {
+              event.stopPropagation();
+              onBeginDrag(event, element, 'move');
+              return;
+            }
             if (
               !imageCropEditing ||
               previewMode !== 'edit' ||
@@ -381,6 +438,12 @@ export function WebPlaytestStartMenuElement({
           onClick={(event) => {
             if (editingStartMenuElementId === element.id) return;
             if (previewMode === 'edit') {
+              if (element.role === 'flowDirection' || element.role === 'flowFitView') {
+                event.preventDefault();
+                event.stopPropagation();
+                action?.onClick();
+                return;
+              }
               event.preventDefault();
               return;
             }
@@ -474,7 +537,13 @@ export function WebPlaytestStartMenuElement({
                 }
               />
             )}
-          <span className="relative z-[1]">{content}</span>
+          <span className="relative z-[1]">
+            {FlowControlIcon && element.textVisible === false ? (
+              <FlowControlIcon className="h-[52%] w-[52%]" aria-hidden="true" />
+            ) : (
+              content
+            )}
+          </span>
         </button>
       ) : (
         <div

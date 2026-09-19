@@ -129,14 +129,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
   </div>
   <div class="flow-overview-backdrop" id="flowOverviewBackdrop" role="dialog" aria-modal="true" aria-label="Flow overview">
     <div class="flow-overview-panel" id="flowOverviewPanel">
-      <div class="flow-overview-head">
-        <div>
-          <div class="flow-overview-title" id="flowOverviewTitle"></div>
-          <div class="flow-overview-hint" id="flowOverviewHint"></div>
-        </div>
-        <button class="flow-overview-close" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
-      </div>
       <div class="flow-overview-viewport" id="flowOverviewViewport">
+        <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
         <div class="flow-overview-canvas" id="flowOverviewCanvas"></div>
         <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
         <div class="flow-overview-minimap" id="flowOverviewMinimap" aria-hidden="true"></div>
@@ -249,6 +243,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     settings.flowOverviewMusicFadeOut = clamp(settings.flowOverviewMusicFadeOut, 0, 10, 0);
     settings.flowOverviewMusicLoop = settings.flowOverviewMusicLoop !== false;
     settings.flowOverviewElements = Array.isArray(settings.flowOverviewElements) ? settings.flowOverviewElements.filter(Boolean) : [];
+    settings.flowOverviewLayoutDirection = ["right", "down", "left", "up"].includes(settings.flowOverviewLayoutDirection) ? settings.flowOverviewLayoutDirection : "right";
+    settings.flowOverviewCardSizes = settings.flowOverviewCardSizes && typeof settings.flowOverviewCardSizes === "object" ? settings.flowOverviewCardSizes : {};
     settings.flowOverviewMinimapWidth = clamp(settings.flowOverviewMinimapWidth, 160, 440, 220);
     settings.flowOverviewMinimapHeight = clamp(settings.flowOverviewMinimapHeight, 110, 320, 160);
     settings.startMenuBackgroundMusicUrl = String(settings.startMenuBackgroundMusicUrl || "");
@@ -673,8 +669,6 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     const flowOverviewBackdrop = document.getElementById("flowOverviewBackdrop");
     const flowOverviewPanel = document.getElementById("flowOverviewPanel");
     const flowOverviewClose = document.getElementById("flowOverviewClose");
-    const flowOverviewTitle = document.getElementById("flowOverviewTitle");
-    const flowOverviewHint = document.getElementById("flowOverviewHint");
     const flowOverviewViewport = document.getElementById("flowOverviewViewport");
     const flowOverviewCanvas = document.getElementById("flowOverviewCanvas");
     const flowOverviewCustomLayer = document.getElementById("flowOverviewCustomLayer");
@@ -1045,6 +1039,18 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           primary: false,
           onClick: openFlowOverview,
         },
+        flowDirection: {
+          label: content.language === "zh" ? "切换流程方向" : content.language === "ja" ? "フロー方向を切り替え" : "Cycle flow direction",
+          disabled: false,
+          primary: false,
+          onClick: cycleFlowOverviewDirection,
+        },
+        flowFitView: {
+          label: content.language === "zh" ? "适应流程图" : content.language === "ja" ? "全体を表示" : "Fit flow view",
+          disabled: false,
+          primary: false,
+          onClick: fitFlowOverview,
+        },
         continue: {
           label: labels.continue,
           disabled: !canContinueSave(save),
@@ -1112,6 +1118,12 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           ? "1"
           : String(Math.max(0, Math.min(100, Number(element.opacity ?? 100))) / 100);
         wrapper.style.zIndex = String(20 + (Number(element.zIndex) || 0));
+        if (layer === flowOverviewCustomLayer && element.role === "flowMinimap") {
+          flowOverviewMinimap.classList.add("is-embedded");
+          wrapper.appendChild(flowOverviewMinimap);
+          layer.appendChild(wrapper);
+          return;
+        }
         if (element.kind === "image") {
           if (!element.imageUrl) return;
           const image = document.createElement("img");
@@ -1129,8 +1141,22 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           const button = document.createElement(widget ? "div" : "button");
           button.type = "button";
           button.className = "start-element-button" + (isToolbar ? ' gw-playback-control' + (element.textVisible !== false ? ' gw-playback-control-with-label' : '') : '') + ((element.primary || action?.primary) ? " primary" : "");
-          const buttonLabel = isToolbar ? toolbarButtonLabel(element.role, element.text || '', content.language, Boolean(document.fullscreenElement), controlsHidden, settings.autoAdvance, element.id === 'toolbar-auto') : element.text || action?.label || '';
+          const buttonLabel = isToolbar
+            ? toolbarButtonLabel(element.role, element.text || '', content.language, Boolean(document.fullscreenElement), controlsHidden, settings.autoAdvance, element.id === 'toolbar-auto')
+            : element.role === "flowBranch"
+              ? flowOverviewBranchLabel || element.text || action?.label || ''
+              : element.text || action?.label || '';
           button.textContent = "";
+          if (!isToolbar && element.textVisible === false && (element.role === "flowDirection" || element.role === "flowFitView")) {
+            const icon = document.createElement("span");
+            icon.setAttribute("aria-hidden", "true");
+            icon.innerHTML = element.role === "flowDirection"
+              ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+              : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7M3 3v6h6"/></svg>';
+            icon.firstElementChild.style.width = "52%";
+            icon.firstElementChild.style.height = "52%";
+            button.appendChild(icon);
+          }
           button.disabled = Boolean(element.disabled || action?.disabled);
           button.inert = Boolean(element.disabled);
           if (isToolbar) {
@@ -1863,6 +1889,19 @@ ${WEB_PLAYBACK_UI_CSS}</style>
 
     let flowOverviewRootNodeId = "";
     let flowOverviewEdges = [];
+    let flowOverviewLayoutDirection = settings.flowOverviewLayoutDirection || "right";
+    let flowOverviewBranchLabel = "";
+
+    function cycleFlowOverviewDirection() {
+      const directions = ["right", "down", "left", "up"];
+      const currentIndex = directions.indexOf(flowOverviewLayoutDirection);
+      flowOverviewLayoutDirection = directions[(currentIndex + 1) % directions.length];
+      if (flowOverviewBackdrop.classList.contains("open")) openFlowOverview();
+    }
+
+    function fitFlowOverview() {
+      flowOverviewViewport.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+    }
 
     function flowPathNodeIds(targetId) {
       if (!targetId) return new Set();
@@ -1927,6 +1966,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
 
     function showFlowNodeDetail(node) {
       if (!node) return;
+      flowOverviewBranchLabel = flowNodeTitle(node);
+      renderCustomStartMenu(null, flowOverviewCustomLayer, settings.flowOverviewElements);
       highlightFlowPath(node.id);
       const nextEdges = outEdges(node.id);
       flowOverviewDetail.hidden = false;
@@ -1986,6 +2027,29 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       flowOverviewDetail.append(head, body, play);
     }
 
+    function flowOverviewEdgePath(from, to) {
+      const fromWidth = Number(from.width) || 220;
+      const fromHeight = Number(from.height) || 132;
+      const toWidth = Number(to.width) || 220;
+      const toHeight = Number(to.height) || 132;
+      if (flowOverviewLayoutDirection === "down" || flowOverviewLayoutDirection === "up") {
+        const startX = from.x + fromWidth / 2;
+        const endX = to.x + toWidth / 2;
+        const startY = flowOverviewLayoutDirection === "down" ? from.y + fromHeight : from.y;
+        const endY = flowOverviewLayoutDirection === "down" ? to.y : to.y + toHeight;
+        const bend = Math.max(42, Math.abs(endY - startY) / 2);
+        const sign = flowOverviewLayoutDirection === "down" ? 1 : -1;
+        return "M " + startX + " " + startY + " C " + startX + " " + (startY + sign * bend) + ", " + endX + " " + (endY - sign * bend) + ", " + endX + " " + endY;
+      }
+      const startX = flowOverviewLayoutDirection === "right" ? from.x + fromWidth : from.x;
+      const endX = flowOverviewLayoutDirection === "right" ? to.x : to.x + toWidth;
+      const startY = from.y + fromHeight / 2;
+      const endY = to.y + toHeight / 2;
+      const bend = Math.max(42, Math.abs(endX - startX) / 2);
+      const sign = flowOverviewLayoutDirection === "right" ? 1 : -1;
+      return "M " + startX + " " + startY + " C " + (startX + sign * bend) + " " + startY + ", " + (endX - sign * bend) + " " + endY + ", " + endX + " " + endY;
+    }
+
     function renderFlowOverviewMinimap(positionById, allEdges, canvasWidth, canvasHeight) {
       flowOverviewMinimap.innerHTML = "";
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1996,12 +2060,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         const to = positionById.get(edge.target);
         if (!from || !to) return;
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        const startX = from.x + 220;
-        const startY = from.y + 54;
-        const endX = to.x;
-        const endY = to.y + 54;
-        const bend = Math.max(42, (endX - startX) / 2);
-        path.setAttribute("d", "M " + startX + " " + startY + " C " + (startX + bend) + " " + startY + ", " + (endX - bend) + " " + endY + ", " + endX + " " + endY);
+        path.setAttribute("d", flowOverviewEdgePath(from, to));
         path.setAttribute("fill", "none");
         path.setAttribute("stroke", "#94a3b8");
         path.setAttribute("stroke-width", "5");
@@ -2012,8 +2071,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         rect.setAttribute("x", String(position.x));
         rect.setAttribute("y", String(position.y));
-        rect.setAttribute("width", "220");
-        rect.setAttribute("height", "132");
+        rect.setAttribute("width", String(position.width || 220));
+        rect.setAttribute("height", String(position.height || 132));
         rect.setAttribute("rx", "12");
         rect.setAttribute("fill", nodeId === flowOverviewRootNodeId ? "#818cf8" : "#cbd5e1");
         rect.setAttribute("fill-opacity", "0.9");
@@ -2025,23 +2084,18 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     function openFlowOverview() {
       const allNodes = Array.isArray(content.nodes) ? content.nodes.filter(Boolean) : [];
       const allEdges = Array.isArray(content.edges) ? content.edges.filter(Boolean) : [];
-      flowOverviewTitle.textContent = labels.flowOverview;
       applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
       applySurfaceBackground(flowOverviewViewport, "flowOverviewBackground");
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-width", settings.flowOverviewMinimapWidth + "px");
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-height", settings.flowOverviewMinimapHeight + "px");
-      renderCustomStartMenu(null, flowOverviewCustomLayer, settings.flowOverviewElements);
       if (startScreen.classList.contains("open")) stopStartMenuMusic();
       playFlowOverviewMusic();
       flowOverviewDetail.hidden = true;
       flowOverviewDetail.innerHTML = "";
-      flowOverviewHint.textContent = content.language === "zh"
-        ? allNodes.length + " 个节点 · " + allEdges.length + " 条连接"
-        : content.language === "ja"
-          ? allNodes.length + " ノード · " + allEdges.length + " 接続"
-          : allNodes.length + " nodes · " + allEdges.length + " connections";
       flowOverviewCanvas.innerHTML = "";
       if (!allNodes.length) {
+        flowOverviewBranchLabel = content.language === "zh" ? "暂无剧情" : content.language === "ja" ? "ストーリーなし" : "No story";
+        renderCustomStartMenu(null, flowOverviewCustomLayer, settings.flowOverviewElements);
         flowOverviewCanvas.textContent = labels.noStory;
         flowOverviewBackdrop.classList.add("open");
         return;
@@ -2049,6 +2103,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
 
       const rootNode = allNodes.find((node) => node.data && node.data.isRoot) || allNodes[0];
       flowOverviewRootNodeId = rootNode.id;
+      flowOverviewBranchLabel = flowNodeTitle(rootNode);
       flowOverviewEdges = allEdges;
       const levelById = new Map([[rootNode.id, 0]]);
       const queue = [rootNode.id];
@@ -2076,10 +2131,23 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       let maxRows = 1;
       rowsByLevel.forEach((row, level) => {
         maxRows = Math.max(maxRows, row.length);
-        row.forEach((node, index) => positionById.set(node.id, { x: 48 + level * 282, y: 48 + index * 150 }));
+        row.forEach((node, index) => positionById.set(node.id, { level, index }));
       });
-      const canvasWidth = Math.max(flowOverviewViewport.clientWidth - 1, (Math.max(...Array.from(levelById.values())) + 1) * 282 + 96);
-      const canvasHeight = Math.max(flowOverviewViewport.clientHeight - 1, maxRows * 150 + 96);
+      const maxLevel = Math.max(...Array.from(levelById.values()));
+      positionById.forEach((position, nodeId) => {
+        const horizontal = flowOverviewLayoutDirection === "right" || flowOverviewLayoutDirection === "left";
+        const levelOffset = flowOverviewLayoutDirection === "left" || flowOverviewLayoutDirection === "up"
+          ? maxLevel - position.level
+          : position.level;
+        position.x = 48 + (horizontal ? levelOffset * 282 : position.index * 282);
+        position.y = 48 + (horizontal ? position.index * 150 : levelOffset * 180);
+        const size = settings.flowOverviewCardSizes[nodeId] || {};
+        position.width = clamp(size.width, 140, 420, 220);
+        position.height = clamp(size.height, 90, 260, 132);
+      });
+      const horizontal = flowOverviewLayoutDirection === "right" || flowOverviewLayoutDirection === "left";
+      const canvasWidth = Math.max(flowOverviewViewport.clientWidth - 1, (horizontal ? maxLevel + 1 : maxRows) * 282 + 96);
+      const canvasHeight = Math.max(flowOverviewViewport.clientHeight - 1, (horizontal ? maxRows * 150 : (maxLevel + 1) * 180) + 96);
       flowOverviewCanvas.style.width = canvasWidth + "px";
       flowOverviewCanvas.style.height = canvasHeight + "px";
 
@@ -2093,12 +2161,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         const to = positionById.get(edge.target);
         if (!from || !to) return;
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        const startX = from.x + 220;
-        const startY = from.y + 54;
-        const endX = to.x;
-        const endY = to.y + 54;
-        const bend = Math.max(42, (endX - startX) / 2);
-        path.setAttribute("d", "M " + startX + " " + startY + " C " + (startX + bend) + " " + startY + ", " + (endX - bend) + " " + endY + ", " + endX + " " + endY);
+        path.setAttribute("d", flowOverviewEdgePath(from, to));
         path.setAttribute("fill", "none");
         path.setAttribute("stroke", "#94a3b8");
         path.setAttribute("stroke-width", "2");
@@ -2109,6 +2172,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       });
       flowOverviewCanvas.appendChild(svg);
       renderFlowOverviewMinimap(positionById, allEdges, canvasWidth, canvasHeight);
+      renderCustomStartMenu(null, flowOverviewCustomLayer, settings.flowOverviewElements);
 
       allNodes.forEach((node) => {
         const position = positionById.get(node.id);
@@ -2116,6 +2180,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         card.className = "flow-overview-node" + (node.id === rootNode.id ? " root" : "");
         card.style.left = position.x + "px";
         card.style.top = position.y + "px";
+        card.style.width = (position.width || 220) + "px";
+        card.style.height = (position.height || 132) + "px";
         card.setAttribute("data-node-id", node.id);
         const imageUrl = flowNodeImage(node);
         if (imageUrl) {

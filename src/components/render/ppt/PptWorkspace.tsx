@@ -2184,7 +2184,7 @@ function ScenePreview({
         <PptEditableObject
           kind="nameplate"
           target="nameplate"
-          label="人物名牌"
+          label="人名"
           object={nameplate}
           selected={selected}
           animation={findAnimation(animations, 'nameplate')}
@@ -2586,7 +2586,7 @@ function ChoicePreview({
       <PptEditableObject
         kind="choice"
         target="choice"
-        label="故事选项"
+        label="选择"
         object={choiceObject}
         selected={selected}
         animation={findAnimation(animations, 'choice')}

@@ -69,6 +69,10 @@ export const readStartMenuImageFile = (file: File, onReady: (value: string) => v
 export const protectedStartMenuElementRoles = new Set([
   'continue',
   'flowOverview',
+  'flowDirection',
+  'flowFitView',
+  'flowBranch',
+  'flowMinimap',
   'save',
   'new',
   'settings',

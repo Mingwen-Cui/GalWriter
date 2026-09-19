@@ -513,6 +513,7 @@ export function WebWorkspace({
         'flowOverviewMusicFadeOut',
         'flowOverviewMusicLoop',
         'flowOverviewElements',
+        'flowOverviewCardSizes',
         'flowOverviewMinimapWidth',
         'flowOverviewMinimapHeight',
       ],
@@ -724,6 +725,7 @@ export function WebWorkspace({
   }, [webRenderStyle.selectedRenderObject]);
   const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
+  const [selectedFlowCardId, setSelectedFlowCardId] = useState<string | null>(null);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
   const [imageCropEditingElementId, setImageCropEditingElementId] = useState<string | null>(null);
   const [gradientEditingElement, setGradientEditingElement] = useState<{
@@ -806,6 +808,9 @@ export function WebWorkspace({
             : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
+  const selectedFlowCardSize = selectedFlowCardId
+    ? webSettings.flowOverviewCardSizes?.[selectedFlowCardId] || { width: 208, height: 132 }
+    : null;
   const handleGradientEditingChange = useCallback(
     (group: 'text' | 'fill' | 'stroke' | null) => {
       const next =
@@ -1106,7 +1111,72 @@ export function WebWorkspace({
           onUpdateElements={(elements) => updateWebSettings('settingsPageElements', elements)}
         />
       )}
-      {selectedStartMenuElement ? (
+      {currentPreviewSurface === 'flow' && selectedFlowCardId && selectedFlowCardSize ? (
+        <div className="space-y-3 rounded-lg bg-[var(--vr-surface-soft)] p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-black text-[var(--vr-text)]">
+              {formatWebText(language, 'componentsrenderwebWebWorkspaceText938_flow_card')}
+            </div>
+            <button
+              type="button"
+              className="text-[10px] font-bold text-[var(--vr-text-muted)] hover:text-[var(--vr-accent)]"
+              onClick={() => setSelectedFlowCardId(null)}
+            >
+              {formatWebText(language, 'componentsrenderwebWebWorkspaceText728')}
+            </button>
+          </div>
+          <label className="block text-xs text-[var(--vr-text-soft)]">
+            <span className="flex justify-between">
+              <span>
+                {formatWebText(language, 'componentsrenderwebWebWorkspaceText939_flow_card_width')}
+              </span>
+              <span>{Math.round(selectedFlowCardSize.width)}px</span>
+            </span>
+            <input
+              type="range"
+              min={140}
+              max={420}
+              step={4}
+              value={selectedFlowCardSize.width}
+              onChange={(event) =>
+                updateWebSettings('flowOverviewCardSizes', {
+                  ...(webSettings.flowOverviewCardSizes || {}),
+                  [selectedFlowCardId]: {
+                    ...selectedFlowCardSize,
+                    width: Number(event.target.value),
+                  },
+                })
+              }
+              className="mt-2 w-full accent-indigo-600"
+            />
+          </label>
+          <label className="block text-xs text-[var(--vr-text-soft)]">
+            <span className="flex justify-between">
+              <span>
+                {formatWebText(language, 'componentsrenderwebWebWorkspaceText940_flow_card_height')}
+              </span>
+              <span>{Math.round(selectedFlowCardSize.height)}px</span>
+            </span>
+            <input
+              type="range"
+              min={90}
+              max={260}
+              step={4}
+              value={selectedFlowCardSize.height}
+              onChange={(event) =>
+                updateWebSettings('flowOverviewCardSizes', {
+                  ...(webSettings.flowOverviewCardSizes || {}),
+                  [selectedFlowCardId]: {
+                    ...selectedFlowCardSize,
+                    height: Number(event.target.value),
+                  },
+                })
+              }
+              className="mt-2 w-full accent-indigo-600"
+            />
+          </label>
+        </div>
+      ) : selectedStartMenuElement ? (
         <StartMenuElementInspector
           element={selectedStartMenuElement}
           layerElements={activePageElements}
@@ -1817,10 +1887,11 @@ JSON schema:
   };
 
   const designPanelSwitcherLayout = {
-    start: { pointer: 'left-[12.5%]', alignment: 'justify-start' },
-    archive: { pointer: 'left-[37.5%]', alignment: 'justify-start pl-[24%]' },
-    settings: { pointer: 'left-[62.5%]', alignment: 'justify-start pl-[45%]' },
-    game: { pointer: 'left-[87.5%]', alignment: 'justify-end' },
+    start: { pointer: 'left-[10%]', alignment: 'justify-start' },
+    archive: { pointer: 'left-[30%]', alignment: 'justify-start pl-[16%]' },
+    settings: { pointer: 'left-[50%]', alignment: 'justify-start pl-[36%]' },
+    flow: { pointer: 'left-[70%]', alignment: 'justify-start pl-[56%]' },
+    game: { pointer: 'left-[90%]', alignment: 'justify-end' },
   }[editPreviewSurface];
 
   const dispatchTestAction = (action: WebPlaytestTestAction['type'], nodeId?: string) => {
@@ -1941,9 +2012,20 @@ JSON schema:
               gradientEditingElement={gradientEditingElement}
               onSurfaceChange={setCurrentPreviewSurface}
               onSelectStartMenuElement={(id) => {
+                setSelectedFlowCardId(null);
                 setSelectedStartMenuElementId(id);
                 setSelectedPreviewElementIds(id ? [id] : []);
                 if (id) setDialogueSelection('background');
+              }}
+              onSelectFlowCard={(id) => {
+                setSelectedFlowCardId(id);
+                if (id) {
+                  setSelectedStartMenuElementId(null);
+                  setSelectedPreviewElementIds([]);
+                } else {
+                  setSelectedStartMenuElementId(null);
+                  setSelectedPreviewElementIds([]);
+                }
               }}
               onSelectStartMenuElements={setSelectedPreviewElementIds}
               onDeleteStartMenuElement={deleteStartMenuElement}
@@ -2591,6 +2673,10 @@ JSON schema:
                 )}
 
                 {designPanelMode === 'background' && currentPreviewSurface === 'archive' && (
+                  <>{surfaceInspector}</>
+                )}
+
+                {designPanelMode === 'background' && currentPreviewSurface === 'flow' && (
                   <>{surfaceInspector}</>
                 )}
 

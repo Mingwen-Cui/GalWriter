@@ -28,6 +28,7 @@ type Props = {
   graphHeight: number;
   cardWidth: number;
   cardHeight: number;
+  cardSizes?: Record<string, { width: number; height: number }>;
   viewportPan: GraphPoint;
   viewportZoom: number;
   viewportSize: { width: number; height: number };
@@ -43,6 +44,8 @@ type Props = {
   showFullscreenToggle?: boolean;
   width?: number;
   height?: number;
+  embedded?: boolean;
+  interactive?: boolean;
 };
 
 const DEFAULT_MINIMAP_WIDTH = 220;
@@ -60,6 +63,7 @@ export function InteractiveSegmentMinimap({
   graphHeight,
   cardWidth,
   cardHeight,
+  cardSizes = {},
   viewportPan,
   viewportZoom,
   viewportSize,
@@ -75,6 +79,8 @@ export function InteractiveSegmentMinimap({
   showFullscreenToggle = true,
   width = DEFAULT_MINIMAP_WIDTH,
   height = DEFAULT_MINIMAP_HEIGHT,
+  embedded = false,
+  interactive = true,
 }: Props) {
   const minimapWidth = clamp(width, 160, 440);
   const minimapHeight = clamp(height, 110, 320);
@@ -135,7 +141,7 @@ export function InteractiveSegmentMinimap({
 
   return (
     <div
-      className="canvas-bottom-overlay toolbar-bubble-surface interactive-segment-minimap pointer-events-auto absolute bottom-4 right-4 z-[50] flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md"
+      className={`canvas-bottom-overlay toolbar-bubble-surface interactive-segment-minimap ${interactive ? 'pointer-events-auto' : 'pointer-events-none'} ${embedded ? 'relative h-full w-full' : 'absolute bottom-4 right-4 z-[50]'} flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md`}
       style={
         {
           '--interactive-minimap-width': `${minimapWidth}px`,
@@ -143,17 +149,18 @@ export function InteractiveSegmentMinimap({
         } as CSSProperties
       }
     >
-      <div className="minimap-clip w-full overflow-hidden rounded-t-xl">
+      <div className="minimap-clip min-h-0 w-full flex-1 overflow-hidden rounded-t-xl">
         <div className="react-flow__panel react-flow__minimap !static !m-0 !block !border-none !bg-transparent">
           <svg
-            className="react-flow__minimap-svg block cursor-pointer"
+            className={`react-flow__minimap-svg block ${interactive ? 'cursor-pointer' : 'pointer-events-none'}`}
             width={minimapWidth}
             height={minimapHeight}
             viewBox={`0 0 ${minimapWidth} ${minimapHeight}`}
-            onPointerDown={beginDrag}
-            onPointerMove={drag}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
+            style={embedded ? { width: '100%', height: '100%' } : undefined}
+            onPointerDown={interactive ? beginDrag : undefined}
+            onPointerMove={interactive ? drag : undefined}
+            onPointerUp={interactive ? endDrag : undefined}
+            onPointerCancel={interactive ? endDrag : undefined}
             aria-label={ariaLabel}
             role="img"
           >
@@ -162,13 +169,23 @@ export function InteractiveSegmentMinimap({
               const from = renderPositions.get(link.fromSegmentId);
               const to = renderPositions.get(link.toSegmentId);
               if (!from || !to) return null;
+              const fromSize = cardSizes[link.fromSegmentId] || {
+                width: cardWidth,
+                height: cardHeight,
+              };
+              const toSize = cardSizes[link.toSegmentId] || {
+                width: cardWidth,
+                height: cardHeight,
+              };
               const path = segmentLinkPath(
                 { x: from.x * minimapScale, y: from.y * minimapScale },
                 { x: to.x * minimapScale, y: to.y * minimapScale },
-                cardWidth * minimapScale,
-                cardHeight * minimapScale,
+                fromSize.width * minimapScale,
+                fromSize.height * minimapScale,
                 layoutDirection,
                 6,
+                toSize.width * minimapScale,
+                toSize.height * minimapScale,
               );
               return (
                 <path
@@ -186,13 +203,14 @@ export function InteractiveSegmentMinimap({
               const position = renderPositions.get(segment.id);
               if (!position) return null;
               const active = activeSegmentId === segment.id;
+              const size = cardSizes[segment.id] || { width: cardWidth, height: cardHeight };
               return (
                 <rect
                   key={segment.id}
                   x={position.x * minimapScale}
                   y={position.y * minimapScale}
-                  width={cardWidth * minimapScale}
-                  height={cardHeight * minimapScale}
+                  width={size.width * minimapScale}
+                  height={size.height * minimapScale}
                   rx={6}
                   ry={6}
                   shapeRendering="crispEdges"
@@ -221,8 +239,8 @@ export function InteractiveSegmentMinimap({
             className="react-flow__controls-button react-flow__controls-zoomin"
             title={formatVideoText(language, 'interactiveMinimapZoomIn')}
             aria-label={formatVideoText(language, 'interactiveMinimapZoomIn')}
-            disabled={!canZoomIn}
-            onClick={onZoomIn}
+            disabled={!interactive || !canZoomIn}
+            onClick={interactive ? onZoomIn : undefined}
           >
             <svg viewBox="0 0 32 32" aria-hidden="true">
               <path d="M32 18.133H18.133V32h-4.266V18.133H0v-4.266h13.867V0h4.266v13.867H32z" />
@@ -233,8 +251,8 @@ export function InteractiveSegmentMinimap({
             className="react-flow__controls-button react-flow__controls-zoomout"
             title={formatVideoText(language, 'interactiveMinimapZoomOut')}
             aria-label={formatVideoText(language, 'interactiveMinimapZoomOut')}
-            disabled={!canZoomOut}
-            onClick={onZoomOut}
+            disabled={!interactive || !canZoomOut}
+            onClick={interactive ? onZoomOut : undefined}
           >
             <svg viewBox="0 0 32 5" aria-hidden="true">
               <path d="M0 0h32v4.2H0z" />
@@ -245,7 +263,8 @@ export function InteractiveSegmentMinimap({
             className="react-flow__controls-button react-flow__controls-fitview"
             title={formatVideoText(language, 'interactiveMinimapFitView')}
             aria-label={formatVideoText(language, 'interactiveMinimapFitView')}
-            onClick={onFitView}
+            disabled={!interactive}
+            onClick={interactive ? onFitView : undefined}
           >
             <svg viewBox="0 0 32 30" aria-hidden="true">
               <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
@@ -263,7 +282,8 @@ export function InteractiveSegmentMinimap({
                 language,
                 isFullscreen ? 'interactiveMinimapExitFullscreen' : 'interactiveMinimapMaximize',
               )}
-              onClick={onToggleFullscreen}
+              disabled={!interactive}
+              onClick={interactive ? onToggleFullscreen : undefined}
             >
               {isFullscreen ? (
                 <Minimize2 className="h-4 w-4" aria-hidden="true" />

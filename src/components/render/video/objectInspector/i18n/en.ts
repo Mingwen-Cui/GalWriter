@@ -1,10 +1,10 @@
 export const renderObjectInspectorEn = {
   object: {
-    dialogBox: 'Dialog box',
+    dialogBox: 'Dialog',
     title: 'Title',
     body: 'Body',
-    nameplate: 'Nameplate',
-    choice: 'Story choices',
+    nameplate: 'Name',
+    choice: 'Choice',
   },
   group: {
     position: 'Position',

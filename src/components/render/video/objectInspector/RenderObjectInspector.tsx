@@ -272,11 +272,11 @@ export function RenderObjectInspector({
             name:
               (
                 {
-                  dialogBox: '对话框',
+                  dialogBox: '话框',
                   title: '名称',
                   body: '正文',
-                  nameplate: '姓名框',
-                  choice: '选项',
+                  nameplate: '人名',
+                  choice: '选择',
                 } as Record<string, string>
               )[id] || id,
             z: obj.zIndex ?? 0,

@@ -67,30 +67,30 @@ export function RenderObjectSettingsSection({
       ? {
           scene: '画面',
           background: '画面外背景',
-          dialogBox: '对话框背景',
+          dialogBox: '话框',
           title: '标题',
           body: '正文',
-          nameplate: '人物名牌',
-          choice: '故事选项',
+          nameplate: '人名',
+          choice: '选择',
         }
       : language === 'ja'
         ? {
             scene: '画面',
             background: '画面外背景',
-            dialogBox: 'ダイアログ背景',
+            dialogBox: '会話',
             title: 'タイトル',
             body: '本文',
-            nameplate: 'ネームプレート',
-            choice: 'ストーリー選択肢',
+            nameplate: '名前',
+            choice: '選択',
           }
         : {
             scene: 'Scene',
             background: 'Outer background',
-            dialogBox: 'Dialog box',
+            dialogBox: 'Dialog',
             title: 'Title',
             body: 'Body',
-            nameplate: 'Nameplate',
-            choice: 'Story choices',
+            nameplate: 'Name',
+            choice: 'Choice',
           };
   const selectObject = (kind: RenderEditableObjectKind) => {
     changeSelection(kind);

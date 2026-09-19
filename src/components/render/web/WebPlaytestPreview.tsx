@@ -13,7 +13,7 @@ import {
   Minimize2,
   RotateCcw,
 } from 'lucide-react';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
@@ -94,7 +94,12 @@ import {
   PreviewToolbar,
 } from './WebPlaytestPreviewControls';
 import { WebPlaytestStartMenuElement } from './WebPlaytestStartMenuElement';
-import { WebStoryFlowGraph } from './WebStoryFlowGraph';
+import {
+  WebStoryFlowGraph,
+  type WebStoryFlowGraphControls,
+  type WebStoryFlowGraphSnapshot,
+} from './WebStoryFlowGraph';
+import { InteractiveSegmentMinimap } from '../video/interactive/InteractiveSegmentMinimap';
 import type {
   StartMenuAction,
   StartMenuElement,
@@ -133,6 +138,7 @@ type WebPlaytestPreviewProps = {
   onSurfaceChange?: (surface: WebPreviewSurface) => void;
   onSelectStartMenuElement?: (id: string | null) => void;
   onSelectStartMenuElements?: (ids: string[]) => void;
+  onSelectFlowCard?: (id: string | null) => void;
   onDeleteStartMenuElement?: (id: string) => void;
   onUpdateSettings: <K extends keyof WebExportSettings>(
     key: K,
@@ -181,6 +187,7 @@ export function WebPlaytestPreview({
   onSurfaceChange,
   onSelectStartMenuElement,
   onSelectStartMenuElements,
+  onSelectFlowCard,
   onDeleteStartMenuElement,
   onUpdateSettings,
   onUpdateRenderStyle: _onUpdateRenderStyle,
@@ -241,6 +248,10 @@ export function WebPlaytestPreview({
   const [previewStartSettingsOpen, setPreviewStartSettingsOpen] = useState(false);
   const [previewArchiveOpen, setPreviewArchiveOpen] = useState(false);
   const [flowOverviewOpen, setFlowOverviewOpen] = useState(false);
+  const [flowActiveBranchLabel, setFlowActiveBranchLabel] = useState('');
+  const [flowGraphSnapshot, setFlowGraphSnapshot] = useState<WebStoryFlowGraphSnapshot | null>(
+    null,
+  );
   // The editor's surface picker is controlled by the workspace. Do not let a
   // transient runtime page state hide that surface while applying a preset.
   const controlledEditSurface =
@@ -266,9 +277,11 @@ export function WebPlaytestPreview({
   const currentVideoRef = useRef<HTMLVideoElement>(null);
   const playlistAudioRef = useRef<HTMLAudioElement>(null);
   const startMenuAudioRef = useRef<HTMLAudioElement>(null);
+  const flowGraphControlsRef = useRef<WebStoryFlowGraphControls | null>(null);
   const startMenuAudioFadeFrameRef = useRef<number | null>(null);
   const startMenuEditorRef = useRef<HTMLDivElement>(null);
   const startMenuEditDragRef = useRef<{
+    pointerId: number;
     type: 'move' | 'resize' | 'rotate';
     resizeHandle?: StartMenuResizeHandle;
     id: string;
@@ -283,6 +296,7 @@ export function WebPlaytestPreview({
     startAngle?: number;
   } | null>(null);
   const startMenuMarqueeRef = useRef<{
+    pointerId: number;
     startClientX: number;
     startClientY: number;
     rect: DOMRect;
@@ -1475,6 +1489,30 @@ export function WebPlaytestPreview({
   const getStartMenuElementAction = (element: StartMenuElement): StartMenuAction | null => {
     const existing = element.role ? startMenuActionMap.get(element.role) : null;
     if (existing) return existing;
+    if (isPreviewFlowOverviewOpen && element.role === 'flowDirection') {
+      return {
+        key: element.role,
+        label:
+          language === 'zh'
+            ? '切换流程方向'
+            : language === 'ja'
+              ? 'フロー方向を切り替え'
+              : 'Cycle flow direction',
+        disabled: false,
+        primary: false,
+        onClick: () => flowGraphControlsRef.current?.cycleDirection(),
+      };
+    }
+    if (isPreviewFlowOverviewOpen && element.role === 'flowFitView') {
+      return {
+        key: element.role,
+        label:
+          language === 'zh' ? '适应流程图' : language === 'ja' ? '全体を表示' : 'Fit flow view',
+        disabled: false,
+        primary: false,
+        onClick: () => flowGraphControlsRef.current?.fitView(),
+      };
+    }
     if (element.role === 'link' || element.role === 'volume') {
       return {
         key: element.role,
@@ -1516,17 +1554,26 @@ export function WebPlaytestPreview({
       startMenuActions,
     ],
   );
-  const rawStartMenuElements =
-    settings.startMenuElements && settings.startMenuElements.length > 0
-      ? settings.startMenuElements.some((element) => element.role === 'flowOverview')
-        ? settings.startMenuElements
-        : [
-            ...settings.startMenuElements,
-            ...defaultStartMenuElements
-              .filter((element) => element.role === 'flowOverview')
-              .map((element) => ({ ...element, id: `system-${element.id}` })),
-          ]
-      : defaultStartMenuElements;
+  const configuredStartMenuElements = (settings.startMenuElements || []).filter(
+    (element) =>
+      element.role !== 'flowDirection' &&
+      element.role !== 'flowFitView' &&
+      element.role !== 'flowBranch' &&
+      element.role !== 'flowMinimap',
+  );
+  const hasMainMenuElements = configuredStartMenuElements.some(
+    (element) => element.role !== 'flowOverview',
+  );
+  const rawStartMenuElements = hasMainMenuElements
+    ? configuredStartMenuElements.some((element) => element.role === 'flowOverview')
+      ? configuredStartMenuElements
+      : [
+          ...configuredStartMenuElements,
+          ...defaultStartMenuElements
+            .filter((element) => element.role === 'flowOverview')
+            .map((element) => ({ ...element, id: `system-${element.id}` })),
+        ]
+    : defaultStartMenuElements;
   const startMenuElements = rawStartMenuElements.map((element) =>
     element.role === 'title' || element.role === 'subtitle'
       ? { ...element, textAlign: 'center' as const }
@@ -1685,6 +1732,7 @@ export function WebPlaytestPreview({
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
     startMenuEditDragRef.current = {
+      pointerId: event.pointerId,
       type,
       id: element.id,
       startClientX: event.clientX,
@@ -1704,7 +1752,7 @@ export function WebPlaytestPreview({
         : type === 'rotate'
           ? 'alias'
           : 'grabbing';
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    startMenuEditorRef.current?.setPointerCapture?.(event.pointerId);
   };
   const beginStartMenuMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
     if (previewMode !== 'edit' || event.button !== 2) return;
@@ -1713,6 +1761,7 @@ export function WebPlaytestPreview({
     event.preventDefault();
     event.stopPropagation();
     startMenuMarqueeRef.current = {
+      pointerId: event.pointerId,
       startClientX: event.clientX,
       startClientY: event.clientY,
       rect,
@@ -1725,7 +1774,7 @@ export function WebPlaytestPreview({
     };
     startMenuMarqueeBoxRef.current = nextBox;
     setStartMenuMarqueeBox(nextBox);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    startMenuEditorRef.current?.setPointerCapture?.(event.pointerId);
   };
   const updateStartMenuMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
     const marquee = startMenuMarqueeRef.current;
@@ -1907,6 +1956,31 @@ export function WebPlaytestPreview({
     setActiveStartMenuGuideLines([]);
     document.body.style.cursor = '';
   };
+
+  useEffect(() => {
+    if (previewMode !== 'edit') return;
+    const handleDocumentPointerMove = (event: PointerEvent) => {
+      if (!startMenuEditDragRef.current && !startMenuMarqueeRef.current) return;
+      handleStartMenuEditPointerMove(event as unknown as React.PointerEvent<HTMLDivElement>);
+    };
+    const handleDocumentPointerEnd = (event: PointerEvent) => {
+      const dragPointerId = startMenuEditDragRef.current?.pointerId;
+      const marqueePointerId = startMenuMarqueeRef.current?.pointerId;
+      if (dragPointerId !== event.pointerId && marqueePointerId !== event.pointerId) return;
+      stopStartMenuEditDrag();
+      if (startMenuEditorRef.current?.hasPointerCapture(event.pointerId)) {
+        startMenuEditorRef.current.releasePointerCapture(event.pointerId);
+      }
+    };
+    document.addEventListener('pointermove', handleDocumentPointerMove);
+    document.addEventListener('pointerup', handleDocumentPointerEnd);
+    document.addEventListener('pointercancel', handleDocumentPointerEnd);
+    return () => {
+      document.removeEventListener('pointermove', handleDocumentPointerMove);
+      document.removeEventListener('pointerup', handleDocumentPointerEnd);
+      document.removeEventListener('pointercancel', handleDocumentPointerEnd);
+    };
+  }, [handleStartMenuEditPointerMove, previewMode]);
   const buildSurfaceBackgroundStyle = (
     surface: 'start' | 'archive' | 'settings' | 'game' | 'flow',
   ): React.CSSProperties | undefined => {
@@ -1971,9 +2045,6 @@ export function WebPlaytestPreview({
       <div
         className={`absolute inset-0 z-40 grid text-[#252A59] ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
         style={startMenuBackgroundStyle}
-        onPointerMove={handleStartMenuEditPointerMove}
-        onPointerUp={stopStartMenuEditDrag}
-        onPointerCancel={stopStartMenuEditDrag}
         onClick={() => {
           if (previewMode === 'edit') setSelectedStartMenuElementId(null);
         }}
@@ -2030,9 +2101,6 @@ export function WebPlaytestPreview({
             height: '100%',
             zIndex: 20,
           }}
-          onPointerMove={handleStartMenuEditPointerMove}
-          onPointerUp={stopStartMenuEditDrag}
-          onPointerCancel={stopStartMenuEditDrag}
           onPointerDown={beginStartMenuMarquee}
           onContextMenu={(event) => {
             if (previewMode === 'edit') event.preventDefault();
@@ -2189,13 +2257,53 @@ export function WebPlaytestPreview({
   const renderFlowOverviewPreview = () => {
     if (!isPreviewFlowOverviewOpen) return null;
     const background = getSurfaceBackground(settings, 'flow');
+    const flowMinimapElement = flowOverviewElements.find(
+      (element) => element.role === 'flowMinimap',
+    );
+    const flowMinimap =
+      flowGraphSnapshot && flowMinimapElement ? (
+        <InteractiveSegmentMinimap
+          language={language}
+          ariaLabel={
+            language === 'zh'
+              ? '网页流程图导航'
+              : language === 'ja'
+                ? 'Webフローのナビゲーション'
+                : 'Web flow navigation'
+          }
+          segments={flowGraphSnapshot.segments}
+          graphLinks={flowGraphSnapshot.graphLinks}
+          layoutDirection={flowGraphSnapshot.layoutDirection}
+          renderPositions={flowGraphSnapshot.renderPositions}
+          activeSegmentId={flowGraphSnapshot.activeSegmentId}
+          graphWidth={flowGraphSnapshot.graphWidth}
+          graphHeight={flowGraphSnapshot.graphHeight}
+          cardWidth={208}
+          cardHeight={132}
+          cardSizes={flowGraphSnapshot.cardSizes}
+          viewportPan={flowGraphSnapshot.viewportPan}
+          viewportZoom={flowGraphSnapshot.viewportZoom}
+          viewportSize={flowGraphSnapshot.viewportSize}
+          lineOpacity={flowGraphSnapshot.lineOpacity}
+          canZoomIn={flowGraphSnapshot.viewportZoom < 1.85}
+          canZoomOut={flowGraphSnapshot.viewportZoom > 0.35}
+          onViewportPanChange={flowGraphSnapshot.onViewportPanChange}
+          onZoomIn={flowGraphSnapshot.onZoomIn}
+          onZoomOut={flowGraphSnapshot.onZoomOut}
+          onFitView={flowGraphSnapshot.onFitView}
+          isFullscreen={false}
+          onToggleFullscreen={() => undefined}
+          showFullscreenToggle={false}
+          width={settings.flowOverviewMinimapWidth}
+          height={settings.flowOverviewMinimapHeight}
+          embedded
+          interactive
+        />
+      ) : null;
     return (
       <div
         className="absolute inset-0 z-[80] overflow-hidden text-slate-900"
         style={flowOverviewBackgroundStyle}
-        onPointerMove={handleStartMenuEditPointerMove}
-        onPointerUp={stopStartMenuEditDrag}
-        onPointerCancel={stopStartMenuEditDrag}
         onClick={(event) => {
           if (previewMode === 'edit' && event.target === event.currentTarget) {
             setSelectedStartMenuElementId(null);
@@ -2240,6 +2348,41 @@ export function WebPlaytestPreview({
             minimapWidth={settings.flowOverviewMinimapWidth}
             minimapHeight={settings.flowOverviewMinimapHeight}
             transparentSurface
+            controlsRef={flowGraphControlsRef}
+            onSnapshot={setFlowGraphSnapshot}
+            onSelectedCardChange={onSelectFlowCard}
+            onActiveSegmentChange={setFlowActiveBranchLabel}
+            layoutDirection={settings.flowOverviewLayoutDirection}
+            onLayoutDirectionChange={(direction) =>
+              onUpdateSettings('flowOverviewLayoutDirection', direction)
+            }
+            showHeader={false}
+            showCurrentBranchIndicator={false}
+            showMinimap={false}
+            editable={previewMode === 'edit'}
+            cardSizes={settings.flowOverviewCardSizes}
+            onCardSizeChange={(segmentId, size) =>
+              onUpdateSettings(
+                'flowOverviewCardSizes',
+                (() => {
+                  const next = {
+                    ...(settings.flowOverviewCardSizes || {}),
+                    [segmentId]: size,
+                  };
+                  const segment = flowGraphSnapshot?.segments.find((item) => item.id === segmentId);
+                  segment?.nodeIds.forEach((nodeId) => {
+                    next[nodeId] = size;
+                  });
+                  return next;
+                })(),
+              )
+            }
+            showDirectionControl={
+              !flowOverviewElements.some((element) => element.role === 'flowDirection')
+            }
+            showFitViewControl={
+              !flowOverviewElements.some((element) => element.role === 'flowFitView')
+            }
             onClose={previewMode === 'test' ? () => setFlowOverviewOpen(false) : undefined}
             onPlayFromNode={startPreviewFromNode}
           />
@@ -2278,6 +2421,8 @@ export function WebPlaytestPreview({
               choiceColor={choiceColor}
               choiceTextColor={choiceTextColor}
               language={language}
+              dynamicText={element.role === 'flowBranch' ? flowActiveBranchLabel : undefined}
+              flowMinimap={element.role === 'flowMinimap' ? flowMinimap : undefined}
               onEnsureStartMenuElements={() => undefined}
               onSelectElement={setSelectedStartMenuElementId}
               onSetEditingElement={setEditingStartMenuElementId}

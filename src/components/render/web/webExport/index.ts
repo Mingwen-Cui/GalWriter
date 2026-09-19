@@ -338,6 +338,8 @@ export async function buildInteractiveWebZipBlob(
     flowOverviewMusicFadeOut: options.settings?.flowOverviewMusicFadeOut ?? 0,
     flowOverviewMusicLoop: options.settings?.flowOverviewMusicLoop !== false,
     flowOverviewElements: options.settings?.flowOverviewElements || [],
+    flowOverviewLayoutDirection: options.settings?.flowOverviewLayoutDirection || 'right',
+    flowOverviewCardSizes: options.settings?.flowOverviewCardSizes || {},
     flowOverviewMinimapWidth: options.settings?.flowOverviewMinimapWidth ?? 220,
     flowOverviewMinimapHeight: options.settings?.flowOverviewMinimapHeight ?? 160,
     startMenuBackgroundMusicUrl: options.settings?.startMenuBackgroundMusicUrl || '',

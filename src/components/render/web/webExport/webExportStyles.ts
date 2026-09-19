@@ -825,11 +825,20 @@ export const WEB_EXPORT_STYLES = String.raw`
       font-size: 18px;
     }
     .flow-overview-close:hover { color: #4f46e5; border-color: #818cf8; }
+    .flow-overview-close-floating { position: absolute; top: 18px; right: 18px; z-index: 12; }
     .flow-overview-viewport { position: relative; flex: 1; overflow: auto; background: radial-gradient(#dbeafe 1px, transparent 1px), #f8fafc; background-size: 22px 22px; }
     .flow-overview-canvas { position: relative; min-width: 100%; min-height: 100%; padding: 80px; }
     .flow-overview-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
     .flow-overview-custom-layer { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
     .flow-overview-custom-layer .start-element { pointer-events: auto; }
+    .flow-overview-custom-layer .flow-overview-minimap.is-embedded {
+      position: relative;
+      inset: auto;
+      right: auto;
+      bottom: auto;
+      width: 100%;
+      height: 100%;
+    }
     .flow-overview-minimap {
       position: fixed;
       right: 22px;
@@ -867,7 +876,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     .flow-overview-detail {
       position: absolute;
       z-index: 4;
-      top: 72px;
+      top: 18px;
       right: 18px;
       bottom: 18px;
       width: min(340px, calc(100% - 36px));

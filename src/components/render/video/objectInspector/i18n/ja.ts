@@ -1,10 +1,10 @@
 export const renderObjectInspectorJa = {
   object: {
-    dialogBox: 'ダイアログ背景',
+    dialogBox: '会話',
     title: 'タイトル',
     body: '本文',
-    nameplate: 'ネームプレート',
-    choice: 'ストーリー選択肢',
+    nameplate: '名前',
+    choice: '選択',
   },
   group: {
     position: '位置',
