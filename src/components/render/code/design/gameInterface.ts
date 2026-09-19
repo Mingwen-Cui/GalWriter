@@ -22,6 +22,7 @@ export type GameInterfaceSettings = {
   textColor: string;
   nameColor: string;
   accentColor: string;
+  choiceTextColor: string;
   radius: number;
   textSpeed: number;
 };
@@ -40,6 +41,7 @@ export const DEFAULT_GAME_INTERFACE: GameInterfaceSettings = {
   textColor: '#f8fafc',
   nameColor: '#9bdcff',
   accentColor: '#4f46e5',
+  choiceTextColor: '#ffffff',
   radius: 14,
   textSpeed: 45,
 };

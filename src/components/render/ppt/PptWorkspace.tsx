@@ -1490,7 +1490,7 @@ export function SlideCanvas({
     <div
       data-presentation-width={webSettings.canvasWidth}
       data-presentation-height={webSettings.canvasHeight}
-      className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden rounded-xl border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
+      className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
       style={{
         backgroundColor: canvasBackgroundColor,
         ...backgroundPaint,

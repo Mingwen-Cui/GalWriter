@@ -1,4 +1,4 @@
-import type { GameInterfaceProfiles } from '../design/gameInterface';
+import type { WebHistoryState } from '../../video/shared/types';
 export type RenpyVariableType = 'number' | 'boolean' | 'string';
 export type RenpySplitMode = 'single' | 'group' | 'background';
 
@@ -38,7 +38,8 @@ export type RenpyConditionConfig = {
 };
 
 export type RenpyExportSettings = {
-  interfaceDesigns?: GameInterfaceProfiles;
+  /** Interface state shared with the Web workspace/exporter. */
+  webInterface?: WebHistoryState;
   version: 2;
   splitMode: RenpySplitMode;
   characters: RenpyCharacterConfig[];

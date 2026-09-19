@@ -2,7 +2,7 @@ import type JSZip from 'jszip';
 import { renderAppearancePng } from '../../shared/paint/appearanceCanvas';
 import type { CodeExportTarget } from '../codeExport/targets/targetTypes';
 import type { RenpyExportSettings } from '../codeExport/types';
-import { resolveGameInterface } from './gameInterface';
+import { resolveExportInterface } from './exportGameInterface';
 
 export async function packageGameInterface(
   zip: JSZip,
@@ -10,7 +10,7 @@ export async function packageGameInterface(
   target: CodeExportTarget,
 ) {
   if (target === 'ir-json') return;
-  const d = resolveGameInterface(settings.interfaceDesigns, target);
+  const d = resolveExportInterface(settings, target);
   const root = target === 'tyrano' ? 'data/image/galwriter-ui' : 'game/galwriter-ui';
   const surfaces = [
     [
@@ -38,6 +38,10 @@ export async function packageGameInterface(
   }
   zip.file(
     'GAME_INTERFACE.md',
-    '# Interface design\n\nLayer data is preserved in the project settings. Static interface artwork is composited into galwriter-ui PNG files. Video fills use their first frame in native game skins; Web retains video playback. Text and game actions remain native controls.\n',
+    '# Interface design\n\nThe code export uses the same Web workspace interface state as the browser export. The complete `WebExportSettings` and `RenderStyle` snapshot is included in `galwriter-web-interface.json`; native targets additionally receive an engine projection for their UI runtime. Static interface artwork is composited into galwriter-ui PNG files. Text and game actions remain native controls.\n',
+  );
+  zip.file(
+    target === 'tyrano' ? 'data/galwriter-web-interface.json' : 'game/galwriter-web-interface.json',
+    `${JSON.stringify(settings.webInterface || {}, null, 2)}\n`,
   );
 }

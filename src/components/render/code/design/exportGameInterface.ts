@@ -1,15 +1,74 @@
 import { toHex8 } from '../../shared/paint/colorValue';
 import type { CodeExportTarget } from '../codeExport/targets/targetTypes';
 import type { RenpyExportSettings, RenpyFile } from '../codeExport/types';
+import { resolvePresentationDialogueLayout } from '../../video/shared/presentationLayout';
+import { getRenderObjects } from '../../video/shared/renderObjects';
 import { resolveGameInterface } from './gameInterface';
 
+/**
+ * Code targets still need a small engine projection, but the source of truth
+ * is the exact Web workspace state. Native runtimes therefore start from the
+ * same canvas, objects, colors, and interaction speed as the browser preview.
+ */
+export function resolveExportInterface(settings: RenpyExportSettings, target: CodeExportTarget) {
+  const defaults = resolveGameInterface(undefined, target);
+  const web = settings.webInterface;
+  if (!web) return defaults;
+
+  const { settings: webSettings, renderStyle, choiceColor } = web;
+  const objects = getRenderObjects(renderStyle);
+  const dialogObject = objects.dialogBox;
+  const layout = resolvePresentationDialogueLayout(
+    webSettings.canvasWidth,
+    webSettings.canvasHeight,
+    renderStyle,
+  );
+  const width = Math.max(640, Math.round(webSettings.canvasWidth));
+  const height = Math.max(360, Math.round(webSettings.canvasHeight));
+  const background =
+    webSettings.sceneBackgroundColor || webSettings.dialogueBackgroundColor || defaults.background;
+  const panelColor = dialogObject.fill.color || renderStyle.panelColor || defaults.panelColor;
+  const panelAlpha = Number.isFinite(dialogObject.fill.alpha)
+    ? dialogObject.fill.alpha
+    : (renderStyle.panelColorAlpha ?? defaults.panelAlpha);
+  const panelAppearance = dialogObject.appearance;
+
+  return {
+    ...defaults,
+    templateId: 'web-interface',
+    width,
+    height,
+    background,
+    panelColor,
+    panelAlpha,
+    panelX: (layout.x / width) * 100,
+    panelY: (layout.y / height) * 100,
+    panelWidth: (layout.width / width) * 100,
+    panelHeight: (layout.height / height) * 100,
+    fontSize: Math.max(12, Math.round(renderStyle.bodyFontSize || objects.body.fontSize)),
+    textColor: renderStyle.bodyColor || defaults.textColor,
+    nameColor: renderStyle.nameplateTextColor || defaults.nameColor,
+    accentColor: choiceColor || defaults.accentColor,
+    choiceTextColor: web.choiceTextColor || defaults.choiceTextColor,
+    radius: dialogObject.radius || renderStyle.dialogRadius || defaults.radius,
+    textSpeed: Math.max(1, Number(webSettings.typewriterSpeed) || defaults.textSpeed),
+    panelAppearance,
+    canvasAppearance: webSettings.surfaceAppearances?.game,
+    corners: dialogObject.corners,
+    layerOrder: {
+      dialogue: dialogObject.zIndex ?? 1,
+      choices: 2,
+    },
+  };
+}
+
 /** Shared by source preview and ZIP export. No inspector state is read during generation. */
-function applyLegacyGameInterface(
+function applyEngineInterface(
   files: RenpyFile[],
   settings: RenpyExportSettings,
   target: CodeExportTarget,
 ): RenpyFile[] {
-  const d = resolveGameInterface(settings.interfaceDesigns, target);
+  const d = resolveExportInterface(settings, target);
   const x = Math.round((d.width * d.panelX) / 100),
     y = Math.round((d.height * d.panelY) / 100);
   const width = Math.round((d.width * d.panelWidth) / 100),
@@ -78,11 +137,11 @@ function applyLegacyGameInterface(
           )
           .replace(
             'button.add_theme_font_size_override("font_size", 20)',
-            `button.add_theme_font_size_override("font_size", ${d.fontSize})\n\tbutton.add_theme_color_override("font_color", Color("#ffffff"))\n\tbutton.add_theme_stylebox_override("normal", _panel(Color("${d.accentColor}")))`,
+            `button.add_theme_font_size_override("font_size", ${d.fontSize})\n\tbutton.add_theme_color_override("font_color", Color("${d.choiceTextColor}"))\n\tbutton.add_theme_stylebox_override("normal", _panel(Color("${d.accentColor}")))`,
           );
       if (file.path === 'game/story.json') {
         const data = JSON.parse(content);
-        data.interfaceDesign = d;
+        data.interfaceDesign = settings.webInterface || d;
         content = JSON.stringify(data, null, 2) + '\n';
       }
       return { ...file, content };
@@ -124,7 +183,7 @@ screen choice(items):
                 padding (24, 12)
                 background Solid("${d.accentColor}")
                 hover_background Solid("${d.accentColor}cc")
-                text_color "#ffffff"
+                text_color "${d.choiceTextColor}"
                 text_size ${d.fontSize}
 `,
     };
@@ -160,8 +219,8 @@ export function applyGameInterface(
   settings: RenpyExportSettings,
   target: CodeExportTarget,
 ): RenpyFile[] {
-  const d = resolveGameInterface(settings.interfaceDesigns, target);
-  return applyLegacyGameInterface(files, settings, target).map((file) => {
+  const d = resolveExportInterface(settings, target);
+  return applyEngineInterface(files, settings, target).map((file) => {
     let content = file.content;
     if (target === 'dialogic' && file.path === 'game/GalWriter.gd') {
       if (d.templateId)

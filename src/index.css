@@ -5441,6 +5441,7 @@ button.web-segment-button:last-child {
 }
 
 .ppt-slide-canvas {
+  border-radius: 0;
   animation-fill-mode: both;
   animation-timing-function: ease;
 }

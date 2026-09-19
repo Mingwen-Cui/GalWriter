@@ -2052,7 +2052,21 @@ export function VideoRenderModal({
     setProgress(formatCodeText(language, 'Generating engine project', { engine: engineName }));
     try {
       const { buildCodeProjectZip } = await import('../../code/codeExport/exportProject');
-      const result = await buildCodeProjectZip(nodes, edges, exportTitle, codeSettings, codeTarget);
+      const result = await buildCodeProjectZip(
+        nodes,
+        edges,
+        exportTitle,
+        {
+          ...codeSettings,
+          webInterface: {
+            settings: webSettings,
+            renderStyle: projectRenderStyle,
+            choiceColor: webChoiceColor,
+            choiceTextColor: webChoiceTextColor,
+          },
+        },
+        codeTarget,
+      );
       const url = URL.createObjectURL(result.blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -2703,6 +2717,21 @@ export function VideoRenderModal({
                     target={codeTarget}
                     settings={codeSettings}
                     onSettingsChange={setCodeSettings}
+                    webRenderStyle={renderStyle}
+                    webChoiceColor={webChoiceColor}
+                    webChoiceTextColor={webChoiceTextColor}
+                    webSettings={webSettings}
+                    webProjectName={webProjectName || defaultWebProjectName}
+                    progress={progress}
+                    error={error}
+                    progressValue={progressValue}
+                    savedPath={savedPath}
+                    updateWebSettings={updateWebSettings}
+                    updateWebSettingsBulk={updateWebSettingsBulk}
+                    updateWebChoiceTextColor={updateWebChoiceTextColor}
+                    updateWebChoiceColor={updateWebChoiceColor}
+                    updateWebRenderStyle={updateWebRenderStyle}
+                    callAIForTextResult={callAIForTextResult}
                   />
                 ) : (
                   <LazyPptWorkspace

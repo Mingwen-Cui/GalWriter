@@ -1,4 +1,3 @@
-import { GameInterfaceDesigner } from './design/GameInterfaceDesigner';
 import {
   AlertCircle,
   AlertTriangle,
@@ -16,6 +15,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
+import type { WebHistoryState } from '../video/shared/types';
 import { buildCodeProjectPreview } from './codeExport/exportProject';
 import { repairRenpyCodeNames } from './codeExport/model';
 import type { CodeExportTarget, TargetCapability } from './codeExport/targets/targetTypes';
@@ -24,6 +24,7 @@ import { addVariable, CharacterInspector, NodeInspector, VariableInspector } fro
 import { CodePreview } from './CodePreview';
 import { CodeRibbon, type CodeWorkspaceTab } from './CodeRibbon';
 import { type CodeTextKey, getCodeText } from './i18n';
+import { WebWorkspace } from '../web/WebWorkspace';
 
 type CodeWorkspaceProps = {
   nodes: import('@xyflow/react').Node[];
@@ -33,6 +34,27 @@ type CodeWorkspaceProps = {
   target: CodeExportTarget;
   settings: RenpyExportSettings;
   onSettingsChange: (settings: RenpyExportSettings) => void;
+  webRenderStyle: WebHistoryState['renderStyle'];
+  webChoiceColor: string;
+  webChoiceTextColor: string;
+  webSettings: WebHistoryState['settings'];
+  webProjectName: string;
+  progress: string;
+  error: string;
+  progressValue: number;
+  savedPath: string;
+  updateWebSettings: <K extends keyof WebHistoryState['settings']>(
+    key: K,
+    value: WebHistoryState['settings'][K],
+  ) => void;
+  updateWebSettingsBulk: (patch: Partial<WebHistoryState['settings']>) => void;
+  updateWebChoiceTextColor: (value: string) => void;
+  updateWebChoiceColor: (value: string) => void;
+  updateWebRenderStyle: <K extends keyof WebHistoryState['renderStyle']>(
+    key: K,
+    value: WebHistoryState['renderStyle'][K],
+  ) => void;
+  callAIForTextResult?: (prompt: string) => Promise<{ content: string; reasoning?: string }>;
 };
 
 export function CodeWorkspace({
@@ -43,6 +65,21 @@ export function CodeWorkspace({
   target,
   settings,
   onSettingsChange,
+  webRenderStyle,
+  webChoiceColor,
+  webChoiceTextColor,
+  webSettings,
+  webProjectName,
+  progress,
+  error,
+  progressValue,
+  savedPath,
+  updateWebSettings,
+  updateWebSettingsBulk,
+  updateWebChoiceTextColor,
+  updateWebChoiceColor,
+  updateWebRenderStyle,
+  callAIForTextResult,
 }: CodeWorkspaceProps) {
   const [tab, setTab] = useState<CodeWorkspaceTab>('design');
   const [selectedFile, setSelectedFile] = useState('game/script.rpy');
@@ -130,310 +167,333 @@ export function CodeWorkspace({
         onSplitMode={(splitMode) => setSettings({ ...settings, splitMode })}
         onRepairCodes={() => setSettings(repairRenpyCodeNames(settings))}
       />
-      {tab === 'design' ? <GameInterfaceDesigner key={target} language={language} target={target} settings={settings} onChange={onSettingsChange} nodes={nodes}/> : <div className="flex min-h-0 flex-1 overflow-hidden">
-        {fileTree}
-        <section className="min-w-0 flex-1 overflow-auto">
-          {tab === 'project' && (
-            <div className="min-h-full min-w-full bg-[#10151f] p-4">
-              <div className="mb-3 flex items-center justify-between text-[11px] text-slate-400">
-                <span>{selected?.path}</span>
-                <button
-                  type="button"
-                  onClick={copySelectedFile}
-                  disabled={!selected}
-                  className="flex h-7 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-300 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
-                >
-                  {copiedFilePath === selected?.path ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                  {getCodeText(
-                    language,
-                    copiedFilePath === selected?.path ? 'Copied' : 'Copy code',
-                  )}
-                </button>
-              </div>
-              <CodePreview
-                content={selected?.content || ''}
-                path={selected?.path || ''}
-                target={target}
-                language={language}
-              />
-            </div>
-          )}
-          {tab === 'flow' && (
-            <div className="space-y-2 p-5">
-              {Object.entries(preview.manifest.nodes).map(([nodeId, mapping]) => (
-                <div
-                  key={nodeId}
-                  className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3"
-                >
-                  <div className="font-mono text-xs text-[var(--vr-accent-strong)]">
-                    {mapping.label}
-                  </div>
-                  <div className="mt-1 text-sm font-bold">
-                    {String(nodes.find((node) => node.id === nodeId)?.data?.title || nodeId)}
-                  </div>
-                  <div className="mt-1 font-mono text-[10px] text-[var(--vr-text-muted)]">
-                    {nodeId} → {mapping.file}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {tab === 'characters' && (
-            <ListView title={getCodeText(language, 'Characters and dialogue')}>
-              {settings.characters.map((character) => (
-                <button
-                  key={character.sourceNodeId}
-                  type="button"
-                  onClick={() => setSelectedCharacterId(character.sourceNodeId)}
-                  className={`w-full rounded-lg border p-3 text-left ${selectedCharacterId === character.sourceNodeId ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)]'}`}
-                >
-                  <div className="text-sm font-bold">{character.displayName}</div>
-                  <div className="mt-1 font-mono text-[11px] text-[var(--vr-text-muted)]">
-                    define {character.codeName} = Character(…)
-                  </div>
-                  <div className="mt-1 text-[10px] text-[var(--vr-text-muted)]">
-                    {Object.keys(character.expressions).length}{' '}
-                    {getCodeText(language, 'expressions')}
-                  </div>
-                </button>
-              ))}
-            </ListView>
-          )}
-          {tab === 'variables' && (
-            <ListView
-              title={getCodeText(language, 'Variable model')}
-              action={
-                <button
-                  type="button"
-                  onClick={() => setSettings(addVariable(settings))}
-                  className="flex items-center gap-1 text-xs text-[var(--vr-accent-strong)]"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {getCodeText(language, 'Add variable')}
-                </button>
-              }
-            >
-              {settings.variables.map((variable) => (
-                <button
-                  key={variable.id}
-                  type="button"
-                  onClick={() => setSelectedVariableId(variable.id)}
-                  className={`w-full rounded-lg border p-3 text-left ${selectedVariableId === variable.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)]'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <b className="text-sm">{variable.displayName}</b>
-                    <span className="rounded bg-black/10 px-1.5 py-0.5 font-mono text-[10px]">
-                      {variable.type}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-mono text-[11px] text-[var(--vr-text-muted)]">
-                    default {variable.codeName} = {String(variable.initialValue)}
-                  </div>
-                </button>
-              ))}
-            </ListView>
-          )}
-          {tab === 'assets' && (
-            <div className="p-5">
-              <h3 className="mb-4 text-sm font-black">
-                {getCodeText(language, 'Asset inspection')}
-              </h3>
-              <div className="overflow-hidden rounded-lg border border-[var(--vr-border)]">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[var(--vr-surface-strong)] text-[10px] text-[var(--vr-text-muted)]">
-                    <tr>
-                      <th className="p-2">{getCodeText(language, 'Source node')}</th>
-                      <th className="p-2">{getCodeText(language, 'Type')}</th>
-                      <th className="p-2">{getCodeText(language, 'Export path')}</th>
-                      <th className="p-2">{getCodeText(language, 'Compatibility')}</th>
-                      <th className="p-2">{getCodeText(language, 'Referenced')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.assets.map((asset) => (
-                      <tr key={asset.id} className="border-t border-[var(--vr-border)]">
-                        <td className="p-2 font-mono text-[10px]">
-                          {asset.sourceNodeIds.join(', ')}
-                        </td>
-                        <td className="p-2">
-                          {getCodeText(
-                            language,
-                            asset.kind === 'image'
-                              ? 'Image'
-                              : asset.kind === 'audio'
-                                ? 'Audio'
-                                : 'Video',
-                          )}
-                        </td>
-                        <td className="p-2 font-mono text-[10px]">
-                          {preview.manifest.assets
-                            .find((item) => item.sourcePath === asset.path)
-                            ?.targetPaths.join(', ') || asset.path}
-                        </td>
-                        <td
-                          className={`p-2 ${asset.compatibility === 'compatible' ? 'text-emerald-400' : asset.compatibility === 'unreadable' ? 'text-red-400' : 'text-amber-400'}`}
-                          title={asset.note}
-                        >
-                          {getCodeText(
-                            language,
-                            asset.compatibility === 'compatible'
-                              ? 'Compatible'
-                              : asset.compatibility === 'risk'
-                                ? 'Compatibility risk'
-                                : asset.compatibility === 'unreadable'
-                                  ? 'Unreadable'
-                                  : 'Unknown compatibility',
-                          )}
-                        </td>
-                        <td className="p-2">
-                          {getCodeText(language, asset.referenced ? 'Yes' : 'No')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {preview.assets.length === 0 && (
-                  <div className="p-5 text-center text-[var(--vr-text-muted)]">
-                    {getCodeText(language, 'No assets')}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {tab === 'diagnostics' && (
-            <Diagnostics diagnostics={preview.diagnostics} language={language} target={target} />
-          )}
-        </section>
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-[var(--vr-border)] bg-[var(--vr-surface-soft)]">
-          <CapabilityPanel
-            capabilities={preview.capabilities}
-            language={language}
-            target={target}
-          />
-          {tab === 'characters' ? (
-            (() => {
-              const character =
-                settings.characters.find((item) => item.sourceNodeId === selectedCharacterId) ||
-                settings.characters[0];
-              return character ? (
-                <CharacterInspector
-                  character={character}
-                  language={language}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      characters: settings.characters.map((item) =>
-                        item.sourceNodeId === value.sourceNodeId ? value : item,
-                      ),
-                    })
-                  }
-                />
-              ) : (
-                <Empty text={getCodeText(language, 'No character nodes in project')} />
-              );
-            })()
-          ) : tab === 'variables' ? (
-            (() => {
-              const variable =
-                settings.variables.find((item) => item.id === selectedVariableId) ||
-                settings.variables[0];
-              return variable ? (
-                <VariableInspector
-                  variable={variable}
-                  language={language}
-                  onChange={(value) =>
-                    setSettings({
-                      ...settings,
-                      variables: settings.variables.map((item) =>
-                        item.id === value.id ? value : item,
-                      ),
-                    })
-                  }
-                  onDelete={() =>
-                    setSettings({
-                      ...settings,
-                      variables: settings.variables.filter((item) => item.id !== variable.id),
-                    })
-                  }
-                />
-              ) : null;
-            })()
-          ) : (
-            <div className="p-3">
-              <h3 className="mb-3 text-xs font-black">
-                {getCodeText(language, 'Story and condition inspector')}
-              </h3>
-              <select
-                className="h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-bg)] px-2 text-xs"
-                value={selectedNodeId}
-                onChange={(event) => setSelectedNodeId(event.target.value)}
-              >
-                <option value="">
-                  {getCodeText(language, 'Select a story or condition node')}
-                </option>
-                {runtimeNodes.map((node) => (
-                  <option key={node.id} value={node.id}>
-                    {String(
-                      node.data?.title ||
-                        (node.type === 'numberConditionNode'
-                          ? getCodeText(language, 'Number condition')
-                          : node.id),
+      {tab === 'design' ? (
+        <WebWorkspace
+          nodes={nodes}
+          edges={edges}
+          language={language}
+          webRenderStyle={webRenderStyle}
+          webChoiceColor={webChoiceColor}
+          webChoiceTextColor={webChoiceTextColor}
+          webSettings={webSettings}
+          webProjectName={webProjectName}
+          progress={progress}
+          error={error}
+          progressValue={progressValue}
+          savedPath={savedPath}
+          updateWebSettings={updateWebSettings}
+          updateWebSettingsBulk={updateWebSettingsBulk}
+          updateWebChoiceTextColor={updateWebChoiceTextColor}
+          updateWebChoiceColor={updateWebChoiceColor}
+          updateWebRenderStyle={updateWebRenderStyle}
+          callAIForTextResult={callAIForTextResult}
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {fileTree}
+          <section className="min-w-0 flex-1 overflow-auto">
+            {tab === 'project' && (
+              <div className="min-h-full min-w-full bg-[#10151f] p-4">
+                <div className="mb-3 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>{selected?.path}</span>
+                  <button
+                    type="button"
+                    onClick={copySelectedFile}
+                    disabled={!selected}
+                    className="flex h-7 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[10px] font-bold text-slate-300 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+                  >
+                    {copiedFilePath === selected?.path ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
                     )}
-                  </option>
-                ))}
-              </select>
-              {selectedNode && (
-                <NodeInspector
-                  nodeId={selectedNode.id}
-                  settings={settings}
+                    {getCodeText(
+                      language,
+                      copiedFilePath === selected?.path ? 'Copied' : 'Copy code',
+                    )}
+                  </button>
+                </div>
+                <CodePreview
+                  content={selected?.content || ''}
+                  path={selected?.path || ''}
+                  target={target}
                   language={language}
-                  isCondition={selectedNode.type === 'numberConditionNode'}
-                  legacyCondition={
-                    selectedNode.type === 'numberConditionNode'
-                      ? {
-                          threshold:
-                            typeof selectedNode.data.threshold === 'number'
-                              ? selectedNode.data.threshold
-                              : 0,
-                          ranges: Array.isArray(selectedNode.data.ranges)
-                            ? (selectedNode.data.ranges as Array<{
-                                id: string;
-                                min: number;
-                                max: number;
-                              }>)
-                            : [],
-                        }
-                      : undefined
-                  }
-                  onChange={setSettings}
-                />
-              )}
-              <div className="mt-4 space-y-2">
-                <Summary
-                  icon={CheckCircle2}
-                  label={getCodeText(language, 'Runtime nodes')}
-                  value={String(runtimeNodes.length)}
-                />
-                <Summary
-                  icon={AlertTriangle}
-                  label={getCodeText(language, 'Errors')}
-                  value={String(errors.length)}
-                  danger={errors.length > 0}
-                />
-                <Summary
-                  icon={AlertTriangle}
-                  label={getCodeText(language, 'Warnings')}
-                  value={String(warnings.length)}
                 />
               </div>
-            </div>
-          )}
-        </aside>
-      </div>}
+            )}
+            {tab === 'flow' && (
+              <div className="space-y-2 p-5">
+                {Object.entries(preview.manifest.nodes).map(([nodeId, mapping]) => (
+                  <div
+                    key={nodeId}
+                    className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3"
+                  >
+                    <div className="font-mono text-xs text-[var(--vr-accent-strong)]">
+                      {mapping.label}
+                    </div>
+                    <div className="mt-1 text-sm font-bold">
+                      {String(nodes.find((node) => node.id === nodeId)?.data?.title || nodeId)}
+                    </div>
+                    <div className="mt-1 font-mono text-[10px] text-[var(--vr-text-muted)]">
+                      {nodeId} → {mapping.file}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {tab === 'characters' && (
+              <ListView title={getCodeText(language, 'Characters and dialogue')}>
+                {settings.characters.map((character) => (
+                  <button
+                    key={character.sourceNodeId}
+                    type="button"
+                    onClick={() => setSelectedCharacterId(character.sourceNodeId)}
+                    className={`w-full rounded-lg border p-3 text-left ${selectedCharacterId === character.sourceNodeId ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)]'}`}
+                  >
+                    <div className="text-sm font-bold">{character.displayName}</div>
+                    <div className="mt-1 font-mono text-[11px] text-[var(--vr-text-muted)]">
+                      define {character.codeName} = Character(…)
+                    </div>
+                    <div className="mt-1 text-[10px] text-[var(--vr-text-muted)]">
+                      {Object.keys(character.expressions).length}{' '}
+                      {getCodeText(language, 'expressions')}
+                    </div>
+                  </button>
+                ))}
+              </ListView>
+            )}
+            {tab === 'variables' && (
+              <ListView
+                title={getCodeText(language, 'Variable model')}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setSettings(addVariable(settings))}
+                    className="flex items-center gap-1 text-xs text-[var(--vr-accent-strong)]"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {getCodeText(language, 'Add variable')}
+                  </button>
+                }
+              >
+                {settings.variables.map((variable) => (
+                  <button
+                    key={variable.id}
+                    type="button"
+                    onClick={() => setSelectedVariableId(variable.id)}
+                    className={`w-full rounded-lg border p-3 text-left ${selectedVariableId === variable.id ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]' : 'border-[var(--vr-border)]'}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <b className="text-sm">{variable.displayName}</b>
+                      <span className="rounded bg-black/10 px-1.5 py-0.5 font-mono text-[10px]">
+                        {variable.type}
+                      </span>
+                    </div>
+                    <div className="mt-1 font-mono text-[11px] text-[var(--vr-text-muted)]">
+                      default {variable.codeName} = {String(variable.initialValue)}
+                    </div>
+                  </button>
+                ))}
+              </ListView>
+            )}
+            {tab === 'assets' && (
+              <div className="p-5">
+                <h3 className="mb-4 text-sm font-black">
+                  {getCodeText(language, 'Asset inspection')}
+                </h3>
+                <div className="overflow-hidden rounded-lg border border-[var(--vr-border)]">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[var(--vr-surface-strong)] text-[10px] text-[var(--vr-text-muted)]">
+                      <tr>
+                        <th className="p-2">{getCodeText(language, 'Source node')}</th>
+                        <th className="p-2">{getCodeText(language, 'Type')}</th>
+                        <th className="p-2">{getCodeText(language, 'Export path')}</th>
+                        <th className="p-2">{getCodeText(language, 'Compatibility')}</th>
+                        <th className="p-2">{getCodeText(language, 'Referenced')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.assets.map((asset) => (
+                        <tr key={asset.id} className="border-t border-[var(--vr-border)]">
+                          <td className="p-2 font-mono text-[10px]">
+                            {asset.sourceNodeIds.join(', ')}
+                          </td>
+                          <td className="p-2">
+                            {getCodeText(
+                              language,
+                              asset.kind === 'image'
+                                ? 'Image'
+                                : asset.kind === 'audio'
+                                  ? 'Audio'
+                                  : 'Video',
+                            )}
+                          </td>
+                          <td className="p-2 font-mono text-[10px]">
+                            {preview.manifest.assets
+                              .find((item) => item.sourcePath === asset.path)
+                              ?.targetPaths.join(', ') || asset.path}
+                          </td>
+                          <td
+                            className={`p-2 ${asset.compatibility === 'compatible' ? 'text-emerald-400' : asset.compatibility === 'unreadable' ? 'text-red-400' : 'text-amber-400'}`}
+                            title={asset.note}
+                          >
+                            {getCodeText(
+                              language,
+                              asset.compatibility === 'compatible'
+                                ? 'Compatible'
+                                : asset.compatibility === 'risk'
+                                  ? 'Compatibility risk'
+                                  : asset.compatibility === 'unreadable'
+                                    ? 'Unreadable'
+                                    : 'Unknown compatibility',
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {getCodeText(language, asset.referenced ? 'Yes' : 'No')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {preview.assets.length === 0 && (
+                    <div className="p-5 text-center text-[var(--vr-text-muted)]">
+                      {getCodeText(language, 'No assets')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {tab === 'diagnostics' && (
+              <Diagnostics diagnostics={preview.diagnostics} language={language} target={target} />
+            )}
+          </section>
+          <aside className="w-80 shrink-0 overflow-y-auto border-l border-[var(--vr-border)] bg-[var(--vr-surface-soft)]">
+            <CapabilityPanel
+              capabilities={preview.capabilities}
+              language={language}
+              target={target}
+            />
+            {tab === 'characters' ? (
+              (() => {
+                const character =
+                  settings.characters.find((item) => item.sourceNodeId === selectedCharacterId) ||
+                  settings.characters[0];
+                return character ? (
+                  <CharacterInspector
+                    character={character}
+                    language={language}
+                    onChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        characters: settings.characters.map((item) =>
+                          item.sourceNodeId === value.sourceNodeId ? value : item,
+                        ),
+                      })
+                    }
+                  />
+                ) : (
+                  <Empty text={getCodeText(language, 'No character nodes in project')} />
+                );
+              })()
+            ) : tab === 'variables' ? (
+              (() => {
+                const variable =
+                  settings.variables.find((item) => item.id === selectedVariableId) ||
+                  settings.variables[0];
+                return variable ? (
+                  <VariableInspector
+                    variable={variable}
+                    language={language}
+                    onChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        variables: settings.variables.map((item) =>
+                          item.id === value.id ? value : item,
+                        ),
+                      })
+                    }
+                    onDelete={() =>
+                      setSettings({
+                        ...settings,
+                        variables: settings.variables.filter((item) => item.id !== variable.id),
+                      })
+                    }
+                  />
+                ) : null;
+              })()
+            ) : (
+              <div className="p-3">
+                <h3 className="mb-3 text-xs font-black">
+                  {getCodeText(language, 'Story and condition inspector')}
+                </h3>
+                <select
+                  className="h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-bg)] px-2 text-xs"
+                  value={selectedNodeId}
+                  onChange={(event) => setSelectedNodeId(event.target.value)}
+                >
+                  <option value="">
+                    {getCodeText(language, 'Select a story or condition node')}
+                  </option>
+                  {runtimeNodes.map((node) => (
+                    <option key={node.id} value={node.id}>
+                      {String(
+                        node.data?.title ||
+                          (node.type === 'numberConditionNode'
+                            ? getCodeText(language, 'Number condition')
+                            : node.id),
+                      )}
+                    </option>
+                  ))}
+                </select>
+                {selectedNode && (
+                  <NodeInspector
+                    nodeId={selectedNode.id}
+                    settings={settings}
+                    language={language}
+                    isCondition={selectedNode.type === 'numberConditionNode'}
+                    legacyCondition={
+                      selectedNode.type === 'numberConditionNode'
+                        ? {
+                            threshold:
+                              typeof selectedNode.data.threshold === 'number'
+                                ? selectedNode.data.threshold
+                                : 0,
+                            ranges: Array.isArray(selectedNode.data.ranges)
+                              ? (selectedNode.data.ranges as Array<{
+                                  id: string;
+                                  min: number;
+                                  max: number;
+                                }>)
+                              : [],
+                          }
+                        : undefined
+                    }
+                    onChange={setSettings}
+                  />
+                )}
+                <div className="mt-4 space-y-2">
+                  <Summary
+                    icon={CheckCircle2}
+                    label={getCodeText(language, 'Runtime nodes')}
+                    value={String(runtimeNodes.length)}
+                  />
+                  <Summary
+                    icon={AlertTriangle}
+                    label={getCodeText(language, 'Errors')}
+                    value={String(errors.length)}
+                    danger={errors.length > 0}
+                  />
+                  <Summary
+                    icon={AlertTriangle}
+                    label={getCodeText(language, 'Warnings')}
+                    value={String(warnings.length)}
+                  />
+                </div>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
       <div className="flex shrink-0 items-center justify-between border-t border-[var(--vr-border)] bg-[var(--vr-surface-strong)] px-4 py-2 text-[11px] text-[var(--vr-text-muted)]">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -446,11 +506,18 @@ export function CodeWorkspace({
           </button>
           <span className="flex min-w-0 items-center gap-1.5 text-amber-500 dark:text-amber-300">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{getCodeText(language, target === 'dialogic' ? 'Godot project notice' : 'Code export beta notice')}</span>
+            <span className="truncate">
+              {getCodeText(
+                language,
+                target === 'dialogic' ? 'Godot project notice' : 'Code export beta notice',
+              )}
+            </span>
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <span className={`hidden sm:inline ${errors.length ? 'text-red-400' : 'text-emerald-400'}`}>
+          <span
+            className={`hidden sm:inline ${errors.length ? 'text-red-400' : 'text-emerald-400'}`}
+          >
             {errors.length
               ? getCodeText(language, 'Fix blocking errors')
               : getCodeText(language, 'Ready to export')}
