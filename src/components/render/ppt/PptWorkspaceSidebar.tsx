@@ -945,15 +945,17 @@ function AnimationTimeline({
                         type="button"
                         onClick={() => onSelect(item)}
                         className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
-                        title={effectLabel(copy, item.effect)}
-                        aria-label={`${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect)}`}
+                        title={effectLabel(copy, item.effect, item.action)}
+                        aria-label={`${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect, item.action)}`}
                       >
                         <span>{index + 1}.</span>
                         <span
                           aria-hidden="true"
                           className={`h-2.5 w-2.5 shrink-0 rounded-full ${phaseMarkerClass(item)}`}
                         />
-                        <span className="truncate">{effectLabel(copy, item.effect)}</span>
+                        <span className="truncate">
+                          {effectLabel(copy, item.effect, item.action)}
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -980,7 +982,7 @@ function AnimationTimeline({
                             ))}
                           </span>
                           <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
-                            {effectLabel(copy, item.effect)}
+                            {effectLabel(copy, item.effect, item.action)}
                           </strong>
                         </span>
                       </button>
@@ -1095,7 +1097,7 @@ function AnimationTimeline({
                     </span>
                     <span className="min-w-0 flex-1">
                       <strong className="block truncate text-xs text-[var(--vr-text)]">
-                        {effectLabel(copy, item.effect)} · {targetLabel(copy, item)}
+                        {effectLabel(copy, item.effect, item.action)} · {targetLabel(copy, item)}
                       </strong>
                       <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
                         {startLabel(copy, item.start)} · {directionLabel(copy, item.direction)} ·{' '}
@@ -1151,14 +1153,17 @@ function _ObjectProperties({
         <div>
           <h2 className="text-sm font-black text-[var(--vr-text)]">{selected.label}</h2>
           <p className="text-xs text-[var(--vr-text-muted)]">
-            {animation ? effectLabel(copy, animation.effect) : copy.noAnimationAdded}
+            {animation
+              ? effectLabel(copy, animation.effect, animation.action)
+              : copy.noAnimationAdded}
           </p>
         </div>
       </div>
       {animation?.source === 'tag' ? (
         <div className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] p-3 text-xs leading-5 text-[var(--vr-text-muted)]">
           <strong className="block text-[var(--vr-text)]">由剧情标签驱动</strong>
-          {startLabel(copy, animation.start)} · {effectLabel(copy, animation.effect)} ·{' '}
+          {startLabel(copy, animation.start)} ·{' '}
+          {effectLabel(copy, animation.effect, animation.action)} ·{' '}
           {(animation.durationMs / 1000).toFixed(1)} {copy.seconds}
           <p className="mt-1">
             此处只展示该标签对应的 PPT 动画；编辑标签后，时间轴和导出会自动同步。

@@ -1,34 +1,34 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import {
-ChevronDown,
-ChevronUp,
-Download,
-FileCode2,
-FileText,
-Film,
-Gamepad2,
-Maximize2,
-Minimize2,
-PanelLeftClose,
-PanelRightClose,
-PanelsTopLeft,
-Play,
-PlusSquare,
-Presentation,
-Redo2,
-Sparkles,
-Undo2,
-X,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  FileCode2,
+  FileText,
+  Film,
+  Gamepad2,
+  Maximize2,
+  Minimize2,
+  PanelLeftClose,
+  PanelRightClose,
+  PanelsTopLeft,
+  Play,
+  PlusSquare,
+  Presentation,
+  Redo2,
+  Sparkles,
+  Undo2,
+  X,
 } from 'lucide-react';
-import { useEffect,useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { LoadingAnimation } from '../../../LoadingAnimation';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
-import { type CodeTextKey,getCodeText } from '../../code/i18n';
+import { type CodeTextKey, getCodeText } from '../../code/i18n';
 import { getPptCopy } from '../../ppt/i18n';
 import { formatVideoText } from '../i18n';
-import type { RenderStatus,RenderWorkspaceMode } from '../shared/types';
+import type { RenderStatus, RenderWorkspaceMode } from '../shared/types';
 
 type RenderHeaderProps = {
   language: Language;
@@ -138,6 +138,12 @@ export function RenderHeader({
     ['tyrano', 'TyranoScript'],
     ['dialogic', 'Godot Dialogic 2'],
   ] as const satisfies ReadonlyArray<readonly [Exclude<CodeExportTarget, 'ir-json'>, CodeTextKey]>;
+  const workspaceLabels: Record<RenderWorkspaceMode, string> = {
+    video: '视频导出',
+    web: '网页导出',
+    ppt: 'PPT 导出',
+    code: '代码导出',
+  };
 
   return (
     <header className="relative flex h-14 items-center justify-between border-b border-transparent bg-[var(--vr-surface-strong)]/90 px-4 backdrop-blur-xl">
@@ -163,7 +169,7 @@ export function RenderHeader({
               }}
               className={`render-workspace-tab ${workspaceMode === mode ? 'is-active' : ''}`}
               aria-pressed={workspaceMode === mode}
-              title={mode === 'video' ? '切换到视频导出' : '切换到网页导出'}
+              title={`切换到${workspaceLabels[mode]}`}
             >
               {mode === 'video' ? (
                 <Film className="h-3.5 w-3.5" />
@@ -399,7 +405,6 @@ export function RenderHeader({
       </div>
 
       <div className="flex items-center gap-2">
-
         {workspaceMode === 'video' && (
           <div className="mr-1 flex items-center gap-1 border-r border-[var(--vr-border)] pr-2">
             <button

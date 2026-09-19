@@ -96,8 +96,12 @@
 }
 
 @keyframes galInlineSwitchOut {
-  from { opacity: var(--inline-switch-opacity, 1); }
-  to { opacity: 0; }
+  from {
+    opacity: var(--inline-switch-opacity, 1);
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 /* A short white-light wipe for scene material switches. Screen blending keeps
@@ -1825,18 +1829,16 @@ html.canvas-selection-dragging * {
   width: clamp(112px, 34%, 154px);
   max-height: 154px;
   object-fit: contain;
-  filter:
-    drop-shadow(0 12px 18px rgba(15, 23, 42, 0.18))
+  filter: drop-shadow(0 12px 18px rgba(15, 23, 42, 0.18))
     drop-shadow(0 3px 4px rgba(15, 23, 42, 0.14));
   transform: rotate(7deg);
-    transition:
+  transition:
     transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
     filter 0.24s ease;
 }
 
 .assistant-welcome-logo:hover {
-  filter:
-    drop-shadow(0 15px 20px rgba(15, 23, 42, 0.22))
+  filter: drop-shadow(0 15px 20px rgba(15, 23, 42, 0.22))
     drop-shadow(0 4px 5px rgba(15, 23, 42, 0.16));
   transform: translateY(-3px) scale(1.06) rotate(-6deg);
 }
@@ -1844,7 +1846,6 @@ html.canvas-selection-dragging * {
 .assistant-welcome-logo:active {
   transform: translateY(2px) scale(0.94) rotate(-4deg);
 }
-
 
 .assistant-welcome-prompts {
   margin: 0 0 12px;
@@ -1926,8 +1927,7 @@ html.canvas-selection-dragging * {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter:
-    drop-shadow(0 8px 10px rgba(15, 23, 42, 0.22))
+  filter: drop-shadow(0 8px 10px rgba(15, 23, 42, 0.22))
     drop-shadow(0 2px 1px rgba(15, 23, 42, 0.18));
 }
 
@@ -5144,7 +5144,110 @@ button.web-segment-button:last-child {
     translate: 0 24%;
   }
 }
-/* PPT-inspired emphasis effects. They run around the label's existing pose. */
+/* PPT middle actions mirror the story editor's inline action playback. */
+@keyframes ppt-middle-shake-x {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20% {
+    translate: calc(var(--inline-action-strength, 10px) * -1) 0;
+  }
+  40% {
+    translate: var(--inline-action-strength, 10px) 0;
+  }
+  60% {
+    translate: calc(var(--inline-action-strength, 10px) * -0.6) 0;
+  }
+  80% {
+    translate: calc(var(--inline-action-strength, 10px) * 0.6) 0;
+  }
+}
+@keyframes ppt-middle-shake-y {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20% {
+    translate: 0 calc(var(--inline-action-strength, 10px) * -1);
+  }
+  40% {
+    translate: 0 var(--inline-action-strength, 10px);
+  }
+  60% {
+    translate: 0 calc(var(--inline-action-strength, 10px) * -0.6);
+  }
+  80% {
+    translate: 0 calc(var(--inline-action-strength, 10px) * 0.6);
+  }
+}
+@keyframes ppt-middle-translate {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: var(--ppt-action-x, 12px) var(--ppt-action-y, 8px);
+  }
+}
+@keyframes ppt-middle-scale {
+  from {
+    scale: 1;
+  }
+  to {
+    scale: var(--ppt-action-scale, 1.08);
+  }
+}
+@keyframes ppt-middle-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  45% {
+    opacity: var(--inline-action-opacity, 0.45);
+    filter: brightness(var(--inline-action-brightness, 1.35));
+  }
+}
+@keyframes ppt-middle-rotate {
+  0% {
+    rotate: 0deg;
+  }
+  45% {
+    rotate: var(--ppt-action-rotation, 15deg);
+  }
+  72% {
+    rotate: calc(var(--ppt-action-rotation, 15deg) * -0.65);
+  }
+  100% {
+    rotate: var(--ppt-action-rotation, 15deg);
+  }
+}
+@keyframes ppt-middle-opacity {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: var(--ppt-action-opacity, 0.1);
+  }
+}
+@keyframes ppt-middle-brightness {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(var(--ppt-action-brightness, 0.1));
+  }
+}
+@keyframes ppt-middle-switch {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Legacy/generic PPT emphasis effects remain available for old projects. */
 @keyframes ppt-pulse {
   50% {
     scale: 1.12;
@@ -5235,6 +5338,105 @@ button.web-segment-button:last-child {
 @keyframes ppt-transparency {
   50% {
     opacity: 0.28;
+  }
+}
+
+@keyframes ppt-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ppt-appear-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ppt-fly-out-left {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-14%);
+  }
+}
+@keyframes ppt-fly-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(14%);
+  }
+}
+@keyframes ppt-fly-out-up {
+  from {
+    opacity: 1;
+    transform: translateY(-14%);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+@keyframes ppt-fly-out-down {
+  from {
+    opacity: 1;
+    transform: translateY(14%);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+@keyframes ppt-wipe-out-left {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+@keyframes ppt-wipe-out-right {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+@keyframes ppt-wipe-out-up {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(100% 0 0 0);
+  }
+}
+@keyframes ppt-wipe-out-down {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+@keyframes ppt-zoom-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.82);
   }
 }
 

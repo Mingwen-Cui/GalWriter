@@ -14,6 +14,7 @@ import { type MouseEvent, type ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import type { InlinePresentationActionType } from '../../../domain/project';
 import type {
   PptAnimationDirection,
   PptAnimationEffect,
@@ -34,7 +35,7 @@ import { pptSceneColors } from './pptSceneResolver';
 import type { Scene, Selection, SlideItem } from './PptWorkspace';
 import {
   DEFAULT_TRANSITION,
-  EMPHASIS_EFFECTS,
+  PPT_MIDDLE_ACTIONS,
   PHASES,
   SlideCanvas,
   TRANSITIONS,
@@ -53,6 +54,7 @@ export function AnimationRibbon({
   setPhase,
   animation,
   onApply,
+  onApplyMiddleAction,
   onApplyLineWipe,
   onPreview,
   onUpdate,
@@ -67,6 +69,7 @@ export function AnimationRibbon({
   setPhase: (phase: PptAnimationPhase) => void;
   animation?: PptObjectAnimation;
   onApply: (effect: PptAnimationEffect) => void;
+  onApplyMiddleAction: (action: InlinePresentationActionType) => void;
   onApplyLineWipe: () => void;
   onPreview: () => void;
   onUpdate: (patch: Partial<PptObjectAnimation>) => void;
@@ -119,13 +122,13 @@ export function AnimationRibbon({
           >
             <div className="flex gap-1">
               {phase === 'emphasis' ? (
-                EMPHASIS_EFFECTS.map((item) => (
+                PPT_MIDDLE_ACTIONS.map((item) => (
                   <button
-                    key={item.value}
+                    key={item.action}
                     type="button"
                     disabled={disabled}
-                    onClick={() => onApply(item.value)}
-                    className={`ppt-effect-button min-w-[60px] ${animation?.effect === item.value ? 'is-active' : ''}`}
+                    onClick={() => onApplyMiddleAction(item.action)}
+                    className={`ppt-effect-button min-w-[60px] ${animation?.action === item.action || (!animation?.action && item.action === 'shake-x' && animation?.effect === item.value) ? 'is-active' : ''}`}
                   >
                     <span className="text-lg leading-none">{item.glyph}</span>
                     <span>{copy[item.key]}</span>

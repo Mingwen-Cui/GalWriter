@@ -7,6 +7,7 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
+import type { InlinePresentationActionType } from '../../../domain/project';
 import { getCharacterStageBounds } from '../../../lib/presentation';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { homepageCoverTemplates } from '../homepageCoverTemplates';
@@ -97,29 +98,36 @@ export const PHASES: Array<{ value: PptAnimationPhase; key: 'enter' | 'emphasis'
   { value: 'emphasis', key: 'emphasis' },
   { value: 'exit', key: 'exit' },
 ];
-export const EMPHASIS_EFFECTS: Array<{
+export const PPT_MIDDLE_ACTIONS: Array<{
+  action: Exclude<InlinePresentationActionType, 'none' | 'translate-x' | 'translate-y'>;
   value: PptAnimationEffect;
   key: keyof PptWorkspaceCopy;
   glyph: string;
 }> = [
-  { value: 'pulse', key: 'pulse', glyph: '✦' },
-  { value: 'colorPulse', key: 'colorPulse', glyph: '✺' },
-  { value: 'bounce', key: 'bounce', glyph: '↗' },
-  { value: 'teeter', key: 'teeter', glyph: '◒' },
-  { value: 'growShrink', key: 'growShrink', glyph: '⌁' },
-  { value: 'spin', key: 'spin', glyph: '↻' },
-  { value: 'blink', key: 'blink', glyph: '✧' },
-  { value: 'wave', key: 'wave', glyph: '〰' },
-  { value: 'wiggle', key: 'wiggle', glyph: '↔' },
-  { value: 'desaturate', key: 'desaturate', glyph: '◐' },
-  { value: 'darken', key: 'darken', glyph: '◕' },
-  { value: 'lighten', key: 'lighten', glyph: '◌' },
-  { value: 'transparency', key: 'transparency', glyph: '◍' },
+  { action: 'shake-x', value: 'line', key: 'shakeX', glyph: '↔' },
+  { action: 'shake-y', value: 'line', key: 'shakeY', glyph: '↕' },
+  { action: 'translate', value: 'line', key: 'translate', glyph: '⇄' },
+  { action: 'scale', value: 'growShrink', key: 'scale', glyph: '⤢' },
+  { action: 'pulse', value: 'pulse', key: 'pulse', glyph: '✦' },
+  { action: 'rotate', value: 'spin', key: 'rotate', glyph: '⟳' },
+  { action: 'opacity', value: 'transparency', key: 'opacity', glyph: '◐' },
+  { action: 'brightness', value: 'darken', key: 'brightness', glyph: '☀' },
+  { action: 'switch', value: 'wipe', key: 'switch', glyph: '⇄' },
 ];
-export const effectLabel = (copy: Copy, effect: PptAnimationEffect) => {
+// Keep the old export name for consumers that only need to inspect the list.
+export const EMPHASIS_EFFECTS = PPT_MIDDLE_ACTIONS;
+export const effectLabel = (
+  copy: Copy,
+  effect: PptAnimationEffect,
+  action?: InlinePresentationActionType,
+) => {
+  const middleAction = action
+    ? PPT_MIDDLE_ACTIONS.find((item) => item.action === action)
+    : undefined;
+  if (middleAction) return copy[middleAction.key];
   if (effect === 'line') return copy.line;
   if (effect === 'none') return copy.noAnimation;
-  const emphasis = EMPHASIS_EFFECTS.find((item) => item.value === effect);
+  const emphasis = PPT_MIDDLE_ACTIONS.find((item) => item.value === effect);
   return emphasis
     ? copy[emphasis.key]
     : (
@@ -989,6 +997,17 @@ export function PptWorkspace({
     const nextTimeline = updateSelectedAnimation({ effect });
     if (nextTimeline) preview(nextTimeline);
   };
+  const applyMiddleAction = (action: InlinePresentationActionType) => {
+    if (!selectedObject || selectedPhase !== 'emphasis') return;
+    const item = PPT_MIDDLE_ACTIONS.find((entry) => entry.action === action);
+    if (!item) return;
+    const nextTimeline = updateSelectedAnimation({
+      action: item.action,
+      effect: item.value,
+      phase: 'emphasis',
+    });
+    if (nextTimeline) preview(nextTimeline);
+  };
   const moveAnimation = (id: string, direction: -1 | 1) => {
     const index = currentAnimations.findIndex((item) => item.id === id);
     const target = index + direction;
@@ -1140,6 +1159,7 @@ export function PptWorkspace({
               setPhase={setSelectedPhase}
               animation={getAnimation()}
               onApply={applyEffect}
+              onApplyMiddleAction={applyMiddleAction}
               onApplyLineWipe={() => {
                 if (!selectedObject || selectedObject.target !== 'dialog-body') return;
                 setSelectedPhase('enter');
