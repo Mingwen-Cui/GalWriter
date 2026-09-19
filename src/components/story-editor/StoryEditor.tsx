@@ -147,6 +147,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     'none' | 'raised-existing' | 'opened-from-settings'
   >('none');
   const [showVideoRender, setShowVideoRender] = useState(false);
+  const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
   const [renderLaunchIntent, setRenderLaunchIntent] = useState<RenderWorkspaceLaunchIntent>();
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   const [characterTagColor, setCharacterTagColor] = useState('#7c3aed');
@@ -503,8 +504,33 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const isMobile = forceMobileUi || effectiveFlowWidth < 768;
 
   const selectionBoxRef = useRef<HTMLDivElement>(null);
+  const editorRootRef = useRef<HTMLDivElement>(null);
   // NOTE: canvas 容器的 ref，用于挂载原生 drag-drop 监听器，绕过 React Flow 的内部事件拦截
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
+  const toggleEditorFullscreen = useCallback(async () => {
+    const editorRoot = editorRootRef.current;
+    if (!editorRoot) return;
+
+    try {
+      if (document.fullscreenElement === editorRoot) {
+        await document.exitFullscreen();
+      } else {
+        await editorRoot.requestFullscreen();
+      }
+    } catch {
+      // Fullscreen can be unavailable in embedded or permission-restricted contexts.
+    }
+  }, []);
+
+  useEffect(() => {
+    const syncEditorFullscreen = () => {
+      setIsEditorFullscreen(document.fullscreenElement === editorRootRef.current);
+    };
+
+    document.addEventListener('fullscreenchange', syncEditorFullscreen);
+    syncEditorFullscreen();
+    return () => document.removeEventListener('fullscreenchange', syncEditorFullscreen);
+  }, []);
   const createCurrentProjectThumbnail = useCallback(
     () =>
       Promise.resolve(
@@ -2809,6 +2835,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   return (
     <div
+      ref={editorRootRef}
       className={`relative w-full h-screen flex flex-col font-sans overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'} ${opaqueAssistantMessagesInGlass ? 'glass-opaque-assistant-messages' : ''} ${opaqueFooterInGlass ? 'glass-opaque-footer' : ''} ${showProjectHome ? 'pointer-events-auto' : ''}`}
       style={{ ...editorAccentStyle, backgroundColor: canvasBg }}
     >
@@ -2956,6 +2983,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             showStats={showStats}
             miniMapPosition={miniMapPosition}
             miniMapOverlayStyle={miniMapOverlayStyle}
+            isFullscreen={isEditorFullscreen}
+            onToggleFullscreen={() => void toggleEditorFullscreen()}
             horizontalGuides={horizontalGuides}
             verticalGuides={verticalGuides}
             cardPlacementPreviewKind={pendingCardPlacement}
@@ -3224,6 +3253,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             onUpdateNodeData={handleUpdateNode}
             language={language}
             workspaceKey={canvasWorkspaceKey}
+            fullscreenHostRef={editorRootRef}
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
             callAIForTextResult={callAIForTextResult}

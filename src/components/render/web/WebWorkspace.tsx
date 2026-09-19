@@ -29,7 +29,7 @@ import {
   Video,
 } from 'lucide-react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { createElement, isValidElement, useCallback, useEffect, useState } from 'react';
+import { createElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 
 import { isRapidAssetEdition, resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
@@ -661,6 +661,9 @@ export function WebWorkspace({
   const [testState, setTestState] = useState<WebPlaytestTestState | null>(null);
   const [testAction, setTestAction] = useState<WebPlaytestTestAction | null>(null);
   const [designPanelMode, setDesignPanelMode] = useState<'background' | 'preset'>('background');
+  const [isDesignPanelOpen, setIsDesignPanelOpen] = useState(false);
+  const designPanelTriggerRef = useRef<HTMLDivElement>(null);
+  const designPanelPopoverRef = useRef<HTMLDivElement>(null);
   const [currentPreviewSurface, setCurrentPreviewSurface] = useState<WebPreviewSurface>(
     webSettings.showStartMenu ? 'start' : 'game',
   );
@@ -685,6 +688,21 @@ export function WebWorkspace({
   useEffect(() => {
     if (selectedStartMenuElementId) setDesignPanelMode('background');
   }, [selectedStartMenuElementId]);
+  useEffect(() => {
+    if (!isDesignPanelOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        (!designPanelTriggerRef.current?.contains(target) &&
+          !designPanelPopoverRef.current?.contains(target))
+      ) {
+        setIsDesignPanelOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [isDesignPanelOpen]);
   const [gradientEditingSurface, setGradientEditingSurface] = useState<WebPreviewSurface | null>(
     null,
   );
@@ -1926,53 +1944,58 @@ JSON schema:
               <>
                 {startMenuPreviewMode === 'edit' && (
                   <div className="sticky -top-4 z-30 -mx-4 -mt-4 bg-transparent px-4 py-3">
-                    <WebSettingCard>
-                      <WebSegmentedGroup
-                        value={editPreviewSurface}
-                        options={[
-                          {
-                            value: 'start',
-                            label: formatWebText(
-                              language,
-                              'componentsrenderwebWebWorkspaceText1827',
-                            ),
-                            disabled: !webSettings.showStartMenu,
-                          },
-                          {
-                            value: 'archive',
-                            label: formatWebText(
-                              language,
-                              'componentsrenderwebWebWorkspaceText1832',
-                            ),
-                            disabled: !webSettings.showStartMenu,
-                          },
-                          {
-                            value: 'settings',
-                            label: formatWebText(
-                              language,
-                              'componentsrenderwebWebWorkspaceText1837',
-                            ),
-                            disabled: !webSettings.showStartMenu,
-                          },
-                          {
-                            value: 'game',
-                            label: formatWebText(
-                              language,
-                              'componentsrenderwebWebWorkspaceText1840',
-                            ),
-                          },
-                        ]}
-                        columns="grid-cols-4"
-                        onChange={(value) => {
-                          const surface = value as WebPreviewSurface;
-                          setSelectedStartMenuElementId(null);
-                          setEditPreviewSurface(surface);
-                          setCurrentPreviewSurface(surface);
-                        }}
-                      />
-                    </WebSettingCard>
-                    {!selectedStartMenuElementId && (
-                      <div className="relative mt-3 h-10">
+                    <div ref={designPanelTriggerRef}>
+                      <WebSettingCard>
+                        <WebSegmentedGroup
+                          value={editPreviewSurface}
+                          options={[
+                            {
+                              value: 'start',
+                              label: formatWebText(
+                                language,
+                                'componentsrenderwebWebWorkspaceText1827',
+                              ),
+                              disabled: !webSettings.showStartMenu,
+                            },
+                            {
+                              value: 'archive',
+                              label: formatWebText(
+                                language,
+                                'componentsrenderwebWebWorkspaceText1832',
+                              ),
+                              disabled: !webSettings.showStartMenu,
+                            },
+                            {
+                              value: 'settings',
+                              label: formatWebText(
+                                language,
+                                'componentsrenderwebWebWorkspaceText1837',
+                              ),
+                              disabled: !webSettings.showStartMenu,
+                            },
+                            {
+                              value: 'game',
+                              label: formatWebText(
+                                language,
+                                'componentsrenderwebWebWorkspaceText1840',
+                              ),
+                            },
+                          ]}
+                          columns="grid-cols-4"
+                          onChange={(value) => {
+                            const surface = value as WebPreviewSurface;
+                            setSelectedStartMenuElementId(null);
+                            setEditPreviewSurface(surface);
+                            setCurrentPreviewSurface(surface);
+                            setIsDesignPanelOpen((open) =>
+                              surface === editPreviewSurface ? !open : true,
+                            );
+                          }}
+                        />
+                      </WebSettingCard>
+                    </div>
+                    {isDesignPanelOpen && !selectedStartMenuElementId && (
+                      <div ref={designPanelPopoverRef} className="relative mt-3 h-10">
                         <span
                           aria-hidden="true"
                           className={`absolute ${designPanelSwitcherLayout.pointer} top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white`}

@@ -2,16 +2,19 @@ import {
   Background,
   BackgroundVariant,
   ConnectionMode,
+  ControlButton,
   Controls,
   MiniMap,
   PanOnScrollMode,
   ReactFlow,
   SelectionMode,
 } from '@xyflow/react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import type { ComponentProps, CSSProperties, MouseEventHandler, RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { SelectionMenu } from '../../editor-features/selection-tools/SelectionMenu';
+import { useDesktopViewport } from '../../lib/useDesktopViewport';
 import { SmartGuides } from './SmartGuides';
 
 type ReactFlowProps = ComponentProps<typeof ReactFlow>;
@@ -39,6 +42,8 @@ interface StoryCanvasWorkspaceProps {
   showStats: boolean;
   miniMapPosition: 'left' | 'right';
   miniMapOverlayStyle?: CSSProperties;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
   horizontalGuides: number[];
   verticalGuides: number[];
   cardPlacementPreviewKind?:
@@ -76,6 +81,8 @@ export function StoryCanvasWorkspace({
   showStats,
   miniMapPosition,
   miniMapOverlayStyle,
+  isFullscreen,
+  onToggleFullscreen,
   horizontalGuides,
   verticalGuides,
   cardPlacementPreviewKind = null,
@@ -86,6 +93,7 @@ export function StoryCanvasWorkspace({
 }: StoryCanvasWorkspaceProps) {
   const overlayPositionClass = miniMapPosition === 'left' ? 'left-4' : 'right-4';
   const footerSpacingClass = showStats ? '' : 'canvas-bottom-overlay-no-footer';
+  const isDesktopViewport = useDesktopViewport();
   const placementPreviewRef = useRef<HTMLDivElement>(null);
   const regionPlacementPreviewRef = useRef<HTMLDivElement>(null);
   const isPlacementPreviewVisibleRef = useRef(false);
@@ -237,7 +245,22 @@ export function StoryCanvasWorkspace({
                     showFitView
                     orientation="horizontal"
                     className="!static !m-0 !flex !h-full !w-full !flex-row !items-center !justify-around !gap-0 !border-none !bg-transparent !p-0 !shadow-none"
-                  />
+                  >
+                    {isDesktopViewport && (
+                      <ControlButton
+                        className="!min-w-0 !flex-1 !w-auto"
+                        title={isFullscreen ? '退出全屏' : '最大化'}
+                        aria-label={isFullscreen ? '退出全屏' : '最大化'}
+                        onClick={onToggleFullscreen}
+                      >
+                        {isFullscreen ? (
+                          <Minimize2 className="h-4 w-4" aria-hidden="true" />
+                        ) : (
+                          <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                        )}
+                      </ControlButton>
+                    )}
+                  </Controls>
                 </div>
               )}
             </div>

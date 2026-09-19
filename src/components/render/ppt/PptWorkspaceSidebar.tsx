@@ -12,7 +12,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { isRapidAssetEdition } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
@@ -155,6 +155,12 @@ export function PptSidebar({
 }) {
   const copy = usePptCopy();
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
+  const [isAnimationPageOpen, setIsAnimationPageOpen] = useState(false);
+  const animationTriggerRef = useRef<HTMLButtonElement>(null);
+  const animationPagePopoverRef = useRef<HTMLDivElement>(null);
+  const [isCoverDesignOpen, setIsCoverDesignOpen] = useState(false);
+  const coverDesignTriggerRef = useRef<HTMLButtonElement>(null);
+  const coverDesignPopoverRef = useRef<HTMLDivElement>(null);
   const showParameterDescriptions = false;
   const [coverDesignMode, setCoverDesignMode] = useState<'background' | 'preset'>('background');
   const [savedPptCoverTemplates, setSavedPptCoverTemplates] = useState(readPptCoverTemplateLibrary);
@@ -234,6 +240,41 @@ export function PptSidebar({
   ] as const;
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) || tabs[0];
 
+  useEffect(() => {
+    if (!isAnimationPageOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        (animationTriggerRef.current &&
+          !animationTriggerRef.current.contains(target) &&
+          !animationPagePopoverRef.current?.contains(target))
+      ) {
+        setIsAnimationPageOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [isAnimationPageOpen]);
+  useEffect(() => {
+    if (!isCoverDesignOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        ((!coverDesignTriggerRef.current || !coverDesignTriggerRef.current.contains(target)) &&
+          !coverDesignPopoverRef.current?.contains(target))
+      ) {
+        setIsCoverDesignOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [isCoverDesignOpen]);
+  useEffect(() => {
+    if (activeTab !== 'style' || !coverSelected) setIsCoverDesignOpen(false);
+  }, [activeTab, coverSelected]);
+
   return (
     <aside className="flex w-[380px] shrink-0 flex-col border-l border-[var(--vr-border)] bg-[var(--vr-surface-strong)]">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--vr-border)] px-4 text-xs font-black uppercase tracking-wide text-[var(--vr-text-soft)]">
@@ -246,7 +287,24 @@ export function PptSidebar({
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              ref={
+                tab.id === 'timeline'
+                  ? animationTriggerRef
+                  : tab.id === 'style'
+                    ? coverDesignTriggerRef
+                    : undefined
+              }
+              onClick={() => {
+                setActiveTab(tab.id);
+                setIsAnimationPageOpen((open) => (tab.id === 'timeline' ? !open : false));
+                setIsCoverDesignOpen((open) =>
+                  tab.id === 'style' && coverSelected
+                    ? activeTab === 'style'
+                      ? !open
+                      : true
+                    : false,
+                );
+              }}
               className={`flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-black transition-colors ${
                 activeTab === tab.id
                   ? 'bg-[var(--vr-accent)] text-white shadow-sm'
@@ -265,32 +323,34 @@ export function PptSidebar({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === 'timeline' ? (
           <>
-            <div className="relative -mt-1 h-10">
-              <span
-                aria-hidden="true"
-                className="absolute left-[75%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
-              />
-              <div className="relative flex justify-end">
-                <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => setAnimationPage('timeline')}
-                    className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'timeline' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                    aria-pressed={animationPage === 'timeline'}
-                  >
-                    时间轴
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAnimationPage('details')}
-                    className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'details' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                    aria-pressed={animationPage === 'details'}
-                  >
-                    动画详情
-                  </button>
+            {isAnimationPageOpen && (
+              <div ref={animationPagePopoverRef} className="relative -mt-1 h-10">
+                <span
+                  aria-hidden="true"
+                  className="absolute left-[75%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                />
+                <div className="relative flex justify-end">
+                  <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setAnimationPage('timeline')}
+                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'timeline' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      aria-pressed={animationPage === 'timeline'}
+                    >
+                      时间轴
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAnimationPage('details')}
+                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${animationPage === 'details' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      aria-pressed={animationPage === 'details'}
+                    >
+                      动画详情
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             <div className="mt-3">
               {animationPage === 'timeline' ? (
                 <AnimationTimeline
@@ -329,30 +389,32 @@ export function PptSidebar({
         {activeTab === 'style' ? (
           coverSelected ? (
             <>
-              <div className="relative -mt-1 h-10">
-                <span
-                  aria-hidden="true"
-                  className="absolute left-[87.5%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
-                />
-                <div className="relative flex justify-end">
-                  <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => setCoverDesignMode('background')}
-                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                    >
-                      {coverDesignCopy.background}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCoverDesignMode('preset')}
-                      className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                    >
-                      {coverDesignCopy.preset}
-                    </button>
+              {isCoverDesignOpen && (
+                <div ref={coverDesignPopoverRef} className="relative -mt-1 h-10">
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-[87.5%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                  />
+                  <div className="relative flex justify-end">
+                    <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
+                      <button
+                        type="button"
+                        onClick={() => setCoverDesignMode('background')}
+                        className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      >
+                        {coverDesignCopy.background}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCoverDesignMode('preset')}
+                        className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      >
+                        {coverDesignCopy.preset}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
               <div className="mt-2">
                 {coverDesignMode === 'preset' ? (
                   <div className="grid gap-2">

@@ -1,6 +1,8 @@
 import type { PointerEvent } from 'react';
 import { useRef } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
+import { useDesktopViewport } from '../../../../lib/useDesktopViewport';
 import type { GraphPoint } from './interactiveSegmentGraphLayout';
 import { clamp } from './interactiveSegmentGraphLayout';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
@@ -32,6 +34,8 @@ type Props = {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitView: () => void;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
 };
 
 const MINIMAP_WIDTH = 160;
@@ -57,8 +61,11 @@ export function InteractiveSegmentMinimap({
   onZoomIn,
   onZoomOut,
   onFitView,
+  isFullscreen,
+  onToggleFullscreen,
 }: Props) {
   const dragRef = useRef<{ pointerId: number } | null>(null);
+  const isDesktopViewport = useDesktopViewport();
   const minimapScale = Math.min(
     MINIMAP_WIDTH / Math.max(1, graphWidth),
     MINIMAP_HEIGHT / Math.max(1, graphHeight),
@@ -73,26 +80,10 @@ export function InteractiveSegmentMinimap({
     height: viewportSize.height / safeZoom,
   };
   const viewport = {
-    x: clamp(
-      visibleGraphRect.x * minimapScale,
-      0,
-      MINIMAP_WIDTH,
-    ),
-    y: clamp(
-      visibleGraphRect.y * minimapScale,
-      0,
-      MINIMAP_HEIGHT,
-    ),
-    width: clamp(
-      visibleGraphRect.width * minimapScale,
-      12,
-      MINIMAP_WIDTH,
-    ),
-    height: clamp(
-      visibleGraphRect.height * minimapScale,
-      12,
-      MINIMAP_HEIGHT,
-    ),
+    x: clamp(visibleGraphRect.x * minimapScale, 0, MINIMAP_WIDTH),
+    y: clamp(visibleGraphRect.y * minimapScale, 0, MINIMAP_HEIGHT),
+    width: clamp(visibleGraphRect.width * minimapScale, 12, MINIMAP_WIDTH),
+    height: clamp(visibleGraphRect.height * minimapScale, 12, MINIMAP_HEIGHT),
   };
 
   const centerAt = (event: PointerEvent<SVGSVGElement>) => {
@@ -245,6 +236,21 @@ export function InteractiveSegmentMinimap({
               <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
             </svg>
           </button>
+          {isDesktopViewport && (
+            <button
+              type="button"
+              className="react-flow__controls-button !min-w-0 !flex-1 !w-auto"
+              title={isFullscreen ? '退出全屏' : '最大化'}
+              aria-label={isFullscreen ? '退出全屏' : '最大化'}
+              onClick={onToggleFullscreen}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

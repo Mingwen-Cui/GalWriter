@@ -1,7 +1,7 @@
 import type { PlayerSettingsPanelConfig } from '../../web/playerSettingsPanelConfig';
 import type { SurfaceAppearance } from '../../shared/paint/appearance';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import type { TTSConfig } from '../../../../lib/tts';
@@ -92,6 +92,7 @@ export type VideoRenderModalProps = {
   voiceTtsConfig?: TTSConfig;
   callAIForTextResult?: (prompt: string) => Promise<{ content: string; reasoning?: string }>;
   launchIntent?: RenderWorkspaceLaunchIntent;
+  fullscreenHostRef?: RefObject<HTMLElement | null>;
 };
 
 export type RenderStyle = {

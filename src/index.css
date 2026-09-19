@@ -3228,6 +3228,18 @@ input[type='range']::-moz-range-track {
 }
 
 /* 优化合并后的控制按钮样式 */
+.minimap-controls .react-flow__controls {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.minimap-controls .react-flow__controls-button {
+  flex: 1 1 0 !important;
+  width: auto !important;
+}
+
 .react-flow__controls-button {
   border: none !important;
   background: transparent !important;
@@ -3253,7 +3265,7 @@ input[type='range']::-moz-range-track {
   fill: currentColor !important;
 }
 
-/* 玻璃模式下，Controls 三个按钮完全贴合容器边缘 */
+/* 玻璃模式下，Controls 按钮完全贴合容器边缘 */
 .bubble-glass-mode .react-flow__controls-button {
   margin: 0 !important;
   flex: 1 !important;

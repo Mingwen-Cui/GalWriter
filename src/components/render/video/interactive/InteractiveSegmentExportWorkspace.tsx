@@ -86,6 +86,8 @@ type Props = {
   onRescan: () => void;
   hasVideoCover: boolean;
   onOpenVideoCover: () => void;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
   setExportFormat: (value: ExportFormat) => void;
   setFrameRate: (value: number) => void;
   setResolutionIndex: (value: number) => void;
@@ -195,6 +197,8 @@ export function InteractiveSegmentExportWorkspace({
   onRescan,
   hasVideoCover,
   onOpenVideoCover,
+  isFullscreen,
+  onToggleFullscreen,
   setExportFormat,
   setFrameRate,
   setResolutionIndex,
@@ -1346,6 +1350,8 @@ export function InteractiveSegmentExportWorkspace({
             onZoomIn={() => setViewportZoomAt(viewportZoom * 1.18)}
             onZoomOut={() => setViewportZoomAt(viewportZoom / 1.18)}
             onFitView={fitViewportToGraph}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={onToggleFullscreen}
           />
           {selectedSegmentIds.length > 1 && (
             <button

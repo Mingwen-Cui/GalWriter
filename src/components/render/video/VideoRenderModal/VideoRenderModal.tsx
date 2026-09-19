@@ -149,6 +149,7 @@ export function VideoRenderModal({
   callAIForTextResult,
   voiceTtsConfig,
   launchIntent,
+  fullscreenHostRef,
 }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const persistedWorkspace = useMemo(() => readRenderWorkspaceState(workspaceKey), [workspaceKey]);
@@ -1026,11 +1027,13 @@ export function VideoRenderModal({
 
   const toggleFullscreen = async () => {
     try {
-      if (document.fullscreenElement) {
+      const fullscreenHost = fullscreenHostRef?.current || modalRootRef.current;
+      if (!fullscreenHost) return;
+      if (document.fullscreenElement === fullscreenHost) {
         await document.exitFullscreen();
         return;
       }
-      await modalRootRef.current?.requestFullscreen();
+      await fullscreenHost.requestFullscreen();
     } catch {
       setError(
         getVideoTextForChinesePreference(
@@ -1503,12 +1506,13 @@ export function VideoRenderModal({
 
   React.useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === modalRootRef.current);
+      const fullscreenHost = fullscreenHostRef?.current || modalRootRef.current;
+      setIsFullscreen(document.fullscreenElement === fullscreenHost);
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     handleFullscreenChange();
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+  }, [fullscreenHostRef]);
 
   React.useEffect(() => {
     if (workspaceMode !== 'video') return;
@@ -2445,6 +2449,8 @@ export function VideoRenderModal({
                 onRescan={rescanInteractiveSegments}
                 hasVideoCover={Boolean(videoCover)}
                 onOpenVideoCover={openVideoCoverEditor}
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={toggleFullscreen}
                 setExportFormat={setExportFormat}
                 setFrameRate={setFrameRate}
                 setResolutionIndex={setResolutionIndex}
