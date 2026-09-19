@@ -51,8 +51,14 @@ import {
   PositionAlignButtons,
 } from '../shared/inspectors/InspectorControls';
 import { ImageFillPopover, SolidColorPopover } from '../shared/paint/ColorPopovers';
+import { CustomFontUploadButton } from '../video/shared/CustomFontUploadButton';
 import { renderObjectText } from '../video/objectInspector/i18n';
-import type { RenderFillType, WebMenuElement } from '../video/shared/types';
+import type {
+  RenderCustomFont,
+  RenderFillType,
+  RenderFontFamilyOption,
+  WebMenuElement,
+} from '../video/shared/types';
 import { formatWebText, getWebShadowOrdinal, getWebStructuredText } from './i18n';
 import { webImageFillBackgroundColor } from './webElementStyle';
 import { normalizeGradientStops } from './webGradientStops';
@@ -76,6 +82,12 @@ type InspectorProps = {
   onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
   onImageCropEditingChange?: (elementId: string | null) => void;
   onGradientEditingChange?: (group: 'text' | 'fill' | 'stroke' | null) => void;
+  fontFamilyManager?: {
+    options: RenderFontFamilyOption[];
+    onSelect: (value: string) => void;
+    onPresetsChange: (options: RenderFontFamilyOption[]) => void;
+    onUploaded: (font: RenderCustomFont) => void;
+  };
 };
 
 type Popover = null | {
@@ -390,6 +402,7 @@ export function StartMenuElementInspector({
   onAlignSelected,
   onImageCropEditingChange,
   onGradientEditingChange,
+  fontFamilyManager,
 }: InspectorProps) {
   const text = renderObjectText(language);
   const [popover, setPopover] = useState<Popover>(null);
@@ -826,13 +839,33 @@ export function StartMenuElementInspector({
           showDescriptions={showDescriptions}
           secondaryDescription={text.field.font}
           secondary={
-            <HeaderSelect
-              icon={<Type className="h-4 w-4" />}
-              label={text.field.font}
-              value={element.fontFamily || FONT_OPTIONS[0].value}
-              options={FONT_OPTIONS}
-              onChange={(fontFamily) => onUpdate({ fontFamily })}
-            />
+            <div className="flex min-w-0 gap-1">
+              <div className="min-w-0 flex-1">
+                <HeaderSelect
+                  icon={<Type className="h-4 w-4" />}
+                  label={text.field.font}
+                  value={element.fontFamily || FONT_OPTIONS[0].value}
+                  options={fontFamilyManager?.options || FONT_OPTIONS}
+                  onChange={(fontFamily) =>
+                    fontFamilyManager
+                      ? fontFamilyManager.onSelect(fontFamily)
+                      : onUpdate({ fontFamily })
+                  }
+                />
+              </div>
+              {fontFamilyManager ? (
+                <div className="w-24 shrink-0">
+                  <CustomFontUploadButton
+                    language={language}
+                    currentValue={element.fontFamily || FONT_OPTIONS[0].value}
+                    options={fontFamilyManager.options}
+                    onSelect={fontFamilyManager.onSelect}
+                    onPresetsChange={fontFamilyManager.onPresetsChange}
+                    onUploaded={fontFamilyManager.onUploaded}
+                  />
+                </div>
+              ) : null}
+            </div>
           }
         >
           <ControlRow>

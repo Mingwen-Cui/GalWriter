@@ -38,6 +38,7 @@ import { normalizeSharedCanvasSettings } from '../canvas/canvasSettings';
 import { type HomepageCoverTemplate, homepageCoverTemplates } from '../homepageCoverTemplates';
 import { RapidEditionTemplateNotice } from '../RapidEditionTemplateNotice';
 import { downloadTemplateArchive } from '../templateArchive';
+import { registerCustomRenderFonts, renderFontOptions } from '../video/shared/customFonts';
 import { RenderObjectSettingsSection } from '../video/panels/render-object-settings-section';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
@@ -1020,6 +1021,18 @@ export function WebWorkspace({
     }
   >;
   const currentSurfaceMeta = surfaceMeta[currentPreviewSurface];
+  const webFontOptions = renderFontOptions(
+    webRenderStyle.fontFamilyPresets,
+    webRenderStyle.customFonts,
+  );
+  useEffect(() => {
+    void registerCustomRenderFonts(webRenderStyle.customFonts);
+  }, [webRenderStyle.customFonts]);
+  const addWebCustomFont = (font: import('../video/shared/types').RenderCustomFont) =>
+    updateWebRenderStyle('customFonts', [
+      ...(webRenderStyle.customFonts || []).filter((item) => item.id !== font.id),
+      font,
+    ]);
   const surfaceInspector = (
     <WebSurfaceInspectorPanel>
       {currentPreviewSurface === 'settings' && (
@@ -1042,6 +1055,12 @@ export function WebWorkspace({
           selectedElementIds={selectedPreviewElementIds}
           showDescriptions={showSettingDescriptions}
           onUpdate={updateSelectedPageElement}
+          fontFamilyManager={{
+            options: webFontOptions,
+            onSelect: (fontFamily) => updateSelectedPageElement({ fontFamily }),
+            onPresetsChange: (options) => updateWebRenderStyle('fontFamilyPresets', options),
+            onUploaded: addWebCustomFont,
+          }}
           onAlignSelected={alignSelectedPageElements}
           onImageCropEditingChange={setImageCropEditingElementId}
           onGradientEditingChange={handleGradientEditingChange}

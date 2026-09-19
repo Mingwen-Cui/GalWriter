@@ -334,7 +334,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     .nameplate-layer.inside {
       position: relative;
       inset: auto;
-      min-height: var(--nameplate-row-height, 42px);
+      min-height: var(--nameplate-row-height, 50px);
       margin-bottom: var(--nameplate-text-gap, 8px);
     }
     .nameplate {

@@ -154,8 +154,8 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
   nameplate: textObject(
     objectBase({
       visible: true,
-      width: 34,
-      height: 42,
+      width: 100,
+      height: 50,
       radius: 50,
       fill: fill('gradient', '#172554', 94, defaultStops('#1e3a8a', '#0f172a')),
     }),

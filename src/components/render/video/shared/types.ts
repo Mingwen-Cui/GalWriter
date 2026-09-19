@@ -98,6 +98,8 @@ export type VideoRenderModalProps = {
 export type RenderStyle = {
   selectedRenderObject?: RenderEditableObjectKind;
   renderObjects?: RenderEditableObjects;
+  customFonts?: RenderCustomFont[];
+  fontFamilyPresets?: RenderFontFamilyOption[];
   titleVisible: boolean;
   titleFontSize: number;
   bodyFontSize: number;
@@ -158,6 +160,19 @@ export type RenderStyle = {
   nameplateImageUrl: string;
   titleAnimation: TextAnimation;
   bodyAnimation: TextAnimation;
+};
+
+export type RenderCustomFont = {
+  id: string;
+  label: string;
+  family: string;
+  format: 'woff2' | 'woff' | 'truetype' | 'opentype';
+  dataUrl: string;
+};
+
+export type RenderFontFamilyOption = {
+  label: string;
+  value: string;
 };
 
 export type RenderColorStop = {

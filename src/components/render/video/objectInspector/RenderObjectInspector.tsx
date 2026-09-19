@@ -25,7 +25,7 @@ import {
   Underline,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatVideoText, getVideoStructuredText } from '../i18n';
 
 import type { Language } from '../../../../lib/i18n';
@@ -43,6 +43,8 @@ import {
   ImageFillPopover,
   SolidColorPopover,
 } from '../../shared/paint/ColorPopovers';
+import { CustomFontUploadButton } from '../shared/CustomFontUploadButton';
+import { customFontFamilyValue } from '../shared/customFonts';
 import {
   InlineColorControl,
   InlineGradientControl,
@@ -54,6 +56,7 @@ import {
   isTextRenderObject,
   updateRenderObject,
 } from '../shared/renderObjects';
+import { customFontOptions, registerCustomRenderFonts } from '../shared/customFonts';
 import type {
   RenderEditableObject,
   RenderEditableObjectKind,
@@ -115,6 +118,18 @@ export function RenderObjectInspector({
   const textObject = isTextRenderObject(selectedKind)
     ? (selected as RenderEditableTextObject)
     : null;
+  const savedFontOptions = renderStyle.fontFamilyPresets?.length
+    ? renderStyle.fontFamilyPresets
+    : fonts;
+  const fontOptions = [
+    ...savedFontOptions,
+    ...customFontOptions(renderStyle.customFonts).filter(
+      (font) => !savedFontOptions.some((option) => option.value === font.value),
+    ),
+  ];
+  useEffect(() => {
+    void registerCustomRenderFonts(renderStyle.customFonts);
+  }, [renderStyle.customFonts]);
   const nameplateToggleText = getVideoStructuredText(
     language,
     'componentsrendervideoobjectInspectorRenderObjectInspectorStructuredText110',
@@ -153,6 +168,13 @@ export function RenderObjectInspector({
   const setObject = (updates: Partial<RenderEditableObject | RenderEditableTextObject>) => {
     const nextObjects = updateRenderObject(renderStyle, selectedKind, updates);
     updateRenderStyle('renderObjects', nextObjects);
+  };
+  const addCustomFont = (font: import('../shared/types').RenderCustomFont) => {
+    updateRenderStyle('customFonts', [
+      ...(renderStyle.customFonts || []).filter((item) => item.id !== font.id),
+      font,
+    ]);
+    setObject({ fontFamily: customFontFamilyValue(font) });
   };
 
   const setFill = (updates: Partial<RenderFillStyle>) => {
@@ -252,7 +274,11 @@ export function RenderObjectInspector({
         }
       />
       {cornersOpen && (
-        <FloatingPopover language={language} popoverKey="corners" onClose={() => setCornersOpen(false)}>
+        <FloatingPopover
+          language={language}
+          popoverKey="corners"
+          onClose={() => setCornersOpen(false)}
+        >
           <CornerEditor
             language={language}
             value={
@@ -288,8 +314,20 @@ export function RenderObjectInspector({
                 <button
                   type="button"
                   className="property-number grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white"
-                  title={language === 'zh' ? '四角设置' : language === 'ja' ? '四隅の設定' : 'Individual corners'}
-                  aria-label={language === 'zh' ? '四角设置' : language === 'ja' ? '四隅の設定' : 'Individual corners'}
+                  title={
+                    language === 'zh'
+                      ? '四角设置'
+                      : language === 'ja'
+                        ? '四隅の設定'
+                        : 'Individual corners'
+                  }
+                  aria-label={
+                    language === 'zh'
+                      ? '四角设置'
+                      : language === 'ja'
+                        ? '四隅の設定'
+                        : 'Individual corners'
+                  }
                   aria-expanded={cornersOpen}
                   onClick={() => setCornersOpen(!cornersOpen)}
                 >
@@ -389,13 +427,27 @@ export function RenderObjectInspector({
           showDescriptions={showDescriptions}
           secondaryDescription={text.field.font}
           secondary={
-            <HeaderSelect
-              icon={<Type className="h-4 w-4" />}
-              label={text.field.font}
-              value={textObject.fontFamily}
-              options={fonts}
-              onChange={(value) => setObject({ fontFamily: value })}
-            />
+            <div className="flex min-w-0 gap-1">
+              <div className="min-w-0 flex-1">
+                <HeaderSelect
+                  icon={<Type className="h-4 w-4" />}
+                  label={text.field.font}
+                  value={textObject.fontFamily}
+                  options={fontOptions}
+                  onChange={(value) => setObject({ fontFamily: value })}
+                />
+              </div>
+              <div className="w-24 shrink-0">
+                <CustomFontUploadButton
+                  language={language}
+                  currentValue={textObject.fontFamily}
+                  options={fontOptions}
+                  onSelect={(value) => setObject({ fontFamily: value })}
+                  onPresetsChange={(options) => updateRenderStyle('fontFamilyPresets', options)}
+                  onUploaded={addCustomFont}
+                />
+              </div>
+            </div>
           }
         >
           <ControlRow>

@@ -46,7 +46,7 @@ import { gradientFromStops, normalizeGradientStops } from '../web/webGradientSto
 import { getPptCopy, type PptCopy } from './i18n';
 import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
 import { targetLabel } from './pptAnimationLabels';
-import { findAnimation, previewStyle } from './pptAnimationPreview';
+import { findAnimation, previewStyle, syncNameplateAnimations } from './pptAnimationPreview';
 import { PptCopyContext, type PptCopyContextValue } from './pptCopyContext';
 import {
   getPptCoverText,
@@ -461,9 +461,16 @@ export function PptWorkspace({
     return entries;
   }, [renderStyle, savedAnimations, scene]);
 
+  const speakerCharacterId = scene?.characters.find((character) => character.name)?.sourceNodeId;
   const currentAnimations = useMemo(
-    () => withTimelineStarts([...tagAnimations, ...styleTextAnimations, ...savedAnimations]),
-    [savedAnimations, styleTextAnimations, tagAnimations],
+    () =>
+      withTimelineStarts(
+        syncNameplateAnimations(
+          [...tagAnimations, ...styleTextAnimations, ...savedAnimations],
+          speakerCharacterId,
+        ),
+      ),
+    [savedAnimations, speakerCharacterId, styleTextAnimations, tagAnimations],
   );
   const currentTransition = transitions[selectedId] || DEFAULT_TRANSITION;
   const currentVideoLoop = scene ? (pptSettings.videoLoopByScene?.[scene.id] ?? false) : false;
@@ -2140,7 +2147,7 @@ function ScenePreview({
           <PresentationText block={textLayout.body} />
         </PptEditableObject>
       </PptEditableObject>
-      {speakerName && nameplate.visible && renderStyle.nameplateVisible ? (
+      {speakerName && nameplate.visible && renderStyle.nameplateVisible !== false ? (
         <PptEditableObject
           kind="nameplate"
           target="nameplate"

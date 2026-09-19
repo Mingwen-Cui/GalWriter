@@ -8,6 +8,30 @@ export const videoEn = {
   textAnimationFade: 'Fade',
   textAnimationSlideUp: 'Rise',
   textAnimationTypewriter: 'Type',
+  fontManagerTitle: 'Font manager',
+  fontManagerSubtitle: 'Manage common fonts, detect local fonts, or upload a font file.',
+  fontManagerCommon: 'Common fonts',
+  fontManagerLocal: 'Local fonts',
+  fontManagerDetect: 'Detect local fonts',
+  fontManagerDetecting: 'Detecting…',
+  fontManagerLocalHint:
+    'Allow local-font access in a supported browser, or upload a font file directly.',
+  fontManagerBrowserUnsupported:
+    'This browser cannot read local fonts. You can still upload a font file.',
+  fontManagerPermissionDenied:
+    'Local font permission was not granted. You can still upload a font file.',
+  fontManagerNoLocal: 'No local fonts detected yet.',
+  fontManagerAdd: 'Add to common',
+  fontManagerRemove: 'Remove from common',
+  fontManagerLicenseTitle: 'Font rights notice',
+  fontManagerLicenseBody:
+    'Before you confirm this notice, the software will not read or use local font files. Confirm that you have the legal right to use the font. This software and its developer are not responsible for infringement or other disputes caused by commercial fonts.',
+  fontManagerLicenseCheck: 'I confirm that I have the legal right to use this font',
+  fontManagerLicenseConfirm: 'Confirm and continue',
+  fontManagerUpload: 'Choose font file',
+  fontManagerClose: 'Close',
+  fontManagerReadError: 'Could not read the font file.',
+  fontManagerInvalidFormat: 'Only WOFF2, WOFF, TTF, and OTF font files are supported.',
   componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText792:
     'Interactive segment map',
   componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText805: 'Arrange right',

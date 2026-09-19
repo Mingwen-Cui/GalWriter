@@ -136,6 +136,17 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     const toolbarButtonLabel = (${webToolbarButtonLabel.toString()});
     const popupSettingsMarkup = ${popupMarkup};
     const style = content.style || {};
+    const customFontsReady = typeof FontFace === "undefined" || !document.fonts
+      ? Promise.resolve()
+      : Promise.all((Array.isArray(style.customFonts) ? style.customFonts : []).map(async (font) => {
+          if (!font || !font.family || !font.dataUrl) return;
+          try {
+            const face = new FontFace(font.family, 'url("' + font.dataUrl + '") format("' + (font.format || 'woff2') + '")');
+            document.fonts.add(await face.load());
+          } catch (error) {
+            console.warn("Unable to load custom font", font.label || font.family, error);
+          }
+        }));
     const settings = content.settings || {};
     settings.canvasWidth = Math.min(7680, Math.max(320, Math.round(Number(settings.canvasWidth) || 1920)));
     settings.canvasHeight = Math.min(4320, Math.max(180, Math.round(Number(settings.canvasHeight) || 1080)));
@@ -526,7 +537,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     document.documentElement.style.setProperty("--nameplate-font-size", nameplateFontSize + "px");
     document.documentElement.style.setProperty("--nameplate-font-family", nameplateObject.fontFamily || style.nameplateFontFamily || style.titleFontFamily || "inherit");
     document.documentElement.style.setProperty("--nameplate-width", px(clamp(nameplateObject.width ?? style.nameplateScale, 55, 520, 100), 100));
-    document.documentElement.style.setProperty("--nameplate-height", px(clamp(nameplateObject.height, 8, 240, 42), 42));
+    document.documentElement.style.setProperty("--nameplate-height", px(clamp(nameplateObject.height, 8, 240, 50), 50));
     document.documentElement.style.setProperty("--nameplate-padding-x", Math.round(nameplateFontSize * 1.15 * nameplateScale) + "px");
     document.documentElement.style.setProperty("--nameplate-padding-y", Math.round(nameplateFontSize * 0.42 * nameplateScale) + "px");
     document.documentElement.style.setProperty("--nameplate-row-height", Math.ceil(nameplateFontSize + Math.round(nameplateFontSize * 0.42 * nameplateScale) * 2 + Math.max(8, nameplateFontSize * 0.45)) + "px");
@@ -2522,14 +2533,16 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       }
       continueFromText();
     });
-    updateSettingsPanel();
-    updateAutoButton();
-    if (settings.showStartMenu) {
-      showStartMenu();
-    } else {
-      renderPlaylist();
-      render();
-    }
+    customFontsReady.finally(() => {
+      updateSettingsPanel();
+      updateAutoButton();
+      if (settings.showStartMenu) {
+        showStartMenu();
+      } else {
+        renderPlaylist();
+        render();
+      }
+    });
   </script>
 </body>
 </html>`;

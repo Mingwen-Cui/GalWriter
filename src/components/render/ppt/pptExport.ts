@@ -29,8 +29,10 @@ import {
   toPptVideoLastFrameData,
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
+import { syncNameplateAnimations } from './pptAnimationPreview';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
+import { registerCustomRenderFonts } from '../video/shared/customFonts';
 import {
   finalizePptxForPowerPoint,
   type PptAnimationExportTarget,
@@ -107,6 +109,7 @@ export async function buildPptxBuffer({
   pptSettings: PptExportSettings;
   language: Language;
 }): Promise<ArrayBuffer> {
+  await registerCustomRenderFonts(style.customFonts);
   const pptx = new PptxGenJS();
   pptx.layout = toPptxGenLayout(pptSettings.layout);
   const generatedBy =
@@ -444,10 +447,22 @@ export async function buildPptxBuffer({
     const slide = pptx.addSlide();
     slide.hidden = hiddenSlideIds.has(scene.id);
     const sceneSlideNumber = slideByNodeId.get(scene.id);
-    const sceneAnimations = [
-      ...resolvePptTagAnimations(scene),
-      ...(pptSettings.animations?.[scene.id] || []),
-    ];
+    const speakerCharacter = scene.characters.find((character) => character.name?.trim());
+    const sceneAnimations = syncNameplateAnimations(
+      [...resolvePptTagAnimations(scene), ...(pptSettings.animations?.[scene.id] || [])],
+      speakerCharacter?.sourceNodeId,
+    );
+    const objects = getRenderObjects(style);
+    const panel = objects.dialogBox;
+    const title = objects.title;
+    const body = objects.body;
+    const nameplate = objects.nameplate;
+    const speakerName = sceneNameplate;
+    const shouldRenderNameplate =
+      Boolean(speakerName) && style.nameplateVisible !== false && nameplate.visible;
+    const nameplateObjectName = `ppt-nameplate-${scene.id}`;
+    const nameplateTextObjectName = `${nameplateObjectName}-text`;
+    let nameplateAnimationTargetsAdded = false;
     const addAnimationTargets = (
       objectName: string,
       target: PptAnimationExportTarget['animation']['target'],
@@ -607,6 +622,11 @@ export async function buildPptxBuffer({
         flipH: character.flipX,
       });
       addAnimationTargets(objectName, 'character', character.sourceNodeId);
+      if (shouldRenderNameplate && character.sourceNodeId === speakerCharacter?.sourceNodeId) {
+        addAnimationTargets(nameplateObjectName, 'nameplate');
+        addAnimationTargets(nameplateTextObjectName, 'nameplate');
+        nameplateAnimationTargetsAdded = true;
+      }
       let currentCharacterObjectName = objectName;
       for (const [index, animation] of sceneAnimations
         .filter(
@@ -632,6 +652,11 @@ export async function buildPptxBuffer({
       }
     }
 
+    if (shouldRenderNameplate && !nameplateAnimationTargetsAdded) {
+      addAnimationTargets(nameplateObjectName, 'nameplate');
+      addAnimationTargets(nameplateTextObjectName, 'nameplate');
+    }
+
     if (scene.lightOverlayUrl) {
       const lightImage = await resolveImage(scene.lightOverlayUrl);
       if (lightImage) {
@@ -646,11 +671,6 @@ export async function buildPptxBuffer({
       }
     }
 
-    const objects = getRenderObjects(style);
-    const panel = objects.dialogBox;
-    const title = objects.title;
-    const body = objects.body;
-    const nameplate = objects.nameplate;
     const layout = resolvePresentationDialogueLayout(
       settings.canvasWidth,
       settings.canvasHeight,
@@ -762,16 +782,14 @@ export async function buildPptxBuffer({
         });
       }
     }
-    const speakerName = sceneNameplate;
-    if (speakerName && style.nameplateVisible && nameplate.visible) {
+    if (shouldRenderNameplate) {
       const x = Math.max(0, Math.min(11.8, 0.93 + nameplate.x / 100));
       const y = Math.max(0, Math.min(7.0, 5.63 - nameplate.y / 100));
       const w = Math.max(1.1, Math.min(5, (13.333 * nameplate.width) / 100));
       const h = Math.max(0.26, nameplate.height / 100);
       const nameplateFrame = page.frame(x, y, w, h);
-      const objectName = `ppt-nameplate-${scene.id}`;
       slide.addShape(pptx.ShapeType.roundRect, {
-        objectName,
+        objectName: nameplateObjectName,
         ...nameplateFrame,
         rectRadius: Math.max(0.02, nameplate.radius / 180),
         fill: { color: hex(nameplate.fill.color), transparency: 100 - nameplate.fill.alpha },
@@ -784,8 +802,8 @@ export async function buildPptxBuffer({
           : { transparency: 100 },
         rotate: nameplate.rotation,
       });
-      addAnimationTargets(objectName, 'nameplate');
       slide.addText(speakerName, {
+        objectName: nameplateTextObjectName,
         ...page.frame(x + 0.06, y + 0.05, w - 0.12, Math.max(0.16, h - 0.1)),
         fontFace: toPptFontFace(nameplate.fontFamily),
         fontSize: Math.max(8 * page.scale, nameplate.fontSize * 0.66 * page.scale),

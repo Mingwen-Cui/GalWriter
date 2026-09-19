@@ -28,6 +28,12 @@ import type { ComponentType } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { DragSizeControl } from '../controls/RenderControls';
+import { CustomFontUploadButton } from '../shared/CustomFontUploadButton';
+import {
+  customFontFamilyValue,
+  customFontOptions,
+  registerCustomRenderFonts,
+} from '../shared/customFonts';
 import { getVideoRenderObjects, updateRenderObject } from '../shared/renderObjects';
 import type { RenderStyle, TextAlign, TextAnimation, TypewriterMode } from '../shared/types';
 import type { Language } from '../../../../lib/i18n';
@@ -269,6 +275,10 @@ export function RenderStyleSettingsSection({
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [showNameplateStyleMenu]);
 
+  useEffect(() => {
+    void registerCustomRenderFonts(renderStyle.customFonts);
+  }, [renderStyle.customFonts]);
+
   const updateGradientStops = (
     updater: (
       stops: Array<{ id: string; color: string; alpha: number; position: number }>,
@@ -364,6 +374,25 @@ export function RenderStyleSettingsSection({
   const setStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) =>
     updateRenderStyle(key, value);
 
+  const savedFontOptions = renderStyle.fontFamilyPresets?.length
+    ? renderStyle.fontFamilyPresets
+    : CLEAN_FONT_OPTIONS;
+  const fontOptions = [
+    ...savedFontOptions,
+    ...customFontOptions(renderStyle.customFonts).filter(
+      (font) => !savedFontOptions.some((option) => option.value === font.value),
+    ),
+  ];
+  const addCustomFont = <K extends 'titleFontFamily' | 'bodyFontFamily' | 'nameplateFontFamily'>(
+    key: K,
+    font: import('../shared/types').RenderCustomFont,
+  ) => {
+    const fonts = [...(renderStyle.customFonts || []).filter((item) => item.id !== font.id), font];
+    updateRenderStyle('customFonts', fonts);
+    updateRenderStyle(key, customFontFamilyValue(font));
+    setOpenSelectId(null);
+  };
+
   const fadedStripStyle = (rgb: string) => ({
     background: `linear-gradient(90deg, rgba(${rgb}, 0) 0%, rgba(${rgb}, 0) 32%, rgba(${rgb}, 0.18) 58%, rgba(${rgb}, 0.62) 100%)`,
   });
@@ -415,6 +444,7 @@ export function RenderStyleSettingsSection({
     title: string,
     description?: string,
     disabled = false,
+    footer?: React.ReactNode,
   ) => {
     const selectedLabel = options.find((option) => option.value === value)?.label || '';
     const isOpen = openSelectId === id && !disabled;
@@ -471,6 +501,7 @@ export function RenderStyleSettingsSection({
                 <span className="min-w-0 truncate">{option.label}</span>
               </button>
             ))}
+            {footer ? <div className="mt-1 border-t border-slate-200 pt-1">{footer}</div> : null}
           </div>
         )}
       </div>,
@@ -586,7 +617,7 @@ export function RenderStyleSettingsSection({
             `${kind}-font`,
             renderStyle[fontFamilyKey] as string,
             (value) => setStyle(fontFamilyKey, value as never),
-            CLEAN_FONT_OPTIONS,
+            fontOptions,
             formatVideoText(
               language,
               'componentsrendervideopanelsrenderStyleSettingsSectionText576',
@@ -595,6 +626,20 @@ export function RenderStyleSettingsSection({
               language,
               'componentsrendervideopanelsrenderStyleSettingsSectionText577',
             ),
+            false,
+            <CustomFontUploadButton
+              language={language}
+              currentValue={renderStyle[fontFamilyKey] as string}
+              options={fontOptions}
+              onSelect={(value) => setStyle(fontFamilyKey, value as never)}
+              onPresetsChange={(options) => updateRenderStyle('fontFamilyPresets', options)}
+              onUploaded={(font) =>
+                addCustomFont(
+                  fontFamilyKey as 'titleFontFamily' | 'bodyFontFamily' | 'nameplateFontFamily',
+                  font,
+                )
+              }
+            />,
           )}
           {iconNumber(
             ALargeSmall,
@@ -2086,7 +2131,7 @@ export function RenderStyleSettingsSection({
                 'nameplate-font-family',
                 renderStyle.nameplateFontFamily || renderStyle.titleFontFamily,
                 (value) => updateRenderStyle('nameplateFontFamily', value),
-                CLEAN_FONT_OPTIONS,
+                fontOptions,
                 formatVideoText(
                   language,
                   'componentsrendervideopanelsrenderStyleSettingsSectionText1736',
@@ -2095,6 +2140,15 @@ export function RenderStyleSettingsSection({
                   language,
                   'componentsrendervideopanelsrenderStyleSettingsSectionText1737',
                 ),
+                false,
+                <CustomFontUploadButton
+                  language={language}
+                  currentValue={renderStyle.nameplateFontFamily || renderStyle.titleFontFamily}
+                  options={fontOptions}
+                  onSelect={(value) => updateRenderStyle('nameplateFontFamily', value)}
+                  onPresetsChange={(options) => updateRenderStyle('fontFamilyPresets', options)}
+                  onUploaded={(font) => addCustomFont('nameplateFontFamily', font)}
+                />,
               )}
               {iconNumber(
                 Radius,

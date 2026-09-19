@@ -1,7 +1,12 @@
 import { Link2, Palette, Trash2 } from 'lucide-react';
 
 import type { Language } from '../../../lib/i18n';
-import type { PptManualElement, PptManualSlide } from '../video/shared/types';
+import type {
+  PptManualElement,
+  PptManualSlide,
+  RenderCustomFont,
+  RenderFontFamilyOption,
+} from '../video/shared/types';
 import { StartMenuElementInspector } from '../web/StartMenuElementInspector';
 import { InspectorGroup } from '../shared/inspectors/InspectorControls';
 import type { PptCopy } from './i18n';
@@ -17,6 +22,7 @@ export function PptManualInspector({
   onUpdateBackgroundColor,
   onUpdateElement,
   onDeleteElement,
+  fontFamilyManager,
 }: {
   copy: PptCopy;
   language: Language;
@@ -27,6 +33,11 @@ export function PptManualInspector({
   onUpdateBackgroundColor: (color: string) => void;
   onUpdateElement: (elementId: string, patch: Partial<PptManualElement>) => void;
   onDeleteElement: (elementId: string) => void;
+  fontFamilyManager?: {
+    options: RenderFontFamilyOption[];
+    onPresetsChange: (options: RenderFontFamilyOption[]) => void;
+    onUploaded: (font: RenderCustomFont) => void;
+  };
 }) {
   const element = slide.elements.find((item) => item.id === selectedElementId);
   if (!element) {
@@ -63,6 +74,16 @@ export function PptManualInspector({
         language={language}
         showDescriptions={showDescriptions}
         buttonFunctions={element.kind === 'button' ? ['custom', 'link'] : undefined}
+        fontFamilyManager={
+          fontFamilyManager
+            ? {
+                options: fontFamilyManager.options,
+                onSelect: (fontFamily) => onUpdateElement(element.id, { fontFamily }),
+                onPresetsChange: fontFamilyManager.onPresetsChange,
+                onUploaded: fontFamilyManager.onUploaded,
+              }
+            : undefined
+        }
         onUpdate={(patch) => onUpdateElement(element.id, toPptManualElementPatch(element, patch))}
       />
       {element.kind === 'button' && (

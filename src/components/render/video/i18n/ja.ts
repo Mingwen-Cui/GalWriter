@@ -8,6 +8,31 @@ export const videoJa = {
   textAnimationFade: 'フェード',
   textAnimationSlideUp: '上へスライド',
   textAnimationTypewriter: 'タイプ',
+  fontManagerTitle: 'フォント管理',
+  fontManagerSubtitle:
+    'よく使うフォントの管理、ローカルフォントの検出、フォントファイルのアップロードを行います。',
+  fontManagerCommon: 'よく使うフォント',
+  fontManagerLocal: 'ローカルフォント',
+  fontManagerDetect: 'ローカルフォントを検出',
+  fontManagerDetecting: '検出中…',
+  fontManagerLocalHint:
+    '対応ブラウザでローカルフォントへのアクセスを許可するか、フォントファイルを直接アップロードしてください。',
+  fontManagerBrowserUnsupported:
+    'このブラウザはローカルフォントの読み取りに対応していません。アップロードを使用してください。',
+  fontManagerPermissionDenied:
+    'ローカルフォントの読み取り権限がありません。フォントをアップロードできます。',
+  fontManagerNoLocal: 'ローカルフォントはまだ検出されていません。',
+  fontManagerAdd: 'よく使う項目に追加',
+  fontManagerRemove: 'よく使う項目から削除',
+  fontManagerLicenseTitle: 'フォントの権利に関する確認',
+  fontManagerLicenseBody:
+    'この確認に同意するまで、本ソフトウェアはローカルフォントファイルを読み取ったり使用したりしません。フォントを使用する合法的な権利があることを確認してください。商用フォントの使用による権利侵害や紛争について、本ソフトウェアおよび開発者は責任を負いません。',
+  fontManagerLicenseCheck: 'このフォントを使用する権利があることを確認しました',
+  fontManagerLicenseConfirm: '確認して続行',
+  fontManagerUpload: 'フォントファイルを選択',
+  fontManagerClose: '閉じる',
+  fontManagerReadError: 'フォントの読み込みに失敗しました。',
+  fontManagerInvalidFormat: '対応形式は WOFF2、WOFF、TTF、OTF のみです。',
   componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText792:
     'インタラクティブ分割構造',
   componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText805: '右方向',

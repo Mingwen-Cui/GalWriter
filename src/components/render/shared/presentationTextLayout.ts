@@ -1,4 +1,5 @@
 import { getRenderObjects } from '../video/shared/renderObjects';
+import { registerCustomRenderFonts } from '../video/shared/customFonts';
 import { resolvePresentationDialogueLayout } from '../video/shared/presentationLayout';
 import type { RenderStyle, RenderEditableTextObject } from '../video/shared/types';
 
@@ -15,6 +16,7 @@ export const textFont = (object: RenderEditableTextObject, size = object.fontSiz
 
 export async function preparePresentationFonts(style: RenderStyle, text = '国Ag') {
   if (typeof document === 'undefined' || !document.fonts) return;
+  await registerCustomRenderFonts(style.customFonts);
   const objects = getRenderObjects(style);
   await Promise.all(['title', 'body', 'nameplate'].map(kind =>
     document.fonts.load(textFont(objects[kind as 'title']), text || '国Ag')));

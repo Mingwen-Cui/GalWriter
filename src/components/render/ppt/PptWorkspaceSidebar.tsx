@@ -20,6 +20,7 @@ import type { HomepageCoverTemplate } from '../homepageCoverTemplates';
 import { RapidEditionTemplateNotice } from '../RapidEditionTemplateNotice';
 import { downloadTemplateArchive } from '../templateArchive';
 import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
+import { registerCustomRenderFonts, renderFontOptions } from '../video/shared/customFonts';
 import type {
   PptAnimationDirection,
   PptAnimationStart,
@@ -154,6 +155,21 @@ export function PptSidebar({
   ) => void;
 }) {
   const copy = usePptCopy();
+  useEffect(() => {
+    void registerCustomRenderFonts(renderStyle.customFonts);
+  }, [renderStyle.customFonts]);
+  const pptFontOptions = renderFontOptions(renderStyle.fontFamilyPresets, renderStyle.customFonts);
+  const addPptCustomFont = (font: import('../video/shared/types').RenderCustomFont) =>
+    updateRenderStyle('customFonts', [
+      ...(renderStyle.customFonts || []).filter((item) => item.id !== font.id),
+      font,
+    ]);
+  const fontFamilyManager = {
+    options: pptFontOptions,
+    onPresetsChange: (options: import('../video/shared/types').RenderFontFamilyOption[]) =>
+      updateRenderStyle('fontFamilyPresets', options),
+    onUploaded: addPptCustomFont,
+  };
   const [animationPage, setAnimationPage] = useState<'details' | 'timeline'>('timeline');
   const [isAnimationPageOpen, setIsAnimationPageOpen] = useState(false);
   const animationTriggerRef = useRef<HTMLButtonElement>(null);
@@ -540,6 +556,7 @@ export function PptSidebar({
                     onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
                     onUpdateElement={onUpdateManualElement}
                     onDeleteElement={onDeleteManualElement}
+                    fontFamilyManager={fontFamilyManager}
                   />
                 ) : backgroundSelected ? (
                   <PptSlideBackgroundInspector
@@ -560,6 +577,7 @@ export function PptSidebar({
                     showDescriptions={showParameterDescriptions}
                     onUpdateText={onUpdateCoverText}
                     onUpdateLayout={onUpdateCoverTextBoxLayout}
+                    fontFamilyManager={fontFamilyManager}
                   />
                 ) : (
                   <PptSlideBackgroundInspector
@@ -595,6 +613,7 @@ export function PptSidebar({
               onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
               onUpdateElement={onUpdateManualElement}
               onDeleteElement={onDeleteManualElement}
+              fontFamilyManager={fontFamilyManager}
             />
           ) : coverTextBox ? (
             <PptCoverTextInspector
@@ -605,6 +624,7 @@ export function PptSidebar({
               showDescriptions={showParameterDescriptions}
               onUpdateText={onUpdateCoverText}
               onUpdateLayout={onUpdateCoverTextBoxLayout}
+              fontFamilyManager={fontFamilyManager}
             />
           ) : (
             <>
