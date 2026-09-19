@@ -1,6 +1,7 @@
 import { resolveSettingsPageElements } from '../../web/webMenuPageElements';
 import { useEffect, useState, useRef } from 'react';
 
+import defaultMainInterfaceBackgroundUrl from '../../../../assets/common/default-main-interface-background.jpg';
 import type { Language } from '../../../../lib/i18n';
 import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
 import { buildRehearsalTemplate } from '../../web/webExperienceTemplates';
@@ -34,12 +35,12 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   choicesPosition: 'center',
   showStartMenu: true,
   startMenuTemplate: 'cinematic',
-  startMenuBackgroundType: 'gradient',
+  startMenuBackgroundType: 'image',
   startMenuBackgroundColor: '#FFFFFF',
   startMenuBackgroundGradientStart: '#FFFFFF',
   startMenuBackgroundGradientEnd: '#EEF2FF',
   startMenuBackgroundGradientAngle: 135,
-  startMenuBackgroundImageUrl: '',
+  startMenuBackgroundImageUrl: defaultMainInterfaceBackgroundUrl,
   startMenuBackgroundVideoUrl: '',
   startMenuBackgroundVideoLoop: true,
   startMenuBackgroundVideoMuted: true,
@@ -254,6 +255,23 @@ const normalizeWebImageFillBaseColors = (settings: WebExportSettings): WebExport
   return next;
 };
 
+const applyDefaultMainInterfaceBackground = (settings: WebExportSettings): WebExportSettings => {
+  const isPreviousBuiltInGradient =
+    settings.startMenuBackgroundType === 'gradient' &&
+    !settings.startMenuBackgroundImageUrl &&
+    settings.startMenuBackgroundColor === '#FFFFFF' &&
+    settings.startMenuBackgroundGradientStart === '#FFFFFF' &&
+    settings.startMenuBackgroundGradientEnd === '#EEF2FF' &&
+    settings.startMenuBackgroundGradientAngle === 135;
+  return isPreviousBuiltInGradient
+    ? {
+        ...settings,
+        startMenuBackgroundType: 'image',
+        startMenuBackgroundImageUrl: defaultMainInterfaceBackgroundUrl,
+      }
+    : settings;
+};
+
 export const useWebExportSettings = (
   defaultProjectName: string,
   language: Language,
@@ -279,24 +297,28 @@ export const useWebExportSettings = (
   );
   const [webSettings, setWebSettings] = useState<WebExportSettings>(() =>
     ensureFlowOverviewControls(
-      normalizeWebImageFillBaseColors({
+      applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors({
         ...DEFAULT_WEB_SETTINGS,
         ...defaultPreset.settings,
         ...initial?.settings,
         ...sharedCanvas.settings,
-      }),
+      })),
     ),
   );
   useEffect(() => {
     setWebSettings((previous) =>
       ensureFlowOverviewControls(
-        normalizeWebImageFillBaseColors({ ...previous, ...sharedCanvas.settings }),
+        applyDefaultMainInterfaceBackground(
+          normalizeWebImageFillBaseColors({ ...previous, ...sharedCanvas.settings }),
+        ),
       ),
     );
   }, [sharedCanvas.settings]);
   useEffect(() => {
     setWebSettings((previous) =>
-      ensureFlowOverviewControls(normalizeWebImageFillBaseColors(previous)),
+      ensureFlowOverviewControls(
+        applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors(previous)),
+      ),
     );
   }, [webSettings]);
   const webRenderStyle = styleBinding.value;

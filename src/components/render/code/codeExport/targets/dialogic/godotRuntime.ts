@@ -33,6 +33,7 @@ var dialogue_panel: PanelContainer
 var name_label: Label
 var text_label: RichTextLabel
 var choices: VBoxContainer
+var title_background: TextureRect
 var title_panel: PanelContainer
 var title_label: Label
 var toolbar: HBoxContainer
@@ -150,6 +151,14 @@ func _build_ui() -> void:
 	notice.z_index = 103
 	notice.add_theme_font_size_override("font_size", 18)
 	add_child(notice)
+	title_background = TextureRect.new()
+	title_background.texture = load("res://game/galwriter-ui/main-menu-background.jpg")
+	title_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	title_background.size = SCREEN
+	title_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_background.z_index = 105
+	title_background.hide()
+	add_child(title_background)
 	title_panel = PanelContainer.new()
 	title_panel.position = Vector2(360, 150)
 	title_panel.size = Vector2(560, 420)
@@ -205,6 +214,7 @@ func _show_title() -> void:
 	waiting = ""
 	_clear_choices()
 	title_panel.show()
+	title_background.show()
 	dialogue_panel.hide()
 	toolbar.hide()
 	notice.text = ""
@@ -217,6 +227,7 @@ func _new_game() -> void:
 	history.clear()
 	stage_data = {}
 	title_panel.hide()
+	title_background.hide()
 	dialogue_panel.show()
 	toolbar.show()
 	notice.text = "空格 / 回车 / 点击文字继续；F11 全屏"

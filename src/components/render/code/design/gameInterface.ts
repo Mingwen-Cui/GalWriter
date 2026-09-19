@@ -1,9 +1,11 @@
 import type { SurfaceAppearance } from '../../shared/paint/appearance';
 import { parseColorValue } from '../../shared/paint/colorValue';
+import defaultMainInterfaceBackgroundUrl from '../../../../assets/common/default-main-interface-background.jpg';
 import type { CodeExportTarget } from '../codeExport/targets/targetTypes';
 
 export type GameInterfaceSettings = {
   templateId?: string;
+  mainMenuBackgroundUrl?: string;
   panelAppearance?: SurfaceAppearance;
   canvasAppearance?: SurfaceAppearance;
   choiceAppearance?: SurfaceAppearance;
@@ -28,6 +30,7 @@ export type GameInterfaceSettings = {
 };
 export type GameInterfaceProfiles = Partial<Record<CodeExportTarget, GameInterfaceSettings>>;
 export const DEFAULT_GAME_INTERFACE: GameInterfaceSettings = {
+  mainMenuBackgroundUrl: defaultMainInterfaceBackgroundUrl,
   width: 1280,
   height: 720,
   background: '#111827',

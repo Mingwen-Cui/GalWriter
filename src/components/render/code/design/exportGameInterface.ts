@@ -5,6 +5,22 @@ import { resolvePresentationDialogueLayout } from '../../video/shared/presentati
 import { getRenderObjects } from '../../video/shared/renderObjects';
 import { resolveGameInterface } from './gameInterface';
 
+const imageExtension = (url: string) => {
+  const mime = url.match(/^data:image\/([^;,]+)/i)?.[1]?.toLowerCase();
+  if (mime === 'jpeg') return 'jpg';
+  if (mime) return mime;
+  return url.split(/[?#]/)[0].match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase() || 'jpg';
+};
+
+const mainMenuBackgroundPath = (
+  settings: ReturnType<typeof resolveGameInterface>,
+  target: CodeExportTarget,
+) => {
+  if (!settings.mainMenuBackgroundUrl) return '';
+  const file = `main-menu-background.${imageExtension(settings.mainMenuBackgroundUrl)}`;
+  return target === 'dialogic' ? `res://game/galwriter-ui/${file}` : `galwriter-ui/${file}`;
+};
+
 /**
  * Code targets still need a small engine projection, but the source of truth
  * is the exact Web workspace state. Native runtimes therefore start from the
@@ -36,6 +52,7 @@ export function resolveExportInterface(settings: RenpyExportSettings, target: Co
   return {
     ...defaults,
     templateId: 'web-interface',
+    mainMenuBackgroundUrl: webSettings.startMenuBackgroundImageUrl || undefined,
     width,
     height,
     background,
@@ -139,6 +156,11 @@ function applyEngineInterface(
             'button.add_theme_font_size_override("font_size", 20)',
             `button.add_theme_font_size_override("font_size", ${d.fontSize})\n\tbutton.add_theme_color_override("font_color", Color("${d.choiceTextColor}"))\n\tbutton.add_theme_stylebox_override("normal", _panel(Color("${d.accentColor}")))`,
           );
+      if (d.mainMenuBackgroundUrl)
+        content = content.replace(
+          'res://game/galwriter-ui/main-menu-background.jpg',
+          mainMenuBackgroundPath(d, target),
+        );
       if (file.path === 'game/story.json') {
         const data = JSON.parse(content);
         data.interfaceDesign = settings.webInterface || d;
@@ -206,7 +228,10 @@ screen choice(items):
     const setup = `[position layer="message0" page="fore" left="${x}" top="${y}" width="${width}" height="${height}" color="0x${d.panelColor.slice(1)}" opacity="${Math.round((d.panelAlpha * 255) / 100)}"]\n[deffont size="${d.fontSize}" color="0x${d.textColor.slice(1)}"]\n[resetfont]\n[delay speed="${Math.round(1000 / d.textSpeed)}"]\n`;
     return files.map((file) =>
       file.path === 'data/scenario/first.ks'
-        ? { ...file, content: `; GalWriter interface design\n${setup}${file.content}` }
+        ? {
+            ...file,
+            content: `${d.mainMenuBackgroundUrl ? `[bg storage="${mainMenuBackgroundPath(d, target)}" time="0"]\n` : ''}; GalWriter interface design\n${setup}${file.content}`,
+          }
         : file,
     );
   }
@@ -258,8 +283,13 @@ export function applyGameInterface(
     }
     if (target === 'renpy') {
       if (file.path === 'game/galwriter_interface.rpy') {
+        const menuBackgroundDeclaration = d.mainMenuBackgroundUrl
+          ? `define gui.main_menu_background = "${mainMenuBackgroundPath(d, target)}"\ndefine gui.game_menu_background = "${mainMenuBackgroundPath(d, target)}"\n`
+          : d.canvasAppearance
+            ? 'define gui.main_menu_background = "galwriter-ui/canvas.png"\ndefine gui.game_menu_background = "galwriter-ui/canvas.png"\n'
+            : '';
         if (d.templateId)
-          content += `\n# Shared template palette for main menu, preferences and save/load screens.\ndefine gui.accent_color = "${d.accentColor}"\ndefine gui.text_color = "${d.textColor}"\ndefine gui.interface_text_color = "${d.textColor}"\ndefine gui.idle_color = "${d.textColor}"\ndefine gui.hover_color = "${d.nameColor}"\n${d.canvasAppearance ? 'define gui.main_menu_background = "galwriter-ui/canvas.png"\ndefine gui.game_menu_background = "galwriter-ui/canvas.png"\n' : ''}`;
+          content += `\n# Shared template palette for main menu, preferences and save/load screens.\ndefine gui.accent_color = "${d.accentColor}"\ndefine gui.text_color = "${d.textColor}"\ndefine gui.interface_text_color = "${d.textColor}"\ndefine gui.idle_color = "${d.textColor}"\ndefine gui.hover_color = "${d.nameColor}"\n${menuBackgroundDeclaration}`;
 
         if (d.panelAppearance)
           content = content.replace(
