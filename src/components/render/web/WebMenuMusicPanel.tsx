@@ -7,12 +7,19 @@ import { InspectorGroup } from '../shared/inspectors/InspectorControls';
 type Props = {
   language: Language;
   settings: WebExportSettings;
-  surface: 'start' | 'archive' | 'settings';
+  surface: 'start' | 'archive' | 'settings' | 'flow';
   updateWebSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
   ) => void;
   showDescriptions?: boolean;
+};
+type MusicKeys = {
+  url: 'startMenuBackgroundMusicUrl' | 'flowOverviewBackgroundMusicUrl';
+  volume: 'startMenuMusicVolume' | 'flowOverviewMusicVolume';
+  fadeIn: 'startMenuMusicFadeIn' | 'flowOverviewMusicFadeIn';
+  fadeOut: 'startMenuMusicFadeOut' | 'flowOverviewMusicFadeOut';
+  loop: 'startMenuMusicLoop' | 'flowOverviewMusicLoop';
 };
 export function WebMenuMusicPanel({
   language,
@@ -25,8 +32,30 @@ export function WebMenuMusicPanel({
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState('');
+  const musicKeys: MusicKeys =
+    surface === 'flow'
+      ? {
+          url: 'flowOverviewBackgroundMusicUrl',
+          volume: 'flowOverviewMusicVolume',
+          fadeIn: 'flowOverviewMusicFadeIn',
+          fadeOut: 'flowOverviewMusicFadeOut',
+          loop: 'flowOverviewMusicLoop',
+        }
+      : {
+          url: 'startMenuBackgroundMusicUrl',
+          volume: 'startMenuMusicVolume',
+          fadeIn: 'startMenuMusicFadeIn',
+          fadeOut: 'startMenuMusicFadeOut',
+          loop: 'startMenuMusicLoop',
+        };
+  const musicUrl = settings[musicKeys.url];
+  const musicVolume = settings[musicKeys.volume];
+  const musicFadeIn = settings[musicKeys.fadeIn];
+  const musicFadeOut = settings[musicKeys.fadeOut];
+  const musicLoop = settings[musicKeys.loop];
   const enabled =
     surface === 'start' ||
+    surface === 'flow' ||
     (surface === 'archive'
       ? settings.startMenuMusicApplyToArchive
       : settings.startMenuMusicApplyToSettings);
@@ -35,13 +64,12 @@ export function WebMenuMusicPanel({
     if (surface === 'settings') update('startMenuMusicApplyToSettings', value);
   };
   useEffect(() => {
-    if (audio.current)
-      audio.current.volume = Math.max(0, Math.min(1, settings.startMenuMusicVolume / 100));
-  }, [settings.startMenuMusicVolume]);
+    if (audio.current) audio.current.volume = Math.max(0, Math.min(1, Number(musicVolume) / 100));
+  }, [musicVolume]);
   useEffect(() => {
     setPlaying(false);
     setError('');
-  }, [settings.startMenuBackgroundMusicUrl]);
+  }, [musicUrl]);
   return (
     <InspectorGroup
       title={t('背景音乐', 'Background music', 'BGM')}
@@ -56,7 +84,7 @@ export function WebMenuMusicPanel({
           <button
             type="button"
             className="property-enable"
-            disabled={!settings.startMenuBackgroundMusicUrl}
+            disabled={!musicUrl}
             aria-label={playing ? t('暂停试听', 'Pause') : t('试听', 'Preview')}
             onClick={async () => {
               if (!audio.current) return;
@@ -74,9 +102,7 @@ export function WebMenuMusicPanel({
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
           <span className="min-w-0 flex-1 truncate text-xs">
-            {settings.startMenuBackgroundMusicUrl
-              ? t('已选择音乐', 'Music selected')
-              : t('未添加音乐', 'No music')}
+            {musicUrl ? t('已选择音乐', 'Music selected') : t('未添加音乐', 'No music')}
           </span>
           <label
             className="property-add cursor-pointer"
@@ -91,8 +117,7 @@ export function WebMenuMusicPanel({
                 const file = e.target.files?.[0];
                 if (file) {
                   const reader = new FileReader();
-                  reader.onload = () =>
-                    update('startMenuBackgroundMusicUrl', String(reader.result || ''));
+                  reader.onload = () => update(musicKeys.url, String(reader.result || ''));
                   reader.readAsDataURL(file);
                 }
                 e.currentTarget.value = '';
@@ -102,9 +127,9 @@ export function WebMenuMusicPanel({
           <button
             type="button"
             className="property-add"
-            disabled={!settings.startMenuBackgroundMusicUrl}
+            disabled={!musicUrl}
             aria-label={t('移除音乐', 'Remove music')}
-            onClick={() => update('startMenuBackgroundMusicUrl', '')}
+            onClick={() => update(musicKeys.url, '')}
           >
             <Trash2 size={14} />
           </button>
@@ -117,20 +142,20 @@ export function WebMenuMusicPanel({
         <label className="block text-xs">
           <span className="flex justify-between">
             <span>{t('音量', 'Volume')}</span>
-            <span>{settings.startMenuMusicVolume}%</span>
+            <span>{musicVolume}%</span>
           </span>
           <input
             aria-label={t('音量', 'Volume')}
             type="range"
             min={0}
             max={100}
-            value={settings.startMenuMusicVolume}
+            value={musicVolume}
             className="mt-2 w-full accent-indigo-600"
-            onChange={(e) => update('startMenuMusicVolume', Number(e.target.value))}
+            onChange={(e) => update(musicKeys.volume, Number(e.target.value))}
           />
         </label>
         <div className="grid grid-cols-2 gap-2">
-          {(['startMenuMusicFadeIn', 'startMenuMusicFadeOut'] as const).map((key, i) => (
+          {([musicKeys.fadeIn, musicKeys.fadeOut] as const).map((key, i) => (
             <label key={key} className="text-xs text-[var(--vr-text-muted)]">
               {i === 0 ? t('淡入 · 秒', 'Fade in · s') : t('淡出 · 秒', 'Fade out · s')}
               <input
@@ -152,8 +177,8 @@ export function WebMenuMusicPanel({
           <input
             type="checkbox"
             role="switch"
-            checked={settings.startMenuMusicLoop}
-            onChange={(e) => update('startMenuMusicLoop', e.target.checked)}
+            checked={musicLoop}
+            onChange={(e) => update(musicKeys.loop, e.target.checked)}
           />
         </label>
         {surface === 'start' && (
@@ -176,8 +201,8 @@ export function WebMenuMusicPanel({
         )}
         <audio
           ref={audio}
-          src={settings.startMenuBackgroundMusicUrl || undefined}
-          loop={settings.startMenuMusicLoop}
+          src={musicUrl || undefined}
+          loop={musicLoop}
           preload="none"
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}

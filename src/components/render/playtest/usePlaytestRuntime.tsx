@@ -496,6 +496,7 @@ export function usePlaytestRuntime(
   const titleObject = renderObjects.title;
   const bodyObject = renderObjects.body;
   const dialogObject = renderObjects.dialogBox;
+  const choiceObject = renderObjects.choice;
   const dialogueCornerRadii = (
     dialogObject.corners || [
       dialogObject.radius,
@@ -882,7 +883,9 @@ export function usePlaytestRuntime(
       setActiveInlineAction(null);
       setCompletedSwitchActions(actions.filter(isSwitchInlineAction));
       setCompletedInlineActions(
-        actions.filter((action) => isPersistentInlineAction(action) || Boolean(action.timelinePhase)),
+        actions.filter(
+          (action) => isPersistentInlineAction(action) || Boolean(action.timelinePhase),
+        ),
       );
       setDisplayedHtml(textHtml);
       setTimeLeft(0);
@@ -1035,8 +1038,10 @@ export function usePlaytestRuntime(
       (layoutMode === 'classic' || !sceneImageUrl);
 
     if (
-      (creativeInteraction && (creativeInteraction.loading ||
-        (currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId) && creativeInteraction.options.length > 0))) ||
+      (creativeInteraction &&
+        (creativeInteraction.loading ||
+          (currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId) &&
+            creativeInteraction.options.length > 0))) ||
       !autoAdvance ||
       !presentationReady ||
       !animationCompleted ||
@@ -1054,7 +1059,10 @@ export function usePlaytestRuntime(
     if (hasAudio || hasVideo) {
       if (mediaStatusNodeId !== currentNodeId) return;
       if ((!hasAudio || currentAudioEnded) && (!hasVideo || currentVideoEnded)) {
-        if (creativeInteraction && currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId)) {
+        if (
+          creativeInteraction &&
+          currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId)
+        ) {
           void creativeInteraction.onDecision('继续');
         } else advanceToTarget(autoAdvanceTarget);
       }
@@ -1067,7 +1075,10 @@ export function usePlaytestRuntime(
     autoAdvanceTimerRef.current = setTimeout(
       () => {
         if (sessionId !== playbackSessionRef.current) return;
-        if (creativeInteraction && currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId)) {
+        if (
+          creativeInteraction &&
+          currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId)
+        ) {
           void creativeInteraction.onDecision('继续');
         } else advanceToTarget(autoAdvanceTarget);
       },
@@ -1110,7 +1121,8 @@ export function usePlaytestRuntime(
     } else {
       if (creativeInteraction) {
         if (creativeInteraction.loading) return;
-        const atEnd = currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId);
+        const atEnd =
+          currentNodeId === (creativeInteraction.endNodeId || creativeInteraction.nodeId);
         if (atEnd) {
           if (creativeInteraction.options.length === 0) void creativeInteraction.onDecision('继续');
         } else if (outEdges.length === 1) {
@@ -1132,6 +1144,12 @@ export function usePlaytestRuntime(
 
     const effectiveCols = choicesPosition === 'center' ? 1 : choicesColumns;
     const windowed = displayMode === 'windowed';
+    const choiceFill =
+      choiceObject.fill.type === 'gradient'
+        ? `linear-gradient(${choiceObject.fill.gradientAngle}deg, ${choiceObject.fill.gradientStops.map((stop) => `${withAlpha(stop.color, stop.alpha / 100)} ${stop.position}%`).join(', ')})`
+        : choiceObject.fill.type === 'image' && choiceObject.fill.imageUrl
+          ? `url("${choiceObject.fill.imageUrl.replace(/"/g, '\\"')}") center / cover`
+          : withAlpha(choiceObject.fill.color, choiceObject.fill.alpha / 100);
     const gridClass = `grid ${effectiveCols === 1 ? 'grid-cols-1' : effectiveCols === 2 ? 'grid-cols-2' : 'grid-cols-3'} w-full animate-in fade-in duration-300 ${
       windowed ? '' : `gap-3 mb-1 ${choicesPosition === 'center' ? 'px-3 py-3' : ''}`
     }`;
@@ -1152,7 +1170,25 @@ export function usePlaytestRuntime(
     const windowedIndicatorSize = Math.max(8, scaleWindowMetric(28));
 
     return (
-      <div className={gridClass} style={windowedGridStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`${gridClass} ${renderObjectSelectionClass('choice')}`}
+        data-render-object="choice"
+        style={{
+          ...windowedGridStyle,
+          gap: windowed ? windowedGridStyle?.gap : Math.max(0, renderStyle.choiceGap ?? 8),
+          width: `${Math.max(8, Math.min(100, choiceObject.width))}%`,
+          left: choiceObject.x,
+          top: choiceObject.y,
+          minHeight: Math.max(24, choiceObject.height),
+          position: 'relative',
+          transform: `rotate(${choiceObject.rotation || 0}deg) scale(${choiceObject.flipX ? -1 : 1}, ${choiceObject.flipY ? -1 : 1})`,
+          opacity: choiceObject.visible ? 1 : 0.3,
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          selectRenderObject(e, 'choice');
+        }}
+      >
         {outEdges.length > 0 ? (
           outEdges.map((edge, index) => {
             let targetNode = nodes.find((n) => n.id === edge.target);
@@ -1232,7 +1268,25 @@ export function usePlaytestRuntime(
                   style={{
                     ...windowedButtonStyle,
                     backgroundColor: customBg,
-                    borderColor: isWhite ? 'rgba(255, 255, 255, 0.25)' : nodeColor,
+                    background: choiceFill,
+                    borderRadius: choiceObject.radius,
+                    borderWidth: choiceObject.stroke.enabled
+                      ? choiceObject.stroke.width
+                      : undefined,
+                    borderStyle: choiceObject.stroke.enabled ? 'solid' : undefined,
+                    borderColor: choiceObject.stroke.enabled
+                      ? choiceObject.stroke.color
+                      : undefined,
+                    boxShadow: choiceObject.shadow.enabled
+                      ? `${choiceObject.shadow.x}px ${choiceObject.shadow.y}px ${choiceObject.shadow.blur}px ${choiceObject.shadow.spread}px ${withAlpha(choiceObject.shadow.color, choiceObject.shadow.alpha / 100)}`
+                      : undefined,
+                    minHeight: Math.max(24, choiceObject.height),
+                    fontFamily: choiceObject.fontFamily,
+                    fontSize: choiceObject.fontSize,
+                    fontWeight: choiceObject.fontWeight,
+                    lineHeight: choiceObject.lineHeight,
+                    letterSpacing: choiceObject.letterSpacing,
+                    transform: `translate(${index * (renderStyle.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle.choiceItemOffsetY ?? 0)}px)`,
                   }}
                 >
                   <span
@@ -1274,8 +1328,26 @@ export function usePlaytestRuntime(
                   style={{
                     ...windowedButtonStyle,
                     backgroundColor: isDarkMode && isWhite ? '#1e293b' : nodeColor,
-                    borderColor: isWhite ? (isDarkMode ? '#334155' : '#e2e8f0') : nodeColor,
                     color: isWhite ? (isDarkMode ? '#f1f5f9' : '#334155') : '#1e293b',
+                    background: choiceFill,
+                    borderRadius: choiceObject.radius,
+                    borderWidth: choiceObject.stroke.enabled
+                      ? choiceObject.stroke.width
+                      : undefined,
+                    borderStyle: choiceObject.stroke.enabled ? 'solid' : undefined,
+                    borderColor: choiceObject.stroke.enabled
+                      ? choiceObject.stroke.color
+                      : undefined,
+                    boxShadow: choiceObject.shadow.enabled
+                      ? `${choiceObject.shadow.x}px ${choiceObject.shadow.y}px ${choiceObject.shadow.blur}px ${choiceObject.shadow.spread}px ${withAlpha(choiceObject.shadow.color, choiceObject.shadow.alpha / 100)}`
+                      : undefined,
+                    minHeight: Math.max(24, choiceObject.height),
+                    fontFamily: choiceObject.fontFamily,
+                    fontSize: choiceObject.fontSize,
+                    fontWeight: choiceObject.fontWeight,
+                    lineHeight: choiceObject.lineHeight,
+                    letterSpacing: choiceObject.letterSpacing,
+                    transform: `translate(${index * (renderStyle.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle.choiceItemOffsetY ?? 0)}px)`,
                   }}
                 >
                   <span
@@ -1790,7 +1862,10 @@ export function usePlaytestRuntime(
       >
         {presentedCharacters.map(({ config, data, imageUrl, appearance }) => {
           const hasEnterCue = presentation.inlineActions?.some(
-            (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+            (action) =>
+              action.timelinePhase === 'enter' &&
+              action.kind === 'character' &&
+              action.sourceNodeId === config.sourceNodeId,
           );
           const enterCueActive =
             activeInlineAction?.timelinePhase === 'enter' &&
@@ -1801,17 +1876,27 @@ export function usePlaytestRuntime(
             activeInlineAction.kind === 'character' &&
             activeInlineAction.sourceNodeId === config.sourceNodeId;
           const enterCueCompleted = completedInlineActions.some(
-            (action) => action.timelinePhase === 'enter' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+            (action) =>
+              action.timelinePhase === 'enter' &&
+              action.kind === 'character' &&
+              action.sourceNodeId === config.sourceNodeId,
           );
           const exitCueCompleted = completedInlineActions.some(
-            (action) => action.timelinePhase === 'exit' && action.kind === 'character' && action.sourceNodeId === config.sourceNodeId,
+            (action) =>
+              action.timelinePhase === 'exit' &&
+              action.kind === 'character' &&
+              action.sourceNodeId === config.sourceNodeId,
           );
           const waitingForEnterCue = Boolean(hasEnterCue && !enterCueActive && !enterCueCompleted);
           const motion = presentationExiting || exitCueActive ? config.exit : config.enter;
-          const animationActive = presentationExiting || exitCueActive || waitingForEnterCue || exitCueCompleted;
+          const animationActive =
+            presentationExiting || exitCueActive || waitingForEnterCue || exitCueCompleted;
           const animationTransform =
             animationActive && motion
-              ? getPresentationTransform(motion.type, presentationExiting || exitCueActive || exitCueCompleted)
+              ? getPresentationTransform(
+                  motion.type,
+                  presentationExiting || exitCueActive || exitCueCompleted,
+                )
               : '';
           const inlineAction =
             activeInlineAction?.kind === 'character' &&

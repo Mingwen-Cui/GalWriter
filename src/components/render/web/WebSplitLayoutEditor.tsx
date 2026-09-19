@@ -19,7 +19,7 @@ type Props = {
   onRenderStyleChange: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
 };
 
-const kinds: RenderEditableObjectKind[] = ['dialogBox', 'title', 'body', 'nameplate'];
+const kinds: RenderEditableObjectKind[] = ['dialogBox', 'title', 'body', 'nameplate', 'choice'];
 
 export function WebSplitLayoutEditor({
   rootRef,
@@ -57,6 +57,7 @@ export function WebSplitLayoutEditor({
       title: read('[data-render-object="title"]'),
       body: read('[data-render-object="body"]'),
       nameplate: read('[data-render-object="nameplate"]'),
+      choice: read('[data-render-object="choice"]'),
     });
   }, [rootRef]);
 

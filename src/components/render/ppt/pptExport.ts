@@ -457,6 +457,7 @@ export async function buildPptxBuffer({
     const title = objects.title;
     const body = objects.body;
     const nameplate = objects.nameplate;
+    const choiceObject = objects.choice;
     const speakerName = sceneNameplate;
     const shouldRenderNameplate =
       Boolean(speakerName) && style.nameplateVisible !== false && nameplate.visible;
@@ -870,26 +871,42 @@ export async function buildPptxBuffer({
       align: 'center',
       margin: 0,
     });
+    const choiceFill =
+      choiceObject.fill.type === 'gradient'
+        ? choiceObject.fill.gradientStops.slice().sort((a, b) => a.position - b.position)[0]
+            ?.color || choiceObject.fill.color
+        : choiceObject.fill.color;
+    const choiceWidth = Math.max(4.5, Math.min(11.2, 9.33 * (choiceObject.width / 86)));
+    const choiceX = Math.max(0.4, (13.333 - choiceWidth) / 2 + choiceObject.x / 100);
     scene.choices.forEach((choice, index) => {
       const targetSlide = choice.targetId ? slideByNodeId.get(choice.targetId) : undefined;
-      const y = 2.32 + index * 0.86;
+      const y =
+        2.32 +
+        index * (0.62 + (style.choiceGap ?? 8) / 72) +
+        index * ((style.choiceItemOffsetY ?? 0) / 100);
       choiceSlide.addShape(pptx.ShapeType.roundRect, {
-        ...page.frame(2.0, y, 9.33, 0.62),
-        rectRadius: 0.08,
-        fill: { color: '111827', transparency: 14 },
-        line: { color: 'FFFFFF', transparency: 62 },
+        ...page.frame(choiceX, y, choiceWidth, Math.max(0.42, choiceObject.height / 100)),
+        rectRadius: Math.max(0.02, choiceObject.radius / 180),
+        fill: { color: hex(choiceFill), transparency: 100 - choiceObject.fill.alpha },
+        line: choiceObject.stroke.enabled
+          ? {
+              color: hex(choiceObject.stroke.color),
+              transparency: 100 - choiceObject.stroke.alpha,
+              width: choiceObject.stroke.width,
+            }
+          : { transparency: 100 },
         hyperlink:
           pptSettings.branchMode === 'interactive' && targetSlide
             ? { slide: targetSlide }
             : undefined,
       });
       choiceSlide.addShape(pptx.ShapeType.ellipse, {
-        ...page.frame(2.28, y + 0.12, 0.38, 0.38),
+        ...page.frame(choiceX + 0.28, y + 0.12, 0.38, 0.38),
         fill: { color: hex(colors.choice) },
         line: { transparency: 100 },
       });
       choiceSlide.addText(String(index + 1), {
-        ...page.frame(2.28, y + 0.165, 0.38, 0.16),
+        ...page.frame(choiceX + 0.28, y + 0.165, 0.38, 0.16),
         fontSize: 8 * page.scale,
         bold: true,
         color: 'FFFFFF',
@@ -897,11 +914,16 @@ export async function buildPptxBuffer({
         margin: 0,
       });
       choiceSlide.addText(choice.label, {
-        ...page.frame(2.86, y + 0.15, 8.0, 0.27),
-        fontFace: toPptFontFace(style.bodyFontFamily),
-        fontSize: 16 * page.scale,
-        bold: true,
-        color: 'FFFFFF',
+        ...page.frame(
+          choiceX + 0.86 + (index * (style.choiceItemOffsetX ?? 0)) / 100,
+          y + 0.15,
+          Math.max(1, choiceWidth - 1.3),
+          0.27,
+        ),
+        fontFace: toPptFontFace(choiceObject.fontFamily || style.bodyFontFamily),
+        fontSize: Math.max(8, choiceObject.fontSize * 0.66 * page.scale),
+        bold: choiceObject.fontWeight >= 600,
+        color: hex(style.bodyColor || '#FFFFFF'),
         margin: 0,
         hyperlink:
           pptSettings.branchMode === 'interactive' && targetSlide

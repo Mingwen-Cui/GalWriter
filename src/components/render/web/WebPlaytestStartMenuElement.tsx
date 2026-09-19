@@ -248,11 +248,20 @@ export function WebPlaytestStartMenuElement({
           ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText234')
           : element.role === 'settings'
             ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText236')
-            : element.role === 'link'
-              ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText238')
-              : element.role === 'volume'
-                ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText240')
-                : formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText241');
+            : element.role === 'flowOverview'
+              ? language === 'zh'
+                ? '流程图总览'
+                : language === 'ja'
+                  ? 'フロー概要'
+                  : 'Flow overview'
+              : element.role === 'link'
+                ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText238')
+                : element.role === 'volume'
+                  ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText240')
+                  : formatWebText(
+                      language,
+                      'componentsrenderwebWebPlaytestStartMenuElementText241',
+                    );
 
   return (
     <div
@@ -377,12 +386,14 @@ export function WebPlaytestStartMenuElement({
             }
             action?.onClick();
           }}
-          className={`relative h-full w-full rounded-lg border font-black ${
+          className={`relative h-full w-full rounded-lg border font-black transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#625BF6]/20 ${
             previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'
           } ${
-            element.primary
-              ? 'border-white/24 text-white shadow-lg shadow-black/15'
-              : 'border-white/16 bg-white/10 text-white'
+            element.role === 'continue'
+              ? 'hover:-translate-y-0.5 hover:shadow-xl'
+              : element.role === 'new' || element.role === 'save'
+                ? 'hover:-translate-x-1'
+                : 'hover:-translate-y-0.5'
           } ${settings.startMenuTemplate === 'minimal' || element.backgroundType === 'gradient' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
           style={{
             backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
@@ -398,6 +409,8 @@ export function WebPlaytestStartMenuElement({
             ),
             display: 'flex',
             alignItems: 'center',
+            justifyContent: element.textAlign === 'left' ? 'flex-start' : 'center',
+            paddingInline: element.textAlign === 'left' ? 24 : 16,
             ...textAlignStyle(element.textAlign || 'center'),
             fontFamily: element.fontFamily,
             fontWeight: element.fontWeight,

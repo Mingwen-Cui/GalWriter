@@ -1,10 +1,11 @@
 import type { InteractiveSegmentDraft } from './interactiveSegments';
 
-export type LayoutDirection = 'right' | 'down';
+export type LayoutDirection = 'right' | 'down' | 'left' | 'up';
 
 export type GraphPoint = { x: number; y: number };
 
-export const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+export const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
 
 export const isGeneratedChoiceLabel = (label: string) => /^choice\s+\d+$/i.test(label.trim());
 
@@ -74,6 +75,9 @@ export const buildSegmentLayout = (
   const branchGap = 96;
   const positions = new Map<string, GraphPoint>();
   const sortedDepths = [...lanesByDepth.keys()].sort((a, b) => a - b);
+  const maxDepth = sortedDepths.length > 0 ? sortedDepths[sortedDepths.length - 1] : 0;
+  const isHorizontal = direction === 'right' || direction === 'left';
+  const isForward = direction === 'right' || direction === 'down';
   sortedDepths.forEach((depth) => {
     const laneItems = lanesByDepth.get(depth) || [];
     laneItems.forEach((segment, laneIndex) => {
@@ -85,17 +89,16 @@ export const buildSegmentLayout = (
             candidate.choices.some((choice) => choice.targetSegmentId === previousSegment.id) &&
             candidate.choices.some((choice) => choice.targetSegmentId === segment.id),
         );
-      const laneOffset = laneIndex * (direction === 'right' ? cardHeight + rowGap : cardWidth + columnGap);
+      const laneOffset = laneIndex * (isHorizontal ? cardHeight + rowGap : cardWidth + columnGap);
       const branchOffset = sameParent ? branchGap : 0;
+      const depthOffset = isHorizontal ? cardWidth + columnGap : cardHeight + rowGap;
       positions.set(segment.id, {
-        x:
-          direction === 'right'
-            ? 96 + depth * (cardWidth + columnGap)
-            : 96 + laneOffset + branchOffset,
-        y:
-          direction === 'right'
-            ? 92 + laneOffset + branchOffset
-            : 92 + depth * (cardHeight + rowGap),
+        x: isHorizontal
+          ? 96 + (isForward ? depth : maxDepth - depth) * depthOffset
+          : 96 + laneOffset + branchOffset,
+        y: isHorizontal
+          ? 92 + laneOffset + branchOffset
+          : 92 + (isForward ? depth : maxDepth - depth) * depthOffset,
       });
     });
   });
@@ -111,44 +114,23 @@ export const segmentLinkPath = (
   direction: LayoutDirection,
   radius: number,
 ) => {
-  const rounded = radius > 8;
-  if (direction === 'down') {
+  if (direction === 'down' || direction === 'up') {
     const startX = from.x + cardWidth / 2;
-    const startY = from.y + cardHeight;
+    const startY = direction === 'down' ? from.y + cardHeight : from.y;
     const endX = to.x + cardWidth / 2;
-    const endY = to.y;
-    const middleY = startY + Math.max(52, (endY - startY) / 2);
-    const curve = Math.min(radius, 32, Math.abs(endX - startX) / 2, Math.abs(endY - startY) / 2);
-    if (!rounded || curve <= 2) return `M${startX},${startY} L${startX},${middleY} L${endX},${middleY} L${endX},${endY}`;
-    const horizontalDirection = endX >= startX ? 1 : -1;
-    const verticalDirection = endY >= middleY ? 1 : -1;
-    return [
-      `M${startX},${startY}`,
-      `L${startX},${middleY - curve}`,
-      `Q${startX},${middleY} ${startX + horizontalDirection * curve},${middleY}`,
-      `L${endX - horizontalDirection * curve},${middleY}`,
-      `Q${endX},${middleY} ${endX},${middleY + verticalDirection * curve}`,
-      `L${endX},${endY}`,
-    ].join(' ');
+    const endY = direction === 'down' ? to.y : to.y + cardHeight;
+    const verticalDirection = endY >= startY ? 1 : -1;
+    const handle = Math.max(radius * 2, Math.min(180, Math.abs(endY - startY) * 0.46));
+    return `M${startX},${startY} C${startX},${startY + verticalDirection * handle} ${endX},${endY - verticalDirection * handle} ${endX},${endY}`;
   }
 
-  const startX = from.x + cardWidth;
+  const startX = direction === 'right' ? from.x + cardWidth : from.x;
   const startY = from.y + cardHeight / 2;
-  const endX = to.x;
+  const endX = direction === 'right' ? to.x : to.x + cardWidth;
   const endY = to.y + cardHeight / 2;
-  const middleX = startX + Math.max(56, (endX - startX) / 2);
-  const curve = Math.min(radius, 32, Math.abs(endX - startX) / 2, Math.abs(endY - startY) / 2);
-  if (!rounded || curve <= 2) return `M${startX},${startY} L${middleX},${startY} L${middleX},${endY} L${endX},${endY}`;
-  const verticalDirection = endY >= startY ? 1 : -1;
-  const horizontalDirection = endX >= middleX ? 1 : -1;
-  return [
-    `M${startX},${startY}`,
-    `L${middleX - curve},${startY}`,
-    `Q${middleX},${startY} ${middleX},${startY + verticalDirection * curve}`,
-    `L${middleX},${endY - verticalDirection * curve}`,
-    `Q${middleX},${endY} ${middleX + horizontalDirection * curve},${endY}`,
-    `L${endX},${endY}`,
-  ].join(' ');
+  const horizontalDirection = endX >= startX ? 1 : -1;
+  const handle = Math.max(radius * 2, Math.min(180, Math.abs(endX - startX) * 0.46));
+  return `M${startX},${startY} C${startX + horizontalDirection * handle},${startY} ${endX - horizontalDirection * handle},${endY} ${endX},${endY}`;
 };
 
 export const graphBoundsFromPositions = (

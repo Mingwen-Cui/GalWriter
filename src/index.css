@@ -1200,8 +1200,8 @@ html.canvas-selection-dragging * {
 }
 
 .interactive-segment-minimap .react-flow__minimap {
-  width: 160px;
-  height: 120px;
+  width: var(--interactive-minimap-width, 220px);
+  height: var(--interactive-minimap-height, 160px);
 }
 
 .interactive-segment-minimap .react-flow__minimap-svg {

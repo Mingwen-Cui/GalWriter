@@ -1,7 +1,9 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
+  ArrowUp,
   CheckSquare,
   ChevronDown,
   ChevronLeft,
@@ -46,11 +48,22 @@ import {
   clamp,
   colorWithAlpha,
   graphBoundsFromPositions,
-  isGeneratedChoiceLabel,
   segmentLinkPath,
 } from './interactiveSegmentGraphLayout';
 import { InteractiveSegmentMinimap } from './InteractiveSegmentMinimap';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
+
+const layoutDirections: LayoutDirection[] = ['right', 'down', 'left', 'up'];
+
+const layoutDirectionText = (language: Language, direction: LayoutDirection) => {
+  const keyByDirection: Record<LayoutDirection, Parameters<typeof formatVideoText>[1]> = {
+    right: 'interactiveSegmentLayoutDirectionRight',
+    down: 'interactiveSegmentLayoutDirectionDown',
+    left: 'interactiveSegmentLayoutDirectionLeft',
+    up: 'interactiveSegmentLayoutDirectionUp',
+  };
+  return formatVideoText(language, keyByDirection[direction]);
+};
 
 type Props = {
   language: Language;
@@ -228,6 +241,14 @@ export function InteractiveSegmentExportWorkspace({
   const cardHeight = 222;
   const graphPadding = 120;
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('right');
+  const DirectionIcon =
+    layoutDirection === 'right'
+      ? ArrowRight
+      : layoutDirection === 'down'
+        ? ArrowDown
+        : layoutDirection === 'left'
+          ? ArrowLeft
+          : ArrowUp;
   const [exportSelectionMode, setExportSelectionMode] = useState<'idle' | 'manual' | 'all'>('idle');
   const autoPositions = useMemo(
     () => buildSegmentLayout(segments, layoutDirection, cardWidth, cardHeight),
@@ -337,6 +358,8 @@ export function InteractiveSegmentExportWorkspace({
       fromSegmentId: segment.id,
       toSegmentId: choice.targetSegmentId,
       label: choice.label,
+      targetTitle:
+        segments.find((candidate) => candidate.id === choice.targetSegmentId)?.name || choice.label,
       isChoice: segment.choices.length > 1,
       index,
     })),
@@ -831,46 +854,26 @@ export function InteractiveSegmentExportWorkspace({
             </button>
           </div>
           <div className="flex min-w-0 items-center gap-2">
-            <div className="flex items-center">
-              <button
-                type="button"
-                onClick={() => resetLayout('right')}
-                className={`relative grid h-8 w-8 place-items-center rounded-lg rounded-r-none border border-[var(--vr-border)] transition-colors hover:z-10 ${
-                  layoutDirection === 'right'
-                    ? 'z-10 bg-[var(--vr-accent)] text-white'
-                    : 'bg-[var(--vr-surface)] text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]'
-                }`}
-                title={formatVideoText(
-                  language,
-                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText805',
-                )}
-                aria-label={formatVideoText(
-                  language,
-                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText806',
-                )}
-              >
-                <ArrowRight className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => resetLayout('down')}
-                className={`relative -ml-px grid h-8 w-8 place-items-center rounded-lg rounded-l-none border border-[var(--vr-border)] transition-colors hover:z-10 ${
-                  layoutDirection === 'down'
-                    ? 'z-10 bg-[var(--vr-accent)] text-white'
-                    : 'bg-[var(--vr-surface)] text-[var(--vr-text)] hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]'
-                }`}
-                title={formatVideoText(
-                  language,
-                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText818',
-                )}
-                aria-label={formatVideoText(
-                  language,
-                  'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText819',
-                )}
-              >
-                <ArrowDown className="h-4 w-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const currentIndex = layoutDirections.indexOf(layoutDirection);
+                resetLayout(layoutDirections[(currentIndex + 1) % layoutDirections.length]);
+              }}
+              title={formatVideoText(
+                language,
+                'interactiveSegmentLayoutDirectionSwitch',
+                layoutDirectionText(language, layoutDirection),
+              )}
+              aria-label={formatVideoText(
+                language,
+                'interactiveSegmentLayoutDirectionSwitch',
+                layoutDirectionText(language, layoutDirection),
+              )}
+              className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--vr-accent)] text-white ring-1 ring-[var(--vr-accent)] transition-colors hover:bg-[var(--vr-accent-strong)]"
+            >
+              <DirectionIcon className="h-4 w-4" />
+            </button>
             <button
               type="button"
               onClick={onRescan}
@@ -920,25 +923,11 @@ export function InteractiveSegmentExportWorkspace({
               className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
               aria-hidden="true"
             >
-              <defs>
-                <marker
-                  id="interactive-arrow"
-                  markerWidth="10"
-                  markerHeight="10"
-                  refX="9"
-                  refY="5"
-                  orient="auto"
-                  markerUnits="strokeWidth"
-                >
-                  <path d="M0,0 L10,5 L0,10 Z" fill="currentColor" />
-                </marker>
-              </defs>
               {graphLinks.map((link) => {
-                const fromSegment = segments.find((segment) => segment.id === link.fromSegmentId);
                 const from = renderPositions.get(link.fromSegmentId);
                 if (!from) return null;
                 const to = renderPositions.get(link.toSegmentId);
-                if (!to || !fromSegment) return null;
+                if (!to) return null;
                 const active =
                   activeSegmentId === link.fromSegmentId || activeSegmentId === link.toSegmentId;
                 const path = segmentLinkPath(
@@ -949,26 +938,10 @@ export function InteractiveSegmentExportWorkspace({
                   layoutDirection,
                   lineRadius,
                 );
-                const labelX =
-                  layoutDirection === 'right'
-                    ? from.x + cardWidth + Math.max(84, (to.x - from.x - cardWidth) / 2)
-                    : to.x +
-                      cardWidth / 2 +
-                      (link.index - (fromSegment.choices.length - 1) / 2) * 104;
-                const labelY =
-                  layoutDirection === 'right'
-                    ? from.y + cardHeight / 2 + (to.y > from.y ? 24 : -24) + link.index * 18
-                    : from.y + cardHeight + Math.max(48, (to.y - from.y - cardHeight) / 2) - 26;
-                const label = isGeneratedChoiceLabel(link.label)
-                  ? ''
-                  : (link.isChoice
-                      ? link.label
-                      : formatVideoText(
-                          language,
-                          'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText909',
-                        )
-                    ).slice(0, 10);
-                const labelWidth = Math.max(56, Math.min(116, label.length * 8 + 24));
+                const isHorizontalLayout =
+                  layoutDirection === 'right' || layoutDirection === 'left';
+                const startX = layoutDirection === 'right' ? from.x + cardWidth : from.x;
+                const startY = layoutDirection === 'down' ? from.y + cardHeight : from.y;
                 return (
                   <g
                     key={link.id}
@@ -1017,24 +990,65 @@ export function InteractiveSegmentExportWorkspace({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeDasharray={link.isChoice ? undefined : '7 7'}
-                      markerEnd="url(#interactive-arrow)"
                       opacity={active ? 1 : lineOpacity}
                     />
                     <circle
-                      cx={from.x + cardWidth}
-                      cy={from.y + cardHeight / 2}
+                      cx={isHorizontalLayout ? startX : from.x + cardWidth / 2}
+                      cy={isHorizontalLayout ? from.y + cardHeight / 2 : startY}
                       r={active ? 4.5 : 3.5}
                       className="fill-current"
                       opacity={active ? 1 : 0.72}
                     />
+                  </g>
+                );
+              })}
+              {graphLinks.map((link) => {
+                const fromSegment = segments.find((segment) => segment.id === link.fromSegmentId);
+                const from = renderPositions.get(link.fromSegmentId);
+                const to = renderPositions.get(link.toSegmentId);
+                if (!from || !to || !fromSegment) return null;
+                const active =
+                  activeSegmentId === link.fromSegmentId || activeSegmentId === link.toSegmentId;
+                const isHorizontalLayout =
+                  layoutDirection === 'right' || layoutDirection === 'left';
+                const startX = layoutDirection === 'right' ? from.x + cardWidth : from.x;
+                const endX = layoutDirection === 'right' ? to.x : to.x + cardWidth;
+                const startY = layoutDirection === 'down' ? from.y + cardHeight : from.y;
+                const endY = layoutDirection === 'down' ? to.y : to.y + cardHeight;
+                const branchOffset =
+                  (link.index - (fromSegment.choices.length - 1) / 2) *
+                  (isHorizontalLayout ? 28 : 34);
+                const labelX = isHorizontalLayout
+                  ? (startX + endX) / 2
+                  : from.x + cardWidth / 2 + (to.x - from.x) / 2 + branchOffset;
+                const labelY = isHorizontalLayout
+                  ? from.y + cardHeight / 2 + (to.y - from.y) / 2 + branchOffset
+                  : (startY + endY) / 2 - 18;
+                const label = (
+                  link.isChoice
+                    ? link.targetTitle
+                    : formatVideoText(
+                        language,
+                        'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText909',
+                      )
+                ).slice(0, 18);
+                const labelWidth = Math.max(72, Math.min(180, label.length * 9 + 24));
+                return (
+                  <g
+                    key={`${link.id}-label`}
+                    className={
+                      active ? 'text-[var(--vr-accent)]' : 'text-[var(--vr-border-strong)]'
+                    }
+                    style={{ isolation: 'isolate', zIndex: 10 }}
+                  >
                     <rect
-                      x={labelX - 46}
+                      x={labelX - labelWidth / 2}
                       y={labelY - 13}
-                      width="92"
+                      width={labelWidth}
                       height="24"
                       rx="7"
                       className="fill-[var(--vr-surface-strong)] stroke-current"
-                      opacity={label ? 1 : 0}
+                      opacity="0.98"
                       strokeWidth={active ? 1.8 : 1}
                     />
                     <text
@@ -1042,15 +1056,8 @@ export function InteractiveSegmentExportWorkspace({
                       y={labelY + 3}
                       textAnchor="middle"
                       className="fill-current text-[10px] font-black"
-                      opacity={label ? 1 : 0}
                     >
-                      {(link.isChoice
-                        ? link.label
-                        : formatVideoText(
-                            language,
-                            'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText981',
-                          )
-                      ).slice(0, 10)}
+                      {label}
                     </text>
                   </g>
                 );
@@ -1183,18 +1190,6 @@ export function InteractiveSegmentExportWorkspace({
                           className="absolute inset-0 h-full w-full overflow-visible"
                           aria-hidden="true"
                         >
-                          <defs>
-                            <marker
-                              id={`internal-arrow-${segment.id}`}
-                              markerWidth="6"
-                              markerHeight="6"
-                              refX="5.5"
-                              refY="3"
-                              orient="auto"
-                            >
-                              <path d="M0,0 L6,3 L0,6 Z" fill="currentColor" />
-                            </marker>
-                          </defs>
                           {internalItems.slice(0, -1).map((item, index) => (
                             <line
                               key={`${item.id}-line`}
@@ -1205,7 +1200,6 @@ export function InteractiveSegmentExportWorkspace({
                               stroke="currentColor"
                               strokeWidth="2"
                               strokeLinecap="round"
-                              markerEnd={`url(#internal-arrow-${segment.id})`}
                               className="text-[var(--vr-border-strong)]"
                               opacity="0.8"
                             />
@@ -1335,6 +1329,7 @@ export function InteractiveSegmentExportWorkspace({
             )}
             segments={segments}
             graphLinks={graphLinks}
+            layoutDirection={layoutDirection}
             renderPositions={renderPositions}
             activeSegmentId={activeSegment?.id}
             graphWidth={graphWidth}

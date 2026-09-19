@@ -69,7 +69,7 @@ type InspectorProps = {
   onLayerUpdate?: (id: string, patch: Partial<WebMenuElement>) => void;
   onLayerSelect?: (id: string) => void;
   language: Language;
-  surface?: 'start' | 'archive' | 'settings' | 'game';
+  surface?: 'start' | 'archive' | 'settings' | 'game' | 'flow';
   /** Restricts button actions when the inspector is embedded by another workspace. */
   buttonFunctions?: ButtonFunction[];
   selectedElementIds?: string[];
@@ -140,7 +140,7 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
   NonNullable<InspectorProps['surface']>,
   ButtonFunction[]
 > = {
-  start: ['custom', 'continue', 'save', 'new', 'settings', 'link', 'volume'],
+  start: ['custom', 'flowOverview', 'continue', 'save', 'new', 'settings', 'link', 'volume'],
   archive: [
     'custom',
     'slot',
@@ -188,6 +188,7 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
     'volume',
     'link',
   ],
+  flow: ['custom', 'link', 'volume'],
 };
 
 const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> => {
@@ -197,6 +198,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       preview: '読み方のプレビュー',
       reset: '初期設定に戻す',
       custom: '機能なし',
+      flowOverview: 'フロー概要',
       continue: 'ゲームを続ける',
       save: 'セーブ画面',
       new: '新規ゲーム',
@@ -229,6 +231,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       preview: 'Reading preview',
       reset: 'Restore defaults',
       custom: 'No action',
+      flowOverview: 'Flow overview',
       continue: 'Continue game',
       save: 'Open saves',
       new: 'New game',
@@ -260,6 +263,7 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
     preview: '阅读效果预览',
     reset: '恢复默认',
     custom: '无功能',
+    flowOverview: '流程图总览',
     continue: '继续游戏',
     save: '打开存档页',
     new: '新游戏',

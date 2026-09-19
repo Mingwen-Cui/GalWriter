@@ -1,12 +1,12 @@
-import type { PointerEvent } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 import { useRef } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
 import type { Language } from '../../../../lib/i18n';
 import { useDesktopViewport } from '../../../../lib/useDesktopViewport';
 import { formatVideoText } from '../i18n';
-import type { GraphPoint } from './interactiveSegmentGraphLayout';
-import { clamp } from './interactiveSegmentGraphLayout';
+import type { GraphPoint, LayoutDirection } from './interactiveSegmentGraphLayout';
+import { clamp, segmentLinkPath } from './interactiveSegmentGraphLayout';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
 
 type GraphLink = {
@@ -21,6 +21,7 @@ type Props = {
   ariaLabel: string;
   segments: InteractiveSegmentDraft[];
   graphLinks: GraphLink[];
+  layoutDirection: LayoutDirection;
   renderPositions: Map<string, GraphPoint>;
   activeSegmentId?: string;
   graphWidth: number;
@@ -39,16 +40,20 @@ type Props = {
   onFitView: () => void;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
+  showFullscreenToggle?: boolean;
+  width?: number;
+  height?: number;
 };
 
-const MINIMAP_WIDTH = 160;
-const MINIMAP_HEIGHT = 120;
+const DEFAULT_MINIMAP_WIDTH = 220;
+const DEFAULT_MINIMAP_HEIGHT = 160;
 
 export function InteractiveSegmentMinimap({
   language,
   ariaLabel,
   segments,
   graphLinks,
+  layoutDirection,
   renderPositions,
   activeSegmentId,
   graphWidth,
@@ -67,12 +72,17 @@ export function InteractiveSegmentMinimap({
   onFitView,
   isFullscreen,
   onToggleFullscreen,
+  showFullscreenToggle = true,
+  width = DEFAULT_MINIMAP_WIDTH,
+  height = DEFAULT_MINIMAP_HEIGHT,
 }: Props) {
+  const minimapWidth = clamp(width, 160, 440);
+  const minimapHeight = clamp(height, 110, 320);
   const dragRef = useRef<{ pointerId: number } | null>(null);
   const isDesktopViewport = useDesktopViewport();
   const minimapScale = Math.min(
-    MINIMAP_WIDTH / Math.max(1, graphWidth),
-    MINIMAP_HEIGHT / Math.max(1, graphHeight),
+    minimapWidth / Math.max(1, graphWidth),
+    minimapHeight / Math.max(1, graphHeight),
   );
   const scaledGraphWidth = graphWidth * minimapScale;
   const scaledGraphHeight = graphHeight * minimapScale;
@@ -84,16 +94,16 @@ export function InteractiveSegmentMinimap({
     height: viewportSize.height / safeZoom,
   };
   const viewport = {
-    x: clamp(visibleGraphRect.x * minimapScale, 0, MINIMAP_WIDTH),
-    y: clamp(visibleGraphRect.y * minimapScale, 0, MINIMAP_HEIGHT),
-    width: clamp(visibleGraphRect.width * minimapScale, 12, MINIMAP_WIDTH),
-    height: clamp(visibleGraphRect.height * minimapScale, 12, MINIMAP_HEIGHT),
+    x: clamp(visibleGraphRect.x * minimapScale, 0, minimapWidth),
+    y: clamp(visibleGraphRect.y * minimapScale, 0, minimapHeight),
+    width: clamp(visibleGraphRect.width * minimapScale, 12, minimapWidth),
+    height: clamp(visibleGraphRect.height * minimapScale, 12, minimapHeight),
   };
 
   const centerAt = (event: PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const svgX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * MINIMAP_WIDTH;
-    const svgY = ((event.clientY - rect.top) / Math.max(1, rect.height)) * MINIMAP_HEIGHT;
+    const svgX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * minimapWidth;
+    const svgY = ((event.clientY - rect.top) / Math.max(1, rect.height)) * minimapHeight;
     const graphX = clamp(svgX, 0, scaledGraphWidth) / Math.max(0.001, minimapScale);
     const graphY = clamp(svgY, 0, scaledGraphHeight) / Math.max(0.001, minimapScale);
     onViewportPanChange({
@@ -121,17 +131,25 @@ export function InteractiveSegmentMinimap({
     }
   };
 
-  const maskPath = `M0,0h${MINIMAP_WIDTH}v${MINIMAP_HEIGHT}h-${MINIMAP_WIDTH}z M${viewport.x},${viewport.y}h${viewport.width}v${viewport.height}h-${viewport.width}z`;
+  const maskPath = `M0,0h${minimapWidth}v${minimapHeight}h-${minimapWidth}z M${viewport.x},${viewport.y}h${viewport.width}v${viewport.height}h-${viewport.width}z`;
 
   return (
-    <div className="canvas-bottom-overlay toolbar-bubble-surface interactive-segment-minimap pointer-events-auto absolute bottom-4 right-4 z-[50] flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md">
+    <div
+      className="canvas-bottom-overlay toolbar-bubble-surface interactive-segment-minimap pointer-events-auto absolute bottom-4 right-4 z-[50] flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md"
+      style={
+        {
+          '--interactive-minimap-width': `${minimapWidth}px`,
+          '--interactive-minimap-height': `${minimapHeight}px`,
+        } as CSSProperties
+      }
+    >
       <div className="minimap-clip w-full overflow-hidden rounded-t-xl">
         <div className="react-flow__panel react-flow__minimap !static !m-0 !block !border-none !bg-transparent">
           <svg
             className="react-flow__minimap-svg block cursor-pointer"
-            width={MINIMAP_WIDTH}
-            height={MINIMAP_HEIGHT}
-            viewBox={`0 0 ${MINIMAP_WIDTH} ${MINIMAP_HEIGHT}`}
+            width={minimapWidth}
+            height={minimapHeight}
+            viewBox={`0 0 ${minimapWidth} ${minimapHeight}`}
             onPointerDown={beginDrag}
             onPointerMove={drag}
             onPointerUp={endDrag}
@@ -140,32 +158,25 @@ export function InteractiveSegmentMinimap({
             role="img"
           >
             <title>{ariaLabel}</title>
-            <defs>
-              <marker
-                id="interactive-minimap-arrow"
-                markerWidth="5"
-                markerHeight="5"
-                refX="4.5"
-                refY="2.5"
-                orient="auto"
-              >
-                <path d="M0,0 L5,2.5 L0,5 Z" fill="currentColor" />
-              </marker>
-            </defs>
             {graphLinks.map((link) => {
               const from = renderPositions.get(link.fromSegmentId);
               const to = renderPositions.get(link.toSegmentId);
               if (!from || !to) return null;
+              const path = segmentLinkPath(
+                { x: from.x * minimapScale, y: from.y * minimapScale },
+                { x: to.x * minimapScale, y: to.y * minimapScale },
+                cardWidth * minimapScale,
+                cardHeight * minimapScale,
+                layoutDirection,
+                6,
+              );
               return (
-                <line
+                <path
                   key={link.id}
-                  x1={(from.x + cardWidth / 2) * minimapScale}
-                  y1={(from.y + cardHeight / 2) * minimapScale}
-                  x2={(to.x + cardWidth / 2) * minimapScale}
-                  y2={(to.y + cardHeight / 2) * minimapScale}
+                  d={path}
+                  fill="none"
                   stroke="currentColor"
                   strokeWidth="1"
-                  markerEnd="url(#interactive-minimap-arrow)"
                   className="interactive-segment-minimap-link"
                   opacity={link.isChoice ? lineOpacity : lineOpacity * 0.62}
                 />
@@ -240,7 +251,7 @@ export function InteractiveSegmentMinimap({
               <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
             </svg>
           </button>
-          {isDesktopViewport && (
+          {isDesktopViewport && showFullscreenToggle && (
             <button
               type="button"
               className="react-flow__controls-button !min-w-0 !flex-1 !w-auto"

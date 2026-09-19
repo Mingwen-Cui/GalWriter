@@ -94,6 +94,7 @@ import {
   PreviewToolbar,
 } from './WebPlaytestPreviewControls';
 import { WebPlaytestStartMenuElement } from './WebPlaytestStartMenuElement';
+import { WebStoryFlowGraph } from './WebStoryFlowGraph';
 import type {
   StartMenuAction,
   StartMenuElement,
@@ -145,7 +146,7 @@ type WebPlaytestPreviewProps = {
   showTestDebugInfo?: boolean;
 };
 
-export type WebPreviewSurface = 'start' | 'archive' | 'settings' | 'game';
+export type WebPreviewSurface = 'start' | 'archive' | 'settings' | 'flow' | 'game';
 
 export type WebPlaytestTestState = {
   currentNodeId: string | null;
@@ -239,13 +240,19 @@ export function WebPlaytestPreview({
   const [previewStartMenuOpen, setPreviewStartMenuOpen] = useState(settings.showStartMenu);
   const [previewStartSettingsOpen, setPreviewStartSettingsOpen] = useState(false);
   const [previewArchiveOpen, setPreviewArchiveOpen] = useState(false);
+  const [flowOverviewOpen, setFlowOverviewOpen] = useState(false);
   // The editor's surface picker is controlled by the workspace. Do not let a
   // transient runtime page state hide that surface while applying a preset.
   const controlledEditSurface =
-    previewMode === 'edit' && settings.showStartMenu ? requestedSurface : undefined;
+    previewMode === 'edit' && (settings.showStartMenu || requestedSurface === 'flow')
+      ? requestedSurface
+      : undefined;
+  const isPreviewFlowOverviewOpen = controlledEditSurface
+    ? controlledEditSurface === 'flow'
+    : flowOverviewOpen;
   const isPreviewStartMenuOpen = controlledEditSurface
-    ? controlledEditSurface !== 'game'
-    : previewStartMenuOpen;
+    ? controlledEditSurface !== 'game' && controlledEditSurface !== 'flow'
+    : previewStartMenuOpen && !flowOverviewOpen;
   const isPreviewStartSettingsOpen = controlledEditSurface
     ? controlledEditSurface === 'settings'
     : previewStartSettingsOpen;
@@ -393,22 +400,42 @@ export function WebPlaytestPreview({
       };
       startMenuAudioFadeFrameRef.current = window.requestAnimationFrame(tick);
     };
-    const targetVolume = Math.max(0, Math.min(1, (settings.startMenuMusicVolume ?? 70) / 100));
+    const isFlowMusic = isPreviewFlowOverviewOpen;
+    const musicUrl = isFlowMusic
+      ? settings.flowOverviewBackgroundMusicUrl
+      : settings.startMenuBackgroundMusicUrl;
+    const musicVolume = isFlowMusic
+      ? settings.flowOverviewMusicVolume
+      : settings.startMenuMusicVolume;
+    const musicFadeIn = isFlowMusic
+      ? settings.flowOverviewMusicFadeIn
+      : settings.startMenuMusicFadeIn;
+    const musicFadeOut = isFlowMusic
+      ? settings.flowOverviewMusicFadeOut
+      : settings.startMenuMusicFadeOut;
+    const musicLoop = isFlowMusic ? settings.flowOverviewMusicLoop : settings.startMenuMusicLoop;
+    const targetVolume = Math.max(0, Math.min(1, (musicVolume ?? 70) / 100));
     const overlayStopsMusic =
       (isPreviewArchiveOpen && !settings.startMenuMusicApplyToArchive) ||
       (isPreviewStartSettingsOpen && !settings.startMenuMusicApplyToSettings);
-    if (isPreviewStartMenuOpen && settings.startMenuBackgroundMusicUrl && !overlayStopsMusic) {
-      audio.loop = settings.startMenuMusicLoop !== false;
-      audio.volume = Number(settings.startMenuMusicFadeIn) > 0 ? 0 : targetVolume;
+    if ((isPreviewStartMenuOpen || isFlowMusic) && musicUrl && !overlayStopsMusic) {
+      audio.loop = musicLoop !== false;
+      audio.volume = Number(musicFadeIn) > 0 ? 0 : targetVolume;
       audio.play().catch(() => undefined);
-      fadeAudio(audio.volume, targetVolume, settings.startMenuMusicFadeIn);
+      fadeAudio(audio.volume, targetVolume, musicFadeIn);
       return;
     }
-    fadeAudio(audio.volume, 0, settings.startMenuMusicFadeOut, () => audio.pause());
+    fadeAudio(audio.volume, 0, musicFadeOut, () => audio.pause());
   }, [
     isPreviewArchiveOpen,
+    isPreviewFlowOverviewOpen,
     isPreviewStartMenuOpen,
     isPreviewStartSettingsOpen,
+    settings.flowOverviewBackgroundMusicUrl,
+    settings.flowOverviewMusicFadeIn,
+    settings.flowOverviewMusicFadeOut,
+    settings.flowOverviewMusicLoop,
+    settings.flowOverviewMusicVolume,
     settings.startMenuBackgroundMusicUrl,
     settings.startMenuMusicApplyToArchive,
     settings.startMenuMusicApplyToSettings,
@@ -474,6 +501,7 @@ export function WebPlaytestPreview({
     setPreviewStartMenuOpen(false);
     setPreviewStartSettingsOpen(false);
     setPreviewArchiveOpen(false);
+    setFlowOverviewOpen(false);
     setPreviewGameStarted(true);
   }, [settings.showStartMenu]);
   React.useLayoutEffect(() => {
@@ -481,39 +509,64 @@ export function WebPlaytestPreview({
     previousPreviewMode.current = previewMode;
     if (!enteringTest) return;
     const surface = settings.showStartMenu ? requestedSurface || 'start' : 'game';
-    setPreviewStartMenuOpen(surface !== 'game');
+    setPreviewStartMenuOpen(surface !== 'game' && surface !== 'flow');
     setPreviewStartSettingsOpen(surface === 'settings');
     setPreviewArchiveOpen(surface === 'archive');
+    setFlowOverviewOpen(surface === 'flow');
     setPreviewGameStarted(surface === 'game');
   }, [previewMode, requestedSurface, settings.showStartMenu]);
 
   React.useEffect(() => {
-    if (previewMode !== 'edit' || !settings.showStartMenu || !requestedSurface) return;
+    if (
+      previewMode !== 'edit' ||
+      (!settings.showStartMenu && requestedSurface !== 'flow') ||
+      !requestedSurface
+    )
+      return;
 
     if (requestedSurface === 'game') {
       setPreviewGameStarted(true);
       setPreviewStartSettingsOpen(false);
       setPreviewArchiveOpen(false);
+      setFlowOverviewOpen(false);
+      setPreviewStartMenuOpen(false);
+      return;
+    }
+
+    if (requestedSurface === 'flow') {
+      setPreviewGameStarted(false);
+      setPreviewStartSettingsOpen(false);
+      setPreviewArchiveOpen(false);
+      setFlowOverviewOpen(true);
       setPreviewStartMenuOpen(false);
       return;
     }
 
     setPreviewGameStarted(false);
+    setFlowOverviewOpen(false);
     setPreviewStartMenuOpen(true);
     setPreviewStartSettingsOpen(requestedSurface === 'settings');
     setPreviewArchiveOpen(requestedSurface === 'archive');
   }, [previewMode, requestedSurface, settings.showStartMenu]);
 
   React.useEffect(() => {
-    const surface: WebPreviewSurface = isPreviewStartMenuOpen
-      ? isPreviewStartSettingsOpen
-        ? 'settings'
-        : isPreviewArchiveOpen
-          ? 'archive'
-          : 'start'
-      : 'game';
+    const surface: WebPreviewSurface = isPreviewFlowOverviewOpen
+      ? 'flow'
+      : isPreviewStartMenuOpen
+        ? isPreviewStartSettingsOpen
+          ? 'settings'
+          : isPreviewArchiveOpen
+            ? 'archive'
+            : 'start'
+        : 'game';
     onSurfaceChange?.(surface);
-  }, [isPreviewArchiveOpen, isPreviewStartMenuOpen, isPreviewStartSettingsOpen, onSurfaceChange]);
+  }, [
+    isPreviewArchiveOpen,
+    isPreviewFlowOverviewOpen,
+    isPreviewStartMenuOpen,
+    isPreviewStartSettingsOpen,
+    onSurfaceChange,
+  ]);
 
   const currentNode =
     currentNodeId && currentNodeId !== 'THE_END'
@@ -523,6 +576,7 @@ export function WebPlaytestPreview({
     !isPreviewStartMenuOpen &&
     !isPreviewStartSettingsOpen &&
     !isPreviewArchiveOpen &&
+    !isPreviewFlowOverviewOpen &&
     (previewMode === 'edit' || previewGameStarted);
   const storyPlaybackActive =
     storySurfaceActive && !showDialogueHistory && !showAudioPlaylist && !playbackSettingsButton;
@@ -1210,7 +1264,22 @@ export function WebPlaytestPreview({
     setPreviewGameStarted(true);
     setPreviewStartMenuOpen(false);
     setPreviewArchiveOpen(false);
+    setFlowOverviewOpen(false);
     reset();
+  };
+
+  const startPreviewFromNode = (nodeId: string) => {
+    const target = runtimeNodes.find((node) => node.id === nodeId);
+    if (!target) return;
+    restartPlaybackSession();
+    setHistory([]);
+    setCurrentNodeId(target.id);
+    setEndingDismissed(false);
+    setPreviewGameStarted(true);
+    setPreviewStartMenuOpen(false);
+    setPreviewStartSettingsOpen(false);
+    setPreviewArchiveOpen(false);
+    setFlowOverviewOpen(false);
   };
 
   const back = () => {
@@ -1244,6 +1313,7 @@ export function WebPlaytestPreview({
     setPreviewGameStarted(false);
     setPreviewStartSettingsOpen(false);
     setPreviewArchiveOpen(false);
+    setFlowOverviewOpen(false);
     setPreviewStartMenuOpen(true);
   };
 
@@ -1319,10 +1389,10 @@ export function WebPlaytestPreview({
         : 'place-items-center text-center';
   const startMenuBackgroundClass =
     settings.startMenuTemplate === 'minimal'
-      ? 'bg-slate-950'
+      ? 'bg-white'
       : settings.startMenuTemplate === 'glass'
-        ? 'bg-[linear-gradient(135deg,rgba(15,23,42,0.72),rgba(8,145,178,0.34)),radial-gradient(circle_at_18%_22%,rgba(255,255,255,0.20),transparent_34%),#07111f]'
-        : 'bg-[radial-gradient(circle_at_50%_18%,rgba(14,165,233,0.24),transparent_42%),linear-gradient(180deg,rgba(4,8,14,0.44),rgba(4,8,14,0.94)),#070b12]';
+        ? 'bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(238,242,255,0.88)),radial-gradient(circle_at_18%_22%,rgba(98,91,246,0.16),transparent_34%),#ffffff]'
+        : 'bg-[radial-gradient(circle_at_16%_18%,rgba(98,91,246,0.16),transparent_36%),linear-gradient(135deg,#ffffff,#eef2ff)]';
   const startMenuPanelSurfaceClass =
     settings.startMenuTemplate === 'glass'
       ? 'rounded-[18px] border border-white/16 bg-white/[0.08] p-6 shadow-2xl shadow-black/35 backdrop-blur-2xl'
@@ -1342,6 +1412,13 @@ export function WebPlaytestPreview({
         ? 100 - 8 - defaultButtonWidth
         : 50 - defaultButtonWidth / 2;
   const startMenuActions = [
+    {
+      key: 'flowOverview',
+      label: language === 'zh' ? '流程图总览' : language === 'ja' ? 'フロー概要' : 'Flow overview',
+      disabled: false,
+      primary: false,
+      onClick: () => setFlowOverviewOpen(true),
+    },
     getActiveWebSaveSlot(previewSaves) &&
     getActiveWebSaveSlot(previewSaves)?.currentId !== 'THE_END' &&
     runtimeNodes.some((node) => node.id === getActiveWebSaveSlot(previewSaves)?.currentId)
@@ -1439,10 +1516,34 @@ export function WebPlaytestPreview({
       startMenuActions,
     ],
   );
-  const startMenuElements =
+  const rawStartMenuElements =
     settings.startMenuElements && settings.startMenuElements.length > 0
-      ? settings.startMenuElements
+      ? settings.startMenuElements.some((element) => element.role === 'flowOverview')
+        ? settings.startMenuElements
+        : [
+            ...settings.startMenuElements,
+            ...defaultStartMenuElements
+              .filter((element) => element.role === 'flowOverview')
+              .map((element) => ({ ...element, id: `system-${element.id}` })),
+          ]
       : defaultStartMenuElements;
+  const startMenuElements = rawStartMenuElements.map((element) =>
+    element.role === 'title' || element.role === 'subtitle'
+      ? { ...element, textAlign: 'center' as const }
+      : element,
+  );
+  const flowOverviewElements = settings.flowOverviewElements || [];
+  const editableSurfaceElements = isPreviewFlowOverviewOpen
+    ? flowOverviewElements
+    : startMenuElements;
+  const commitEditableSurfaceElements = React.useCallback(
+    (next: StartMenuElement[]) =>
+      onUpdateSettings(
+        isPreviewFlowOverviewOpen ? 'flowOverviewElements' : 'startMenuElements',
+        next,
+      ),
+    [isPreviewFlowOverviewOpen, onUpdateSettings],
+  );
   const defaultArchivePageElements = React.useMemo(
     () => buildArchivePageElements(language, choiceColor, choiceTextColor),
     [choiceColor, choiceTextColor, language],
@@ -1533,15 +1634,22 @@ export function WebPlaytestPreview({
   );
   const updateStartMenuElement = React.useCallback(
     (id: string, patch: Partial<StartMenuElement>) => {
-      const source =
-        settings.startMenuElements && settings.startMenuElements.length > 0
+      const source = isPreviewFlowOverviewOpen
+        ? flowOverviewElements
+        : settings.startMenuElements && settings.startMenuElements.length > 0
           ? settings.startMenuElements
           : defaultStartMenuElements;
-      commitStartMenuElements(
+      commitEditableSurfaceElements(
         source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
       );
     },
-    [commitStartMenuElements, defaultStartMenuElements, settings.startMenuElements],
+    [
+      commitEditableSurfaceElements,
+      defaultStartMenuElements,
+      flowOverviewElements,
+      isPreviewFlowOverviewOpen,
+      settings.startMenuElements,
+    ],
   );
   const beginStartMenuEditDrag = (
     event: React.PointerEvent<HTMLElement>,
@@ -1555,11 +1663,13 @@ export function WebPlaytestPreview({
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
-    const source =
-      settings.startMenuElements && settings.startMenuElements.length > 0
+    const source = isPreviewFlowOverviewOpen
+      ? flowOverviewElements
+      : settings.startMenuElements && settings.startMenuElements.length > 0
         ? settings.startMenuElements
         : defaultStartMenuElements;
-    if (!settings.startMenuElements?.length) commitStartMenuElements(defaultStartMenuElements);
+    if (!isPreviewFlowOverviewOpen && !settings.startMenuElements?.length)
+      commitStartMenuElements(defaultStartMenuElements);
     const shouldMoveGroup =
       type === 'move' &&
       selectedStartMenuElementIds.length > 1 &&
@@ -1645,7 +1755,7 @@ export function WebPlaytestPreview({
     if (!marquee || !box) return;
     event?.preventDefault();
     event?.stopPropagation();
-    const selectedIds = testStartMenuElements
+    const selectedIds = editableSurfaceElements
       .filter((element) => {
         if (!element.visible && previewMode !== 'edit') return false;
         return (
@@ -1674,7 +1784,9 @@ export function WebPlaytestPreview({
     if (!drag) return;
     const dx = ((event.clientX - drag.startClientX) / drag.rect.width) * 100;
     const dy = ((event.clientY - drag.startClientY) / drag.rect.height) * 100;
-    const bounds = startMenuPlacementBounds;
+    const bounds = isPreviewFlowOverviewOpen
+      ? { minX: 0, minY: 0, maxX: 100, maxY: 100 }
+      : startMenuPlacementBounds;
     if (drag.type === 'move') {
       const groupInitial =
         drag.groupInitial && drag.groupInitial.length > 0 ? drag.groupInitial : [drag.initial];
@@ -1684,7 +1796,7 @@ export function WebPlaytestPreview({
         width: drag.initial.width,
         height: drag.initial.height,
         rect: drag.rect,
-        elements: startMenuElements,
+        elements: editableSurfaceElements,
         movingId: drag.id,
       });
       setActiveStartMenuGuideLines(snapped.lines);
@@ -1705,7 +1817,7 @@ export function WebPlaytestPreview({
       const movingIds = new Set(drag.groupIds || [drag.id]);
       const initialById = new Map(groupInitial.map((item) => [item.id, item]));
       commitStartMenuElements(
-        startMenuElements.map((item) =>
+        editableSurfaceElements.map((item) =>
           movingIds.has(item.id) && initialById.has(item.id)
             ? {
                 ...item,
@@ -1746,7 +1858,7 @@ export function WebPlaytestPreview({
         height: nextHeight,
         handle,
         rect: drag.rect,
-        elements: startMenuElements,
+        elements: editableSurfaceElements,
         movingId: drag.id,
       });
       nextX = snapped.x;
@@ -1796,7 +1908,7 @@ export function WebPlaytestPreview({
     document.body.style.cursor = '';
   };
   const buildSurfaceBackgroundStyle = (
-    surface: 'start' | 'archive' | 'settings' | 'game',
+    surface: 'start' | 'archive' | 'settings' | 'game' | 'flow',
   ): React.CSSProperties | undefined => {
     if (settings.surfaceAppearances?.[surface])
       return surface === 'start' || surface === 'game'
@@ -1846,6 +1958,7 @@ export function WebPlaytestPreview({
   const archiveBackgroundStyle = buildSurfaceBackgroundStyle('archive');
   const settingsBackgroundStyle = buildSurfaceBackgroundStyle('settings');
   const dialogueBackgroundStyle = buildSurfaceBackgroundStyle('game');
+  const flowOverviewBackgroundStyle = buildSurfaceBackgroundStyle('flow');
 
   const renderStartMenuPreview = () => {
     if (!settings.showStartMenu || !isPreviewStartMenuOpen) return null;
@@ -1856,7 +1969,7 @@ export function WebPlaytestPreview({
 
     return (
       <div
-        className={`absolute inset-0 z-40 grid text-white ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
+        className={`absolute inset-0 z-40 grid text-[#252A59] ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
         style={startMenuBackgroundStyle}
         onPointerMove={handleStartMenuEditPointerMove}
         onPointerUp={stopStartMenuEditDrag}
@@ -2073,6 +2186,122 @@ export function WebPlaytestPreview({
     );
   };
 
+  const renderFlowOverviewPreview = () => {
+    if (!isPreviewFlowOverviewOpen) return null;
+    const background = getSurfaceBackground(settings, 'flow');
+    return (
+      <div
+        className="absolute inset-0 z-[80] overflow-hidden text-slate-900"
+        style={flowOverviewBackgroundStyle}
+        onPointerMove={handleStartMenuEditPointerMove}
+        onPointerUp={stopStartMenuEditDrag}
+        onPointerCancel={stopStartMenuEditDrag}
+        onClick={(event) => {
+          if (previewMode === 'edit' && event.target === event.currentTarget) {
+            setSelectedStartMenuElementId(null);
+          }
+        }}
+      >
+        {settings.flowOverviewBackgroundMusicUrl && (
+          <audio
+            ref={startMenuAudioRef}
+            muted={!settings.soundEnabled}
+            src={settings.flowOverviewBackgroundMusicUrl}
+            preload="auto"
+            loop={settings.flowOverviewMusicLoop !== false}
+            className="hidden"
+          />
+        )}
+        <SurfaceLayers muted={!settings.soundEnabled} value={settings.surfaceAppearances?.flow} />
+        {!settings.surfaceAppearances?.flow &&
+          background.type === 'video' &&
+          background.videoUrl && (
+            <video
+              src={background.videoUrl}
+              autoPlay
+              playsInline
+              loop={background.videoLoop}
+              muted={!settings.soundEnabled || background.videoMuted}
+              className={`pointer-events-none absolute inset-0 h-full w-full ${background.videoFit === 'fit' ? 'object-contain' : 'object-cover'}`}
+            />
+          )}
+        <div
+          ref={startMenuEditorRef}
+          className="absolute inset-0 z-10"
+          onPointerDown={beginStartMenuMarquee}
+          onContextMenu={(event) => {
+            if (previewMode === 'edit') event.preventDefault();
+          }}
+        >
+          <WebStoryFlowGraph
+            language={language}
+            nodes={nodes}
+            edges={edges}
+            minimapWidth={settings.flowOverviewMinimapWidth}
+            minimapHeight={settings.flowOverviewMinimapHeight}
+            transparentSurface
+            onClose={previewMode === 'test' ? () => setFlowOverviewOpen(false) : undefined}
+            onPlayFromNode={startPreviewFromNode}
+          />
+          {previewMode === 'edit' && activeStartMenuGuideLines.length > 0 && (
+            <div className="pointer-events-none absolute inset-0 z-30">
+              {activeStartMenuGuideLines.map((line, index) => (
+                <div
+                  key={`${line.axis}-${line.value}-${index}`}
+                  className={
+                    line.axis === 'x'
+                      ? 'absolute top-0 h-full border-l-[1.5px] border-dashed border-[#ef4444]'
+                      : 'absolute left-0 w-full border-t-[1.5px] border-dashed border-[#ef4444]'
+                  }
+                  style={line.axis === 'x' ? { left: `${line.value}%` } : { top: `${line.value}%` }}
+                />
+              ))}
+            </div>
+          )}
+          {flowOverviewElements.map((element) => (
+            <WebPlaytestStartMenuElement
+              key={element.id}
+              element={element}
+              selected={
+                selectedStartMenuElementId === element.id ||
+                selectedStartMenuElementIds.includes(element.id)
+              }
+              gradientEditing={
+                gradientEditingElement?.id === element.id ? gradientEditingElement.group : null
+              }
+              imageCropEditing={imageCropEditingElementId === element.id}
+              action={element.kind === 'button' ? getStartMenuElementAction(element) : null}
+              previewMode={previewMode}
+              editingStartMenuElementId={editingStartMenuElementId}
+              hasCustomStartMenuElements
+              settings={settings}
+              choiceColor={choiceColor}
+              choiceTextColor={choiceTextColor}
+              language={language}
+              onEnsureStartMenuElements={() => undefined}
+              onSelectElement={setSelectedStartMenuElementId}
+              onSetEditingElement={setEditingStartMenuElementId}
+              onUpdateElement={updateStartMenuElement}
+              onDeleteElement={onDeleteStartMenuElement}
+              onBeginDrag={beginStartMenuEditDrag}
+            />
+          ))}
+          {previewMode === 'edit' && startMenuMarqueeBox && (
+            <div
+              className="pointer-events-none absolute z-[70] border border-sky-400 bg-sky-400/14"
+              style={{
+                left: `${startMenuMarqueeBox.x}%`,
+                top: `${startMenuMarqueeBox.y}%`,
+                width: `${startMenuMarqueeBox.width}%`,
+                height: `${startMenuMarqueeBox.height}%`,
+              }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderChoiceButtons = (extraClass = '') => {
     if (!shouldShowChoices) return null;
     if (outEdges.length === 0) {
@@ -2088,6 +2317,9 @@ export function WebPlaytestPreview({
           extraClass={extraClass}
           choiceColor={choiceColor}
           choiceTextColor={choiceTextColor}
+          renderStyle={renderStyle}
+          previewMode={previewMode}
+          onSelectRenderObject={selectRenderObject}
         />
       );
     }
@@ -2110,6 +2342,9 @@ export function WebPlaytestPreview({
         extraClass={extraClass}
         choiceColor={choiceColor}
         choiceTextColor={choiceTextColor}
+        renderStyle={renderStyle}
+        previewMode={previewMode}
+        onSelectRenderObject={selectRenderObject}
       />
     );
   };
@@ -2671,6 +2906,7 @@ export function WebPlaytestPreview({
           />
         )}
       {renderStartMenuPreview()}
+      {renderFlowOverviewPreview()}
     </div>
   );
 }

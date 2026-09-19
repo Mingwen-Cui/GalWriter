@@ -11,6 +11,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  GitBranch,
   Gamepad2,
   Hand,
   ImagePlus,
@@ -139,14 +140,23 @@ function TemplateMiniPreview({
               angle: settings.dialogueBackgroundGradientAngle,
               image: settings.dialogueBackgroundImageUrl,
             }
-          : {
-              type: settings.startMenuBackgroundType,
-              color: settings.startMenuBackgroundColor,
-              start: settings.startMenuBackgroundGradientStart,
-              end: settings.startMenuBackgroundGradientEnd,
-              angle: settings.startMenuBackgroundGradientAngle,
-              image: settings.startMenuBackgroundImageUrl,
-            };
+          : surface === 'flow'
+            ? {
+                type: settings.flowOverviewBackgroundType,
+                color: settings.flowOverviewBackgroundColor,
+                start: settings.flowOverviewBackgroundGradientStart,
+                end: settings.flowOverviewBackgroundGradientEnd,
+                angle: settings.flowOverviewBackgroundGradientAngle,
+                image: settings.flowOverviewBackgroundImageUrl,
+              }
+            : {
+                type: settings.startMenuBackgroundType,
+                color: settings.startMenuBackgroundColor,
+                start: settings.startMenuBackgroundGradientStart,
+                end: settings.startMenuBackgroundGradientEnd,
+                angle: settings.startMenuBackgroundGradientAngle,
+                image: settings.startMenuBackgroundImageUrl,
+              };
   const background =
     pageBackground.type === 'gradient'
       ? `linear-gradient(${pageBackground.angle ?? 135}deg, ${pageBackground.start || '#0f172a'}, ${pageBackground.end || accent})`
@@ -160,7 +170,9 @@ function TemplateMiniPreview({
         ? settings.settingsPageElements
         : surface === 'game'
           ? settings.dialogueOverlayElements
-          : settings.startMenuElements) || []
+          : surface === 'flow'
+            ? settings.flowOverviewElements
+            : settings.startMenuElements) || []
   )
     .filter((element) => element.visible && element.width > 0 && element.height > 0)
     .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
@@ -373,12 +385,18 @@ export function WebWorkspace({
       settingsBackgroundVideoUrl: stripDataUrl(webSettings.settingsBackgroundVideoUrl),
       dialogueBackgroundImageUrl: stripDataUrl(webSettings.dialogueBackgroundImageUrl),
       dialogueBackgroundVideoUrl: stripDataUrl(webSettings.dialogueBackgroundVideoUrl),
+      flowOverviewBackgroundImageUrl:
+        stripDataUrl(webSettings.flowOverviewBackgroundImageUrl) || '',
+      flowOverviewBackgroundVideoUrl: stripDataUrl(webSettings.flowOverviewBackgroundVideoUrl),
+      flowOverviewBackgroundMusicUrl:
+        stripDataUrl(webSettings.flowOverviewBackgroundMusicUrl) || '',
       sceneBackgroundImageUrl: stripDataUrl(webSettings.sceneBackgroundImageUrl) || '',
       startMenuElements: webSettings.startMenuElements.map(stripElementMedia),
       archivePageElements: (webSettings.archivePageElements || []).map(stripElementMedia),
       settingsPageElements: (webSettings.settingsPageElements || []).map(stripElementMedia),
       previewToolbarElements: (webSettings.previewToolbarElements || []).map(stripElementMedia),
       dialogueOverlayElements: (webSettings.dialogueOverlayElements || []).map(stripElementMedia),
+      flowOverviewElements: (webSettings.flowOverviewElements || []).map(stripElementMedia),
     };
     const surfaceKeys: Record<WebPreviewSurface, Array<keyof WebExportSettings>> = {
       start: [
@@ -476,6 +494,28 @@ export function WebWorkspace({
         'previewToolbarElements',
         'dialogueOverlayElements',
       ],
+      flow: [
+        'flowOverviewBackgroundType',
+        'flowOverviewBackgroundColor',
+        'flowOverviewBackgroundGradientStart',
+        'flowOverviewBackgroundGradientEnd',
+        'flowOverviewBackgroundGradientAngle',
+        'flowOverviewBackgroundGradientShape',
+        'flowOverviewBackgroundGradientStops',
+        'flowOverviewBackgroundImageUrl',
+        'flowOverviewBackgroundVideoUrl',
+        'flowOverviewBackgroundVideoLoop',
+        'flowOverviewBackgroundVideoMuted',
+        'flowOverviewBackgroundVideoFit',
+        'flowOverviewBackgroundMusicUrl',
+        'flowOverviewMusicVolume',
+        'flowOverviewMusicFadeIn',
+        'flowOverviewMusicFadeOut',
+        'flowOverviewMusicLoop',
+        'flowOverviewElements',
+        'flowOverviewMinimapWidth',
+        'flowOverviewMinimapHeight',
+      ],
     };
     const settings =
       scope === 'all'
@@ -516,12 +556,16 @@ export function WebWorkspace({
         settingsBackgroundVideoUrl: clearDataUrl(settings.settingsBackgroundVideoUrl),
         dialogueBackgroundImageUrl: clearDataUrl(settings.dialogueBackgroundImageUrl),
         dialogueBackgroundVideoUrl: clearDataUrl(settings.dialogueBackgroundVideoUrl),
+        flowOverviewBackgroundImageUrl: clearDataUrl(settings.flowOverviewBackgroundImageUrl),
+        flowOverviewBackgroundVideoUrl: clearDataUrl(settings.flowOverviewBackgroundVideoUrl),
+        flowOverviewBackgroundMusicUrl: clearDataUrl(settings.flowOverviewBackgroundMusicUrl),
         sceneBackgroundImageUrl: clearDataUrl(settings.sceneBackgroundImageUrl),
         startMenuElements: compactElements(settings.startMenuElements),
         archivePageElements: compactElements(settings.archivePageElements),
         settingsPageElements: compactElements(settings.settingsPageElements),
         previewToolbarElements: compactElements(settings.previewToolbarElements),
         dialogueOverlayElements: compactElements(settings.dialogueOverlayElements),
+        flowOverviewElements: compactElements(settings.flowOverviewElements),
       },
     });
   };
@@ -739,22 +783,27 @@ export function WebWorkspace({
     | 'startMenuElements'
     | 'archivePageElements'
     | 'settingsPageElements'
+    | 'flowOverviewElements'
     | 'previewToolbarElements' =
     currentPreviewSurface === 'archive'
       ? 'archivePageElements'
       : currentPreviewSurface === 'settings'
         ? 'settingsPageElements'
-        : currentPreviewSurface === 'game'
-          ? 'previewToolbarElements'
-          : 'startMenuElements';
+        : currentPreviewSurface === 'flow'
+          ? 'flowOverviewElements'
+          : currentPreviewSurface === 'game'
+            ? 'previewToolbarElements'
+            : 'startMenuElements';
   const activePageElements =
     activeElementSettingsKey === 'archivePageElements'
       ? archivePageElements
       : activeElementSettingsKey === 'settingsPageElements'
         ? settingsPageElements
-        : activeElementSettingsKey === 'previewToolbarElements'
-          ? [...resolvedToolbarElements, ...(webSettings.dialogueOverlayElements || [])]
-          : webSettings.startMenuElements || [];
+        : activeElementSettingsKey === 'flowOverviewElements'
+          ? webSettings.flowOverviewElements || []
+          : activeElementSettingsKey === 'previewToolbarElements'
+            ? [...resolvedToolbarElements, ...(webSettings.dialogueOverlayElements || [])]
+            : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
   const handleGradientEditingChange = useCallback(
@@ -900,6 +949,14 @@ export function WebWorkspace({
       setSelectedStartMenuElementId(null);
       return;
     }
+    if (currentPreviewSurface === 'flow' || id.startsWith('flowOverview:')) {
+      updateWebSettings(
+        'flowOverviewElements',
+        (webSettings.flowOverviewElements || []).filter((element) => element.id !== id),
+      );
+      setSelectedStartMenuElementId(null);
+      return;
+    }
     updateWebSettings(
       'startMenuElements',
       (webSettings.startMenuElements || []).filter((element) => element.id !== id),
@@ -1007,6 +1064,11 @@ export function WebWorkspace({
       title: formatWebText(language, 'componentsrenderwebWebWorkspaceText930'),
       backgroundSurface: 'settings' as const,
     },
+    flow: {
+      icon: GitBranch,
+      title: formatWebText(language, 'componentsrenderwebWebWorkspaceText935_flow'),
+      backgroundSurface: 'flow' as const,
+    },
     game: {
       icon: Palette,
       title: formatWebText(language, 'componentsrenderwebWebWorkspaceText935'),
@@ -1017,7 +1079,7 @@ export function WebWorkspace({
     {
       icon: LucideIcon;
       title: string;
-      backgroundSurface: 'start' | 'archive' | 'settings' | 'game';
+      backgroundSurface: 'start' | 'archive' | 'settings' | 'game' | 'flow';
     }
   >;
   const currentSurfaceMeta = surfaceMeta[currentPreviewSurface];
@@ -1080,14 +1142,61 @@ export function WebWorkspace({
           onSelectionChange={setDialogueSelection}
         />
       ) : (
-        <StartMenuBackgroundInspector
-          settings={webSettings}
-          language={language}
-          showDescriptions={showSettingDescriptions}
-          surface={currentSurfaceMeta.backgroundSurface}
-          updateWebSettings={updateWebSettings}
-          onGradientEditingChange={setGradientEditingSurface}
-        />
+        <>
+          <StartMenuBackgroundInspector
+            settings={webSettings}
+            language={language}
+            showDescriptions={showSettingDescriptions}
+            surface={currentSurfaceMeta.backgroundSurface}
+            updateWebSettings={updateWebSettings}
+            onGradientEditingChange={setGradientEditingSurface}
+          />
+          {currentPreviewSurface === 'flow' && (
+            <div className="mt-2 space-y-2 rounded-lg bg-[var(--vr-surface-soft)] p-3">
+              <div className="text-[10px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                {formatWebText(language, 'componentsrenderwebWebWorkspaceText935_flow')}
+              </div>
+              <label className="block text-xs text-[var(--vr-text-soft)]">
+                <span className="flex justify-between">
+                  <span>
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText936_flow_width')}
+                  </span>
+                  <span>{Math.round(webSettings.flowOverviewMinimapWidth)}px</span>
+                </span>
+                <input
+                  type="range"
+                  min={160}
+                  max={440}
+                  step={10}
+                  value={webSettings.flowOverviewMinimapWidth}
+                  onChange={(event) =>
+                    updateWebSettings('flowOverviewMinimapWidth', Number(event.target.value))
+                  }
+                  className="mt-2 w-full accent-indigo-600"
+                />
+              </label>
+              <label className="block text-xs text-[var(--vr-text-soft)]">
+                <span className="flex justify-between">
+                  <span>
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText937_flow_height')}
+                  </span>
+                  <span>{Math.round(webSettings.flowOverviewMinimapHeight)}px</span>
+                </span>
+                <input
+                  type="range"
+                  min={110}
+                  max={320}
+                  step={10}
+                  value={webSettings.flowOverviewMinimapHeight}
+                  onChange={(event) =>
+                    updateWebSettings('flowOverviewMinimapHeight', Number(event.target.value))
+                  }
+                  className="mt-2 w-full accent-indigo-600"
+                />
+              </label>
+            </div>
+          )}
+        </>
       )}
     </WebSurfaceInspectorPanel>
   );
@@ -1192,6 +1301,31 @@ export function WebWorkspace({
       addDialogueOverlayText();
       return;
     }
+    if (currentPreviewSurface === 'flow') {
+      const id = `flow-text-${Date.now()}`;
+      updateWebSettings('flowOverviewElements', [
+        ...(webSettings.flowOverviewElements || []),
+        {
+          id,
+          kind: 'text',
+          role: 'custom',
+          text: '',
+          visible: true,
+          x: 18,
+          y: 12,
+          width: 28,
+          height: 7,
+          scale: 1,
+          rotation: 0,
+          fontSize: 18,
+          fontWeight: 600,
+          textColor: '#0f172a',
+          borderRadius: 0,
+        },
+      ]);
+      setSelectedStartMenuElementId(id);
+      return;
+    }
     const id = `${currentPreviewSurface}-text-${Date.now()}`;
     const key =
       currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
@@ -1225,6 +1359,29 @@ export function WebWorkspace({
     }
     if (currentPreviewSurface === 'game') {
       addDialogueOverlayImage();
+      return;
+    }
+    if (currentPreviewSurface === 'flow') {
+      const id = `flow-image-${Date.now()}`;
+      updateWebSettings('flowOverviewElements', [
+        ...(webSettings.flowOverviewElements || []),
+        {
+          id,
+          kind: 'image',
+          role: 'custom',
+          text: '',
+          visible: true,
+          x: 72,
+          y: 12,
+          width: 18,
+          height: 18,
+          scale: 1,
+          rotation: 0,
+          imageUrl: '',
+          borderRadius: 12,
+        },
+      ]);
+      setSelectedStartMenuElementId(id);
       return;
     }
     const id = `${currentPreviewSurface}-image-${Date.now()}`;
@@ -1295,6 +1452,11 @@ export function WebWorkspace({
           toolbarRowGap(resolvedToolbarElements),
         ),
       );
+    } else if (currentPreviewSurface === 'flow') {
+      updateWebSettings('flowOverviewElements', [
+        ...(webSettings.flowOverviewElements || []),
+        button,
+      ]);
     } else {
       const key =
         currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
@@ -1334,6 +1496,11 @@ export function WebWorkspace({
         ...(sourceKey === 'previewToolbarElements'
           ? resolvedToolbarElements
           : webSettings[sourceKey] || []),
+        pasted,
+      ]);
+    } else if (currentPreviewSurface === 'flow') {
+      updateWebSettings('flowOverviewElements', [
+        ...(webSettings.flowOverviewElements || []),
         pasted,
       ]);
     } else {
@@ -1767,7 +1934,7 @@ JSON schema:
               settings={webSettings}
               projectTitle={webProjectName}
               previewMode={startMenuPreviewMode}
-              requestedSurface={webSettings.showStartMenu ? editPreviewSurface : 'game'}
+              requestedSurface={editPreviewSurface}
               selectedStartMenuElementId={selectedStartMenuElementId}
               imageCropEditingElementId={imageCropEditingElementId}
               gradientEditingSurface={gradientEditingSurface}
@@ -1993,6 +2160,13 @@ JSON schema:
                               disabled: !webSettings.showStartMenu,
                             },
                             {
+                              value: 'flow',
+                              label: formatWebText(
+                                language,
+                                'componentsrenderwebWebWorkspaceText935_flow',
+                              ),
+                            },
+                            {
                               value: 'game',
                               label: formatWebText(
                                 language,
@@ -2000,7 +2174,7 @@ JSON schema:
                               ),
                             },
                           ]}
-                          columns="grid-cols-4"
+                          columns="grid-cols-5"
                           onChange={(value) => {
                             const surface = value as WebPreviewSurface;
                             setSelectedStartMenuElementId(null);

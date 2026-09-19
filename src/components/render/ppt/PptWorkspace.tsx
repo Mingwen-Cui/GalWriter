@@ -888,6 +888,7 @@ export function PptWorkspace({
         'dialog-title': 'title',
         'dialog-body': 'body',
         nameplate: 'nameplate',
+        choice: 'choice',
       } as const
     )[selection.target];
     if (renderObject) updateRenderStyle('selectedRenderObject', renderObject);
@@ -1555,7 +1556,19 @@ export function SlideCanvas({
             />
           ) : scene ? (
             isChoiceSlide ? (
-              <ChoicePreview scene={scene} colors={colors} onChoose={onChoose} />
+              <ChoicePreview
+                scene={scene}
+                colors={colors}
+                renderStyle={renderStyle}
+                selected={selected}
+                animations={animations}
+                previewing={previewing}
+                previewAtMs={previewAtMs}
+                editable={editable}
+                onSelect={onSelect}
+                onUpdate={onUpdateObject}
+                onChoose={onChoose}
+              />
             ) : (
               <ScenePreview
                 canvasWidth={webSettings.canvasWidth}
@@ -2521,13 +2534,33 @@ function PptEditableObject({
 
 function ChoicePreview({
   scene,
-  colors: _colors,
+  colors,
+  renderStyle,
+  selected,
+  animations,
+  previewing,
+  previewAtMs,
+  editable = false,
+  onSelect,
+  onUpdate,
   onChoose,
 }: {
   scene: Scene;
   colors: ReturnType<typeof pptSceneColors>;
+  renderStyle: RenderStyle;
+  selected: Selection | null;
+  animations: PptObjectAnimation[];
+  previewing: boolean;
+  previewAtMs?: number;
+  editable?: boolean;
+  onSelect: (selection: Selection) => void;
+  onUpdate?: (kind: RenderEditableObjectKind, patch: Partial<RenderEditableObject>) => void;
   onChoose?: (targetId: string) => void;
 }) {
+  const choiceObject = getRenderObjects(renderStyle).choice;
+  const choiceWidth = Math.max(35, Math.min(90, choiceObject.width));
+  const choiceLeft = 50 - choiceWidth / 2 + choiceObject.x / 19.2;
+  const choiceTop = 34 + choiceObject.y / 10.8;
   return (
     <>
       <div className="absolute inset-0 z-0">
@@ -2550,43 +2583,88 @@ function ChoicePreview({
         ) : null}
       </div>
       <div className="absolute inset-0 z-[1] bg-slate-950/55" />
-      <div
-        className="absolute inset-x-[16%] top-[16%] z-20 text-center text-white"
-        onContextMenu={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
+      <PptEditableObject
+        kind="choice"
+        target="choice"
+        label="故事选项"
+        object={choiceObject}
+        selected={selected}
+        animation={findAnimation(animations, 'choice')}
+        previewing={previewing}
+        previewAtMs={previewAtMs}
+        editable={editable}
+        onSelect={onSelect}
+        onUpdate={onUpdate}
+        className="absolute z-20 text-center text-white"
+        style={{
+          left: `${choiceLeft}%`,
+          top: `${choiceTop}%`,
+          width: `${choiceWidth}%`,
+          minHeight: `${Math.max(40, choiceObject.height)}px`,
+          transform: `rotate(${choiceObject.rotation || 0}deg) scale(${choiceObject.flipX ? -1 : 1}, ${choiceObject.flipY ? -1 : 1})`,
         }}
       >
-        <p className="text-sm font-bold tracking-[0.28em] text-white/70">CHOOSE YOUR ROUTE</p>
-        <h2 className="mt-3 text-3xl font-black">你的选择是？</h2>
-        <div className="mt-9 space-y-3">
-          {scene.choices.map((choice, index) =>
-            onChoose ? (
-              <button
-                key={`${choice.label}-${index}`}
-                type="button"
-                onClick={() => choice.targetId && onChoose(choice.targetId)}
-                className="block w-full rounded-xl border border-white/30 bg-slate-950/70 px-6 py-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-slate-900/85"
-              >
-                <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-xs font-black">
-                  {index + 1}
-                </span>
-                <span className="text-lg font-bold">{choice.label}</span>
-              </button>
-            ) : (
-              <div
-                key={`${choice.label}-${index}`}
-                className="block w-full rounded-xl border border-white/30 bg-slate-950/70 px-6 py-4 text-left shadow-lg"
-              >
-                <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-xs font-black">
-                  {index + 1}
-                </span>
-                <span className="text-lg font-bold">{choice.label}</span>
-              </div>
-            ),
-          )}
+        <div
+          className="grid w-full"
+          style={{ gap: renderStyle.choiceGap ?? 8 }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          <p className="text-sm font-bold tracking-[0.28em] text-white/70">CHOOSE YOUR ROUTE</p>
+          <h2 className="mt-3 text-3xl font-black">你的选择是？</h2>
+          <div className="mt-9 grid" style={{ gap: renderStyle.choiceGap ?? 8 }}>
+            {scene.choices.map((choice, index) =>
+              onChoose ? (
+                <button
+                  key={`${choice.label}-${index}`}
+                  type="button"
+                  onClick={() => choice.targetId && onChoose(choice.targetId)}
+                  className="block w-full px-6 py-4 text-left transition hover:-translate-y-0.5 hover:brightness-110"
+                  style={{
+                    ...objectPaint(choiceObject),
+                    minHeight: Math.max(40, choiceObject.height),
+                    fontFamily: choiceObject.fontFamily,
+                    fontSize: choiceObject.fontSize,
+                    fontWeight: choiceObject.fontWeight,
+                    lineHeight: choiceObject.lineHeight,
+                    letterSpacing: choiceObject.letterSpacing,
+                    color: colors.choice === '#ffffff' ? '#0f172a' : '#ffffff',
+                    transform: `translate(${index * (renderStyle.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle.choiceItemOffsetY ?? 0)}px)`,
+                  }}
+                >
+                  <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-xs font-black">
+                    {index + 1}
+                  </span>
+                  <span className="text-lg font-bold">{choice.label}</span>
+                </button>
+              ) : (
+                <div
+                  key={`${choice.label}-${index}`}
+                  className="block w-full px-6 py-4 text-left"
+                  style={{
+                    ...objectPaint(choiceObject),
+                    minHeight: Math.max(40, choiceObject.height),
+                    fontFamily: choiceObject.fontFamily,
+                    fontSize: choiceObject.fontSize,
+                    fontWeight: choiceObject.fontWeight,
+                    lineHeight: choiceObject.lineHeight,
+                    letterSpacing: choiceObject.letterSpacing,
+                    color: '#ffffff',
+                    transform: `translate(${index * (renderStyle.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle.choiceItemOffsetY ?? 0)}px)`,
+                  }}
+                >
+                  <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-indigo-500 text-xs font-black">
+                    {index + 1}
+                  </span>
+                  <span className="text-lg font-bold">{choice.label}</span>
+                </div>
+              ),
+            )}
+          </div>
         </div>
-      </div>
+      </PptEditableObject>
     </>
   );
 }

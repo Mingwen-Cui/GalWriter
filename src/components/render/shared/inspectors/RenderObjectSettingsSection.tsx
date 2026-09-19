@@ -71,6 +71,7 @@ export function RenderObjectSettingsSection({
           title: '标题',
           body: '正文',
           nameplate: '人物名牌',
+          choice: '故事选项',
         }
       : language === 'ja'
         ? {
@@ -80,6 +81,7 @@ export function RenderObjectSettingsSection({
             title: 'タイトル',
             body: '本文',
             nameplate: 'ネームプレート',
+            choice: 'ストーリー選択肢',
           }
         : {
             scene: 'Scene',
@@ -88,6 +90,7 @@ export function RenderObjectSettingsSection({
             title: 'Title',
             body: 'Body',
             nameplate: 'Nameplate',
+            choice: 'Story choices',
           };
   const selectObject = (kind: RenderEditableObjectKind) => {
     changeSelection(kind);
@@ -125,22 +128,22 @@ export function RenderObjectSettingsSection({
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-4 gap-2 rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3">
-              {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map(
-                (kind) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    aria-pressed={currentSelection === kind}
-                    data-render-selection={kind}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={() => selectObject(kind)}
-                    className={`h-9 min-w-0 truncate rounded-lg px-2 text-left text-xs font-bold transition-colors ${currentSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-                  >
-                    {labels[kind]}
-                  </button>
-                ),
-              )}
+            <div className="grid grid-cols-5 gap-2 rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3">
+              {(
+                ['dialogBox', 'title', 'body', 'nameplate', 'choice'] as RenderEditableObjectKind[]
+              ).map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-pressed={currentSelection === kind}
+                  data-render-selection={kind}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={() => selectObject(kind)}
+                  className={`h-9 min-w-0 truncate rounded-lg px-2 text-left text-xs font-bold transition-colors ${currentSelection === kind ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                >
+                  {labels[kind]}
+                </button>
+              ))}
             </div>
           </div>
         )}

@@ -104,6 +104,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         <p class="start-subtitle" id="startSubtitle"></p>
       </div>
       <div class="start-actions">
+        <button class="start-action" id="flowOverviewButton" type="button"></button>
         <button class="start-action primary" id="continueGameButton" type="button"></button>
         <button class="start-action primary" id="saveSlotButton" type="button"></button>
         <button class="start-action" id="newGameButton" type="button"></button>
@@ -124,6 +125,24 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         <button class="settings-close" id="saveClose" type="button" aria-label="Close">&#10005;</button>
       </div>
       <div class="save-list" id="saveList"></div>
+    </div>
+  </div>
+  <div class="flow-overview-backdrop" id="flowOverviewBackdrop" role="dialog" aria-modal="true" aria-label="Flow overview">
+    <div class="flow-overview-panel" id="flowOverviewPanel">
+      <div class="flow-overview-head">
+        <div>
+          <div class="flow-overview-title" id="flowOverviewTitle"></div>
+          <div class="flow-overview-hint" id="flowOverviewHint"></div>
+        </div>
+        <button class="flow-overview-close" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
+      </div>
+      <div class="flow-overview-viewport" id="flowOverviewViewport">
+        <div class="flow-overview-canvas" id="flowOverviewCanvas"></div>
+        <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
+        <div class="flow-overview-minimap" id="flowOverviewMinimap" aria-hidden="true"></div>
+      </div>
+      <aside class="flow-overview-detail" id="flowOverviewDetail" hidden></aside>
+      <audio id="flowOverviewAudio" preload="auto" hidden></audio>
     </div>
   </div>
   </div>
@@ -210,6 +229,28 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     settings.dialogueBackgroundGradientEnd = String(settings.dialogueBackgroundGradientEnd || settings.startMenuBackgroundGradientEnd);
     settings.dialogueBackgroundGradientAngle = Number.isFinite(Number(settings.dialogueBackgroundGradientAngle)) ? Number(settings.dialogueBackgroundGradientAngle) : settings.startMenuBackgroundGradientAngle;
     settings.dialogueBackgroundImageUrl = String(settings.dialogueBackgroundImageUrl || settings.startMenuBackgroundImageUrl || "");
+    settings.flowOverviewBackgroundType = ["solid", "gradient", "image"].includes(settings.flowOverviewBackgroundType) ? settings.flowOverviewBackgroundType : "solid";
+    settings.flowOverviewBackgroundColor = String(settings.flowOverviewBackgroundColor || "#f8fafc");
+    settings.flowOverviewBackgroundGradientStart = String(settings.flowOverviewBackgroundGradientStart || "#f8fafc");
+    settings.flowOverviewBackgroundGradientEnd = String(settings.flowOverviewBackgroundGradientEnd || "#e0e7ff");
+    settings.flowOverviewBackgroundGradientAngle = Number.isFinite(Number(settings.flowOverviewBackgroundGradientAngle)) ? Number(settings.flowOverviewBackgroundGradientAngle) : 135;
+    settings.flowOverviewBackgroundGradientShape = ["linear", "radial", "diamond"].includes(settings.flowOverviewBackgroundGradientShape) ? settings.flowOverviewBackgroundGradientShape : "linear";
+    settings.flowOverviewBackgroundImageUrl = String(settings.flowOverviewBackgroundImageUrl || "");
+    ["flowOverviewBackground"].forEach(function(prefix) {
+      ["GradientStartX", "GradientStartY", "GradientEndX", "GradientEndY"].forEach(function(key) {
+        const value = Number(settings[prefix + key]);
+        settings[prefix + key] = Number.isFinite(value) ? clamp(value, 0, 100, 0) : undefined;
+      });
+    });
+    settings.flowOverviewMusicUrl = String(settings.flowOverviewMusicUrl || settings.flowOverviewBackgroundMusicUrl || "");
+    settings.flowOverviewBackgroundMusicUrl = String(settings.flowOverviewBackgroundMusicUrl || settings.flowOverviewMusicUrl || "");
+    settings.flowOverviewMusicVolume = clamp(settings.flowOverviewMusicVolume, 0, 100, 70);
+    settings.flowOverviewMusicFadeIn = clamp(settings.flowOverviewMusicFadeIn, 0, 10, 0);
+    settings.flowOverviewMusicFadeOut = clamp(settings.flowOverviewMusicFadeOut, 0, 10, 0);
+    settings.flowOverviewMusicLoop = settings.flowOverviewMusicLoop !== false;
+    settings.flowOverviewElements = Array.isArray(settings.flowOverviewElements) ? settings.flowOverviewElements.filter(Boolean) : [];
+    settings.flowOverviewMinimapWidth = clamp(settings.flowOverviewMinimapWidth, 160, 440, 220);
+    settings.flowOverviewMinimapHeight = clamp(settings.flowOverviewMinimapHeight, 110, 320, 160);
     settings.startMenuBackgroundMusicUrl = String(settings.startMenuBackgroundMusicUrl || "");
     settings.startMenuMusicVolume = clamp(settings.startMenuMusicVolume, 0, 100, 70);
     settings.startMenuMusicFadeIn = clamp(settings.startMenuMusicFadeIn, 0, 10, 0);
@@ -220,7 +261,27 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     settings.startMenuButtonPosition = ["center", "bottomLeft", "bottomRight"].includes(settings.startMenuButtonPosition) ? settings.startMenuButtonPosition : "center";
     settings.startMenuButtonLayout = settings.startMenuButtonLayout === "horizontal" ? "horizontal" : "vertical";
     settings.startMenuButtonSize = ["compact", "normal", "large"].includes(settings.startMenuButtonSize) ? settings.startMenuButtonSize : "normal";
-    settings.startMenuElements = Array.isArray(settings.startMenuElements) ? settings.startMenuElements : [];
+    settings.startMenuElements = (Array.isArray(settings.startMenuElements) ? settings.startMenuElements : []).map((element) =>
+      element && (element.role === "title" || element.role === "subtitle")
+        ? Object.assign({}, element, { textAlign: "center" })
+        : element,
+    );
+    if (settings.startMenuElements.length > 0 && !settings.startMenuElements.some((element) => element && element.role === "flowOverview")) {
+      settings.startMenuElements.push({
+        id: "system-flow-overview",
+        kind: "button",
+        role: "flowOverview",
+        text: content.language === "zh" ? "流程图总览" : content.language === "ja" ? "フロー概要" : "Flow overview",
+        visible: true,
+        x: 33,
+        y: 41,
+        width: 34,
+        height: 8,
+        scale: 1,
+        rotation: 0,
+        primary: false,
+      });
+    }
     settings.settingsPageElements = Array.isArray(settings.settingsPageElements) ? settings.settingsPageElements.filter(Boolean) : [];
     settings.startMenuPlacementBoundsLocked = Boolean(settings.startMenuPlacementBoundsLocked);
     settings.startMenuPlacementMinX = clamp(settings.startMenuPlacementMinX, 0, 94, 0);
@@ -462,6 +523,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     const titleObject = renderObjects.title || {};
     const bodyObject = renderObjects.body || {};
     const nameplateObject = renderObjects.nameplate || {};
+    const choiceObject = renderObjects.choice || {};
     function objectFill(object, fallback) {
       const fill = object.fill || {};
       if (fill.type === "gradient") {
@@ -552,11 +614,28 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     document.documentElement.style.setProperty("--nameplate-translate-y", style.nameplateInside ? px(nameplateObject.y ?? style.nameplateOffsetY, 0) : "calc(-100% - 8px + " + px(nameplateObject.y ?? style.nameplateOffsetY, 0) + ")");
     document.documentElement.style.setProperty("--choice-color", style.choiceColor || "#0ea5e9");
     document.documentElement.style.setProperty("--choice-text-color", style.choiceTextColor || "#ffffff");
+    document.documentElement.style.setProperty("--choice-gap", (Number(style.choiceGap ?? 8) || 8) + "px");
+    document.documentElement.style.setProperty("--choice-width", clamp(choiceObject.width, 8, 100, 86) + "%");
+    document.documentElement.style.setProperty("--choice-left", (Number(choiceObject.x) || 0) + "px");
+    document.documentElement.style.setProperty("--choice-top", (Number(choiceObject.y) || 0) + "px");
+    document.documentElement.style.setProperty("--choice-height", Math.max(0, Number(choiceObject.height) || 0) + "px");
+    document.documentElement.style.setProperty("--choice-button-height", Math.max(24, Number(choiceObject.height) || 40) + "px");
+    document.documentElement.style.setProperty("--choice-radius", Math.max(0, Number(choiceObject.radius) || 8) + "px");
+    document.documentElement.style.setProperty("--choice-background", objectFill(choiceObject, style.choiceColor || "#0ea5e9"));
+    document.documentElement.style.setProperty("--choice-border-color", choiceObject.stroke && choiceObject.stroke.enabled ? withAlpha(choiceObject.stroke.color || "#7dd3fc", clamp(choiceObject.stroke.alpha, 0, 100, 72) / 100) : "transparent");
+    document.documentElement.style.setProperty("--choice-shadow", objectShadow(choiceObject) || "none");
+    document.documentElement.style.setProperty("--choice-font-family", choiceObject.fontFamily || style.bodyFontFamily || "inherit");
+    document.documentElement.style.setProperty("--choice-font-size", Math.max(10, Number(choiceObject.fontSize) || 18) + "px");
+    document.documentElement.style.setProperty("--choice-font-weight", String(Number(choiceObject.fontWeight) || 700));
+    document.documentElement.style.setProperty("--choice-letter-spacing", (Number(choiceObject.letterSpacing) || 0) + "px");
+    document.documentElement.style.setProperty("--choice-line-height", String(Number(choiceObject.lineHeight) || 1.35));
+    document.documentElement.style.setProperty("--choice-transform", "rotate(" + (Number(choiceObject.rotation) || 0) + "deg) scale(" + (choiceObject.flipX ? -1 : 1) + ", " + (choiceObject.flipY ? -1 : 1) + ")");
     const labels = content.language === "zh"
       ? { back: "\\u8fd4\\u56de", reset: "\\u91cd\\u5f00", mainMenu: "\\u4e3b\\u754c\\u9762", autoOn: "\\u81ea\\u52a8\\u64ad\\u653e", autoOff: "\\u624b\\u52a8\\u64ad\\u653e", make: "\\u5236\\u4f5c\\u540c\\u6b3e", continue: "\\u7ee7\\u7eed\\u6e38\\u620f", option: "\\u9009\\u9879", end: "\\u5267\\u672c\\u7ed3\\u675f", noStory: "\\u6ca1\\u6709\\u53ef\\u9884\\u89c8\\u7684\\u5267\\u672c", playlist: "\\u58f0\\u97f3\\u56de\\u653e", playlistHint: "\\u6700\\u8fd1\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u6392\\u5728\\u6700\\u4e0a\\u65b9", playlistEmpty: "\\u542c\\u8fc7\\u7684\\u5f55\\u97f3\\u4f1a\\u663e\\u793a\\u5728\\u8fd9\\u91cc", untitledAudio: "\\u672a\\u547d\\u540d\\u5f55\\u97f3", saveSlot: "\\u5b58\\u6863", noSave: "\\u6ca1\\u6709\\u5b58\\u6863", newGame: "\\u65b0\\u6e38\\u620f", settings: "\\u8bbe\\u7f6e", savedAt: "\\u4e0a\\u6b21\\u8fdb\\u5ea6", saved: "\\u5df2\\u5b58\\u6863", archive: "\\u5b58\\u6863\\u5217\\u8868", deleteSave: "\\u5220\\u9664", autoPlay: "\\u81ea\\u52a8\\u64ad\\u653e", textSpeed: "\\u6253\\u5b57\\u901f\\u5ea6", controls: "\\u663e\\u793a\\u63a7\\u4ef6" }
       : content.language === "ja"
         ? { back: "\\u623b\\u308b", reset: "\\u3084\\u308a\\u76f4\\u3059", mainMenu: "\\u30e1\\u30a4\\u30f3", autoOn: "\\u81ea\\u52d5\\u518d\\u751f", autoOff: "\\u624b\\u52d5\\u518d\\u751f", make: "\\u540c\\u3058\\u3082\\u306e\\u3092\\u4f5c\\u308b", continue: "\\u7d9a\\u3051\\u308b", option: "\\u9078\\u629e\\u80a2", end: "\\u7d42\\u4e86", noStory: "\\u30d7\\u30ec\\u30d3\\u30e5\\u30fc\\u3067\\u304d\\u308b\\u811a\\u672c\\u304c\\u3042\\u308a\\u307e\\u305b\\u3093", playlist: "\\u97f3\\u58f0\\u518d\\u751f", playlistHint: "\\u6700\\u8fd1\\u8074\\u3044\\u305f\\u9332\\u97f3\\u3092\\u4e0a\\u306b\\u8868\\u793a", playlistEmpty: "\\u518d\\u751f\\u3057\\u305f\\u9332\\u97f3\\u304c\\u3053\\u3053\\u306b\\u8868\\u793a\\u3055\\u308c\\u307e\\u3059", untitledAudio: "\\u540d\\u79f0\\u672a\\u8a2d\\u5b9a\\u306e\\u9332\\u97f3", saveSlot: "\\u30bb\\u30fc\\u30d6", noSave: "\\u30bb\\u30fc\\u30d6\\u306a\\u3057", newGame: "\\u65b0\\u898f\\u30b2\\u30fc\\u30e0", settings: "\\u8a2d\\u5b9a", savedAt: "\\u524d\\u56de\\u306e\\u9032\\u6357", saved: "\\u30bb\\u30fc\\u30d6\\u6e08\\u307f", autoPlay: "\\u81ea\\u52d5\\u518d\\u751f", textSpeed: "\\u30c6\\u30ad\\u30b9\\u30c8\\u901f\\u5ea6", controls: "\\u64cd\\u4f5c\\u8868\\u793a" }
         : { back: "Back", reset: "Restart", mainMenu: "Menu", autoOn: "Auto Play", autoOff: "Manual", make: "Make One", continue: "Continue Game", option: "Option", end: "The End", noStory: "No story to preview", playlist: "Audio replay", playlistHint: "Most recently heard first", playlistEmpty: "Audio you have heard will appear here", untitledAudio: "Untitled audio", saveSlot: "Saves", noSave: "No save", newGame: "New Game", settings: "Settings", savedAt: "Last progress", saved: "Saved", archive: "Save slots", deleteSave: "Delete", autoPlay: "Auto play", textSpeed: "Text speed", controls: "Show controls" };
+    labels.flowOverview = content.language === "zh" ? "\\u6d41\\u7a0b\\u56fe\\u603b\\u89c8" : content.language === "ja" ? "\\u30d5\\u30ed\\u30fc\\u6982\\u8981" : "Flow overview";
     const nodeById = new Map(content.nodes.map((node) => [node.id, node]));
     const root = content.nodes.find((node) => node.data && node.data.isRoot) || content.nodes[0] || null;
     let currentId = root ? root.id : null;
@@ -587,9 +666,21 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     const startLayer = document.getElementById("startLayer");
     const startMenuAudio = document.getElementById("startMenuAudio");
     const continueGameButton = document.getElementById("continueGameButton");
+    const flowOverviewButton = document.getElementById("flowOverviewButton");
     const saveSlotButton = document.getElementById("saveSlotButton");
     const newGameButton = document.getElementById("newGameButton");
     const settingsButton = document.getElementById("settingsButton");
+    const flowOverviewBackdrop = document.getElementById("flowOverviewBackdrop");
+    const flowOverviewPanel = document.getElementById("flowOverviewPanel");
+    const flowOverviewClose = document.getElementById("flowOverviewClose");
+    const flowOverviewTitle = document.getElementById("flowOverviewTitle");
+    const flowOverviewHint = document.getElementById("flowOverviewHint");
+    const flowOverviewViewport = document.getElementById("flowOverviewViewport");
+    const flowOverviewCanvas = document.getElementById("flowOverviewCanvas");
+    const flowOverviewCustomLayer = document.getElementById("flowOverviewCustomLayer");
+    const flowOverviewMinimap = document.getElementById("flowOverviewMinimap");
+    const flowOverviewAudio = document.getElementById("flowOverviewAudio");
+    const flowOverviewDetail = document.getElementById("flowOverviewDetail");
     const saveBackdrop = document.getElementById("saveBackdrop");
     const saveTitle = document.getElementById("saveTitle");
     const saveClose = document.getElementById("saveClose");
@@ -598,6 +689,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     gwAppearance(startScreen,settings.surfaceAppearances?.start);
     gwAppearance(saveBackdrop,settings.surfaceAppearances?.archive);
     gwAppearance(settingsBackdrop,settings.surfaceAppearances?.settings);
+    gwAppearance(flowOverviewPanel,settings.surfaceAppearances?.flow);
 
     const playerSettingsRoot = document.getElementById("playerSettingsRoot");
     const settingsCustomLayer = document.getElementById("settingsCustomLayer");
@@ -636,6 +728,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     applySurfaceBackground(startScreen, "startMenuBackground");
     if (!settings.surfaceAppearances?.settings) applySurfaceBackground(settingsBackdrop, "settingsBackground");
     applySurfaceBackground(document.querySelector(".app"), "dialogueBackground");
+    applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
+    applySurfaceBackground(flowOverviewViewport, "flowOverviewBackground");
     startActions.classList.toggle("horizontal", settings.startMenuButtonLayout === "horizontal");
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
@@ -945,6 +1039,12 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         textSize: { label: "Text size", onClick: () => changePlayerSettings({ textScale: clamp(element.actionValue, 85, 130, 100) }) },
         animationSpeed: { label: "Animation speed", onClick: () => changePlayerSettings({ animationSpeed: clamp(element.actionValue, 0.5, 2, 1) }) },
         sound: { label: "Sound", onClick: () => changePlayerSettings({ soundEnabled: !settings.soundEnabled }) },
+        flowOverview: {
+          label: labels.flowOverview,
+          disabled: false,
+          primary: false,
+          onClick: openFlowOverview,
+        },
         continue: {
           label: labels.continue,
           disabled: !canContinueSave(save),
@@ -1175,6 +1275,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       const showNewGame = Boolean(settings.startMenuShowNewGame) || (!settings.startMenuShowSave && !settings.startMenuShowSettings);
       const showSettings = Boolean(settings.startMenuShowSettings);
       startSubtitle.textContent = save ? saveLabel(save) : labels.noSave;
+      flowOverviewButton.textContent = labels.flowOverview;
+      flowOverviewButton.hidden = false;
       continueGameButton.textContent = labels.continue;
       continueGameButton.disabled = !canContinueSave(save);
       continueGameButton.hidden = !canContinueSave(save);
@@ -1220,6 +1322,46 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       fadeStartMenuAudio(startMenuAudio.volume, 0, settings.startMenuMusicFadeOut, () => {
         startMenuAudio.pause();
       });
+    }
+
+    function playFlowOverviewMusic() {
+      if (!settings.flowOverviewBackgroundMusicUrl) return;
+      flowOverviewAudio.src = settings.flowOverviewBackgroundMusicUrl;
+      flowOverviewAudio.loop = Boolean(settings.flowOverviewMusicLoop);
+      const targetVolume = Math.max(0, Math.min(1, Number(settings.flowOverviewMusicVolume) / 100));
+      flowOverviewAudio.volume = Number(settings.flowOverviewMusicFadeIn) > 0 ? 0 : targetVolume;
+      flowOverviewAudio.play().catch(() => {});
+      const duration = Math.max(0, Number(settings.flowOverviewMusicFadeIn) || 0) * 1000;
+      if (!duration) return;
+      const started = performance.now();
+      const tick = (now) => {
+        const progress = Math.min(1, (now - started) / duration);
+        flowOverviewAudio.volume = progress * targetVolume;
+        if (progress < 1 && flowOverviewBackdrop.classList.contains("open")) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function stopFlowOverviewMusic() {
+      if (!flowOverviewAudio) return;
+      const from = Number(flowOverviewAudio.volume) || 0;
+      const duration = Math.max(0, Number(settings.flowOverviewMusicFadeOut) || 0) * 1000;
+      if (!duration) {
+        flowOverviewAudio.pause();
+        flowOverviewAudio.currentTime = 0;
+        return;
+      }
+      const started = performance.now();
+      const tick = (now) => {
+        const progress = Math.min(1, (now - started) / duration);
+        flowOverviewAudio.volume = from * (1 - progress);
+        if (progress < 1) requestAnimationFrame(tick);
+        else {
+          flowOverviewAudio.pause();
+          flowOverviewAudio.currentTime = 0;
+        }
+      };
+      requestAnimationFrame(tick);
     }
 
     function syncStartMenuMusicForOverlay(kind, open) {
@@ -1703,6 +1845,303 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       return content.edges.filter((edge) => edge.source === id);
     }
 
+    function flowNodeText(node) {
+      const data = node && node.data ? node.data : {};
+      const raw = data.text || data.body || data.description || data.content || "";
+      return String(raw).replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim().slice(0, 150);
+    }
+
+    function flowNodeTitle(node) {
+      const data = node && node.data ? node.data : {};
+      return String(data.title || data.name || data.label || node?.id || "Untitled");
+    }
+
+    function flowNodeImage(node) {
+      const data = node && node.data ? node.data : {};
+      return typeof data.imageUrl === "string" ? data.imageUrl : "";
+    }
+
+    let flowOverviewRootNodeId = "";
+    let flowOverviewEdges = [];
+
+    function flowPathNodeIds(targetId) {
+      if (!targetId) return new Set();
+      const parents = new Map();
+      const visited = new Set([flowOverviewRootNodeId]);
+      const queue = [flowOverviewRootNodeId];
+      while (queue.length) {
+        const source = queue.shift();
+        flowOverviewEdges.forEach((edge) => {
+          if (edge.source !== source || visited.has(edge.target)) return;
+          visited.add(edge.target);
+          parents.set(edge.target, source);
+          queue.push(edge.target);
+        });
+      }
+      const path = new Set([targetId]);
+      let current = targetId;
+      const guard = new Set();
+      while (parents.has(current) && !guard.has(current)) {
+        guard.add(current);
+        current = parents.get(current);
+        path.add(current);
+      }
+      return path;
+    }
+
+    function highlightFlowPath(targetId) {
+      const path = flowPathNodeIds(targetId);
+      flowOverviewCanvas.querySelectorAll(".flow-overview-node").forEach((card) => {
+        card.classList.toggle("is-chain", path.has(card.getAttribute("data-node-id")));
+      });
+      flowOverviewCanvas.querySelectorAll(".flow-overview-edge").forEach((edge) => {
+        edge.classList.toggle(
+          "is-chain",
+          path.has(edge.getAttribute("data-source")) && path.has(edge.getAttribute("data-target")),
+        );
+      });
+    }
+
+    function closeFlowOverview() {
+      flowOverviewBackdrop.classList.remove("open");
+      flowOverviewDetail.hidden = true;
+      flowOverviewDetail.innerHTML = "";
+      stopFlowOverviewMusic();
+      flowOverviewCustomLayer.innerHTML = "";
+      if (startScreen.classList.contains("open")) playStartMenuMusic();
+    }
+
+    function startGameFromFlowNode(nodeId) {
+      const target = (Array.isArray(content.nodes) ? content.nodes : []).find((node) => node && node.id === nodeId);
+      if (!target) return;
+      if (historyOpen) closeDialogueHistory(false);
+      restartPlaybackSession();
+      history = [];
+      currentId = target.id;
+      autoAdvanceHoldId = currentId;
+      activeSaveId = "save-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+      closeFlowOverview();
+      startGameFromCurrent();
+      writeSave();
+    }
+
+    function showFlowNodeDetail(node) {
+      if (!node) return;
+      highlightFlowPath(node.id);
+      const nextEdges = outEdges(node.id);
+      flowOverviewDetail.hidden = false;
+      flowOverviewDetail.innerHTML = "";
+      const head = document.createElement("div");
+      head.className = "flow-overview-detail-head";
+      const heading = document.createElement("div");
+      heading.className = "flow-overview-detail-title";
+      heading.textContent = flowNodeTitle(node);
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "flow-overview-detail-close";
+      close.textContent = "×";
+      close.setAttribute("aria-label", content.language === "zh" ? "关闭剧情详情" : "Close story details");
+      close.addEventListener("click", () => {
+        flowOverviewDetail.hidden = true;
+      });
+      head.append(heading, close);
+
+      const body = document.createElement("div");
+      body.className = "flow-overview-detail-body";
+      const text = document.createElement("p");
+      text.className = "flow-overview-detail-text";
+      text.textContent = flowNodeText(node) || (content.language === "zh" ? "暂无剧情文本" : "No story text");
+      body.appendChild(text);
+
+      const nextTitle = document.createElement("div");
+      nextTitle.className = "flow-overview-detail-section-title";
+      nextTitle.textContent = content.language === "zh" ? "后续剧情" : content.language === "ja" ? "次のストーリー" : "Next story";
+      body.appendChild(nextTitle);
+      if (nextEdges.length) {
+        const nextList = document.createElement("div");
+        nextList.className = "flow-overview-detail-list";
+        nextEdges.forEach((edge) => {
+          const nextNode = (Array.isArray(content.nodes) ? content.nodes : []).find((candidate) => candidate && candidate.id === edge.target);
+          if (!nextNode) return;
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "flow-overview-detail-item";
+          item.textContent = flowNodeTitle(nextNode);
+          item.addEventListener("click", () => showFlowNodeDetail(nextNode));
+          nextList.appendChild(item);
+        });
+        body.appendChild(nextList);
+      } else {
+        const empty = document.createElement("div");
+        empty.className = "flow-overview-detail-empty";
+        empty.textContent = content.language === "zh" ? "这是一个结束节点" : content.language === "ja" ? "終端ノードです" : "This is an ending node";
+        body.appendChild(empty);
+      }
+
+      const play = document.createElement("button");
+      play.type = "button";
+      play.className = "flow-overview-detail-play";
+      play.textContent = content.language === "zh" ? "从此处开始游戏" : content.language === "ja" ? "ここから再生" : "Play from here";
+      play.addEventListener("click", () => startGameFromFlowNode(node.id));
+      flowOverviewDetail.append(head, body, play);
+    }
+
+    function renderFlowOverviewMinimap(positionById, allEdges, canvasWidth, canvasHeight) {
+      flowOverviewMinimap.innerHTML = "";
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 " + canvasWidth + " " + canvasHeight);
+      svg.setAttribute("preserveAspectRatio", "none");
+      allEdges.forEach((edge) => {
+        const from = positionById.get(edge.source);
+        const to = positionById.get(edge.target);
+        if (!from || !to) return;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const startX = from.x + 220;
+        const startY = from.y + 54;
+        const endX = to.x;
+        const endY = to.y + 54;
+        const bend = Math.max(42, (endX - startX) / 2);
+        path.setAttribute("d", "M " + startX + " " + startY + " C " + (startX + bend) + " " + startY + ", " + (endX - bend) + " " + endY + ", " + endX + " " + endY);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#94a3b8");
+        path.setAttribute("stroke-width", "5");
+        path.setAttribute("vector-effect", "non-scaling-stroke");
+        svg.appendChild(path);
+      });
+      positionById.forEach((position, nodeId) => {
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", String(position.x));
+        rect.setAttribute("y", String(position.y));
+        rect.setAttribute("width", "220");
+        rect.setAttribute("height", "132");
+        rect.setAttribute("rx", "12");
+        rect.setAttribute("fill", nodeId === flowOverviewRootNodeId ? "#818cf8" : "#cbd5e1");
+        rect.setAttribute("fill-opacity", "0.9");
+        svg.appendChild(rect);
+      });
+      flowOverviewMinimap.appendChild(svg);
+    }
+
+    function openFlowOverview() {
+      const allNodes = Array.isArray(content.nodes) ? content.nodes.filter(Boolean) : [];
+      const allEdges = Array.isArray(content.edges) ? content.edges.filter(Boolean) : [];
+      flowOverviewTitle.textContent = labels.flowOverview;
+      applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
+      applySurfaceBackground(flowOverviewViewport, "flowOverviewBackground");
+      flowOverviewViewport.style.setProperty("--flow-overview-minimap-width", settings.flowOverviewMinimapWidth + "px");
+      flowOverviewViewport.style.setProperty("--flow-overview-minimap-height", settings.flowOverviewMinimapHeight + "px");
+      renderCustomStartMenu(null, flowOverviewCustomLayer, settings.flowOverviewElements);
+      if (startScreen.classList.contains("open")) stopStartMenuMusic();
+      playFlowOverviewMusic();
+      flowOverviewDetail.hidden = true;
+      flowOverviewDetail.innerHTML = "";
+      flowOverviewHint.textContent = content.language === "zh"
+        ? allNodes.length + " 个节点 · " + allEdges.length + " 条连接"
+        : content.language === "ja"
+          ? allNodes.length + " ノード · " + allEdges.length + " 接続"
+          : allNodes.length + " nodes · " + allEdges.length + " connections";
+      flowOverviewCanvas.innerHTML = "";
+      if (!allNodes.length) {
+        flowOverviewCanvas.textContent = labels.noStory;
+        flowOverviewBackdrop.classList.add("open");
+        return;
+      }
+
+      const rootNode = allNodes.find((node) => node.data && node.data.isRoot) || allNodes[0];
+      flowOverviewRootNodeId = rootNode.id;
+      flowOverviewEdges = allEdges;
+      const levelById = new Map([[rootNode.id, 0]]);
+      const queue = [rootNode.id];
+      while (queue.length) {
+        const source = queue.shift();
+        const nextLevel = (levelById.get(source) || 0) + 1;
+        outEdges(source).forEach((edge) => {
+          if (!levelById.has(edge.target)) {
+            levelById.set(edge.target, nextLevel);
+            queue.push(edge.target);
+          }
+        });
+      }
+      allNodes.forEach((node) => {
+        if (!levelById.has(node.id)) levelById.set(node.id, 0);
+      });
+      const rowsByLevel = new Map();
+      allNodes.forEach((node) => {
+        const level = levelById.get(node.id) || 0;
+        const row = rowsByLevel.get(level) || [];
+        row.push(node);
+        rowsByLevel.set(level, row);
+      });
+      const positionById = new Map();
+      let maxRows = 1;
+      rowsByLevel.forEach((row, level) => {
+        maxRows = Math.max(maxRows, row.length);
+        row.forEach((node, index) => positionById.set(node.id, { x: 48 + level * 282, y: 48 + index * 150 }));
+      });
+      const canvasWidth = Math.max(flowOverviewViewport.clientWidth - 1, (Math.max(...Array.from(levelById.values())) + 1) * 282 + 96);
+      const canvasHeight = Math.max(flowOverviewViewport.clientHeight - 1, maxRows * 150 + 96);
+      flowOverviewCanvas.style.width = canvasWidth + "px";
+      flowOverviewCanvas.style.height = canvasHeight + "px";
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.className.baseVal = "flow-overview-svg";
+      svg.setAttribute("width", String(canvasWidth));
+      svg.setAttribute("height", String(canvasHeight));
+      svg.setAttribute("viewBox", "0 0 " + canvasWidth + " " + canvasHeight);
+      allEdges.forEach((edge) => {
+        const from = positionById.get(edge.source);
+        const to = positionById.get(edge.target);
+        if (!from || !to) return;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const startX = from.x + 220;
+        const startY = from.y + 54;
+        const endX = to.x;
+        const endY = to.y + 54;
+        const bend = Math.max(42, (endX - startX) / 2);
+        path.setAttribute("d", "M " + startX + " " + startY + " C " + (startX + bend) + " " + startY + ", " + (endX - bend) + " " + endY + ", " + endX + " " + endY);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#94a3b8");
+        path.setAttribute("stroke-width", "2");
+        path.classList.add("flow-overview-edge");
+        path.setAttribute("data-source", edge.source);
+        path.setAttribute("data-target", edge.target);
+        svg.appendChild(path);
+      });
+      flowOverviewCanvas.appendChild(svg);
+      renderFlowOverviewMinimap(positionById, allEdges, canvasWidth, canvasHeight);
+
+      allNodes.forEach((node) => {
+        const position = positionById.get(node.id);
+        const card = document.createElement("div");
+        card.className = "flow-overview-node" + (node.id === rootNode.id ? " root" : "");
+        card.style.left = position.x + "px";
+        card.style.top = position.y + "px";
+        card.setAttribute("data-node-id", node.id);
+        const imageUrl = flowNodeImage(node);
+        if (imageUrl) {
+          const image = document.createElement("img");
+          image.className = "flow-overview-node-image";
+          image.src = imageUrl;
+          image.alt = "";
+          card.appendChild(image);
+        } else {
+          card.classList.add("no-image");
+        }
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.setAttribute("aria-label", (content.language === "zh" ? "查看并从此处开始：" : "View and play from: ") + flowNodeTitle(node));
+        card.addEventListener("click", () => showFlowNodeDetail(node));
+        card.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            showFlowNodeDetail(node);
+          }
+        });
+        flowOverviewCanvas.appendChild(card);
+      });
+      flowOverviewBackdrop.classList.add("open");
+    }
+
     let isTransitioning = false;
 
     function getPresentationTransform(type, isExit) {
@@ -2114,15 +2553,20 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     }
 
     function choicesHtml(node, edges, className) {
+      if (choiceObject.visible === false) return "";
+      const choiceTransform = "rotate(" + (Number(choiceObject.rotation) || 0) + "deg) scale(" + (choiceObject.flipX ? -1 : 1) + ", " + (choiceObject.flipY ? -1 : 1) + ")";
+      const rootStyle = "--choice-transform: " + (className === "center" ? "translate(-50%, -50%) " : "") + choiceTransform + ";";
       if (!edges.length) {
-        return '<div class="choices ' + className + '"><button class="choice anim-fade" data-target="THE_END">' + labels.end + '</button></div>';
+        return '<div class="choices ' + className + '" style="' + rootStyle + '"><button class="choice anim-fade" data-target="THE_END" style="--choice-item-x:0px;--choice-item-y:0px">' + labels.end + '</button></div>';
       }
       const buttons = edges.map((edge, index) => {
         const target = nodeById.get(edge.target);
         const label = nodeTitle(target) || edge.label || (edges.length === 1 ? labels.continue : labels.option + " " + (index + 1));
-        return '<button class="choice anim-fade" data-target="' + escapeAttr(edge.target) + '">' + escapeHtml(label) + '</button>';
+        const offsetX = index * (Number(style.choiceItemOffsetX) || 0);
+        const offsetY = index * (Number(style.choiceItemOffsetY) || 0);
+        return '<button class="choice anim-fade" data-target="' + escapeAttr(edge.target) + '" style="transform:translate(' + offsetX + 'px,' + offsetY + 'px)">' + escapeHtml(label) + '</button>';
       }).join("");
-      return '<div class="choices ' + className + '">' + buttons + '</div>';
+      return '<div class="choices ' + className + '" style="' + rootStyle + '">' + buttons + '</div>';
     }
 
     function renderChoices(node, edges, position) {
@@ -2473,10 +2917,15 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       render();
     });
     continueGameButton.addEventListener("click", continueSavedGame);
+    flowOverviewButton.addEventListener("click", openFlowOverview);
     saveSlotButton.addEventListener("click", openSaveList);
     newGameButton.addEventListener("click", startNewGame);
     settingsButton.addEventListener("click", openSettingsPanel);
     saveClose.addEventListener("click", () => saveBackdrop.classList.remove("open"));
+    flowOverviewClose.addEventListener("click", closeFlowOverview);
+    flowOverviewBackdrop.addEventListener("click", (event) => {
+      if (event.target === flowOverviewBackdrop) closeFlowOverview();
+    });
     saveBackdrop.addEventListener("click", (event) => {
       if (event.target === saveBackdrop) saveBackdrop.classList.remove("open");
     });

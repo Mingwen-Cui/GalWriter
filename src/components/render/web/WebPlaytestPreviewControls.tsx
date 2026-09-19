@@ -18,7 +18,13 @@ import { useRef, useState } from 'react';
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import { AudioPlaylistModal, type AudioPlaylistItem } from '../../AudioPlaylistModal';
-import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
+import { getRenderObjects } from '../video/shared/renderObjects';
+import type {
+  RenderEditableObjectKind,
+  RenderStyle,
+  WebExportSettings,
+  WebMenuElement,
+} from '../video/shared/types';
 import { formatWebText } from './i18n';
 import { WebEditableElementFrame, type WebEditableResizeHandle } from './WebEditableElementFrame';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
@@ -85,11 +91,13 @@ export function ChoiceButton({
   choiceColor,
   choiceTextColor,
   onClick,
+  style,
 }: {
   label: string;
   choiceColor: string;
   choiceTextColor: string;
   onClick: () => void;
+  style?: React.CSSProperties;
 }) {
   return (
     <button
@@ -100,6 +108,7 @@ export function ChoiceButton({
         backgroundColor: `${choiceColor}cc`,
         border: `1px solid ${choiceColor}`,
         color: choiceTextColor,
+        ...style,
       }}
     >
       {label}
@@ -112,21 +121,92 @@ export function ChoiceButtonsGroup({
   extraClass = '',
   choiceColor,
   choiceTextColor,
+  renderStyle,
+  previewMode = 'test',
+  onSelectRenderObject,
 }: {
   items: { id: string; label: string; onClick: () => void }[];
   extraClass?: string;
   choiceColor: string;
   choiceTextColor: string;
+  renderStyle?: RenderStyle;
+  previewMode?: 'edit' | 'test';
+  onSelectRenderObject?: (kind: RenderEditableObjectKind) => void;
 }) {
+  const choice = renderStyle ? getRenderObjects(renderStyle).choice : undefined;
+  const editMode = previewMode === 'edit' && Boolean(choice && onSelectRenderObject);
+  const fillStyle = choice
+    ? choice.fill.type === 'gradient'
+      ? `linear-gradient(${choice.fill.gradientAngle}deg, ${choice.fill.gradientStops
+          .map(
+            (stop) =>
+              `${stop.color}${Math.round((stop.alpha / 100) * 255)
+                .toString(16)
+                .padStart(2, '0')} ${stop.position}%`,
+          )
+          .join(', ')})`
+      : choice.fill.type === 'image' && choice.fill.imageUrl
+        ? `url("${choice.fill.imageUrl.replace(/"/g, '\\"')}") center / cover`
+        : choice.fill.color
+    : undefined;
+  const shadow = choice?.shadow.enabled
+    ? `${choice.shadow.x}px ${choice.shadow.y}px ${choice.shadow.blur}px ${choice.shadow.spread}px ${choice.shadow.color}${Math.round(
+        (choice.shadow.alpha / 100) * 255,
+      )
+        .toString(16)
+        .padStart(2, '0')}`
+    : undefined;
   return (
-    <div className={`grid gap-2 ${extraClass}`}>
-      {items.map((item) => (
+    <div
+      className={`relative grid ${extraClass} ${editMode ? 'ring-1 ring-indigo-500' : ''}`}
+      data-render-object="choice"
+      onClick={(event) => {
+        if (!editMode) return;
+        event.stopPropagation();
+        onSelectRenderObject?.('choice');
+      }}
+      style={{
+        gap: renderStyle ? Math.max(0, renderStyle.choiceGap ?? 8) : undefined,
+        width: choice ? `${Math.max(8, Math.min(100, choice.width))}%` : undefined,
+        left: choice ? choice.x : undefined,
+        top: choice ? choice.y : undefined,
+        minHeight: choice ? Math.max(24, choice.height) : undefined,
+        opacity: choice?.visible === false ? 0.3 : 1,
+        transform: choice
+          ? `rotate(${choice.rotation || 0}deg) scale(${choice.flipX ? -1 : 1}, ${choice.flipY ? -1 : 1})`
+          : undefined,
+        zIndex: choice?.zIndex,
+      }}
+    >
+      {items.map((item, index) => (
         <ChoiceButton
           key={item.id}
           label={item.label}
           choiceColor={choiceColor}
           choiceTextColor={choiceTextColor}
           onClick={item.onClick}
+          style={
+            choice
+              ? {
+                  minHeight: Math.max(24, choice.height),
+                  borderRadius:
+                    choice.corners?.map((radius) => `${radius}px`).join(' ') || choice.radius,
+                  background: fillStyle,
+                  border: choice.stroke.enabled
+                    ? `${choice.stroke.width}px solid ${choice.stroke.color}`
+                    : undefined,
+                  boxShadow: shadow,
+                  color: choiceTextColor,
+                  fontFamily: choice.fontFamily,
+                  fontSize: choice.fontSize,
+                  fontWeight: choice.fontWeight,
+                  letterSpacing: choice.letterSpacing,
+                  lineHeight: choice.lineHeight,
+                  textAlign: choice.textAlign,
+                  transform: `translate(${index * (renderStyle?.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle?.choiceItemOffsetY ?? 0)}px)`,
+                }
+              : undefined
+          }
         />
       ))}
     </div>

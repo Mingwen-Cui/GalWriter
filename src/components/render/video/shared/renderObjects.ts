@@ -165,6 +165,25 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
       lineHeight: 1,
     },
   ),
+  choice: textObject(
+    objectBase({
+      visible: true,
+      width: 86,
+      height: 24,
+      radius: 14,
+      fill: fill('solid', '#0ea5e9', 80, defaultStops('#0ea5e9', '#2563eb')),
+      stroke: { ...stroke(), enabled: true, color: '#7dd3fc', alpha: 72, width: 1 },
+      shadow: { ...shadow(), enabled: true, y: 8, blur: 18, alpha: 22 },
+      animation: animation('slideUp', 'character'),
+    }),
+    {
+      fontSize: 18,
+      fontWeight: 700,
+      lineHeight: 1.25,
+      textAlign: 'left',
+      textVerticalAlign: 'center',
+    },
+  ),
 });
 
 const mergeObject = <T extends RenderEditableObject>(base: T, next?: Partial<T>): T => ({
@@ -178,7 +197,18 @@ const mergeObject = <T extends RenderEditableObject>(base: T, next?: Partial<T>)
 
 /** All surfaces read the same object graph. No scalar or per-mode fallback. */
 export const getRenderObjects = (style: RenderStyle): RenderEditableObjects =>
-  style.renderObjects ?? buildDefaultRenderObjects();
+  (() => {
+    const defaults = buildDefaultRenderObjects();
+    const source = style.renderObjects;
+    if (!source) return defaults;
+    return {
+      dialogBox: mergeObject(defaults.dialogBox, source.dialogBox),
+      title: mergeObject(defaults.title, source.title),
+      body: mergeObject(defaults.body, source.body),
+      nameplate: mergeObject(defaults.nameplate, source.nameplate),
+      choice: mergeObject(defaults.choice, source.choice),
+    };
+  })();
 
 export const getVideoRenderObjects = getRenderObjects;
 
@@ -196,7 +226,7 @@ export const updateRenderObject = (
 
 export const isTextRenderObject = (
   kind: RenderEditableObjectKind,
-): kind is 'title' | 'body' | 'nameplate' => kind !== 'dialogBox';
+): kind is 'title' | 'body' | 'nameplate' | 'choice' => kind !== 'dialogBox';
 
 export const normalizeTextAlign = (value: string): TextAlign =>
   value === 'center' || value === 'right' ? value : 'left';

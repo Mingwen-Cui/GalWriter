@@ -157,7 +157,12 @@ export const WEB_EXPORT_STYLES = String.raw`
       min-height: 56px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: var(--choice-gap, 10px);
+      width: var(--choice-width, 100%);
+      left: var(--choice-left, auto);
+      top: var(--choice-top, auto);
+      min-height: var(--choice-height, 0px);
+      transform: var(--choice-transform, none);
       padding: 8px 10px;
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 12px;
@@ -485,7 +490,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       z-index: 8;
       width: min(520px, calc(100% - 32px));
       max-height: min(62vh, 420px);
-      transform: translate(-50%, -50%);
+      transform: var(--choice-transform, translate(-50%, -50%));
       margin: 0;
     }
     .choice {
@@ -493,10 +498,18 @@ export const WEB_EXPORT_STYLES = String.raw`
       border: 1px solid color-mix(in srgb, var(--choice-color, #0ea5e9), white 25%);
       background: color-mix(in srgb, var(--choice-color, #0ea5e9), transparent 20%);
       color: var(--choice-text-color, #ffffff);
-      border-radius: 8px;
+      border-radius: var(--choice-radius, 8px);
+      min-height: var(--choice-button-height, 40px);
       padding: 12px 14px;
       text-align: left;
-      line-height: 1.35;
+      line-height: var(--choice-line-height, 1.35);
+      font-family: var(--choice-font-family, inherit);
+      font-size: var(--choice-font-size, inherit);
+      font-weight: var(--choice-font-weight, 700);
+      letter-spacing: var(--choice-letter-spacing, normal);
+      box-shadow: var(--choice-shadow, none);
+      background: var(--choice-background, color-mix(in srgb, var(--choice-color, #0ea5e9), transparent 20%));
+      border-color: var(--choice-border-color, color-mix(in srgb, var(--choice-color, #0ea5e9), white 25%));
       cursor: pointer;
       transition: background 140ms ease, border-color 140ms ease;
     }
@@ -766,6 +779,120 @@ export const WEB_EXPORT_STYLES = String.raw`
       border-radius: 8px;
       display: block;
     }
+    .flow-overview-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 11000;
+      display: none;
+      place-items: center;
+      padding: clamp(12px, 3vw, 36px);
+      background: rgba(2, 6, 23, 0.66);
+      backdrop-filter: blur(12px);
+    }
+    .flow-overview-backdrop.open { display: grid; }
+    .flow-overview-panel {
+      position: relative;
+      width: min(1180px, 100%);
+      height: min(780px, 100%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(148,163,184,0.28);
+      border-radius: 18px;
+      background: #f8fafc;
+      color: #0f172a;
+      box-shadow: 0 28px 100px rgba(0,0,0,0.42);
+    }
+    .flow-overview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      background: rgba(255,255,255,0.96);
+    }
+    .flow-overview-title { font-size: 16px; font-weight: 950; }
+    .flow-overview-hint { margin-top: 4px; color: #64748b; font-size: 12px; font-weight: 700; }
+    .flow-overview-close {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #cbd5e1;
+      border-radius: 9px;
+      background: #fff;
+      color: #475569;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .flow-overview-close:hover { color: #4f46e5; border-color: #818cf8; }
+    .flow-overview-viewport { position: relative; flex: 1; overflow: auto; background: radial-gradient(#dbeafe 1px, transparent 1px), #f8fafc; background-size: 22px 22px; }
+    .flow-overview-canvas { position: relative; min-width: 100%; min-height: 100%; padding: 80px; }
+    .flow-overview-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+    .flow-overview-custom-layer { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
+    .flow-overview-custom-layer .start-element { pointer-events: auto; }
+    .flow-overview-minimap {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 9;
+      width: var(--flow-overview-minimap-width, 220px);
+      height: var(--flow-overview-minimap-height, 160px);
+      overflow: hidden;
+      border: 1px solid rgba(148,163,184,0.34);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.82);
+      box-shadow: 0 14px 32px rgba(15,23,42,0.16);
+      backdrop-filter: blur(14px);
+      pointer-events: none;
+    }
+    .flow-overview-minimap svg { display: block; width: 100%; height: 100%; }
+    .flow-overview-node {
+      position: absolute;
+      width: 220px;
+      height: 132px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.96);
+      box-shadow: 0 10px 24px rgba(15,23,42,0.10);
+      cursor: pointer;
+      transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    .flow-overview-node:hover, .flow-overview-node:focus-visible { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,0.18), 0 10px 24px rgba(15,23,42,0.12); outline: none; transform: translateY(-1px); }
+    .flow-overview-node.root, .flow-overview-node.is-chain { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,0.18), 0 10px 24px rgba(15,23,42,0.10); }
+    .flow-overview-node-image { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .flow-overview-node.no-image { background: linear-gradient(135deg, #e2e8f0, #ffffff 52%, #e0e7ff); }
+    .flow-overview-edge { transition: stroke .16s ease, stroke-width .16s ease; }
+    .flow-overview-edge.is-chain { stroke: #4f46e5 !important; stroke-width: 3.5 !important; }
+    .flow-overview-detail {
+      position: absolute;
+      z-index: 4;
+      top: 72px;
+      right: 18px;
+      bottom: 18px;
+      width: min(340px, calc(100% - 36px));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.97);
+      box-shadow: 0 18px 44px rgba(15,23,42,0.18);
+    }
+    .flow-overview-detail[hidden] { display: none; }
+    .flow-overview-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #e2e8f0; }
+    .flow-overview-detail-title { min-width: 0; overflow: hidden; color: #1e293b; font-size: 14px; font-weight: 950; text-overflow: ellipsis; white-space: nowrap; }
+    .flow-overview-detail-close { width: 28px; height: 28px; border: 0; border-radius: 8px; background: #f1f5f9; color: #64748b; cursor: pointer; font-size: 19px; line-height: 1; }
+    .flow-overview-detail-close:hover { color: #4f46e5; background: #eef2ff; }
+    .flow-overview-detail-body { min-height: 0; flex: 1; overflow: auto; padding: 16px; }
+    .flow-overview-detail-text { margin: 0; color: #475569; font-size: 12px; line-height: 1.8; white-space: pre-wrap; }
+    .flow-overview-detail-section-title { margin-top: 18px; color: #94a3b8; font-size: 10px; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; }
+    .flow-overview-detail-list { display: grid; gap: 8px; margin-top: 8px; }
+    .flow-overview-detail-item { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #334155; cursor: pointer; font-size: 11px; font-weight: 800; text-align: left; }
+    .flow-overview-detail-item:hover { border-color: #a5b4fc; background: #eef2ff; color: #4338ca; }
+    .flow-overview-detail-empty { margin-top: 8px; color: #94a3b8; font-size: 11px; }
+    .flow-overview-detail-play { flex: 0 0 auto; margin: 12px 16px 16px; padding: 12px 14px; border: 0; border-radius: 10px; background: #4f46e5; color: #fff; cursor: pointer; font-size: 12px; font-weight: 950; box-shadow: 0 8px 18px rgba(79,70,229,0.25); }
+    .flow-overview-detail-play:hover { background: #4338ca; }
     .settings-backdrop {
       position: fixed;
       inset: 0;

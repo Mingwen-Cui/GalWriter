@@ -86,6 +86,9 @@ export const DEFAULT_RENDER_STYLE: RenderStyle = {
     { id: 'end', color: '#0f172a', alpha: 94, position: 100 },
   ],
   nameplateImageUrl: '',
+  choiceGap: 8,
+  choiceItemOffsetX: 0,
+  choiceItemOffsetY: 0,
   titleAnimation: 'none',
   bodyAnimation: 'typewriter',
 };

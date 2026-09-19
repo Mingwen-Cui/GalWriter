@@ -11,7 +11,7 @@ type StartMenuBackgroundInspectorProps = {
   settings: WebExportSettings;
   language: Language;
   showDescriptions: boolean;
-  surface?: 'start' | 'archive' | 'settings' | 'game';
+  surface?: 'start' | 'archive' | 'settings' | 'game' | 'flow';
   updateWebSettings: <K extends keyof WebExportSettings>(
     key: K,
     value: WebExportSettings[K],
@@ -88,40 +88,80 @@ export function getSurfaceBackground(settings: WebExportSettings, surface: Backg
         ? 'settingsBackground'
         : surface === 'game'
           ? 'dialogueBackground'
-          : 'startMenuBackground';
+          : surface === 'flow'
+            ? 'flowOverviewBackground'
+            : 'startMenuBackground';
   const read = <T,>(suffix: string, fallback: T) =>
     ((settings as unknown as Record<string, T | undefined>)[`${prefix}${suffix}`] ?? fallback) as T;
   return {
-    type: read<BackgroundType>('Type', settings.startMenuBackgroundType),
-    color: read<string>('Color', settings.startMenuBackgroundColor),
-    gradientStart: read<string>('GradientStart', settings.startMenuBackgroundGradientStart),
-    gradientEnd: read<string>('GradientEnd', settings.startMenuBackgroundGradientEnd),
-    gradientAngle: read<number>('GradientAngle', settings.startMenuBackgroundGradientAngle),
+    type: read<BackgroundType>(
+      'Type',
+      surface === 'flow' ? settings.flowOverviewBackgroundType : settings.startMenuBackgroundType,
+    ),
+    color: read<string>(
+      'Color',
+      surface === 'flow' ? settings.flowOverviewBackgroundColor : settings.startMenuBackgroundColor,
+    ),
+    gradientStart: read<string>(
+      'GradientStart',
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientStart
+        : settings.startMenuBackgroundGradientStart,
+    ),
+    gradientEnd: read<string>(
+      'GradientEnd',
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientEnd
+        : settings.startMenuBackgroundGradientEnd,
+    ),
+    gradientAngle: read<number>(
+      'GradientAngle',
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientAngle
+        : settings.startMenuBackgroundGradientAngle,
+    ),
     gradientStartX: read<number | undefined>(
       'GradientStartX',
-      settings.startMenuBackgroundGradientStartX,
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientStartX
+        : settings.startMenuBackgroundGradientStartX,
     ),
     gradientStartY: read<number | undefined>(
       'GradientStartY',
-      settings.startMenuBackgroundGradientStartY,
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientStartY
+        : settings.startMenuBackgroundGradientStartY,
     ),
     gradientEndX: read<number | undefined>(
       'GradientEndX',
-      settings.startMenuBackgroundGradientEndX,
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientEndX
+        : settings.startMenuBackgroundGradientEndX,
     ),
     gradientEndY: read<number | undefined>(
       'GradientEndY',
-      settings.startMenuBackgroundGradientEndY,
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientEndY
+        : settings.startMenuBackgroundGradientEndY,
     ),
     gradientShape: read<'linear' | 'radial' | 'diamond'>(
       'GradientShape',
-      settings.startMenuBackgroundGradientShape || 'linear',
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientShape || 'linear'
+        : settings.startMenuBackgroundGradientShape || 'linear',
     ),
     gradientStops: read<WebExportSettings['startMenuBackgroundGradientStops']>(
       'GradientStops',
-      settings.startMenuBackgroundGradientStops,
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundGradientStops
+        : settings.startMenuBackgroundGradientStops,
     ),
-    imageUrl: read<string>('ImageUrl', settings.startMenuBackgroundImageUrl),
+    imageUrl: read<string>(
+      'ImageUrl',
+      surface === 'flow'
+        ? settings.flowOverviewBackgroundImageUrl
+        : settings.startMenuBackgroundImageUrl,
+    ),
     videoUrl: read<string>('VideoUrl', ''),
     videoLoop: read<boolean>('VideoLoop', true),
     videoMuted: read<boolean>('VideoMuted', true),
@@ -228,6 +268,24 @@ function updateBackgroundSetting(
       videoLoop: 'dialogueBackgroundVideoLoop',
       videoMuted: 'dialogueBackgroundVideoMuted',
       videoFit: 'dialogueBackgroundVideoFit',
+    },
+    flow: {
+      type: 'flowOverviewBackgroundType',
+      color: 'flowOverviewBackgroundColor',
+      gradientStart: 'flowOverviewBackgroundGradientStart',
+      gradientEnd: 'flowOverviewBackgroundGradientEnd',
+      gradientAngle: 'flowOverviewBackgroundGradientAngle',
+      gradientStartX: 'flowOverviewBackgroundGradientStartX',
+      gradientStartY: 'flowOverviewBackgroundGradientStartY',
+      gradientEndX: 'flowOverviewBackgroundGradientEndX',
+      gradientEndY: 'flowOverviewBackgroundGradientEndY',
+      gradientShape: 'flowOverviewBackgroundGradientShape',
+      gradientStops: 'flowOverviewBackgroundGradientStops',
+      imageUrl: 'flowOverviewBackgroundImageUrl',
+      videoUrl: 'flowOverviewBackgroundVideoUrl',
+      videoLoop: 'flowOverviewBackgroundVideoLoop',
+      videoMuted: 'flowOverviewBackgroundVideoMuted',
+      videoFit: 'flowOverviewBackgroundVideoFit',
     },
   } satisfies Record<BackgroundSurface, Record<typeof field, keyof WebExportSettings>>;
   const key = keyMap[surface][field];

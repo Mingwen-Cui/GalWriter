@@ -78,7 +78,13 @@ export type RenderObjectInspectorGroup =
   | 'animation';
 type Popover = null | { group: 'fill' | 'stroke' | 'shadow'; type: 'solid' | 'gradient' | 'image' };
 
-const objectKinds: RenderEditableObjectKind[] = ['dialogBox', 'title', 'body', 'nameplate'];
+const objectKinds: RenderEditableObjectKind[] = [
+  'dialogBox',
+  'title',
+  'body',
+  'nameplate',
+  'choice',
+];
 const fonts = [
   { label: 'Microsoft YaHei', value: '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif' },
   { label: 'SimSun', value: 'SimSun, "Noto Serif SC", serif' },
@@ -113,7 +119,12 @@ export function RenderObjectInspector({
   );
   const objects =
     surface === 'video' ? getVideoRenderObjects(renderStyle) : getRenderObjects(renderStyle);
-  const selectedKind = renderStyle.selectedRenderObject || 'dialogBox';
+  const visibleObjectKinds =
+    surface === 'video' ? objectKinds.filter((kind) => kind !== 'choice') : objectKinds;
+  const selectedKind =
+    surface === 'video' && renderStyle.selectedRenderObject === 'choice'
+      ? 'dialogBox'
+      : renderStyle.selectedRenderObject || 'dialogBox';
   const selected = objects[selectedKind];
   const textObject = isTextRenderObject(selectedKind)
     ? (selected as RenderEditableTextObject)
@@ -232,9 +243,9 @@ export function RenderObjectInspector({
     >
       {!hideObjectSelector && (
         <div
-          className={`${surface === 'playtest' ? 'rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 lg:col-span-2' : ''} grid grid-cols-4 gap-2`}
+          className={`${surface === 'playtest' ? 'rounded-2xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-3 lg:col-span-2' : ''} grid ${visibleObjectKinds.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} gap-2`}
         >
-          {objectKinds.map((kind) => (
+          {visibleObjectKinds.map((kind) => (
             <button
               key={kind}
               type="button"
@@ -254,17 +265,22 @@ export function RenderObjectInspector({
       <LayerOrderMenu
         language={language}
         selectedId={selectedKind}
-        items={Object.entries(objects).map(([id, obj]) => ({
-          id,
-          name:
-            (
-              { dialogBox: '对话框', title: '名称', body: '正文', nameplate: '姓名框' } as Record<
-                string,
-                string
-              >
-            )[id] || id,
-          z: obj.zIndex ?? 0,
-        }))}
+        items={Object.entries(objects)
+          .filter(([id]) => visibleObjectKinds.includes(id as RenderEditableObjectKind))
+          .map(([id, obj]) => ({
+            id,
+            name:
+              (
+                {
+                  dialogBox: '对话框',
+                  title: '名称',
+                  body: '正文',
+                  nameplate: '姓名框',
+                  choice: '选项',
+                } as Record<string, string>
+              )[id] || id,
+            z: obj.zIndex ?? 0,
+          }))}
         onSelect={(id) => setSelectedKind(id as RenderEditableObjectKind)}
         onChange={(id, zIndex) =>
           updateRenderStyle(
@@ -415,6 +431,37 @@ export function RenderObjectInspector({
                 </ControlRow>
               )}
             </>
+          )}
+          {selectedKind === 'choice' && (
+            <ControlRow className="mt-2">
+              <NumberField
+                icon={<MoveVertical className="h-4 w-4" />}
+                label={text.field.choiceGap}
+                description={showDescriptions ? text.help.choiceGap : undefined}
+                value={renderStyle.choiceGap ?? 8}
+                min={0}
+                max={80}
+                onChange={(value) => updateRenderStyle('choiceGap', value)}
+              />
+              <NumberField
+                icon={<MoveHorizontal className="h-4 w-4" />}
+                label={text.field.choiceOffsetX}
+                description={showDescriptions ? text.help.choiceOffsetX : undefined}
+                value={renderStyle.choiceItemOffsetX ?? 0}
+                min={-100}
+                max={100}
+                onChange={(value) => updateRenderStyle('choiceItemOffsetX', value)}
+              />
+              <NumberField
+                icon={<MoveVertical className="h-4 w-4" />}
+                label={text.field.choiceOffsetY}
+                description={showDescriptions ? text.help.choiceOffsetY : undefined}
+                value={renderStyle.choiceItemOffsetY ?? 0}
+                min={-100}
+                max={100}
+                onChange={(value) => updateRenderStyle('choiceItemOffsetY', value)}
+              />
+            </ControlRow>
           )}
         </InspectorGroup>
       )}

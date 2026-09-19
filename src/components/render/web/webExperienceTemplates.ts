@@ -405,35 +405,52 @@ export const buildRehearsalStartMenuElements = (
   choiceColor: string,
   choiceTextColor: string,
 ): WebMenuElement[] => {
-  return [
-    text(
-      'title',
-      'title',
-      title || formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText275'),
-      22,
-      29,
-      56,
-      11,
-      32,
-    ),
-    text(
-      'subtitle',
-      'subtitle',
-      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText276'),
-      22,
-      42,
-      56,
-      5,
-      14,
-    ),
+  const startMenuAccent = '#625BF6';
+  const startMenuAccentDark = '#4F46C5';
+  const startMenuText = '#252A59';
+  const startMenuMuted = '#68719A';
+  const resolvedTitle = title && title !== '开始' ? title : '序章';
+  const subtitle =
+    language === 'zh'
+      ? '选择一条路径，开始你的故事'
+      : language === 'ja'
+        ? '物語の道を選び、旅を始めよう'
+        : 'Choose a path and begin your story';
+  const elements: WebMenuElement[] = [
+    {
+      ...text(
+        'title',
+        'title',
+        resolvedTitle || formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText275'),
+        10,
+        13,
+        42,
+        11,
+        42,
+      ),
+      textAlign: 'left',
+    },
+    {
+      ...text(
+        'subtitle',
+        'subtitle',
+        subtitle,
+        10,
+        25,
+        42,
+        6,
+        16,
+      ),
+      textAlign: 'left',
+    },
     {
       ...button(
         'save',
         'save',
         formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText281'),
-        33,
-        61,
-        34,
+        10,
+        63,
+        28,
         9,
         choiceColor,
         choiceTextColor,
@@ -444,21 +461,32 @@ export const buildRehearsalStartMenuElements = (
       'continue',
       'continue',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText291'),
-      33,
-      51,
-      34,
-      8,
+      10,
+      40,
+      28,
+      10,
       choiceColor,
       choiceTextColor,
       true,
     ),
     button(
+      'flow-overview',
+      'flowOverview',
+      language === 'zh' ? '流程图总览' : language === 'ja' ? 'フロー概要' : 'Flow overview',
+      10,
+      76,
+      13,
+      7,
+      choiceColor,
+      choiceTextColor,
+    ),
+    button(
       'new',
       'new',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText295'),
-      33,
-      71,
-      34,
+      10,
+      52,
+      28,
       9,
       choiceColor,
       choiceTextColor,
@@ -467,14 +495,69 @@ export const buildRehearsalStartMenuElements = (
       'settings',
       'settings',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText306'),
-      33,
-      81,
-      34,
-      9,
+      25,
+      76,
+      13,
+      7,
       choiceColor,
       choiceTextColor,
     ),
   ];
+  return elements.map((element) => {
+    if (element.role === 'title') {
+      return {
+        ...element,
+        textColor: startMenuText,
+      };
+    }
+    if (element.role === 'subtitle') {
+      return {
+        ...element,
+        textColor: startMenuMuted,
+        fontWeight: 600,
+      };
+    }
+    if (element.kind !== 'button') return element;
+
+    const isPrimary = element.role === 'continue';
+    const isSecondary = element.role === 'new' || element.role === 'save';
+    const isUtility = element.role === 'flowOverview' || element.role === 'settings';
+    return {
+      ...element,
+      primary: isPrimary,
+      fontSize: isUtility ? 15 : 18,
+      fontWeight: 700,
+      textAlign: isUtility ? 'center' : 'left',
+      textColor: isPrimary ? '#FFFFFF' : isUtility ? '#514DB4' : startMenuText,
+      backgroundType: isPrimary ? ('gradient' as const) : ('solid' as const),
+      backgroundColor: isPrimary
+        ? startMenuAccent
+        : isSecondary
+          ? element.role === 'new'
+            ? '#FFFFFF'
+            : '#F3F1FF'
+          : 'rgba(255,255,255,0.78)',
+      backgroundGradientStart: startMenuAccent,
+      backgroundGradientEnd: startMenuAccentDark,
+      backgroundGradientAngle: 135,
+      backgroundGradientShape: 'linear' as const,
+      backgroundGradientStops: [
+        { id: `${element.id}-start`, color: startMenuAccent, alpha: 100, position: 0 },
+        { id: `${element.id}-end`, color: startMenuAccentDark, alpha: 100, position: 100 },
+      ],
+      borderColor: isPrimary
+        ? 'rgba(98,91,246,0.34)'
+        : isSecondary
+          ? 'rgba(98,91,246,0.24)'
+          : 'rgba(98,91,246,0.18)',
+      borderWidth: 1,
+      borderRadius: isUtility ? 999 : 16,
+      shadowColor: isPrimary ? '#625BF6' : '#625BF6',
+      shadowOpacity: isPrimary ? 18 : 8,
+      shadowBlur: isPrimary ? 22 : 12,
+      shadowOffsetY: 5,
+    };
+  });
 };
 
 export const buildRehearsalTemplate = (

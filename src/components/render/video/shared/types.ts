@@ -11,7 +11,7 @@ export type ExportFormat = 'mp4' | 'mov' | 'mkv';
 export type TextAnimation = 'none' | 'fade' | 'slideUp' | 'typewriter';
 export type TextAlign = 'left' | 'center' | 'right';
 export type TypewriterMode = 'character' | 'word' | 'sentence' | 'line';
-export type RenderEditableObjectKind = 'dialogBox' | 'title' | 'body' | 'nameplate';
+export type RenderEditableObjectKind = 'dialogBox' | 'title' | 'body' | 'nameplate' | 'choice';
 export type RenderFillType = 'solid' | 'gradient' | 'image';
 export type RenderStrokePosition = 'inside' | 'center' | 'outside';
 export type RenderShadowType = 'outer' | 'inner' | 'innerBlur';
@@ -158,6 +158,9 @@ export type RenderStyle = {
   nameplateGradientAngle: number;
   nameplateGradientStops: Array<{ id: string; color: string; alpha: number; position: number }>;
   nameplateImageUrl: string;
+  choiceGap: number;
+  choiceItemOffsetX: number;
+  choiceItemOffsetY: number;
   titleAnimation: TextAnimation;
   bodyAnimation: TextAnimation;
 };
@@ -275,6 +278,7 @@ export type RenderEditableObjects = {
   title: RenderEditableTextObject;
   body: RenderEditableTextObject;
   nameplate: RenderEditableTextObject;
+  choice: RenderEditableTextObject;
 };
 
 export type WebMenuElement = {
@@ -285,6 +289,7 @@ export type WebMenuElement = {
   role?:
     | 'save'
     | 'continue'
+    | 'flowOverview'
     | 'new'
     | 'settings'
     | 'title'
@@ -406,7 +411,7 @@ export type WebMenuElement = {
 
 export type WebExportSettings = {
   surfaceAppearances?: Partial<
-    Record<'start' | 'archive' | 'settings' | 'game', SurfaceAppearance>
+    Record<'start' | 'archive' | 'settings' | 'game' | 'flow', SurfaceAppearance>
   >;
   canvasWidth: number;
   canvasHeight: number;
@@ -515,6 +520,35 @@ export type WebExportSettings = {
   dialogueBackgroundVideoLoop?: boolean;
   dialogueBackgroundVideoMuted?: boolean;
   dialogueBackgroundVideoFit?: 'crop' | 'fit';
+  flowOverviewBackgroundType: 'solid' | 'gradient' | 'image' | 'video';
+  flowOverviewBackgroundColor: string;
+  flowOverviewBackgroundGradientStart: string;
+  flowOverviewBackgroundGradientEnd: string;
+  flowOverviewBackgroundGradientAngle: number;
+  flowOverviewBackgroundGradientShape?: 'linear' | 'radial' | 'diamond';
+  flowOverviewBackgroundGradientStartX?: number;
+  flowOverviewBackgroundGradientStartY?: number;
+  flowOverviewBackgroundGradientEndX?: number;
+  flowOverviewBackgroundGradientEndY?: number;
+  flowOverviewBackgroundGradientStops?: Array<{
+    id: string;
+    color: string;
+    alpha: number;
+    position: number;
+  }>;
+  flowOverviewBackgroundImageUrl: string;
+  flowOverviewBackgroundVideoUrl?: string;
+  flowOverviewBackgroundVideoLoop?: boolean;
+  flowOverviewBackgroundVideoMuted?: boolean;
+  flowOverviewBackgroundVideoFit?: 'crop' | 'fit';
+  flowOverviewBackgroundMusicUrl: string;
+  flowOverviewMusicVolume: number;
+  flowOverviewMusicFadeIn: number;
+  flowOverviewMusicFadeOut: number;
+  flowOverviewMusicLoop: boolean;
+  flowOverviewElements: WebMenuElement[];
+  flowOverviewMinimapWidth: number;
+  flowOverviewMinimapHeight: number;
   startMenuBackgroundMusicUrl: string;
   startMenuMusicVolume: number;
   startMenuMusicFadeIn: number;

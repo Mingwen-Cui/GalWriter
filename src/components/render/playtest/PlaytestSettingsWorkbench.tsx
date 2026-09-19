@@ -72,29 +72,29 @@ export function PlaytestSettingsWorkbench({
   const inspector = (
     <div className="video-render-workspace min-w-0 space-y-4">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="grid min-w-0 flex-1 grid-cols-4 gap-2 rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
-          {(['dialogBox', 'title', 'body', 'nameplate'] as RenderEditableObjectKind[]).map(
-            (kind) => (
-              <button
-                key={kind}
-                type="button"
-                aria-pressed={selection === kind}
-                data-render-selection={kind}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => {
-                  setSelection(kind);
-                  updateRenderStyle('selectedRenderObject', kind);
-                }}
-                className={`h-9 min-w-0 truncate rounded-lg px-2 text-left text-xs font-bold transition-colors ${
-                  selection === kind
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-slate-100/90 text-slate-700 hover:bg-slate-200/90 dark:bg-white/[0.06] dark:text-slate-200 dark:hover:bg-white/10'
-                }`}
-              >
-                {objectText.object[kind]}
-              </button>
-            ),
-          )}
+        <div className="grid min-w-0 flex-1 grid-cols-5 gap-2 rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
+          {(
+            ['dialogBox', 'title', 'body', 'nameplate', 'choice'] as RenderEditableObjectKind[]
+          ).map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              aria-pressed={selection === kind}
+              data-render-selection={kind}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => {
+                setSelection(kind);
+                updateRenderStyle('selectedRenderObject', kind);
+              }}
+              className={`h-9 min-w-0 truncate rounded-lg px-2 text-left text-xs font-bold transition-colors ${
+                selection === kind
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-100/90 text-slate-700 hover:bg-slate-200/90 dark:bg-white/[0.06] dark:text-slate-200 dark:hover:bg-white/10'
+              }`}
+            >
+              {objectText.object[kind]}
+            </button>
+          ))}
         </div>
 
         {onToggleWindowedPlaytest ? (

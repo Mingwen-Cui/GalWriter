@@ -313,6 +313,33 @@ export async function buildInteractiveWebZipBlob(
     dialogueBackgroundGradientEndY: options.settings?.dialogueBackgroundGradientEndY,
     dialogueBackgroundGradientStops: options.settings?.dialogueBackgroundGradientStops,
     dialogueBackgroundImageUrl: options.settings?.dialogueBackgroundImageUrl || '',
+    flowOverviewBackgroundType: options.settings?.flowOverviewBackgroundType || 'solid',
+    flowOverviewBackgroundColor: options.settings?.flowOverviewBackgroundColor || '#f8fafc',
+    flowOverviewBackgroundGradientStart:
+      options.settings?.flowOverviewBackgroundGradientStart || '#f8fafc',
+    flowOverviewBackgroundGradientEnd:
+      options.settings?.flowOverviewBackgroundGradientEnd || '#e0e7ff',
+    flowOverviewBackgroundGradientAngle:
+      options.settings?.flowOverviewBackgroundGradientAngle ?? 135,
+    flowOverviewBackgroundGradientShape: options.settings?.flowOverviewBackgroundGradientShape,
+    flowOverviewBackgroundGradientStartX: options.settings?.flowOverviewBackgroundGradientStartX,
+    flowOverviewBackgroundGradientStartY: options.settings?.flowOverviewBackgroundGradientStartY,
+    flowOverviewBackgroundGradientEndX: options.settings?.flowOverviewBackgroundGradientEndX,
+    flowOverviewBackgroundGradientEndY: options.settings?.flowOverviewBackgroundGradientEndY,
+    flowOverviewBackgroundGradientStops: options.settings?.flowOverviewBackgroundGradientStops,
+    flowOverviewBackgroundImageUrl: options.settings?.flowOverviewBackgroundImageUrl || '',
+    flowOverviewBackgroundVideoUrl: options.settings?.flowOverviewBackgroundVideoUrl || '',
+    flowOverviewBackgroundVideoLoop: options.settings?.flowOverviewBackgroundVideoLoop !== false,
+    flowOverviewBackgroundVideoMuted: options.settings?.flowOverviewBackgroundVideoMuted !== false,
+    flowOverviewBackgroundVideoFit: options.settings?.flowOverviewBackgroundVideoFit || 'crop',
+    flowOverviewBackgroundMusicUrl: options.settings?.flowOverviewBackgroundMusicUrl || '',
+    flowOverviewMusicVolume: options.settings?.flowOverviewMusicVolume ?? 70,
+    flowOverviewMusicFadeIn: options.settings?.flowOverviewMusicFadeIn ?? 0,
+    flowOverviewMusicFadeOut: options.settings?.flowOverviewMusicFadeOut ?? 0,
+    flowOverviewMusicLoop: options.settings?.flowOverviewMusicLoop !== false,
+    flowOverviewElements: options.settings?.flowOverviewElements || [],
+    flowOverviewMinimapWidth: options.settings?.flowOverviewMinimapWidth ?? 220,
+    flowOverviewMinimapHeight: options.settings?.flowOverviewMinimapHeight ?? 160,
     startMenuBackgroundMusicUrl: options.settings?.startMenuBackgroundMusicUrl || '',
     startMenuMusicVolume: options.settings?.startMenuMusicVolume ?? 70,
     startMenuMusicFadeIn: options.settings?.startMenuMusicFadeIn ?? 0,
@@ -394,7 +421,7 @@ export async function buildInteractiveWebZipBlob(
       : undefined;
   settings.surfaceAppearances = {};
   for (const [surface, appearance] of Object.entries(options.settings?.surfaceAppearances || {}))
-    settings.surfaceAppearances[surface as 'start' | 'archive' | 'settings' | 'game'] =
+    settings.surfaceAppearances[surface as 'start' | 'archive' | 'settings' | 'game' | 'flow'] =
       await packAppearance(appearance, `${title}-${surface}`);
   if (style.renderObjects)
     style.renderObjects = Object.fromEntries(
@@ -435,6 +462,18 @@ export async function buildInteractiveWebZipBlob(
     `${title}-dialogue-background`,
     assetMap,
   );
+  settings.flowOverviewBackgroundImageUrl = await addImageAsset(
+    zip,
+    settings.flowOverviewBackgroundImageUrl,
+    `${title}-flow-overview-background`,
+    assetMap,
+  );
+  settings.flowOverviewBackgroundMusicUrl = await addAudioAsset(
+    zip,
+    settings.flowOverviewBackgroundMusicUrl,
+    `${title}-flow-overview-music`,
+    assetMap,
+  );
   settings.startMenuBackgroundMusicUrl = await addAudioAsset(
     zip,
     settings.startMenuBackgroundMusicUrl,
@@ -470,6 +509,10 @@ export async function buildInteractiveWebZipBlob(
   settings.dialogueOverlayElements = await packMenuElements(
     settings.dialogueOverlayElements,
     'dialogue',
+  );
+  settings.flowOverviewElements = await packMenuElements(
+    settings.flowOverviewElements,
+    'flow-overview',
   );
 
   const webNodes: WebExportNode[] = [];
