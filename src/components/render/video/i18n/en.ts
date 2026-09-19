@@ -1,4 +1,9 @@
 export const videoEn = {
+  interactiveMinimapZoomIn: 'Zoom in',
+  interactiveMinimapZoomOut: 'Zoom out',
+  interactiveMinimapFitView: 'Fit view',
+  interactiveMinimapMaximize: 'Maximize',
+  interactiveMinimapExitFullscreen: 'Exit fullscreen',
   textAnimationNone: 'No animation',
   textAnimationFade: 'Fade',
   textAnimationSlideUp: 'Rise',

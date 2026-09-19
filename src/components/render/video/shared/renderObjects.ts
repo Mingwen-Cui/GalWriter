@@ -116,13 +116,15 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
   dialogBox: objectBase({
     visible: true,
     width: 86,
-    height: 34,
+    height: 22,
     radius: 24,
     fill: fill('solid', '#111827', 82, defaultStops('#111827', '#111827')),
   }),
   title: textObject(
     objectBase({
       visible: true,
+      x: 0,
+      y: -10,
       width: 100,
       height: 24,
       fill: fill('solid', '#ffffff', 100, defaultStops('#ffffff', '#ffffff')),
@@ -144,7 +146,7 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
       animation: animation('typewriter', 'character'),
     }),
     {
-      fontSize: 18,
+      fontSize: 32,
       fontWeight: 500,
       lineHeight: 1.45,
     },
@@ -154,8 +156,8 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
       visible: true,
       width: 34,
       height: 42,
-      radius: 14,
-      fill: fill('solid', '#172554', 94, defaultStops('#1e3a8a', '#0f172a')),
+      radius: 50,
+      fill: fill('gradient', '#172554', 94, defaultStops('#1e3a8a', '#0f172a')),
     }),
     {
       fontSize: 18,

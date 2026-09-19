@@ -2,7 +2,9 @@ import type { PointerEvent } from 'react';
 import { useRef } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
+import type { Language } from '../../../../lib/i18n';
 import { useDesktopViewport } from '../../../../lib/useDesktopViewport';
+import { formatVideoText } from '../i18n';
 import type { GraphPoint } from './interactiveSegmentGraphLayout';
 import { clamp } from './interactiveSegmentGraphLayout';
 import type { InteractiveSegmentDraft } from './interactiveSegments';
@@ -15,6 +17,7 @@ type GraphLink = {
 };
 
 type Props = {
+  language: Language;
   ariaLabel: string;
   segments: InteractiveSegmentDraft[];
   graphLinks: GraphLink[];
@@ -42,6 +45,7 @@ const MINIMAP_WIDTH = 160;
 const MINIMAP_HEIGHT = 120;
 
 export function InteractiveSegmentMinimap({
+  language,
   ariaLabel,
   segments,
   graphLinks,
@@ -204,8 +208,8 @@ export function InteractiveSegmentMinimap({
           <button
             type="button"
             className="react-flow__controls-button react-flow__controls-zoomin"
-            title="Zoom In"
-            aria-label="Zoom In"
+            title={formatVideoText(language, 'interactiveMinimapZoomIn')}
+            aria-label={formatVideoText(language, 'interactiveMinimapZoomIn')}
             disabled={!canZoomIn}
             onClick={onZoomIn}
           >
@@ -216,8 +220,8 @@ export function InteractiveSegmentMinimap({
           <button
             type="button"
             className="react-flow__controls-button react-flow__controls-zoomout"
-            title="Zoom Out"
-            aria-label="Zoom Out"
+            title={formatVideoText(language, 'interactiveMinimapZoomOut')}
+            aria-label={formatVideoText(language, 'interactiveMinimapZoomOut')}
             disabled={!canZoomOut}
             onClick={onZoomOut}
           >
@@ -228,8 +232,8 @@ export function InteractiveSegmentMinimap({
           <button
             type="button"
             className="react-flow__controls-button react-flow__controls-fitview"
-            title="Fit View"
-            aria-label="Fit View"
+            title={formatVideoText(language, 'interactiveMinimapFitView')}
+            aria-label={formatVideoText(language, 'interactiveMinimapFitView')}
             onClick={onFitView}
           >
             <svg viewBox="0 0 32 30" aria-hidden="true">
@@ -240,8 +244,14 @@ export function InteractiveSegmentMinimap({
             <button
               type="button"
               className="react-flow__controls-button !min-w-0 !flex-1 !w-auto"
-              title={isFullscreen ? '退出全屏' : '最大化'}
-              aria-label={isFullscreen ? '退出全屏' : '最大化'}
+              title={formatVideoText(
+                language,
+                isFullscreen ? 'interactiveMinimapExitFullscreen' : 'interactiveMinimapMaximize',
+              )}
+              aria-label={formatVideoText(
+                language,
+                isFullscreen ? 'interactiveMinimapExitFullscreen' : 'interactiveMinimapMaximize',
+              )}
               onClick={onToggleFullscreen}
             >
               {isFullscreen ? (

@@ -1,4 +1,9 @@
 export const videoJa = {
+  interactiveMinimapZoomIn: '拡大',
+  interactiveMinimapZoomOut: '縮小',
+  interactiveMinimapFitView: '全体表示',
+  interactiveMinimapMaximize: '最大化',
+  interactiveMinimapExitFullscreen: '全画面を終了',
   textAnimationNone: 'アニメなし',
   textAnimationFade: 'フェード',
   textAnimationSlideUp: '上へスライド',

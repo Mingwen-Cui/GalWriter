@@ -1,4 +1,9 @@
 export const videoZh = {
+  interactiveMinimapZoomIn: '放大',
+  interactiveMinimapZoomOut: '缩小',
+  interactiveMinimapFitView: '适应视图',
+  interactiveMinimapMaximize: '最大化',
+  interactiveMinimapExitFullscreen: '退出全屏',
   textAnimationNone: '无动画',
   textAnimationFade: '淡入',
   textAnimationSlideUp: '上滑',

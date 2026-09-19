@@ -1,6 +1,11 @@
 import { storyEditorEn } from './en';
 
 export const storyEditorJa: typeof storyEditorEn = {
+  miniMapZoomIn: '拡大',
+  miniMapZoomOut: '縮小',
+  miniMapFitView: '全体表示',
+  miniMapMaximize: '最大化',
+  miniMapExitFullscreen: '全画面を終了',
   copySuccess: 'クリップボードにコピーしました！',
   assistantMemoryDownloaded: 'アシスタントメモリをダウンロードしました',
   textCopied: 'テキストをコピーしました',
@@ -21,7 +26,8 @@ export const storyEditorJa: typeof storyEditorEn = {
     '以下の「{regionTitle}」エリア内のカードを、現在の創作コンテキストとして使用してください。\n\n{content}',
   regionLimit: 'AIアシスタントには最大10個のエリアを追加できます。',
   selectionEmpty: '選択範囲内にAIへ送信できるカードがありません。',
-  selectionContext: '以下の選択したカードを、現在の創作コンテキストとして使用してください。\n\n{content}',
+  selectionContext:
+    '以下の選択したカードを、現在の創作コンテキストとして使用してください。\n\n{content}',
   selectionLimit: 'AIアシスタントには最大10個のカードグループを追加できます。',
   selectionTitle: '選択したカード · {count}',
   characterCardTitle: 'キャラクターカード',

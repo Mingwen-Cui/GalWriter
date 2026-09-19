@@ -2983,6 +2983,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             showStats={showStats}
             miniMapPosition={miniMapPosition}
             miniMapOverlayStyle={miniMapOverlayStyle}
+            miniMapCopy={{
+              zoomIn: storyEditorCopy.miniMapZoomIn,
+              zoomOut: storyEditorCopy.miniMapZoomOut,
+              fitView: storyEditorCopy.miniMapFitView,
+              maximize: storyEditorCopy.miniMapMaximize,
+              exitFullscreen: storyEditorCopy.miniMapExitFullscreen,
+            }}
             isFullscreen={isEditorFullscreen}
             onToggleFullscreen={() => void toggleEditorFullscreen()}
             horizontalGuides={horizontalGuides}

@@ -1,4 +1,9 @@
 export const storyEditorEn = {
+  miniMapZoomIn: 'Zoom in',
+  miniMapZoomOut: 'Zoom out',
+  miniMapFitView: 'Fit view',
+  miniMapMaximize: 'Maximize',
+  miniMapExitFullscreen: 'Exit fullscreen',
   copySuccess: 'Copied to clipboard!',
   assistantMemoryDownloaded: 'Assistant memory downloaded',
   textCopied: 'Text copied',

@@ -8,6 +8,7 @@ import {
   PanOnScrollMode,
   ReactFlow,
   SelectionMode,
+  useReactFlow,
 } from '@xyflow/react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import type { ComponentProps, CSSProperties, MouseEventHandler, RefObject } from 'react';
@@ -19,6 +20,13 @@ import { SmartGuides } from './SmartGuides';
 
 type ReactFlowProps = ComponentProps<typeof ReactFlow>;
 type SelectionMenuProps = ComponentProps<typeof SelectionMenu>;
+type MiniMapCopy = {
+  zoomIn: string;
+  zoomOut: string;
+  fitView: string;
+  maximize: string;
+  exitFullscreen: string;
+};
 
 interface StoryCanvasWorkspaceProps {
   bubbleStyle: 'glass' | 'flat';
@@ -42,6 +50,7 @@ interface StoryCanvasWorkspaceProps {
   showStats: boolean;
   miniMapPosition: 'left' | 'right';
   miniMapOverlayStyle?: CSSProperties;
+  miniMapCopy: MiniMapCopy;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   horizontalGuides: number[];
@@ -81,6 +90,7 @@ export function StoryCanvasWorkspace({
   showStats,
   miniMapPosition,
   miniMapOverlayStyle,
+  miniMapCopy,
   isFullscreen,
   onToggleFullscreen,
   horizontalGuides,
@@ -91,6 +101,7 @@ export function StoryCanvasWorkspace({
   storyCardPlacementPreviewScale = 1,
   selectionMenuProps,
 }: StoryCanvasWorkspaceProps) {
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
   const overlayPositionClass = miniMapPosition === 'left' ? 'left-4' : 'right-4';
   const footerSpacingClass = showStats ? '' : 'canvas-bottom-overlay-no-footer';
   const isDesktopViewport = useDesktopViewport();
@@ -241,16 +252,48 @@ export function StoryCanvasWorkspace({
                 <div className="minimap-controls flex h-8 w-full items-center border-t border-[var(--toolbar-border)] bg-transparent">
                   <Controls
                     showInteractive={false}
-                    showZoom
-                    showFitView
+                    showZoom={false}
+                    showFitView={false}
                     orientation="horizontal"
                     className="!static !m-0 !flex !h-full !w-full !flex-row !items-center !justify-around !gap-0 !border-none !bg-transparent !p-0 !shadow-none"
                   >
+                    <ControlButton
+                      className="react-flow__controls-zoomin"
+                      title={miniMapCopy.zoomIn}
+                      aria-label={miniMapCopy.zoomIn}
+                      onClick={() => void zoomIn()}
+                    >
+                      <svg viewBox="0 0 32 32" aria-hidden="true">
+                        <path d="M32 18.133H18.133V32h-4.266V18.133H0v-4.266h13.867V0h4.266v13.867H32z" />
+                      </svg>
+                    </ControlButton>
+                    <ControlButton
+                      className="react-flow__controls-zoomout"
+                      title={miniMapCopy.zoomOut}
+                      aria-label={miniMapCopy.zoomOut}
+                      onClick={() => void zoomOut()}
+                    >
+                      <svg viewBox="0 0 32 5" aria-hidden="true">
+                        <path d="M0 0h32v4.2H0z" />
+                      </svg>
+                    </ControlButton>
+                    <ControlButton
+                      className="react-flow__controls-fitview"
+                      title={miniMapCopy.fitView}
+                      aria-label={miniMapCopy.fitView}
+                      onClick={() => void fitView({ padding: 0.45 })}
+                    >
+                      <svg viewBox="0 0 32 30" aria-hidden="true">
+                        <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
+                      </svg>
+                    </ControlButton>
                     {isDesktopViewport && (
                       <ControlButton
                         className="!min-w-0 !flex-1 !w-auto"
-                        title={isFullscreen ? '退出全屏' : '最大化'}
-                        aria-label={isFullscreen ? '退出全屏' : '最大化'}
+                        title={isFullscreen ? miniMapCopy.exitFullscreen : miniMapCopy.maximize}
+                        aria-label={
+                          isFullscreen ? miniMapCopy.exitFullscreen : miniMapCopy.maximize
+                        }
                         onClick={onToggleFullscreen}
                       >
                         {isFullscreen ? (

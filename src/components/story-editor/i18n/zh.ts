@@ -1,6 +1,11 @@
 import { storyEditorEn } from './en';
 
 export const storyEditorZh: typeof storyEditorEn = {
+  miniMapZoomIn: '放大',
+  miniMapZoomOut: '缩小',
+  miniMapFitView: '适应视图',
+  miniMapMaximize: '最大化',
+  miniMapExitFullscreen: '退出全屏',
   copySuccess: '复制成功！',
   assistantMemoryDownloaded: '偏好记忆已下载',
   textCopied: '已复制文本',

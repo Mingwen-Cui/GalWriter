@@ -317,6 +317,7 @@ export function WebPlaytestDialoguePanel({
     if (activeKind) onSelectRenderObject?.(activeKind);
   };
   const objects = getRenderObjects(renderStyle);
+  const externalNameplate = !renderStyle.nameplateInside;
   const selectedFrame = (kind: RenderEditableObjectKind) =>
     editMode &&
     (renderStyle.selectedRenderObject === kind || selectedRenderObjectKinds.includes(kind)) &&
@@ -337,7 +338,7 @@ export function WebPlaytestDialoguePanel({
         ref={dialogueBoxRef}
         className={`pointer-events-auto relative border-t border-white/10 ${
           settings.layoutMode === 'immersive'
-            ? `${editMode ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
+            ? `${editMode || externalNameplate ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
             : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
         } ${editMode ? 'cursor-grab' : ''} ${selectionClass('dialogBox')}`}
         style={{

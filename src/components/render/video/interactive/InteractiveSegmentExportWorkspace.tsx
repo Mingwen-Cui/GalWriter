@@ -1328,6 +1328,7 @@ export function InteractiveSegmentExportWorkspace({
             })}
           </div>
           <InteractiveSegmentMinimap
+            language={language}
             ariaLabel={formatVideoText(
               language,
               'componentsrendervideointeractiveInteractiveSegmentExportWorkspaceText1245',
