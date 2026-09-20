@@ -315,6 +315,7 @@ export function WebPlaytestStartMenuElement({
       : element.role === 'flowFitView'
         ? RotateCw
         : null;
+  const isFlowIconControl = Boolean(FlowControlIcon && element.textVisible === false);
 
   return (
     <div
@@ -336,7 +337,7 @@ export function WebPlaytestStartMenuElement({
     >
       {element.kind === 'button' && <style>{WEB_BUTTON_MOTION_CSS}</style>}
       {previewMode === 'edit' && element.kind === 'button' && (
-        <div className="pointer-events-none absolute left-0 top-0 z-10 max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
+        <div className="pointer-events-none absolute left-0 top-0 z-10 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
           {functionLabel}
         </div>
       )}
@@ -456,6 +457,8 @@ export function WebPlaytestStartMenuElement({
             action?.onClick();
           }}
           className={`relative h-full w-full rounded-lg border font-black transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#625BF6]/20 ${
+            isFlowIconControl ? 'gw-flow-control' : ''
+          } ${
             previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'
           } ${
             previewMode === 'test'
@@ -481,7 +484,7 @@ export function WebPlaytestStartMenuElement({
             display: 'flex',
             alignItems: 'center',
             justifyContent: element.textAlign === 'left' ? 'flex-start' : 'center',
-            paddingInline: element.textAlign === 'left' ? 24 : 16,
+            paddingInline: isFlowIconControl ? 0 : element.textAlign === 'left' ? 24 : 16,
             ...textAlignStyle(element.textAlign || 'center'),
             fontFamily: element.fontFamily,
             fontWeight: element.fontWeight,
@@ -547,9 +550,15 @@ export function WebPlaytestStartMenuElement({
                 }
               />
             )}
-          <span className="relative z-[1]">
-            {FlowControlIcon && element.textVisible === false ? (
-              <FlowControlIcon className="h-[52%] w-[52%]" aria-hidden="true" />
+          <span
+            className={`relative z-[1] ${
+              isFlowIconControl
+                ? 'gw-flow-control-content flex h-full w-full items-center justify-center gap-1.5 overflow-hidden px-2'
+                : ''
+            }`}
+          >
+            {isFlowIconControl ? (
+              <FlowControlIcon className="h-6 w-6" aria-hidden="true" />
             ) : (
               content
             )}

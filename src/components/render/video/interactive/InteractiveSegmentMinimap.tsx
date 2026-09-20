@@ -141,7 +141,7 @@ export function InteractiveSegmentMinimap({
 
   return (
     <div
-      className={`canvas-bottom-overlay toolbar-bubble-surface interactive-segment-minimap ${interactive ? 'pointer-events-auto' : 'pointer-events-none'} ${embedded ? 'relative h-full w-full' : 'absolute bottom-4 right-4 z-[50]'} flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md`}
+      className={`${embedded ? '' : 'canvas-bottom-overlay'} toolbar-bubble-surface interactive-segment-minimap ${interactive ? 'pointer-events-auto' : 'pointer-events-none'} ${embedded ? 'relative h-full w-full' : 'absolute bottom-4 right-4 z-[50]'} flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md`}
       style={
         {
           '--interactive-minimap-width': `${minimapWidth}px`,
@@ -229,14 +229,14 @@ export function InteractiveSegmentMinimap({
           </svg>
         </div>
       </div>
-      <div className="minimap-controls flex h-8 w-full items-center border-t border-[var(--toolbar-border)] bg-transparent">
+      <div className="minimap-controls flex h-11 w-full items-center border-t border-[var(--toolbar-border)] bg-transparent px-2 py-1">
         <div
-          className="react-flow__panel react-flow__controls horizontal !static !m-0 !flex !h-full !w-full !flex-row !items-center !justify-around !gap-0 !border-none !bg-transparent !p-0 !shadow-none"
+          className="react-flow__panel react-flow__controls horizontal !static !m-0 !flex !h-full !w-full !flex-row !items-center !justify-around !gap-2 !border-none !bg-transparent !p-0 !shadow-none"
           aria-label="Control Panel"
         >
           <button
             type="button"
-            className="react-flow__controls-button react-flow__controls-zoomin"
+            className="react-flow__controls-button interactive-minimap-control interactive-minimap-control--zoom-in react-flow__controls-zoomin"
             title={formatVideoText(language, 'interactiveMinimapZoomIn')}
             aria-label={formatVideoText(language, 'interactiveMinimapZoomIn')}
             disabled={!interactive || !canZoomIn}
@@ -248,7 +248,7 @@ export function InteractiveSegmentMinimap({
           </button>
           <button
             type="button"
-            className="react-flow__controls-button react-flow__controls-zoomout"
+            className="react-flow__controls-button interactive-minimap-control interactive-minimap-control--zoom-out react-flow__controls-zoomout"
             title={formatVideoText(language, 'interactiveMinimapZoomOut')}
             aria-label={formatVideoText(language, 'interactiveMinimapZoomOut')}
             disabled={!interactive || !canZoomOut}
@@ -260,7 +260,7 @@ export function InteractiveSegmentMinimap({
           </button>
           <button
             type="button"
-            className="react-flow__controls-button react-flow__controls-fitview"
+            className="react-flow__controls-button interactive-minimap-control interactive-minimap-control--fit-view react-flow__controls-fitview"
             title={formatVideoText(language, 'interactiveMinimapFitView')}
             aria-label={formatVideoText(language, 'interactiveMinimapFitView')}
             disabled={!interactive}

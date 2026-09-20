@@ -514,7 +514,7 @@ export function WebPreviewMenuPages({
                 }}
               />
             )}
-          <div className="absolute inset-0 z-0 bg-black/28" />
+          <div className="absolute inset-0 z-0 bg-white/5" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
           <MarqueeLayer
             box={marqueeRef.current?.page === 'archive' ? marqueeBox : null}
@@ -597,7 +597,7 @@ export function WebPreviewMenuPages({
                 }}
               />
             )}
-          <div className="absolute inset-0 z-0 bg-black/28" />
+          <div className="absolute inset-0 z-0 bg-white/5" />
           <AlignmentGuideLayer lines={activeGuideLines} visible={previewMode === 'edit'} />
           <MarqueeLayer
             box={marqueeRef.current?.page === 'settings' ? marqueeBox : null}

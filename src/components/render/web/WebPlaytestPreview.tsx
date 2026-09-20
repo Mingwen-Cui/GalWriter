@@ -1873,7 +1873,11 @@ export function WebPlaytestPreview({
       );
       const movingIds = new Set(drag.groupIds || [drag.id]);
       const initialById = new Map(groupInitial.map((item) => [item.id, item]));
-      commitStartMenuElements(
+      // The flow overview shares this canvas editor with the start menu.  Its
+      // elements live in a separate settings array, so committing through the
+      // start-menu helper made a drag appear to succeed while immediately
+      // repainting the unchanged flow element.
+      commitEditableSurfaceElements(
         editableSurfaceElements.map((item) =>
           movingIds.has(item.id) && initialById.has(item.id)
             ? {
@@ -2304,7 +2308,10 @@ export function WebPlaytestPreview({
           width={settings.flowOverviewMinimapWidth}
           height={settings.flowOverviewMinimapHeight}
           embedded
-          interactive
+          // In edit mode this surface is an element on the canvas: it must
+          // yield pointer input to the parent so it can be selected, moved and
+          // resized.  Navigation remains interactive in test mode.
+          interactive={previewMode !== 'edit'}
         />
       ) : null;
     return (
@@ -2328,6 +2335,18 @@ export function WebPlaytestPreview({
           />
         )}
         <SurfaceLayers muted={!settings.soundEnabled} value={settings.surfaceAppearances?.flow} />
+        <div className="pointer-events-none absolute left-[8%] top-[3%] z-20 grid gap-1">
+          <h2 className="m-0 text-[clamp(22px,2.1vw,34px)] font-black tracking-[-0.04em] text-[#252a59]">
+            {language === 'zh' ? '剧情流程' : language === 'ja' ? 'ストーリーフロー' : 'Story flow'}
+          </h2>
+          <p className="m-0 text-[clamp(11px,1vw,15px)] font-semibold text-[#68719a]">
+            {language === 'zh'
+              ? '探索已解锁的故事路径'
+              : language === 'ja'
+                ? '解放された物語の道筋をたどる'
+                : 'Explore the story paths you have unlocked'}
+          </p>
+        </div>
         {!settings.surfaceAppearances?.flow &&
           background.type === 'video' &&
           background.videoUrl && (
@@ -2346,6 +2365,13 @@ export function WebPlaytestPreview({
           onPointerDown={beginStartMenuMarquee}
           onContextMenu={(event) => {
             if (previewMode === 'edit') event.preventDefault();
+          }}
+          onClick={(event) => {
+            // Dragging captures the pointer on this editor.  Browsers can
+            // dispatch the release click here instead of on the original
+            // flow control, so keep it from reaching the page backdrop and
+            // clearing the just-selected element.
+            event.stopPropagation();
           }}
         >
           <WebStoryFlowGraph

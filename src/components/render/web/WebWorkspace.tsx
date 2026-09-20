@@ -1,6 +1,9 @@
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { resolveWebToolbarElements } from './webExperienceTemplates';
-import { resolveSettingsPageElements } from './webMenuPageElements';
+import {
+  buildSettingsPageElements,
+  resolveSettingsPageElements,
+} from './webMenuPageElements';
 import { PlayerSettingsControlsInspector } from './PlayerSettingsControlsInspector';
 import { themeRenderPatch, themeMenuPatch } from '../experienceThemes';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
@@ -62,6 +65,47 @@ const webSmallTabClass =
 const webSmallTabActiveClass = `${webSmallTabClass} bg-indigo-600 text-white`;
 
 const templateImageUrlField = /image(?:url)?$/i;
+
+type LegacyPageElementPosition = Pick<WebMenuElement, 'id' | 'x' | 'y' | 'width' | 'height'>;
+
+const hasLegacyPageLayout = (
+  elements: WebMenuElement[] | undefined,
+  expected: LegacyPageElementPosition[],
+) =>
+  Array.isArray(elements) &&
+  elements.length === expected.length &&
+  expected.every((target) => {
+    const element = elements.find((candidate) => candidate.id === target.id);
+    return (
+      element?.x === target.x &&
+      element.y === target.y &&
+      element.width === target.width &&
+      element.height === target.height
+    );
+  });
+
+const legacyArchiveLayout: LegacyPageElementPosition[] = [
+  { id: 'archive-title', x: 18, y: 24, width: 64, height: 12 },
+  { id: 'archive-back', x: 78, y: 8, width: 14, height: 7 },
+  { id: 'archive-slot', x: 24, y: 40, width: 52, height: 15 },
+  { id: 'archive-slot-continue', x: 56, y: 46, width: 12, height: 5 },
+  { id: 'archive-slot-delete', x: 69, y: 46, width: 7, height: 5 },
+  { id: 'archive-new', x: 24, y: 59, width: 52, height: 9 },
+];
+
+const legacySettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 8, width: 40, height: 9 },
+  { id: 'settings-back', x: 80, y: 10, width: 12, height: 7 },
+  { id: 'settings-mode', x: 8, y: 22, width: 40, height: 15 },
+  { id: 'settings-speed', x: 8, y: 39, width: 40, height: 17 },
+  { id: 'settings-textSize', x: 8, y: 58, width: 40, height: 17 },
+  { id: 'settings-auto', x: 54, y: 22, width: 38, height: 15 },
+  { id: 'settings-animationSpeed', x: 54, y: 39, width: 38, height: 17 },
+  { id: 'settings-sound', x: 54, y: 58, width: 38, height: 15 },
+  { id: 'settings-controls', x: 54, y: 75, width: 38, height: 18 },
+  { id: 'settings-preview', x: 8, y: 77, width: 40, height: 16 },
+  { id: 'settings-reset', x: 54, y: 10, width: 24, height: 7 },
+];
 
 const resolveHomepageTemplateAssetUrl = (template: HomepageCoverTemplate, value: string) => {
   if (!value.trim()) return value;
@@ -773,16 +817,23 @@ export function WebWorkspace({
     webChoiceColor,
     webChoiceTextColor,
   );
-
-  const archivePageElements = webSettings.archivePageElements?.length
-    ? webSettings.archivePageElements
-    : defaultArchivePageElements;
-  const settingsPageElements = resolveSettingsPageElements(
-    webSettings,
+  const defaultSettingsPageElements = buildSettingsPageElements(
     language,
     webChoiceColor,
     webChoiceTextColor,
   );
+
+  const archivePageElements = webSettings.archivePageElements?.length
+    ? hasLegacyPageLayout(webSettings.archivePageElements, legacyArchiveLayout)
+      ? defaultArchivePageElements
+      : webSettings.archivePageElements
+    : defaultArchivePageElements;
+  const settingsPageElements = hasLegacyPageLayout(
+    webSettings.settingsPageElements,
+    legacySettingsLayout,
+  )
+    ? defaultSettingsPageElements
+    : resolveSettingsPageElements(webSettings, language, webChoiceColor, webChoiceTextColor);
   const resolvedToolbarElements = resolveWebToolbarElements(
     webSettings.previewToolbarElements,
     language,

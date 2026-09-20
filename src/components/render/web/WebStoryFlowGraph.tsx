@@ -191,6 +191,14 @@ export function WebStoryFlowGraph({
     );
   }, [segments]);
 
+  useEffect(() => {
+    // The flow overview uses the same pointer surface for the graph and for
+    // editable overlay controls. Never carry a graph-pan gesture into edit
+    // mode, otherwise releasing a dragged minimap can leave the graph moving
+    // with the pointer.
+    if (editable) dragRef.current = null;
+  }, [editable]);
+
   const activeSegment = segments.find((segment) => segment.id === activeSegmentId);
 
   const storyChainIds = useMemo(() => {
@@ -387,7 +395,10 @@ export function WebStoryFlowGraph({
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || event.target !== event.currentTarget) return;
-    if (editable) onSelectedCardChange?.(null);
+    if (editable) {
+      onSelectedCardChange?.(null);
+      return;
+    }
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,

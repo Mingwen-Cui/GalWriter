@@ -135,18 +135,18 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     role: 'flowDirection',
     text: '',
     visible: true,
-    x: 88.2,
-    y: 0.8,
-    width: 2.2,
-    height: 4.2,
+    x: 8,
+    y: 14,
+    width: 2.588,
+    height: 4.6,
     scale: 1,
     rotation: 0,
     textVisible: false,
-    backgroundColor: '#ffffff',
-    borderColor: 'rgba(15,23,42,0.28)',
-    borderWidth: 1,
-    borderRadius: 8,
-    textColor: '#334155',
+    backgroundColor: '#f1f5f9',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 999,
+    textColor: '#475569',
     fillEnabled: true,
     strokeEnabled: true,
     shadowEnabled: false,
@@ -157,18 +157,18 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     role: 'flowFitView',
     text: '',
     visible: true,
-    x: 90.8,
-    y: 0.8,
-    width: 2.2,
-    height: 4.2,
+    x: 8,
+    y: 20,
+    width: 2.588,
+    height: 4.6,
     scale: 1,
     rotation: 0,
     textVisible: false,
-    backgroundColor: '#ffffff',
-    borderColor: 'rgba(15,23,42,0.28)',
-    borderWidth: 1,
-    borderRadius: 8,
-    textColor: '#64748b',
+    backgroundColor: '#f1f5f9',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 999,
+    textColor: '#475569',
     fillEnabled: true,
     strokeEnabled: true,
     shadowEnabled: false,
@@ -179,10 +179,10 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     role: 'flowBranch',
     text: '开始',
     visible: true,
-    x: 1.5,
-    y: 7,
-    width: 14,
-    height: 6,
+    x: 8,
+    y: 27,
+    width: 30,
+    height: 7,
     scale: 1,
     rotation: 0,
     textVisible: true,
@@ -190,7 +190,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     backgroundColor: '#fffffff0',
     borderColor: 'rgba(15,23,42,0.28)',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     textColor: '#334155',
     fontSize: 13,
     fontWeight: 800,
@@ -224,14 +224,113 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
   },
 ];
 
-const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSettings => {
+type LegacyPageElementPosition = Pick<WebMenuElement, 'id' | 'x' | 'y' | 'width' | 'height'>;
+
+const hasLegacyPageLayout = (
+  elements: WebMenuElement[] | undefined,
+  expected: LegacyPageElementPosition[],
+) =>
+  Array.isArray(elements) &&
+  elements.length === expected.length &&
+  expected.every((target) => {
+    const element = elements.find((candidate) => candidate.id === target.id);
+    return (
+      element?.x === target.x &&
+      element.y === target.y &&
+      element.width === target.width &&
+      element.height === target.height
+    );
+  });
+
+const legacyArchiveLayout: LegacyPageElementPosition[] = [
+  { id: 'archive-title', x: 18, y: 24, width: 64, height: 12 },
+  { id: 'archive-back', x: 78, y: 8, width: 14, height: 7 },
+  { id: 'archive-slot', x: 24, y: 40, width: 52, height: 15 },
+  { id: 'archive-slot-continue', x: 56, y: 46, width: 12, height: 5 },
+  { id: 'archive-slot-delete', x: 69, y: 46, width: 7, height: 5 },
+  { id: 'archive-new', x: 24, y: 59, width: 52, height: 9 },
+];
+
+const legacySettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 8, width: 40, height: 9 },
+  { id: 'settings-back', x: 80, y: 10, width: 12, height: 7 },
+  { id: 'settings-mode', x: 8, y: 22, width: 40, height: 15 },
+  { id: 'settings-speed', x: 8, y: 39, width: 40, height: 17 },
+  { id: 'settings-textSize', x: 8, y: 58, width: 40, height: 17 },
+  { id: 'settings-auto', x: 54, y: 22, width: 38, height: 15 },
+  { id: 'settings-animationSpeed', x: 54, y: 39, width: 38, height: 17 },
+  { id: 'settings-sound', x: 54, y: 58, width: 38, height: 15 },
+  { id: 'settings-controls', x: 54, y: 75, width: 38, height: 18 },
+  { id: 'settings-preview', x: 8, y: 77, width: 40, height: 16 },
+  { id: 'settings-reset', x: 54, y: 10, width: 24, height: 7 },
+];
+
+const migrateBuiltInGamePages = (
+  settings: Partial<WebExportSettings> | undefined,
+  defaults: Pick<WebExportSettings, 'archivePageElements' | 'settingsPageElements'>,
+): Partial<WebExportSettings> => {
+  if (!settings) return {};
+  const archiveIsLegacy = hasLegacyPageLayout(settings.archivePageElements, legacyArchiveLayout);
+  const settingsIsLegacy = hasLegacyPageLayout(settings.settingsPageElements, legacySettingsLayout);
+  if (!archiveIsLegacy && !settingsIsLegacy) return settings;
+  return {
+    ...settings,
+    ...(archiveIsLegacy ? { archivePageElements: defaults.archivePageElements } : {}),
+    ...(settingsIsLegacy
+      ? {
+          settingsPageElements: defaults.settingsPageElements,
+          settingsPageElementsInitialized: true,
+        }
+      : {}),
+  };
+};
+
+const normalizeFlowControlShapes = (settings: WebExportSettings): WebExportSettings => {
   const elements = settings.flowOverviewElements || [];
+  const aspectHeightToWidth =
+    settings.canvasWidth > 0 && settings.canvasHeight > 0
+      ? settings.canvasHeight / settings.canvasWidth
+      : 9 / 16;
+  let changed = false;
+  const normalized = elements.map((element) => {
+    if (element.role !== 'flowDirection' && element.role !== 'flowFitView') return element;
+    const height = Number(element.height);
+    if (!Number.isFinite(height) || height <= 0) return element;
+    const width = Math.round(height * aspectHeightToWidth * 1000) / 1000;
+    if (
+      element.borderRadius === 999 &&
+      element.width === width &&
+      element.backgroundColor === '#f1f5f9' &&
+      element.borderColor === 'transparent' &&
+      element.borderWidth === 0 &&
+      element.textColor === '#475569' &&
+      element.shadowEnabled === false
+    )
+      return element;
+    changed = true;
+    return {
+      ...element,
+      width,
+      borderRadius: 999,
+      backgroundColor: '#f1f5f9',
+      borderColor: 'transparent',
+      borderWidth: 0,
+      textColor: '#475569',
+      shadowEnabled: false,
+    };
+  });
+  return changed ? { ...settings, flowOverviewElements: normalized } : settings;
+};
+
+const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSettings => {
+  const normalizedSettings = normalizeFlowControlShapes(settings);
+  const elements = normalizedSettings.flowOverviewElements || [];
   const controls = defaultFlowOverviewElements.filter(
     (defaultElement) => !elements.some((element) => element.role === defaultElement.role),
   );
   return controls.length > 0
-    ? { ...settings, flowOverviewElements: [...controls, ...elements] }
-    : settings;
+    ? { ...normalizedSettings, flowOverviewElements: [...controls, ...elements] }
+    : normalizedSettings;
 };
 
 const normalizeWebImageFillBaseColors = (settings: WebExportSettings): WebExportSettings => {
@@ -284,9 +383,13 @@ export const useWebExportSettings = (
   },
 ) => {
   const defaultPreset = buildRehearsalTemplate(language, defaultProjectName);
+  const migratedInitialSettings = migrateBuiltInGamePages(initial?.settings, {
+    archivePageElements: defaultPreset.settings.archivePageElements || [],
+    settingsPageElements: defaultPreset.settings.settingsPageElements || [],
+  });
   const sharedCanvas = useSharedCanvasSettings(
     workspaceKey,
-    canvasPatchFromWebSettings(initial?.settings || {}),
+    canvasPatchFromWebSettings(migratedInitialSettings),
   );
   const [webProjectName, setWebProjectName] = useState(
     () => initial?.projectName || defaultProjectName,
@@ -297,12 +400,14 @@ export const useWebExportSettings = (
   );
   const [webSettings, setWebSettings] = useState<WebExportSettings>(() =>
     ensureFlowOverviewControls(
-      applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors({
-        ...DEFAULT_WEB_SETTINGS,
-        ...defaultPreset.settings,
-        ...initial?.settings,
-        ...sharedCanvas.settings,
-      })),
+      applyDefaultMainInterfaceBackground(
+        normalizeWebImageFillBaseColors({
+          ...DEFAULT_WEB_SETTINGS,
+          ...defaultPreset.settings,
+          ...migratedInitialSettings,
+          ...sharedCanvas.settings,
+        }),
+      ),
     ),
   );
   useEffect(() => {

@@ -786,8 +786,8 @@ export const WEB_EXPORT_STYLES = String.raw`
       display: none;
       place-items: center;
       padding: clamp(12px, 3vw, 36px);
-      background: rgba(2, 6, 23, 0.66);
-      backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(5px);
     }
     .flow-overview-backdrop.open { display: grid; }
     .flow-overview-panel {
@@ -797,11 +797,11 @@ export const WEB_EXPORT_STYLES = String.raw`
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      border: 1px solid rgba(148,163,184,0.28);
-      border-radius: 18px;
-      background: #f8fafc;
-      color: #0f172a;
-      box-shadow: 0 28px 100px rgba(0,0,0,0.42);
+      border: 1px solid rgba(15,23,42,0.28);
+      border-radius: 22px;
+      background: #fff;
+      color: #252a59;
+      box-shadow: 0 28px 80px rgba(15,23,42,0.22);
     }
     .flow-overview-head {
       display: flex;
@@ -814,19 +814,31 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .flow-overview-title { font-size: 16px; font-weight: 950; }
     .flow-overview-hint { margin-top: 4px; color: #64748b; font-size: 12px; font-weight: 700; }
+    .flow-overview-brand {
+      position: absolute;
+      z-index: 12;
+      top: 3%;
+      left: 8%;
+      display: grid;
+      gap: 4px;
+      pointer-events: none;
+    }
+    .flow-overview-brand strong { color: #252a59; font-size: 24px; font-weight: 950; letter-spacing: -.03em; }
+    .flow-overview-brand span { color: #68719a; font-size: 12px; font-weight: 700; }
     .flow-overview-close {
       width: 34px;
       height: 34px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid rgba(15,23,42,0.28);
       border-radius: 9px;
       background: #fff;
-      color: #475569;
+      color: #334155;
       cursor: pointer;
       font-size: 18px;
+      box-shadow: 0 6px 16px rgba(15,23,42,0.12);
     }
     .flow-overview-close:hover { color: #4f46e5; border-color: #818cf8; }
     .flow-overview-close-floating { position: absolute; top: 18px; right: 18px; z-index: 12; }
-    .flow-overview-viewport { position: relative; flex: 1; overflow: auto; background: radial-gradient(#dbeafe 1px, transparent 1px), #f8fafc; background-size: 22px 22px; }
+    .flow-overview-viewport { position: relative; flex: 1; overflow: auto; background: radial-gradient(rgba(37,42,89,0.12) 1px, transparent 1px), #f8fafc; background-size: 22px 22px; }
     .flow-overview-canvas { position: relative; min-width: 100%; min-height: 100%; padding: 80px; }
     .flow-overview-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
     .flow-overview-custom-layer { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
@@ -840,16 +852,16 @@ export const WEB_EXPORT_STYLES = String.raw`
       height: 100%;
     }
     .flow-overview-minimap {
-      position: fixed;
-      right: 22px;
-      bottom: 22px;
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
       z-index: 9;
       width: var(--flow-overview-minimap-width, 220px);
       height: var(--flow-overview-minimap-height, 160px);
       overflow: hidden;
-      border: 1px solid rgba(148,163,184,0.34);
+      border: 1px solid rgba(15,23,42,0.28);
       border-radius: 14px;
-      background: rgba(255,255,255,0.82);
+      background: rgba(255,255,255,0.9);
       box-shadow: 0 14px 32px rgba(15,23,42,0.16);
       backdrop-filter: blur(14px);
       pointer-events: none;
@@ -860,15 +872,15 @@ export const WEB_EXPORT_STYLES = String.raw`
       width: 220px;
       height: 132px;
       overflow: hidden;
-      border: 1px solid #cbd5e1;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(15,23,42,0.28);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.94);
       box-shadow: 0 10px 24px rgba(15,23,42,0.10);
       cursor: pointer;
       transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
     }
-    .flow-overview-node:hover, .flow-overview-node:focus-visible { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,0.18), 0 10px 24px rgba(15,23,42,0.12); outline: none; transform: translateY(-1px); }
-    .flow-overview-node.root, .flow-overview-node.is-chain { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,0.18), 0 10px 24px rgba(15,23,42,0.10); }
+    .flow-overview-node:hover, .flow-overview-node:focus-visible { border-color: #625bf6; box-shadow: 0 0 0 3px rgba(98,91,246,0.18), 0 10px 24px rgba(15,23,42,0.12); outline: none; transform: translateY(-1px); }
+    .flow-overview-node.root, .flow-overview-node.is-chain { border-color: #625bf6; box-shadow: 0 0 0 3px rgba(98,91,246,0.18), 0 10px 24px rgba(15,23,42,0.10); }
     .flow-overview-node-image { display: block; width: 100%; height: 100%; object-fit: cover; }
     .flow-overview-node.no-image { background: linear-gradient(135deg, #e2e8f0, #ffffff 52%, #e0e7ff); }
     .flow-overview-edge { transition: stroke .16s ease, stroke-width .16s ease; }
@@ -883,9 +895,9 @@ export const WEB_EXPORT_STYLES = String.raw`
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      border: 1px solid #cbd5e1;
+      border: 1px solid rgba(15,23,42,0.28);
       border-radius: 16px;
-      background: rgba(255,255,255,0.97);
+      background: rgba(255,255,255,0.94);
       box-shadow: 0 18px 44px rgba(15,23,42,0.18);
     }
     .flow-overview-detail[hidden] { display: none; }
@@ -909,23 +921,24 @@ export const WEB_EXPORT_STYLES = String.raw`
       display: none;
       place-items: center;
       padding: 24px 16px;
-      background: rgba(0,0,0,0.48);
-      backdrop-filter: blur(8px);
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(5px);
     }
     .settings-backdrop.open { display: grid; }
     #settingsBackdrop { padding:0; }
+    #settingsBackdrop.gw-playback-settings { background: rgba(15,23,42,0.56); backdrop-filter: blur(10px); }
     #settingsCustomLayer { z-index:20; pointer-events:none; }
     #settingsCustomLayer .start-element { pointer-events:auto; }
     .settings-panel {
-      width: min(420px, calc(100vw - 32px));
+      width: min(560px, calc(100vw - 32px));
       display: grid;
       gap: 14px;
       padding: 18px;
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 14px;
-      background: rgba(8, 12, 20, 0.96);
-      color: #f8fafc;
-      box-shadow: 0 24px 70px rgba(0,0,0,0.52);
+      border: 1px solid rgba(15,23,42,0.28);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.94);
+      color: #252a59;
+      box-shadow: 0 24px 70px rgba(15,23,42,0.22);
     }
     .settings-head {
       display: flex;
@@ -943,18 +956,18 @@ export const WEB_EXPORT_STYLES = String.raw`
       border: 0;
       border-radius: 8px;
       background: transparent;
-      color: rgba(255,255,255,0.68);
+      color: #334155;
       cursor: pointer;
       font-size: 18px;
     }
-    .settings-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .settings-close:hover { background: #f1f5f9; color: #252a59; }
     .settings-row {
       display: grid;
       gap: 8px;
       padding: 12px;
-      border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 10px;
-      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(15,23,42,0.20);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.9);
       text-align: left;
     }
     .settings-label {
@@ -964,19 +977,19 @@ export const WEB_EXPORT_STYLES = String.raw`
       gap: 12px;
       font-size: 12px;
       font-weight: 900;
-      color: rgba(248,250,252,0.8);
+      color: #334155;
     }
     .settings-value {
-      color: rgba(248,250,252,0.54);
+      color: #68719a;
       font-size: 11px;
     }
     .settings-row input[type="range"] { width: 100%; accent-color: var(--choice-color, #0ea5e9); }
     .settings-toggle {
       width: 44px;
       height: 24px;
-      border: 1px solid rgba(255,255,255,0.18);
+      border: 1px solid rgba(15,23,42,0.24);
       border-radius: 999px;
-      background: rgba(255,255,255,0.12);
+      background: #f8fafc;
       padding: 2px;
       cursor: pointer;
     }
@@ -992,12 +1005,12 @@ export const WEB_EXPORT_STYLES = String.raw`
     .settings-toggle.on { background: var(--choice-color, #0ea5e9); }
     .settings-toggle.on::before { transform: translateX(20px); }
     .save-list { display: grid; gap: 12px; max-height: min(56vh, 460px); overflow-y: auto; padding: 2px; }
-    .save-slot-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; min-height: 64px; padding: 14px 16px; border-color: rgba(255,255,255,0.16); border-radius: 14px; background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05)); box-shadow: 0 12px 28px rgba(2,6,23,0.2); }
+    .save-slot-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; min-height: 64px; padding: 14px 16px; border-color: rgba(15,23,42,0.20); border-radius: 14px; background: rgba(255,255,255,0.9); box-shadow: 0 12px 28px rgba(15,23,42,0.10); }
     .save-slot-row > div:last-child { display: flex; gap: 8px; }
-    .save-slot-action { border: 1px solid rgba(255,255,255,0.18); border-radius: 9px; background: rgba(255,255,255,0.1); color: #f8fafc; padding: 8px 12px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: background 140ms ease, transform 140ms ease; }
-    .save-slot-action:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
-    .save-slot-action.primary { background: var(--choice-color, #0ea5e9); border-color: transparent; }
-    .save-slot-action.primary:hover { background: color-mix(in srgb, var(--choice-color, #0ea5e9) 82%, white); }
+    .save-slot-action { border: 1px solid rgba(15,23,42,0.28); border-radius: 9px; background: #fff; color: #334155; padding: 8px 12px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: background 140ms ease, transform 140ms ease; }
+    .save-slot-action:hover { background: #f8fafc; transform: translateY(-1px); }
+    .save-slot-action.primary { background: #625bf6; border-color: #4f46c5; color: #fff; }
+    .save-slot-action.primary:hover { background: #4f46c5; }
     @media (max-width: 720px) {
       main { padding: 0; }
       header { align-items: center; }

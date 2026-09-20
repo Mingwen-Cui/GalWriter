@@ -95,16 +95,33 @@ export const buildRehearsalArchivePageElements = (
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText92'),
       8,
       16,
-      48,
+      30,
       10,
       42,
     ),
+    {
+      ...text(
+        'archive-subtitle',
+        'subtitle',
+        language === 'zh'
+          ? '选择一个进度继续你的旅程'
+          : language === 'ja'
+            ? '進行状況を選んで、物語を続けよう'
+            : 'Choose a save to continue your journey',
+        8,
+        28,
+        30,
+        5,
+        16,
+      ),
+      textAlign: 'left' as const,
+    },
     button(
       'archive-back',
       'back',
       settingsCopy.backToMainMenu,
       8,
-      29,
+      35,
       14,
       7,
       choiceColor,
@@ -115,9 +132,9 @@ export const buildRehearsalArchivePageElements = (
       'slot',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText107'),
       8,
-      42,
-      52,
-      15,
+      45,
+      30,
+      13,
       choiceColor,
       choiceTextColor,
     ),
@@ -125,10 +142,10 @@ export const buildRehearsalArchivePageElements = (
       'archive-slot-continue',
       'slotContinue',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText119'),
-      42,
-      47,
-      14,
-      6,
+      8,
+      60,
+      20,
+      7,
       choiceColor,
       choiceTextColor,
       true,
@@ -137,10 +154,10 @@ export const buildRehearsalArchivePageElements = (
       'archive-slot-delete',
       'slotDelete',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText120'),
-      58,
-      47,
-      12,
-      6,
+      30,
+      60,
+      8,
+      7,
       choiceColor,
       choiceTextColor,
     ),
@@ -149,7 +166,7 @@ export const buildRehearsalArchivePageElements = (
       'new',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText124'),
       8,
-      62,
+      70,
       30,
       9,
       choiceColor,
@@ -158,6 +175,8 @@ export const buildRehearsalArchivePageElements = (
     ),
   ].map((element) => {
     if (element.role === 'title') return { ...element, textColor: '#252a59', textAlign: 'left' };
+    if (element.role === 'subtitle')
+      return { ...element, textColor: '#68719a', fontWeight: 600, textAlign: 'left' };
     const primary = element.role === 'new' || element.role === 'slotContinue';
     return {
       ...element,
@@ -182,15 +201,15 @@ export const buildRehearsalSettingsPageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const positions: Record<string, [number, number, number, number]> = {
-    mode: [8, 42, 38, 12],
-    speed: [8, 56, 38, 14],
-    textSize: [8, 72, 38, 14],
-    preview: [8, 88, 38, 10],
-    auto: [52, 42, 38, 12],
-    animationSpeed: [52, 56, 38, 14],
-    sound: [52, 72, 38, 12],
-    controls: [52, 86, 38, 12],
-    reset: [76, 29, 14, 7],
+    mode: [8, 42, 30, 10],
+    speed: [8, 55, 30, 12],
+    textSize: [8, 70, 30, 12],
+    preview: [8, 85, 30, 10],
+    auto: [40, 42, 30, 10],
+    animationSpeed: [40, 55, 30, 12],
+    sound: [40, 70, 30, 10],
+    controls: [40, 85, 30, 10],
+    reset: [24, 29, 14, 7],
   };
   return [
     text(

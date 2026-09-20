@@ -132,6 +132,10 @@ ${WEB_PLAYBACK_UI_CSS}</style>
   <div class="flow-overview-backdrop" id="flowOverviewBackdrop" role="dialog" aria-modal="true" aria-label="Flow overview">
     <div class="flow-overview-panel" id="flowOverviewPanel">
       <div class="flow-overview-viewport" id="flowOverviewViewport">
+        <div class="flow-overview-brand">
+          <strong>${language === 'zh' ? '剧情流程' : language === 'ja' ? 'ストーリーフロー' : 'Story flow'}</strong>
+          <span>${language === 'zh' ? '探索已解锁的故事路径' : language === 'ja' ? '解放された物語の道筋をたどる' : 'Explore the story paths you have unlocked'}</span>
+        </div>
         <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
         <div class="flow-overview-canvas" id="flowOverviewCanvas"></div>
         <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
@@ -2209,7 +2213,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           ? maxLevel - position.level
           : position.level;
         position.x = 48 + (horizontal ? levelOffset * 282 : position.index * 282);
-        position.y = 48 + (horizontal ? position.index * 150 : levelOffset * 180);
+        position.y = 112 + (horizontal ? position.index * 150 : levelOffset * 180);
         const size = settings.flowOverviewCardSizes[nodeId] || {};
         position.width = clamp(size.width, 140, 420, 220);
         position.height = clamp(size.height, 90, 260, 132);
