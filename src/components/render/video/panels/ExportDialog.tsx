@@ -6,6 +6,8 @@ import type { Language } from '../../../../lib/i18n';
 import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS } from '../shared/constants';
 import type { ExportFormat, RenderWorkspaceMode } from '../shared/types';
 
+type WebExportFormat = 'web-zip' | 'windows-installer';
+
 type ExportDialogProps = {
   workspaceMode: RenderWorkspaceMode;
   language: Language;
@@ -28,6 +30,7 @@ type ExportDialogProps = {
     exportFormat: ExportFormat;
     speed: number;
     videoBitrate: number;
+    webExportFormat: WebExportFormat;
   }) => void;
   onChooseVideoOutputDir: () => void;
   onChooseWebOutputDir: () => void;
@@ -67,6 +70,8 @@ export function ExportDialog({
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>(initialExportFormat);
   const [selectedSpeed, setSelectedSpeed] = useState(initialSpeed);
   const [selectedVideoBitrate, setSelectedVideoBitrate] = useState(12_000_000);
+  const [selectedWebExportFormat, setSelectedWebExportFormat] =
+    useState<WebExportFormat>('web-zip');
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const isVideo = workspaceMode === 'video';
@@ -109,6 +114,7 @@ export function ExportDialog({
       exportFormat: selectedFormat,
       speed: selectedSpeed,
       videoBitrate: selectedVideoBitrate,
+      webExportFormat: selectedWebExportFormat,
     });
   };
 
@@ -182,6 +188,65 @@ export function ExportDialog({
               />
             )}
           </div>
+
+          {!isVideo && (
+            <fieldset className="space-y-1.5">
+              <legend className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
+                {formatVideoText(language, 'webExportFormatLabel')}
+              </legend>
+              <div className="grid gap-2">
+                <label
+                  className={`cursor-pointer rounded-xl border p-3 transition-colors ${
+                    selectedWebExportFormat === 'web-zip'
+                      ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]'
+                      : 'border-[var(--vr-border)] bg-[var(--vr-surface)] hover:border-[var(--vr-accent)]/50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="web-export-format"
+                    value="web-zip"
+                    checked={selectedWebExportFormat === 'web-zip'}
+                    onChange={() => setSelectedWebExportFormat('web-zip')}
+                    className="sr-only"
+                  />
+                  <span className="block text-xs font-black text-[var(--vr-text)]">
+                    {formatVideoText(language, 'webExportFormatZip')}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-[var(--vr-text-muted)]">
+                    {formatVideoText(language, 'webExportFormatZipDesc')}
+                  </span>
+                </label>
+                <label
+                  className={`cursor-pointer rounded-xl border p-3 transition-colors ${
+                    selectedWebExportFormat === 'windows-installer'
+                      ? 'border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]'
+                      : 'border-[var(--vr-border)] bg-[var(--vr-surface)] hover:border-[var(--vr-accent)]/50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="web-export-format"
+                    value="windows-installer"
+                    checked={selectedWebExportFormat === 'windows-installer'}
+                    onChange={() => setSelectedWebExportFormat('windows-installer')}
+                    className="sr-only"
+                  />
+                  <span className="block text-xs font-black text-[var(--vr-text)]">
+                    {formatVideoText(language, 'webExportFormatWindowsPlayer')}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-[var(--vr-text-muted)]">
+                    {formatVideoText(language, 'webExportFormatWindowsPlayerDesc')}
+                  </span>
+                </label>
+              </div>
+              {!isDesktopApp && selectedWebExportFormat === 'windows-installer' && (
+                <p className="text-[11px] leading-4 text-amber-600 dark:text-amber-300">
+                  {formatVideoText(language, 'webExportWindowsInstallerDesktopHint')}
+                </p>
+              )}
+            </fieldset>
+          )}
 
           {isVideo && (
             <div className="grid grid-cols-2 gap-3">
@@ -278,7 +343,7 @@ export function ExportDialog({
             </div>
           )}
 
-          {isDesktopApp && isVideo && (
+          {isDesktopApp && (
             <div className="space-y-1.5">
               <label
                 htmlFor="export-dialog-output-dir"
@@ -354,7 +419,9 @@ export function ExportDialog({
               <Download className="h-3.5 w-3.5" />
               {isVideo
                 ? formatVideoText(language, 'componentsrendervideopanelsExportDialogText318')
-                : formatVideoText(language, 'componentsrendervideopanelsExportDialogText319')}
+                : selectedWebExportFormat === 'windows-installer'
+                  ? formatVideoText(language, 'webExportWindowsPlayerAction')
+                  : formatVideoText(language, 'componentsrendervideopanelsExportDialogText319')}
             </button>
           </div>
         </div>

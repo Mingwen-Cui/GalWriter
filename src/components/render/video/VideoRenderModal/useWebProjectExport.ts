@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { buildInteractiveWebZipBlob, exportInteractiveWebZip } from '../../web/webExport';
-import { saveRenderedWebZip } from '../export/tauriRenderAdapter';
+import { saveRenderedWebPlayer, saveRenderedWebZip } from '../export/tauriRenderAdapter';
 import { isTauriRuntime } from '../shared/mediaUtils';
 import type { RenderStatus, RenderStyle, WebExportSettings } from '../shared/types';
 
@@ -45,8 +45,17 @@ export const useWebProjectExport = ({
   setProgress: Dispatch<SetStateAction<string>>;
   setProgressValue: Dispatch<SetStateAction<number>>;
 }) => {
-  const exportWebProject = async () => {
+  const exportWebProject = async ({
+    format = 'web-zip',
+  }: {
+    format?: 'web-zip' | 'windows-installer';
+  } = {}) => {
     if (status === 'rendering') return;
+    if (format === 'windows-installer' && !isTauriRuntime()) {
+      setStatus('error');
+      setError(getVideoTextForChinesePreference(isZh, 'webExportWindowsInstallerDesktopRequired'));
+      return;
+    }
     if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
       setStatus('error');
       setError(
@@ -65,7 +74,9 @@ export const useWebProjectExport = ({
     setProgress(
       getVideoTextForChinesePreference(
         isZh,
-        'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText63',
+        format === 'windows-installer'
+          ? 'webExportPreparingWindowsPlayer'
+          : 'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText63',
       ),
     );
 
@@ -86,14 +97,20 @@ export const useWebProjectExport = ({
         setProgress(
           getVideoTextForChinesePreference(
             isZh,
-            'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText79',
+            format === 'windows-installer'
+              ? 'webExportSavingWindowsPlayer'
+              : 'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText79',
           ),
         );
-        const result = await saveRenderedWebZip({
-          fileName: `${exportTitle}-web`,
+        const input = {
+          fileName: format === 'windows-installer' ? exportTitle : `${exportTitle}-web`,
           bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
           outputDir: webOutputDir,
-        });
+        };
+        const result =
+          format === 'windows-installer'
+            ? await saveRenderedWebPlayer(input)
+            : await saveRenderedWebZip(input);
         setSavedPath(result.path);
       } else {
         await exportInteractiveWebZip(nodes, edges, options);
@@ -104,7 +121,9 @@ export const useWebProjectExport = ({
       setProgress(
         getVideoTextForChinesePreference(
           isZh,
-          'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92',
+          format === 'windows-installer'
+            ? 'webExportWindowsPlayerDone'
+            : 'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92',
         ),
       );
     } catch (error: any) {
@@ -114,7 +133,9 @@ export const useWebProjectExport = ({
         error?.message ||
           getVideoTextForChinesePreference(
             isZh,
-            'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText96',
+            format === 'windows-installer'
+              ? 'webExportWindowsPlayerFailed'
+              : 'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText96',
           ),
       );
     }

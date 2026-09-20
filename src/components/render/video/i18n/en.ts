@@ -124,6 +124,15 @@ export const videoEn = {
   componentsrendervideopanelsExportDialogText308: 'Cancel',
   componentsrendervideopanelsExportDialogText318: 'Start Render',
   componentsrendervideopanelsExportDialogText319: 'Export',
+  webExportFormatLabel: 'Export format',
+  webExportFormatZip: 'Web package (ZIP)',
+  webExportFormatZipDesc: 'Extract it, then open it in a browser or use the included launcher.',
+  webExportFormatWindowsPlayer: 'Windows installer (EXE)',
+  webExportFormatWindowsPlayerDesc:
+    'Creates a Windows program package. Install it, then play from its EXE without a web link.',
+  webExportWindowsPlayerAction: 'Export Windows Installer',
+  webExportWindowsInstallerDesktopHint:
+    'Windows installers can only be generated in the GalWriter desktop app.',
   componentsrendervideopanelsPptExportDialogText78: 'Export PPTX',
   componentsrendervideopanelsPptExportDialogText82: 'Export PPTX',
   componentsrendervideopanelsPptExportDialogText84: 'Close',
@@ -503,6 +512,12 @@ export const videoEn = {
   componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText79: 'Saving web ZIP...',
   componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92: 'Web ZIP exported',
   componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText96: 'Web export failed',
+  webExportPreparingWindowsPlayer: 'Generating Windows player...',
+  webExportSavingWindowsPlayer: 'Packaging Windows player...',
+  webExportWindowsPlayerDone: 'Windows player exported',
+  webExportWindowsPlayerFailed: 'Windows player export failed',
+  webExportWindowsInstallerDesktopRequired:
+    'Export the installer from the GalWriter Windows desktop app.',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText957:
     'Fullscreen is not available here.',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText976:

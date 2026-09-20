@@ -4,6 +4,7 @@ import type {
   SaveRenderedImageInput,
   SaveRenderedPptxInput,
   SaveRenderedVideoInput,
+  SaveRenderedWebPlayerInput,
   SaveRenderedWebZipInput,
 } from './renderExportTypes';
 
@@ -37,6 +38,11 @@ export const saveRenderedImage = async (input: SaveRenderedImageInput) => {
 export const saveRenderedWebZip = async (input: SaveRenderedWebZipInput) => {
   const invoke = await loadInvoke();
   return invoke<RenderSaveResult>('save_rendered_web_zip', input);
+};
+
+export const saveRenderedWebPlayer = async (input: SaveRenderedWebPlayerInput) => {
+  const invoke = await loadInvoke();
+  return invoke<RenderSaveResult>('save_rendered_web_player', input);
 };
 
 export const saveRenderedPptx = async (input: SaveRenderedPptxInput) => {

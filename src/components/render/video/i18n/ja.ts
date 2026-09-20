@@ -128,6 +128,15 @@ export const videoJa = {
   componentsrendervideopanelsExportDialogText308: 'キャンセル',
   componentsrendervideopanelsExportDialogText318: 'レンダリング開始',
   componentsrendervideopanelsExportDialogText319: 'エクスポート',
+  webExportFormatLabel: '出力形式',
+  webExportFormatZip: 'Web パッケージ（ZIP）',
+  webExportFormatZipDesc: '展開後、ブラウザまたは同梱ランチャーで開けます。',
+  webExportFormatWindowsPlayer: 'Windows インストーラー（EXE）',
+  webExportFormatWindowsPlayerDesc:
+    'Windows プログラムパッケージを作成します。インストール後は EXE から再生でき、Web リンクは不要です。',
+  webExportWindowsPlayerAction: 'Windows インストーラーを書き出す',
+  webExportWindowsInstallerDesktopHint:
+    'Windows インストーラーは GalWriter デスクトップ版でのみ生成できます。',
   componentsrendervideopanelsPptExportDialogText78: 'PPTX をエクスポート',
   componentsrendervideopanelsPptExportDialogText82: 'PPTX をエクスポート',
   componentsrendervideopanelsPptExportDialogText84: '閉じる',
@@ -507,6 +516,12 @@ export const videoJa = {
   componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText79: 'Saving web ZIP...',
   componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92: 'Web ZIP exported',
   componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText96: 'Web export failed',
+  webExportPreparingWindowsPlayer: 'Windows プレーヤーを生成中...',
+  webExportSavingWindowsPlayer: 'Windows プレーヤーをパッケージ中...',
+  webExportWindowsPlayerDone: 'Windows プレーヤーを書き出しました',
+  webExportWindowsPlayerFailed: 'Windows プレーヤーの書き出しに失敗しました',
+  webExportWindowsInstallerDesktopRequired:
+    'インストーラーは GalWriter の Windows デスクトップ版から書き出してください。',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText957:
     'Fullscreen is not available here.',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText976:

@@ -1,7 +1,9 @@
 /** Optional Windows launcher for browsers that restrict file:// resources. */
-export const LOCAL_PREVIEW_CMD = '@echo off\r\ncd /d "%~dp0"\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0preview-server.ps1"\r\nif errorlevel 1 pause\r\n';
+export const LOCAL_PREVIEW_CMD =
+  '@echo off\r\ncd /d "%~dp0"\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0preview-server.ps1"\r\nif errorlevel 1 pause\r\n';
 
-export const LOCAL_PREVIEW_SERVER = String.raw`$ErrorActionPreference = 'Stop'
+export const LOCAL_PREVIEW_SERVER = String.raw`param([switch]$NoBrowser)
+$ErrorActionPreference = 'Stop'
 $previewRoot = [System.IO.Path]::GetFullPath($PSScriptRoot)
 $previewPrefix = $previewRoot.TrimEnd('\') + '\'
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
@@ -30,9 +32,9 @@ try {
   $listener.Start()
   $port = $listener.LocalEndpoint.Port
   $address = "http://127.0.0.1:$port/index.html"
-  Write-Host "GalWriter local preview: $address"
-  Write-Host 'Keep this window open while playing. Close it to stop the preview.'
-  Start-Process $address
+  Write-Output "GalWriter local preview: $address"
+  Write-Output 'Keep this window open while playing. Close it to stop the preview.'
+  if (-not $NoBrowser) { Start-Process $address }
   while ($true) {
     $client = $listener.AcceptTcpClient()
     $stream = $null

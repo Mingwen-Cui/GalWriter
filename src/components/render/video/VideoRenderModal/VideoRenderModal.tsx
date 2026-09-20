@@ -2816,6 +2816,7 @@ export function VideoRenderModal({
             exportFormat: chosenFormat,
             speed: chosenSpeed,
             videoBitrate,
+            webExportFormat,
           }) => {
             setIsExportDialogOpen(false);
             if (workspaceMode === 'video') {
@@ -2830,7 +2831,7 @@ export function VideoRenderModal({
                 videoBitrate,
               });
             } else {
-              exportWebProject();
+              exportWebProject({ format: webExportFormat });
             }
           }}
           onChooseVideoOutputDir={chooseOutputDir}
