@@ -51,6 +51,7 @@ export const renderObjectInspectorZh = {
     choiceGap: '选项间距',
     choiceOffsetX: '选项横向偏移',
     choiceOffsetY: '选项纵向偏移',
+    zIndex: 'Z 轴',
   },
   option: {
     solid: '纯色',

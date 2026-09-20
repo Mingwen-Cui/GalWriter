@@ -1759,7 +1759,11 @@ export function WebPlaytestPreview({
     startMenuEditorRef.current?.setPointerCapture?.(event.pointerId);
   };
   const beginStartMenuMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (previewMode !== 'edit' || event.button !== 2) return;
+    // Editable elements stop propagation before this empty-canvas handler.
+    // Use the primary button so a normal drag box-selects and a normal empty
+    // click clears selection, rather than hiding multi-select behind right
+    // click.
+    if (previewMode !== 'edit' || event.button !== 0) return;
     const rect = startMenuEditorRef.current?.getBoundingClientRect();
     if (!rect) return;
     event.preventDefault();
@@ -2049,9 +2053,6 @@ export function WebPlaytestPreview({
       <div
         className={`absolute inset-0 z-40 grid text-[#252A59] ${startMenuButtonPositionClass} ${startMenuBackgroundClass}`}
         style={startMenuBackgroundStyle}
-        onClick={() => {
-          if (previewMode === 'edit') setSelectedStartMenuElementId(null);
-        }}
       >
         {previewMode === 'edit' && gradientEditingSurface === 'start' && (
           <GradientCanvasControl
@@ -2110,10 +2111,12 @@ export function WebPlaytestPreview({
             if (previewMode === 'edit') event.preventDefault();
           }}
           onClick={(event) => {
-            if (previewMode === 'edit') {
-              event.stopPropagation();
-              setSelectedStartMenuElementId(null);
-            }
+            // beginStartMenuEditDrag captures the pointer on this canvas.
+            // Consequently the browser may dispatch the release click here
+            // rather than on the original button/text/image. Keep that click
+            // inside the start-menu editor so the surrounding preview canvas
+            // cannot interpret it as a background click and clear selection.
+            event.stopPropagation();
           }}
         >
           {previewMode === 'edit' && activeStartMenuGuideLines.length > 0 && (

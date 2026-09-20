@@ -51,6 +51,7 @@ export const renderObjectInspectorJa = {
     choiceGap: '選択肢の間隔',
     choiceOffsetX: '選択肢の横オフセット',
     choiceOffsetY: '選択肢の縦オフセット',
+    zIndex: 'Z 軸',
   },
   option: {
     solid: '単色',

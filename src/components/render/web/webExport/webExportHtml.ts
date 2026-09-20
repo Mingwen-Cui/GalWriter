@@ -466,8 +466,41 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         target.style.textAlign = element.textAlign;
         target.style.justifyContent = element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start";
       }
+      if (element.appearance) applyCustomTextAppearance(target, element.appearance);
       applyElementRadius(target, element, 0);
       if (element.textStrokeTarget === "box") applyCustomBoxEffects(target, element);
+    }
+    function applyCustomTextAppearance(target, appearance) {
+      const fill = (appearance.fills || []).find(function(layer) { return layer.enabled && layer.opacity > 0; });
+      if (fill) {
+        if (fill.type === "gradient") {
+          target.style.color = "transparent";
+          target.style.backgroundImage = gradientFromStops(fill.gradientShape, Number(fill.gradientAngle) || 90, normalizeGradientStops(fill.gradientStops, fill.gradientStart || "#ffffff", fill.gradientEnd || "#0ea5e9"));
+          target.style.backgroundClip = "text";
+          target.style.webkitBackgroundClip = "text";
+          target.style.webkitTextFillColor = "transparent";
+        } else if (fill.type === "image" && fill.imageUrl) {
+          target.style.color = "transparent";
+          target.style.backgroundImage = "url(\"" + String(fill.imageUrl).replace(/"/g, "\\\\\"") + "\")";
+          target.style.backgroundSize = "cover";
+          target.style.backgroundPosition = "center";
+          target.style.backgroundClip = "text";
+          target.style.webkitBackgroundClip = "text";
+          target.style.webkitTextFillColor = "transparent";
+        } else {
+          target.style.color = fill.color || "#ffffff";
+          target.style.backgroundImage = "none";
+          target.style.backgroundClip = "";
+          target.style.webkitBackgroundClip = "";
+          target.style.webkitTextFillColor = "";
+        }
+      }
+      const stroke = (appearance.strokes || []).find(function(layer) { return layer.enabled && layer.width > 0; });
+      if (stroke) target.style.webkitTextStroke = stroke.width + "px " + (stroke.color || "#000000");
+      const shadows = (appearance.shadows || []).filter(function(layer) { return layer.enabled; }).map(function(layer) {
+        return layer.x + "px " + layer.y + "px " + layer.blur + "px " + layer.spread + "px " + layer.color;
+      });
+      if (shadows.length) target.style.textShadow = shadows.join(", ");
     }
     function applyCustomButtonTextStyle(target, element, fallbackColor) {
       if (element.textVisible === false) target.textContent = "";

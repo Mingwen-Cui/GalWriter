@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Crosshair,
   Expand,
+  Layers,
   Minus,
   MoveHorizontal,
   MoveVertical,
@@ -262,33 +263,6 @@ export function RenderObjectInspector({
         </div>
       )}
 
-      <LayerOrderMenu
-        language={language}
-        selectedId={selectedKind}
-        items={Object.entries(objects)
-          .filter(([id]) => visibleObjectKinds.includes(id as RenderEditableObjectKind))
-          .map(([id, obj]) => ({
-            id,
-            name:
-              (
-                {
-                  dialogBox: '话框',
-                  title: '名称',
-                  body: '正文',
-                  nameplate: '人名',
-                  choice: '选择',
-                } as Record<string, string>
-              )[id] || id,
-            z: obj.zIndex ?? 0,
-          }))}
-        onSelect={(id) => setSelectedKind(id as RenderEditableObjectKind)}
-        onChange={(id, zIndex) =>
-          updateRenderStyle(
-            'renderObjects',
-            updateRenderObject(renderStyle, id as RenderEditableObjectKind, { zIndex }),
-          )
-        }
-      />
       {cornersOpen && (
         <FloatingPopover
           language={language}
@@ -356,6 +330,46 @@ export function RenderObjectInspector({
             />
           }
         >
+          <ControlRow>
+            <NumberField
+              icon={<Layers className="h-4 w-4" />}
+              label={text.field.zIndex}
+              value={selected.zIndex ?? 0}
+              min={-100}
+              max={9999}
+              onChange={(value) => setObject({ zIndex: Math.min(9999, value) })}
+            />
+            <div className="min-w-0 flex-1">
+              <LayerOrderMenu
+                language={language}
+                className="w-full justify-start"
+                selectedId={selectedKind}
+                items={Object.entries(objects)
+                  .filter(([id]) => visibleObjectKinds.includes(id as RenderEditableObjectKind))
+                  .map(([id, obj]) => ({
+                    id,
+                    name:
+                      (
+                        {
+                          dialogBox: '话框',
+                          title: '名称',
+                          body: '正文',
+                          nameplate: '人名',
+                          choice: '选择',
+                        } as Record<string, string>
+                      )[id] || id,
+                    z: obj.zIndex ?? 0,
+                  }))}
+                onSelect={(id) => setSelectedKind(id as RenderEditableObjectKind)}
+                onChange={(id, zIndex) =>
+                  updateRenderStyle(
+                    'renderObjects',
+                    updateRenderObject(renderStyle, id as RenderEditableObjectKind, { zIndex }),
+                  )
+                }
+              />
+            </div>
+          </ControlRow>
           <ControlRow>
             <NumberField
               icon={<MoveHorizontal className="h-4 w-4" />}

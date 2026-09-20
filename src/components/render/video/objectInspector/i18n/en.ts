@@ -51,6 +51,7 @@ export const renderObjectInspectorEn = {
     choiceGap: 'Choice gap',
     choiceOffsetX: 'Choice X step',
     choiceOffsetY: 'Choice Y step',
+    zIndex: 'Z order',
   },
   option: {
     solid: 'Solid',

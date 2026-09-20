@@ -22,6 +22,7 @@ import {
   webElementBoxStyle,
   webElementShadowStyle,
   webElementTextPaintStyle,
+  webElementTextStrokeStyle,
   webImageFillBackgroundColor,
 } from './webElementStyle';
 import type { WebSaveSlot } from './webExport/webSaveSlots';
@@ -261,7 +262,10 @@ export function WebPreviewMenuPages({
     page: 'archive' | 'settings',
     event: React.PointerEvent<HTMLDivElement>,
   ) => {
-    if (previewMode !== 'edit' || event.button !== 2) return;
+    // Editable elements stop propagation before this empty-canvas handler.
+    // Left-drag is the normal marquee-selection gesture; a zero-size marquee
+    // from a plain empty click clears the current selection.
+    if (previewMode !== 'edit' || event.button !== 0) return;
     const root = page === 'archive' ? archiveRootRef.current : settingsRootRef.current;
     const rect = root?.getBoundingClientRect();
     if (!rect) return;
@@ -485,6 +489,7 @@ export function WebPreviewMenuPages({
           onContextMenu={(event) => {
             if (previewMode === 'edit') event.preventDefault();
           }}
+          onClick={(event) => event.stopPropagation()}
         >
           <SurfaceLayers
             muted={!settings.soundEnabled}
@@ -567,6 +572,7 @@ export function WebPreviewMenuPages({
           onContextMenu={(event) => {
             if (previewMode === 'edit') event.preventDefault();
           }}
+          onClick={(event) => event.stopPropagation()}
         >
           <SurfaceLayers
             muted={!settings.soundEnabled}
@@ -709,12 +715,7 @@ function MenuPageElementLayer({
   };
 
   return (
-    <div
-      className="pointer-events-none absolute inset-0 z-20"
-      onClick={() => {
-        if (editable) onSelectElement?.(null);
-      }}
-    >
+    <div className="pointer-events-none absolute inset-0 z-20">
       {elements
         .filter((element) => editable || element.visible !== false)
         .map((element) => {
@@ -743,13 +744,7 @@ function MenuPageElementLayer({
             fontWeight: element.fontWeight,
             color: element.textColor || (element.primary ? choiceTextColor : '#f8fafc'),
             ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 12),
-            WebkitTextStroke:
-              element.kind === 'text' &&
-              element.textStrokeTarget !== 'box' &&
-              element.strokeEnabled !== false &&
-              (element.textStrokeWidth ?? 0) > 0
-                ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
-                : undefined,
+            ...(element.kind === 'text' ? webElementTextStrokeStyle(element) : {}),
           };
           const justifyContent =
             element.textAlign === 'left'

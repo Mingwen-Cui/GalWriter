@@ -13,10 +13,12 @@ export function AppearanceStackInspector({
   language,
   value,
   onChange,
+  groups = ['fills', 'strokes', 'shadows'],
 }: {
   language: Language;
   value: SurfaceAppearance;
   onChange: (value: SurfaceAppearance) => void;
+  groups?: Array<keyof SurfaceAppearance>;
 }) {
   const t = (zh: string, en: string, ja = en) =>
     language === 'zh' ? zh : language === 'ja' ? ja : en;
@@ -78,7 +80,7 @@ export function AppearanceStackInspector({
   };
   return (
     <div className="space-y-3">
-      {(['fills', 'strokes', 'shadows'] as const).map((group) => (
+      {groups.map((group) => (
         <InspectorGroup
           key={group}
           title={names[group]}
@@ -172,7 +174,11 @@ export function AppearanceStackInspector({
           language={language}
           positionKey={`appearance-${editing.group}`}
           popoverKey={editing.group === 'fills' && 'type' in selected ? selected.type : 'style'}
-          title={editing.group === 'fills' && 'type' in selected ? paintNames[selected.type] : names[editing.group]}
+          title={
+            editing.group === 'fills' && 'type' in selected
+              ? paintNames[selected.type]
+              : names[editing.group]
+          }
           onClose={close}
           closeLabel={t('关闭', 'Close')}
         >
@@ -200,9 +206,12 @@ export function AppearanceStackInspector({
                   language={language}
                   inlineEditor
                   allowedTypes={['solid', 'gradient']}
-                  value={selected.paint && (selected.paint.type === 'solid' || selected.paint.type === 'gradient')
-                    ? selected.paint
-                    : { ...newPaint(), color: selected.color }}
+                  value={
+                    selected.paint &&
+                    (selected.paint.type === 'solid' || selected.paint.type === 'gradient')
+                      ? selected.paint
+                      : { ...newPaint(), color: selected.color }
+                  }
                   onChange={(patch) =>
                     update('strokes', selected.id, {
                       paint: {

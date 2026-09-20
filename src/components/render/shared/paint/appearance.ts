@@ -61,6 +61,62 @@ export const newShadow = (): ShadowLayer => ({
 });
 export function webAppearance(e: WebMenuElement): SurfaceAppearance {
   if (e.appearance) return e.appearance;
+  if (e.kind === 'text') {
+    const textFillType = e.textColorType === 'gradient' ? 'gradient' : 'solid';
+    return {
+      fills: [
+        {
+          ...newPaint(),
+          id: 'legacy-text-fill',
+          enabled: e.textVisible !== false,
+          type: textFillType,
+          color: toHex8(e.textColor || '#ffffff', e.textColorAlpha ?? 100),
+          gradientStart: e.textGradientStart || e.textColor || '#ffffff',
+          gradientEnd: e.textGradientEnd || '#0ea5e9',
+          gradientAngle: e.textGradientAngle ?? 90,
+          gradientStops: e.textGradientStops,
+        },
+      ],
+      strokes:
+        e.textStrokeTarget === 'text' && e.strokeEnabled !== false && (e.textStrokeWidth || 0) > 0
+          ? [
+              {
+                id: 'legacy-text-stroke',
+                enabled: true,
+                color: e.textStrokeColor || '#000000',
+                width: e.textStrokeWidth || 1,
+                position: 'center',
+              },
+            ]
+          : [],
+      shadows: (
+        e.shadows ||
+        (e.shadowOpacity
+          ? [
+              {
+                id: 'legacy-text-shadow',
+                color: e.shadowColor || '#000000',
+                opacity: e.shadowOpacity,
+                offsetX: e.shadowOffsetX || 0,
+                offsetY: e.shadowOffsetY || 2,
+                blur: e.shadowBlur || 18,
+                type: e.shadowType,
+                enabled: true,
+              },
+            ]
+          : [])
+      ).map((s) => ({
+        id: s.id,
+        enabled: e.shadowEnabled !== false && s.enabled !== false,
+        color: toHex8(s.color, s.opacity),
+        x: s.offsetX,
+        y: s.offsetY,
+        blur: s.blur,
+        spread: 0,
+        inset: false,
+      })),
+    };
+  }
   return {
     fills: [
       {

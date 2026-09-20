@@ -477,19 +477,12 @@ export function StartMenuElementInspector({
     onGradientEditingChange?.(group);
     return () => onGradientEditingChange?.(null);
   }, [onGradientEditingChange, popover]);
-  const textColorType = element.textColorType || 'solid';
-  const textGradientStops = normalizeGradientStops(
-    element.textGradientStops,
-    element.textGradientStart || element.textColor || '#ffffff',
-    element.textGradientEnd || '#0ea5e9',
-  );
   const gradientStops = normalizeGradientStops(
     element.backgroundGradientStops,
     element.backgroundGradientStart || '#0ea5e9',
     element.backgroundGradientEnd || '#0f172a',
   );
   const hasTextControls = element.kind !== 'image';
-  const hasFillControls = element.kind !== 'text';
   const textStrokeTarget = element.textStrokeTarget || 'text';
   const strokeIsText = element.kind === 'text' && textStrokeTarget === 'text';
   const strokeColor = strokeIsText
@@ -682,19 +675,6 @@ export function StartMenuElementInspector({
 
   return (
     <div className="space-y-3 text-[12px] text-slate-900">
-      <LayerOrderMenu
-        language={language}
-        items={(layerElements || [element]).map((item) => ({
-          id: item.id,
-          name: item.text || item.kind,
-          z: item.zIndex ?? 0,
-        }))}
-        selectedId={element.id}
-        onSelect={onLayerSelect}
-        onChange={(id, zIndex) =>
-          onLayerUpdate ? onLayerUpdate(id, { zIndex }) : onUpdate({ zIndex })
-        }
-      />
       <Group
         title={elementHidden ? hiddenLabel : text.group.position}
         icon={
@@ -712,8 +692,9 @@ export function StartMenuElementInspector({
         expandLabel={inspectorCopy.expand}
         collapseLabel={inspectorCopy.collapse}
         showDescriptions={showDescriptions}
-        secondaryDescription={inspectorCopy.zIndex}
-        secondary={
+        secondary={null}
+      >
+        <ControlRow>
           <NumberField
             icon={<Layers className="h-4 w-4" />}
             label={inspectorCopy.zIndex}
@@ -722,8 +703,23 @@ export function StartMenuElementInspector({
             max={9999}
             onChange={(zIndex) => onUpdate({ zIndex: Math.min(9999, zIndex) })}
           />
-        }
-      >
+          <div className="min-w-0 flex-1">
+            <LayerOrderMenu
+              language={language}
+              className="w-full justify-start"
+              items={(layerElements || [element]).map((item) => ({
+                id: item.id,
+                name: item.text || item.kind,
+                z: item.zIndex ?? 0,
+              }))}
+              selectedId={element.id}
+              onSelect={onLayerSelect}
+              onChange={(id, zIndex) =>
+                onLayerUpdate ? onLayerUpdate(id, { zIndex }) : onUpdate({ zIndex })
+              }
+            />
+          </div>
+        </ControlRow>
         <div className="relative grid grid-cols-2 gap-3">
           <NumberField
             icon={<MoveHorizontal className="h-4 w-4" />}
@@ -952,57 +948,6 @@ export function StartMenuElementInspector({
                 onChange={(textAlign) => onUpdate({ textAlign })}
               />
             </SettingDescription>
-            <SettingDescription show={showDescriptions} label={descriptionCopy.textColorStyle}>
-              <TwoSegmentControl
-                value={textColorType}
-                options={[
-                  {
-                    value: 'solid',
-                    label: inspectorCopy.solid,
-                    icon: <Palette className="h-4 w-4" />,
-                  },
-                  { value: 'gradient', label: inspectorCopy.gradient, icon: <GradientIcon /> },
-                ]}
-                onChange={(type) => {
-                  onUpdate({ textColorType: type });
-                  setPopover({ group: 'text', type });
-                }}
-              />
-            </SettingDescription>
-          </ControlRow>
-          <div className="relative mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-3">
-            <SettingDescription
-              className="min-w-0"
-              show={showDescriptions}
-              label={descriptionCopy.textColor}
-            >
-              {textColorType === 'solid' ? (
-                <InlineColorControl
-                  label={text.popover.solidTitle}
-                  color={element.textColor || '#ffffff'}
-                  alpha={element.textColorAlpha ?? 100}
-                  alphaLabel={text.field.opacity}
-                  hexLabel={text.popover.hex}
-                  onColorChange={(textColor) => onUpdate({ textColor })}
-                  onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
-                  onColorAndAlphaChange={({ color, alpha }) =>
-                    onUpdate({ textColor: color, textColorAlpha: alpha })
-                  }
-                  onOpen={() => setPopover({ group: 'text', type: 'solid' })}
-                />
-              ) : (
-                <InlineGradientControl
-                  label={text.popover.gradientTitle}
-                  stops={textGradientStops}
-                  onOpen={() => setPopover({ group: 'text', type: 'gradient' })}
-                  onAlphaChange={(alpha) =>
-                    onUpdate({
-                      textGradientStops: textGradientStops.map((stop) => ({ ...stop, alpha })),
-                    })
-                  }
-                />
-              )}
-            </SettingDescription>
             <SettingDescription show={showDescriptions} label={descriptionCopy.blendMode}>
               <button
                 type="button"
@@ -1035,47 +980,7 @@ export function StartMenuElementInspector({
                 ))}
               </div>
             )}
-          </div>
-          {popover?.group === 'text' && popover.type === 'solid' && (
-            <FloatingPopover
-              language={language}
-              popoverKey="solid"
-              onClose={() => setPopover(null)}
-            >
-              <SolidColorPopover
-                tone="fill"
-                text={text.popover}
-                color={element.textColor || '#ffffff'}
-                alpha={element.textColorAlpha ?? 100}
-                onColorChange={(textColor) => onUpdate({ textColor })}
-                onAlphaChange={(textColorAlpha) => onUpdate({ textColorAlpha })}
-                onColorAndAlphaChange={({ color, alpha }) =>
-                  onUpdate({ textColor: color, textColorAlpha: alpha })
-                }
-              />
-            </FloatingPopover>
-          )}
-          {popover?.group === 'text' && popover.type === 'gradient' && (
-            <PortaledGradientPopover language={language} onClose={() => setPopover(null)}>
-              <GradientEditorPopover
-                language={language}
-                angle={element.textGradientAngle ?? 90}
-                stops={textGradientStops}
-                onAngleChange={(textGradientAngle) =>
-                  onUpdate({ textGradientAngle, textColorType: 'gradient' })
-                }
-                onStopsChange={(stops) => {
-                  const sorted = [...stops].sort((a, b) => a.position - b.position);
-                  onUpdate({
-                    textColorType: 'gradient',
-                    textGradientStops: sorted,
-                    textGradientStart: sorted[0]?.color || '#ffffff',
-                    textGradientEnd: sorted.at(-1)?.color || '#0ea5e9',
-                  });
-                }}
-              />
-            </PortaledGradientPopover>
-          )}
+          </ControlRow>
         </Group>
       )}
 
@@ -1336,21 +1241,20 @@ export function StartMenuElementInspector({
         </Group>
       )}
 
-      {hasFillControls && (
-        <AppearanceStackInspector
-          language={language}
-          value={webAppearance(element)}
-          onChange={(appearance) =>
-            onUpdate({
-              appearance,
-              backgroundType: 'solid',
-              backgroundColor: 'transparent',
-              strokeEnabled: false,
-              shadowEnabled: false,
-            })
-          }
-        />
-      )}
+      <AppearanceStackInspector
+        language={language}
+        groups={element.kind === 'image' ? ['strokes', 'shadows'] : ['fills', 'strokes', 'shadows']}
+        value={
+          element.kind === 'image'
+            ? { ...webAppearance(element), fills: [] }
+            : webAppearance(element)
+        }
+        onChange={(appearance) =>
+          onUpdate({
+            appearance: element.kind === 'image' ? { ...appearance, fills: [] } : appearance,
+          })
+        }
+      />
 
       {element.kind === 'image' && (
         <Group

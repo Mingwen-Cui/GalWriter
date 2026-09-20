@@ -1,6 +1,7 @@
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { CSSProperties } from 'react';
 
+import { paintLayerBackground } from '../shared/paint/appearanceStyle';
 import type { WebMenuElement } from '../video/shared/types';
 import { linearGradientFromStops, normalizeGradientStops } from './webGradientStops';
 
@@ -44,6 +45,15 @@ export const webElementShadowStyle = (
   element: WebMenuElement,
   target: 'box' | 'text',
 ): CSSProperties => {
+  if (target === 'text' && element.kind === 'text' && element.appearance) {
+    const values = element.appearance.shadows
+      .filter((shadow) => shadow.enabled)
+      .map(
+        (shadow) =>
+          `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.spread}px ${shadow.color}`,
+      );
+    return values.length ? { textShadow: values.join(', ') } : {};
+  }
   if (element.shadowEnabled === false) return {};
   const shadows = element.shadows?.length
     ? element.shadows
@@ -74,6 +84,37 @@ export const webElementShadowStyle = (
 };
 
 export const webElementTextPaintStyle = (element: WebMenuElement): CSSProperties => {
+  if (element.kind === 'text' && element.appearance) {
+    const fill = element.appearance.fills.find((layer) => layer.enabled && layer.opacity > 0);
+    if (fill) {
+      if (fill.type === 'gradient') {
+        return {
+          color: 'transparent',
+          backgroundImage: paintLayerBackground(fill),
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          mixBlendMode: element.textBlendMode as CSSProperties['mixBlendMode'],
+        };
+      }
+      if (fill.type === 'image') {
+        return {
+          color: 'transparent',
+          backgroundImage: paintLayerBackground(fill),
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          mixBlendMode: element.textBlendMode as CSSProperties['mixBlendMode'],
+        };
+      }
+      return {
+        color: fill.color,
+        mixBlendMode: element.textBlendMode as CSSProperties['mixBlendMode'],
+      };
+    }
+  }
   if (element.textColorType !== 'gradient') {
     return {
       color: webColorWithAlpha(element.textColor, element.textColorAlpha, '#ffffff'),
@@ -93,6 +134,23 @@ export const webElementTextPaintStyle = (element: WebMenuElement): CSSProperties
     WebkitTextFillColor: 'transparent',
     mixBlendMode: element.textBlendMode as CSSProperties['mixBlendMode'],
   };
+};
+
+export const webElementTextStrokeStyle = (element: WebMenuElement): CSSProperties => {
+  if (element.kind === 'text' && element.appearance) {
+    const stroke = element.appearance.strokes.find((layer) => layer.enabled && layer.width > 0);
+    return stroke ? { WebkitTextStroke: `${stroke.width}px ${stroke.color}` } : {};
+  }
+  if (
+    element.textStrokeTarget !== 'box' &&
+    element.strokeEnabled !== false &&
+    (element.textStrokeWidth ?? 0) > 0
+  ) {
+    return {
+      WebkitTextStroke: `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`,
+    };
+  }
+  return {};
 };
 
 const webElementBorderParts = (element: WebMenuElement) => {

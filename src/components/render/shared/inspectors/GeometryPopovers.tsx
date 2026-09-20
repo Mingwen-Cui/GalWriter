@@ -10,12 +10,14 @@ export function LayerOrderMenu({
   selectedId,
   onSelect,
   onChange,
+  className = '',
 }: {
   language: Language;
   items: LayerEntry[];
   selectedId: string;
   onSelect?: (id: string) => void;
   onChange: (id: string, z: number) => void;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const t = (zh: string, en: string) => (language === 'zh' ? zh : en);
@@ -33,7 +35,7 @@ export function LayerOrderMenu({
     <>
       <button
         type="button"
-        className="property-add"
+        className={`property-add ${className}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >

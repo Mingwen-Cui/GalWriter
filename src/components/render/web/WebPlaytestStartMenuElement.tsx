@@ -13,6 +13,7 @@ import {
   webColorWithAlpha,
   webElementBoxStyle,
   webElementShadowStyle,
+  webElementTextStrokeStyle,
   webElementTextPaintStyle,
   webImageFillBackgroundColor,
 } from './webElementStyle';
@@ -173,12 +174,7 @@ export function WebPlaytestStartMenuElement({
     fontSize: element.fontSize,
     fontWeight: element.fontWeight,
     color: textColorWithAlpha(element.textColor, element.textColorAlpha),
-    WebkitTextStroke:
-      element.textStrokeTarget !== 'box' &&
-      element.strokeEnabled !== false &&
-      (element.textStrokeWidth ?? 0) > 0
-        ? `${element.textStrokeWidth}px ${element.textStrokeColor || '#000000'}`
-        : undefined,
+    ...webElementTextStrokeStyle(element),
     letterSpacing: Number.isFinite(Number(element.letterSpacing))
       ? `${element.letterSpacing}px`
       : undefined,
@@ -439,10 +435,6 @@ export function WebPlaytestStartMenuElement({
             });
           }}
           onPointerUp={(event) => {
-            if (previewMode === 'edit') {
-              event.preventDefault();
-              event.stopPropagation();
-            }
             if (!backgroundImageDragRef.current) return;
             backgroundImageDragRef.current = null;
             event.currentTarget.releasePointerCapture(event.pointerId);
