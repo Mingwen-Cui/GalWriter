@@ -563,17 +563,17 @@ export function PptWorkspace({
           ...createManualText(
             textOverrides.cover?.['cover-title'] ?? getPptCoverTitle(projectName, copy.untitled),
           ),
-          x: 480,
-          y: 390,
-          width: 960,
+          x: 160,
+          y: 330,
+          width: 720,
           height: 130,
-          fontSize: 72,
+          fontSize: 68,
         },
         {
           ...createManualText(textOverrides.cover?.['cover-subtitle'] ?? copy.generatedBy),
-          x: 600,
-          y: 545,
-          width: 720,
+          x: 160,
+          y: 485,
+          width: 620,
           height: 56,
           fontSize: 28,
           bold: false,
@@ -582,10 +582,10 @@ export function PptWorkspace({
           ...createManualText(
             textOverrides.cover?.['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION,
           ),
-          x: 480,
-          y: 640,
-          width: 960,
-          height: 72,
+          x: 160,
+          y: 555,
+          width: 660,
+          height: 90,
           fontSize: 24,
           bold: false,
         },
@@ -1639,7 +1639,7 @@ function CoverPreview({
   const description = textOverrides?.['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION;
   return (
     <div
-      className="absolute inset-0 bg-black/35"
+      className="absolute inset-0"
       onClick={() => {
         if (editable) onSelectBackground?.();
       }}
@@ -1726,13 +1726,15 @@ function PptCoverTextBox({
   const discardTextEditRef = useRef(false);
   const textClass =
     target === 'cover-title'
-      ? 'text-4xl font-black text-white'
+      ? 'text-4xl font-black text-slate-900'
       : target === 'cover-subtitle'
-        ? 'text-sm text-white/75'
-        : 'text-base text-white/70';
+        ? 'text-sm text-slate-600'
+        : 'text-base text-slate-500';
   const webStyle = layout.webStyle || {};
-  const textAlignment = webStyle.textAlign || 'center';
-  const textColor = webStyle.textColor || '#ffffff';
+  const textAlignment = webStyle.textAlign || 'left';
+  const textColor =
+    webStyle.textColor ||
+    (target === 'cover-title' ? '#111827' : target === 'cover-subtitle' ? '#475569' : '#64748b');
   const useTextGradient = webStyle.textColorType === 'gradient';
   const textGradientStops = webStyle.textGradientStops?.length
     ? [...webStyle.textGradientStops]

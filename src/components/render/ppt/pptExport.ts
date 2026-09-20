@@ -383,19 +383,14 @@ export async function buildPptxBuffer({
     if (coverImage) {
       slide.addImage({ data: coverImage, ...fullContentFrame });
     }
-    slide.addShape(pptx.ShapeType.rect, {
-      ...fullContentFrame,
-      fill: { color: '000000', transparency: 38 },
-      line: { transparency: 100 },
-    });
     if (coverTitleLayout.visible !== false) {
       slide.addText(coverTitle || ' ', {
         ...textBoxFrame(coverTitleLayout),
         fontFace: toPptFontFace(coverTitleStyle.fontFamily || style.titleFontFamily),
         fontSize: Math.max(8, (coverTitleStyle.fontSize || 34) * page.scale),
         bold: coverTitleStyle.fontWeight ? coverTitleStyle.fontWeight >= 600 : true,
-        color: hex(coverTitleStyle.textColor || colors.title),
-        align: coverTitleStyle.textAlign || 'center',
+        color: hex(coverTitleStyle.textColor || '#111827'),
+        align: coverTitleStyle.textAlign || 'left',
         charSpacing: coverTitleStyle.letterSpacing,
         valign: 'middle',
         margin: 0,
@@ -408,8 +403,8 @@ export async function buildPptxBuffer({
         fontFace: toPptFontFace(coverSubtitleStyle.fontFamily || style.bodyFontFamily),
         fontSize: Math.max(8, (coverSubtitleStyle.fontSize || 15) * page.scale),
         bold: coverSubtitleStyle.fontWeight ? coverSubtitleStyle.fontWeight >= 600 : false,
-        color: hex(coverSubtitleStyle.textColor || colors.body),
-        align: coverSubtitleStyle.textAlign || 'center',
+        color: hex(coverSubtitleStyle.textColor || '#475569'),
+        align: coverSubtitleStyle.textAlign || 'left',
         charSpacing: coverSubtitleStyle.letterSpacing,
         valign: 'middle',
         margin: 0,
@@ -422,8 +417,8 @@ export async function buildPptxBuffer({
         fontFace: toPptFontFace(coverDescriptionStyle.fontFamily || style.bodyFontFamily),
         fontSize: Math.max(8, (coverDescriptionStyle.fontSize || 20) * page.scale),
         bold: coverDescriptionStyle.fontWeight ? coverDescriptionStyle.fontWeight >= 600 : false,
-        color: hex(coverDescriptionStyle.textColor || colors.body),
-        align: coverDescriptionStyle.textAlign || 'center',
+        color: hex(coverDescriptionStyle.textColor || '#64748b'),
+        align: coverDescriptionStyle.textAlign || 'left',
         charSpacing: coverDescriptionStyle.letterSpacing,
         valign: 'middle',
         margin: 0,

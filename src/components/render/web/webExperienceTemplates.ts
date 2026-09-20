@@ -422,9 +422,9 @@ export const buildRehearsalStartMenuElements = (
         'title',
         'title',
         resolvedTitle || formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText275'),
-        10,
-        13,
-        42,
+        8,
+        16,
+        44,
         11,
         42,
       ),
@@ -435,8 +435,8 @@ export const buildRehearsalStartMenuElements = (
         'subtitle',
         'subtitle',
         subtitle,
-        10,
-        25,
+        8,
+        28,
         42,
         6,
         16,
@@ -448,9 +448,9 @@ export const buildRehearsalStartMenuElements = (
         'save',
         'save',
         formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText281'),
-        10,
-        63,
-        28,
+        8,
+        70,
+        30,
         9,
         choiceColor,
         choiceTextColor,
@@ -461,9 +461,9 @@ export const buildRehearsalStartMenuElements = (
       'continue',
       'continue',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText291'),
-      10,
-      40,
-      28,
+      8,
+      42,
+      30,
       10,
       choiceColor,
       choiceTextColor,
@@ -473,9 +473,9 @@ export const buildRehearsalStartMenuElements = (
       'flow-overview',
       'flowOverview',
       language === 'zh' ? '流程图总览' : language === 'ja' ? 'フロー概要' : 'Flow overview',
-      10,
-      76,
-      13,
+      8,
+      82,
+      14,
       7,
       choiceColor,
       choiceTextColor,
@@ -484,9 +484,9 @@ export const buildRehearsalStartMenuElements = (
       'new',
       'new',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText295'),
-      10,
-      52,
-      28,
+      8,
+      55,
+      30,
       9,
       choiceColor,
       choiceTextColor,
@@ -495,9 +495,9 @@ export const buildRehearsalStartMenuElements = (
       'settings',
       'settings',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText306'),
-      25,
-      76,
-      13,
+      24,
+      82,
+      14,
       7,
       choiceColor,
       choiceTextColor,
@@ -520,7 +520,6 @@ export const buildRehearsalStartMenuElements = (
     if (element.kind !== 'button') return element;
 
     const isPrimary = element.role === 'continue';
-    const isSecondary = element.role === 'new' || element.role === 'save';
     const isUtility = element.role === 'flowOverview' || element.role === 'settings';
     return {
       ...element,
@@ -528,15 +527,9 @@ export const buildRehearsalStartMenuElements = (
       fontSize: isUtility ? 15 : 18,
       fontWeight: 700,
       textAlign: isUtility ? 'center' : 'left',
-      textColor: isPrimary ? '#FFFFFF' : isUtility ? '#514DB4' : startMenuText,
-      backgroundType: isPrimary ? ('gradient' as const) : ('solid' as const),
-      backgroundColor: isPrimary
-        ? startMenuAccent
-        : isSecondary
-          ? element.role === 'new'
-            ? '#FFFFFF'
-            : '#F3F1FF'
-          : 'rgba(255,255,255,0.78)',
+      textColor: isUtility ? '#334155' : startMenuText,
+      backgroundType: 'solid' as const,
+      backgroundColor: '#FFFFFF',
       backgroundGradientStart: startMenuAccent,
       backgroundGradientEnd: startMenuAccentDark,
       backgroundGradientAngle: 135,
@@ -545,17 +538,13 @@ export const buildRehearsalStartMenuElements = (
         { id: `${element.id}-start`, color: startMenuAccent, alpha: 100, position: 0 },
         { id: `${element.id}-end`, color: startMenuAccentDark, alpha: 100, position: 100 },
       ],
-      borderColor: isPrimary
-        ? 'rgba(98,91,246,0.34)'
-        : isSecondary
-          ? 'rgba(98,91,246,0.24)'
-          : 'rgba(98,91,246,0.18)',
-      borderWidth: 1,
+      borderColor: isPrimary ? '#172033' : 'rgba(15,23,42,0.28)',
+      borderWidth: isPrimary ? 1.5 : 1,
       borderRadius: isUtility ? 999 : 16,
-      shadowColor: isPrimary ? '#625BF6' : '#625BF6',
-      shadowOpacity: isPrimary ? 18 : 8,
-      shadowBlur: isPrimary ? 22 : 12,
-      shadowOffsetY: 5,
+      shadowColor: '#0f172a',
+      shadowOpacity: isPrimary ? 18 : 12,
+      shadowBlur: isPrimary ? 24 : 16,
+      shadowOffsetY: isPrimary ? 8 : 6,
     };
   });
 };

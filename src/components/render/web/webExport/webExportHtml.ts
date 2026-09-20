@@ -710,7 +710,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       target.style.background = "";
       target.style.backgroundImage = "";
       if (type === "image" && imageUrl) {
-        target.style.backgroundImage = 'linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("' + imageUrl.replace(/"/g, '\\"') + '")';
+        target.style.backgroundImage = 'url("' + imageUrl.replace(/"/g, '\\"') + '")';
         target.style.backgroundPosition = "center";
         target.style.backgroundSize = "cover";
       } else if (type === "gradient") {

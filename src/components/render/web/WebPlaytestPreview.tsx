@@ -1993,7 +1993,7 @@ export function WebPlaytestPreview({
       ? { backgroundColor: '#000000' }
       : background.type === 'image' && background.imageUrl
         ? {
-            backgroundImage: `linear-gradient(180deg,rgba(4,8,14,0.28),rgba(4,8,14,0.72)),url("${resolveKnownAppAssetUrl(background.imageUrl).replace(/"/g, '\\"')}")`,
+            backgroundImage: `url("${resolveKnownAppAssetUrl(background.imageUrl).replace(/"/g, '\\"')}")`,
             backgroundPosition: 'center',
             backgroundSize: 'cover',
           }
