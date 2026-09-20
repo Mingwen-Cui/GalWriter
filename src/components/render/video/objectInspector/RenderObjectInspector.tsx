@@ -1,5 +1,11 @@
 import { AppearanceStackInspector } from '../../shared/inspectors/AppearanceStackInspector';
-import { CornerEditor, LayerOrderMenu } from '../../shared/inspectors/GeometryPopovers';
+import {
+  CornerEditor,
+  getLayerOrderChanges,
+  LayerOrderMenu,
+  normalizeLayerEntries,
+  type LayerChange,
+} from '../../shared/inspectors/GeometryPopovers';
 import { objectAppearance } from '../../shared/paint/appearance';
 import {
   Baseline,
@@ -130,6 +136,11 @@ export function RenderObjectInspector({
   const textObject = isTextRenderObject(selectedKind)
     ? (selected as RenderEditableTextObject)
     : null;
+  const layerEntries = Object.entries(objects)
+    .filter(([id]) => visibleObjectKinds.includes(id as RenderEditableObjectKind))
+    .map(([id, object]) => ({ id, name: id, z: object.zIndex ?? 0 }));
+  const normalizedZIndex =
+    normalizeLayerEntries(layerEntries).find((item) => item.id === selectedKind)?.z ?? 0;
   const savedFontOptions = renderStyle.fontFamilyPresets?.length
     ? renderStyle.fontFamilyPresets
     : fonts;
@@ -180,6 +191,20 @@ export function RenderObjectInspector({
   const setObject = (updates: Partial<RenderEditableObject | RenderEditableTextObject>) => {
     const nextObjects = updateRenderObject(renderStyle, selectedKind, updates);
     updateRenderStyle('renderObjects', nextObjects);
+  };
+  const updateLayerOrder = (changes: LayerChange[]) => {
+    if (changes.length === 0) return;
+    const changeMap = new Map(changes.map((change) => [change.id, change.z]));
+    const nextObjects = Object.fromEntries(
+      Object.entries(objects).map(([id, object]) =>
+        changeMap.has(id) ? [id, { ...object, zIndex: changeMap.get(id) }] : [id, object],
+      ),
+    ) as typeof objects;
+    updateRenderStyle('renderObjects', nextObjects);
+  };
+  const commitLayerZIndex = (zIndex: number) => {
+    const changes = getLayerOrderChanges(layerEntries, selectedKind, zIndex);
+    if (changes.length > 0) updateLayerOrder(changes);
   };
   const addCustomFont = (font: import('../shared/types').RenderCustomFont) => {
     updateRenderStyle('customFonts', [
@@ -334,33 +359,31 @@ export function RenderObjectInspector({
             <NumberField
               icon={<Layers className="h-4 w-4" />}
               label={text.field.zIndex}
-              value={selected.zIndex ?? 0}
-              min={-100}
-              max={9999}
-              onChange={(value) => setObject({ zIndex: Math.min(9999, value) })}
+              value={normalizedZIndex}
+              min={0}
+              max={999}
+              onChange={commitLayerZIndex}
             />
             <div className="min-w-0 flex-1">
               <LayerOrderMenu
                 language={language}
                 className="w-full justify-start"
                 selectedId={selectedKind}
-                items={Object.entries(objects)
-                  .filter(([id]) => visibleObjectKinds.includes(id as RenderEditableObjectKind))
-                  .map(([id, obj]) => ({
-                    id,
-                    name:
-                      (
-                        {
-                          dialogBox: '话框',
-                          title: '名称',
-                          body: '正文',
-                          nameplate: '人名',
-                          choice: '选择',
-                        } as Record<string, string>
-                      )[id] || id,
-                    z: obj.zIndex ?? 0,
-                  }))}
+                items={layerEntries.map((item) => ({
+                  ...item,
+                  name:
+                    (
+                      {
+                        dialogBox: '话框',
+                        title: '名称',
+                        body: '正文',
+                        nameplate: '人名',
+                        choice: '选择',
+                      } as Record<string, string>
+                    )[item.id] || item.name,
+                }))}
                 onSelect={(id) => setSelectedKind(id as RenderEditableObjectKind)}
+                onReorder={updateLayerOrder}
                 onChange={(id, zIndex) =>
                   updateRenderStyle(
                     'renderObjects',

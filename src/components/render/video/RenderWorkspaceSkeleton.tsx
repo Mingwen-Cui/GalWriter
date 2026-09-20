@@ -1,5 +1,5 @@
 import { FileCode2, FileText, Film, Presentation, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 
 import type { RenderWorkspaceMode } from './shared/types';
 
@@ -8,8 +8,18 @@ type RenderWorkspaceSkeletonProps = {
   delayed?: boolean;
 };
 
-const SkeletonBlock = ({ className = '' }: { className?: string }) => (
-  <div className={`render-workspace-skeleton-block ${className}`} aria-hidden="true" />
+const SkeletonBlock = ({
+  className = '',
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}) => (
+  <div
+    className={`render-workspace-skeleton-block ${className}`}
+    style={style}
+    aria-hidden="true"
+  />
 );
 
 function VideoWorkspaceSkeleton() {
@@ -65,24 +75,75 @@ function VideoWorkspaceSkeleton() {
 }
 
 function WebWorkspaceSkeleton() {
+  return <WebDesignWorkspaceSkeleton />;
+}
+
+/** The web exporter is a preview window plus inspector, rather than a file tree. */
+function WebDesignWorkspaceSkeleton({ inCodeWorkspace = false }: { inCodeWorkspace?: boolean }) {
   return (
-    <div className="render-workspace-skeleton-layout render-workspace-skeleton-layout--editor">
-      <aside className="render-workspace-skeleton-panel space-y-3">
-        <SkeletonBlock className="h-8 w-full rounded-lg" />
-        {Array.from({ length: 7 }, (_, index) => (
-          <SkeletonBlock key={index} className="h-14 w-full rounded-xl" />
-        ))}
-      </aside>
-      <main className="render-workspace-skeleton-stage">
-        <SkeletonBlock className="aspect-video w-[min(88%,980px)] rounded-2xl" />
-      </main>
-      <aside className="render-workspace-skeleton-panel space-y-4">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div key={index} className="space-y-2">
-            <SkeletonBlock className="h-4 w-1/3 rounded-full" />
-            <SkeletonBlock className="h-9 w-full rounded-lg" />
+    <div
+      className={`render-workspace-skeleton-layout render-workspace-skeleton-layout--web ${
+        inCodeWorkspace ? 'render-workspace-skeleton-layout--code-design' : ''
+      }`}
+    >
+      <section className="render-workspace-skeleton-web-preview">
+        <header className="render-workspace-skeleton-web-header">
+          <div className="flex items-center gap-2">
+            <SkeletonBlock className="h-4 w-4 rounded" />
+            <SkeletonBlock className="h-3 w-28 rounded-full" />
           </div>
-        ))}
+          <div className="flex items-center gap-2">
+            {Array.from({ length: 4 }, (_, index) => (
+              <SkeletonBlock key={index} className="h-8 w-8 rounded-lg" />
+            ))}
+          </div>
+        </header>
+        <div className="render-workspace-skeleton-web-stage">
+          <div className="render-workspace-skeleton-web-canvas">
+            <SkeletonBlock className="h-3 w-[28%] rounded-full" />
+            <SkeletonBlock className="mt-5 h-7 w-[56%] rounded-full" />
+            <SkeletonBlock className="mt-3 h-3 w-[70%] rounded-full" />
+            <SkeletonBlock className="mt-2 h-3 w-[52%] rounded-full" />
+            <div className="mt-auto grid w-[68%] gap-2 pt-10">
+              <SkeletonBlock className="h-9 w-full rounded-lg" />
+              <SkeletonBlock className="h-9 w-full rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </section>
+      <aside className="render-workspace-skeleton-web-inspector">
+        <header className="render-workspace-skeleton-inspector-header">
+          <SkeletonBlock className="h-4 w-24 rounded-full" />
+          <div className="flex h-7 w-32 gap-1 rounded-lg p-1">
+            <SkeletonBlock className="h-full flex-1 rounded" />
+            <SkeletonBlock className="h-full flex-1 rounded" />
+          </div>
+        </header>
+        <div className="render-workspace-skeleton-inspector-body">
+          <div className="render-workspace-skeleton-inspector-card">
+            <SkeletonBlock className="h-3 w-16 rounded-full" />
+            <SkeletonBlock className="mt-3 h-8 w-full rounded-lg" />
+          </div>
+          <div className="render-workspace-skeleton-inspector-card">
+            <div className="flex items-center justify-between">
+              <SkeletonBlock className="h-3 w-20 rounded-full" />
+              <SkeletonBlock className="h-5 w-9 rounded-full" />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <SkeletonBlock className="h-16 rounded-lg" />
+              <SkeletonBlock className="h-16 rounded-lg" />
+            </div>
+          </div>
+          {Array.from({ length: 2 }, (_, index) => (
+            <div key={index} className="render-workspace-skeleton-inspector-card">
+              <SkeletonBlock className="h-3 w-24 rounded-full" />
+              <div className="mt-3 flex gap-2">
+                <SkeletonBlock className="h-8 w-8 rounded-lg" />
+                <SkeletonBlock className="h-8 flex-1 rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </div>
       </aside>
     </div>
   );
@@ -91,55 +152,96 @@ function WebWorkspaceSkeleton() {
 function PptWorkspaceSkeleton() {
   return (
     <div className="render-workspace-skeleton-layout render-workspace-skeleton-layout--ppt">
-      <div className="col-span-3 flex h-20 items-center gap-3 border-b border-[var(--vr-border)] px-4">
-        {Array.from({ length: 7 }, (_, index) => (
-          <SkeletonBlock key={index} className="h-11 w-20 rounded-lg" />
-        ))}
+      <header className="render-workspace-skeleton-ppt-ribbon">
+        <div className="render-workspace-skeleton-ppt-ribbon-groups">
+          {[3, 2, 4, 2].map((count, groupIndex) => (
+            <div key={groupIndex} className="render-workspace-skeleton-ppt-ribbon-group">
+              <div className="flex gap-2">
+                {Array.from({ length: count }, (_, index) => (
+                  <div key={index} className="flex w-14 flex-col items-center gap-2">
+                    <SkeletonBlock className="h-7 w-7 rounded-md" />
+                    <SkeletonBlock className="h-2 w-10 rounded-full" />
+                  </div>
+                ))}
+              </div>
+              <SkeletonBlock className="absolute inset-x-5 bottom-2 mx-auto h-2 w-12 rounded-full" />
+            </div>
+          ))}
+        </div>
+        <div className="render-workspace-skeleton-ppt-rules">
+          <SkeletonBlock className="h-3 w-14 rounded-full" />
+          <SkeletonBlock className="mt-3 h-8 w-24 rounded-lg" />
+        </div>
+      </header>
+      <div className="render-workspace-skeleton-ppt-body">
+        <aside className="render-workspace-skeleton-ppt-slides">
+          <SkeletonBlock className="mb-4 h-3 w-20 rounded-full" />
+          {Array.from({ length: 5 }, (_, index) => (
+            <div key={index} className="flex items-start gap-2">
+              <SkeletonBlock className="mt-1 h-3 w-3 rounded-full" />
+              <SkeletonBlock className="aspect-video flex-1 rounded-lg" />
+            </div>
+          ))}
+        </aside>
+        <main className="render-workspace-skeleton-ppt-stage">
+          <div className="render-workspace-skeleton-ppt-canvas">
+            <SkeletonBlock className="h-4 w-[22%] rounded-full" />
+            <SkeletonBlock className="mt-5 h-8 w-[53%] rounded-full" />
+            <SkeletonBlock className="mt-3 h-3 w-[66%] rounded-full" />
+            <SkeletonBlock className="mt-2 h-3 w-[45%] rounded-full" />
+            <div className="mt-auto flex justify-end gap-2 pt-10">
+              <SkeletonBlock className="h-8 w-24 rounded-lg" />
+              <SkeletonBlock className="h-8 w-24 rounded-lg" />
+            </div>
+          </div>
+        </main>
+        <aside className="render-workspace-skeleton-ppt-inspector">
+          <header className="render-workspace-skeleton-inspector-header">
+            <SkeletonBlock className="h-3 w-20 rounded-full" />
+            <SkeletonBlock className="h-7 w-28 rounded-lg" />
+          </header>
+          <div className="render-workspace-skeleton-inspector-body">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="render-workspace-skeleton-inspector-card">
+                <SkeletonBlock className="h-3 w-24 rounded-full" />
+                <SkeletonBlock className="mt-3 h-8 w-full rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </aside>
       </div>
-      <aside className="render-workspace-skeleton-panel space-y-3">
-        {Array.from({ length: 6 }, (_, index) => (
-          <SkeletonBlock key={index} className="aspect-video w-full rounded-lg" />
-        ))}
-      </aside>
-      <main className="render-workspace-skeleton-stage">
-        <SkeletonBlock className="aspect-video w-[min(88%,980px)] rounded-md" />
-      </main>
-      <aside className="render-workspace-skeleton-panel space-y-4">
-        {Array.from({ length: 6 }, (_, index) => (
-          <SkeletonBlock key={index} className="h-16 w-full rounded-xl" />
-        ))}
-      </aside>
+      <footer className="render-workspace-skeleton-ppt-footer">
+        <SkeletonBlock className="h-4 w-16 rounded-full" />
+        <div className="ml-auto flex items-center gap-3">
+          {Array.from({ length: 4 }, (_, index) => (
+            <SkeletonBlock key={index} className="h-7 w-7 rounded" />
+          ))}
+          <SkeletonBlock className="h-2 w-20 rounded-full" />
+          <SkeletonBlock className="h-3 w-10 rounded-full" />
+        </div>
+      </footer>
     </div>
   );
 }
 
 function CodeWorkspaceSkeleton() {
   return (
-    <div className="render-workspace-skeleton-layout render-workspace-skeleton-layout--editor">
-      <aside className="render-workspace-skeleton-panel space-y-3">
-        <SkeletonBlock className="h-8 w-full rounded-lg" />
-        {Array.from({ length: 10 }, (_, index) => (
-          <SkeletonBlock
-            key={index}
-            className={`h-4 rounded-full ${index % 3 === 0 ? 'w-4/5' : 'w-3/5'}`}
-          />
-        ))}
-      </aside>
-      <main className="space-y-3 overflow-hidden bg-[var(--vr-surface-strong)] p-6">
-        {Array.from({ length: 18 }, (_, index) => (
-          <div key={index} className="flex items-center gap-4">
-            <SkeletonBlock className="h-3 w-6 rounded-full" />
-            <SkeletonBlock
-              className={`h-3 rounded-full ${index % 4 === 0 ? 'w-2/3' : index % 3 === 0 ? 'w-1/2' : 'w-4/5'}`}
-            />
-          </div>
-        ))}
-      </main>
-      <aside className="render-workspace-skeleton-panel space-y-4">
-        {Array.from({ length: 7 }, (_, index) => (
-          <SkeletonBlock key={index} className="h-12 w-full rounded-lg" />
-        ))}
-      </aside>
+    <div className="render-workspace-skeleton-code-shell">
+      <header className="render-workspace-skeleton-code-ribbon">
+        <div className="flex gap-1">
+          {[74, 62, 70, 72, 62, 54, 74].map((width, index) => (
+            <div key={index} className="flex h-8 items-center gap-1.5 rounded-md px-2">
+              <SkeletonBlock className="h-3.5 w-3.5 rounded" />
+              <SkeletonBlock className="h-2 rounded-full" style={{ width }} />
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <SkeletonBlock className="h-8 w-28 rounded-md" />
+          <SkeletonBlock className="h-8 w-24 rounded-md" />
+        </div>
+      </header>
+      <WebDesignWorkspaceSkeleton inCodeWorkspace />
     </div>
   );
 }

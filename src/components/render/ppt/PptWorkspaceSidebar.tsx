@@ -38,6 +38,7 @@ import { targetLabel } from './pptAnimationLabels';
 import { usePptCopy } from './pptCopyContext';
 import { PptCoverTextInspector } from './PptCoverTextInspector';
 import { PptManualInspector } from './PptManualInspector';
+import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import { PptSlideBackgroundInspector } from './PptSlideBackgroundInspector';
 import type { Selection, VideoTimelineTrack } from './PptWorkspace';
 import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
@@ -101,6 +102,7 @@ export function PptSidebar({
   onUpdateSlideBackground,
   onUpdateSlideBackgroundColor,
   onUpdateManualElement,
+  onUpdateManualElements,
   onDeleteManualElement,
   onUpdateCoverText,
   onUpdateCoverTextBoxLayout,
@@ -144,6 +146,7 @@ export function PptSidebar({
   onUpdateSlideBackground: (patch: Partial<PptSlideBackgroundStyle>) => void;
   onUpdateSlideBackgroundColor: (color: string) => void;
   onUpdateManualElement: (elementId: string, patch: Partial<PptManualElement>) => void;
+  onUpdateManualElements?: (changes: LayerChange[]) => void;
   onDeleteManualElement: (elementId: string) => void;
   onUpdateCoverText: (
     target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle' | 'cover-description'>,
@@ -555,6 +558,7 @@ export function PptSidebar({
                     showDescriptions={showParameterDescriptions}
                     onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
                     onUpdateElement={onUpdateManualElement}
+                    onUpdateElements={onUpdateManualElements}
                     onDeleteElement={onDeleteManualElement}
                     fontFamilyManager={fontFamilyManager}
                   />
@@ -612,6 +616,7 @@ export function PptSidebar({
               showDescriptions={showParameterDescriptions}
               onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
               onUpdateElement={onUpdateManualElement}
+              onUpdateElements={onUpdateManualElements}
               onDeleteElement={onDeleteManualElement}
               fontFamilyManager={fontFamilyManager}
             />

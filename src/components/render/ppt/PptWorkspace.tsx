@@ -1,6 +1,7 @@
 import { presentationPointerDelta } from '../shared/presentationPointer';
 import { PresentationText, useDialogueTextLayout, textBlockCss } from '../shared/PresentationText';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
+import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import { themeRenderPatch } from '../experienceThemes';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
@@ -746,6 +747,30 @@ export function PptWorkspace({
       },
     });
   };
+  const updateActiveManualLayerOrder = (changes: LayerChange[]) => {
+    if (changes.length === 0) return;
+    const changeMap = new Map(changes.map((change) => [change.id, change.z]));
+    const apply = (elements: PptManualElement[]) =>
+      elements.map((element) =>
+        changeMap.has(element.id)
+          ? {
+              ...element,
+              webStyle: { ...element.webStyle, zIndex: changeMap.get(element.id) },
+            }
+          : element,
+      );
+    if (manualSlide) {
+      saveManualSlides(
+        manualSlides.map((slide) =>
+          slide.id === manualSlide.id ? { ...slide, elements: apply(slide.elements) } : slide,
+        ),
+      );
+      return;
+    }
+    updatePptSettings({
+      slideElements: { ...slideElements, [selectedId]: apply(activeSlideElements) },
+    });
+  };
   const updateActiveManualSlide = (patch: Partial<PptManualSlide>) => {
     if (!manualSlide) return;
     saveManualSlides(
@@ -1361,6 +1386,7 @@ export function PptWorkspace({
               onUpdateSlideBackground={updateActiveSlideBackground}
               onUpdateSlideBackgroundColor={updateActiveSlideBackgroundColor}
               onUpdateManualElement={updateActiveManualElement}
+              onUpdateManualElements={updateActiveManualLayerOrder}
               onDeleteManualElement={deleteActiveManualElement}
               onUpdateCoverText={(target, text) => updatePptText(target, text)}
               onUpdateCoverTextBoxLayout={(target, patch) => updatePptTextBoxLayout(target, patch)}

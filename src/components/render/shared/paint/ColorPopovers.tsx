@@ -218,7 +218,7 @@ export function SolidColorPopover({
         >
           <Pipette className="h-5 w-5" />
         </button>
-        <div className="space-y-2.5">
+        <div className="min-w-0 space-y-2.5 px-4">
           <div
             ref={hueRef}
             className="relative h-5 touch-none rounded-full"

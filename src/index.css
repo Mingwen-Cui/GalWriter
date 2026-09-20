@@ -4409,13 +4409,16 @@ button.web-segment-button:first-child {
   grid-template-rows: minmax(0, 1fr) 250px;
 }
 
-.render-workspace-skeleton-layout--editor {
-  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(300px, 380px);
+.render-workspace-skeleton-layout--ppt {
+  grid-template-rows: 136px minmax(0, 1fr) 36px;
 }
 
-.render-workspace-skeleton-layout--ppt {
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) minmax(280px, 340px);
-  grid-template-rows: 80px minmax(0, 1fr);
+.render-workspace-skeleton-layout--web {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+}
+
+.render-workspace-skeleton-layout--code-design {
+  min-height: 0;
 }
 
 .render-workspace-skeleton-panel {
@@ -4473,6 +4476,193 @@ button.web-segment-button:first-child {
     transparent
   );
   animation: renderWorkspaceSkeletonShimmer 1.45s ease-in-out infinite;
+}
+
+/* Web export opens as a player preview and an inspector. Keep the loading
+   geometry faithful so the switch from the fallback has no perceptible jump. */
+.render-workspace-skeleton-web-preview,
+.render-workspace-skeleton-web-inspector,
+.render-workspace-skeleton-ppt-slides,
+.render-workspace-skeleton-ppt-inspector {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.render-workspace-skeleton-web-preview {
+  display: flex;
+  flex-direction: column;
+  background: var(--vr-surface-soft);
+}
+
+.render-workspace-skeleton-web-header,
+.render-workspace-skeleton-inspector-header {
+  display: flex;
+  height: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--vr-border);
+  padding: 0 16px;
+  background: var(--vr-surface);
+}
+
+.render-workspace-skeleton-web-stage,
+.render-workspace-skeleton-ppt-stage {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 20px;
+  background: var(--vr-bg);
+}
+
+.render-workspace-skeleton-web-canvas,
+.render-workspace-skeleton-ppt-canvas {
+  display: flex;
+  width: min(100%, 1040px);
+  aspect-ratio: 16 / 9;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--vr-border) 80%, transparent);
+  border-radius: 8px;
+  padding: clamp(24px, 5vw, 72px);
+  background: var(--vr-surface-strong);
+  box-shadow: 0 18px 44px rgb(15 23 42 / 0.12);
+}
+
+.render-workspace-skeleton-web-inspector,
+.render-workspace-skeleton-ppt-inspector {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--vr-border);
+  background: var(--vr-surface);
+}
+
+.render-workspace-skeleton-inspector-body {
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.render-workspace-skeleton-inspector-card {
+  margin-bottom: 12px;
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--vr-surface-soft);
+}
+
+/* The PPT editor owns a 136px ribbon, slide rail, canvas, inspector, and
+   bottom status bar. These match its mounted workspace's fixed regions. */
+.render-workspace-skeleton-ppt-ribbon {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--vr-border);
+  background: var(--vr-surface-strong);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+}
+
+.render-workspace-skeleton-ppt-ribbon-groups {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  padding: 0 12px;
+}
+
+.render-workspace-skeleton-ppt-ribbon-group {
+  position: relative;
+  display: flex;
+  min-width: max-content;
+  align-items: center;
+  border-right: 1px solid var(--vr-border);
+  padding: 10px 14px 24px;
+}
+
+.render-workspace-skeleton-ppt-rules {
+  width: 164px;
+  flex: 0 0 164px;
+  border-left: 1px solid var(--vr-border);
+  padding: 26px 16px;
+}
+
+.render-workspace-skeleton-ppt-body {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: 256px minmax(0, 1fr) 380px;
+  overflow: hidden;
+}
+
+.render-workspace-skeleton-ppt-slides {
+  overflow: hidden;
+  border-right: 1px solid var(--vr-border);
+  padding: 14px 12px;
+  background: var(--vr-surface-strong);
+}
+
+.render-workspace-skeleton-ppt-slides > div {
+  margin-bottom: 12px;
+}
+
+.render-workspace-skeleton-ppt-canvas {
+  width: min(100%, 960px);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--vr-surface-strong) 82%, #0f172a);
+}
+
+.render-workspace-skeleton-ppt-footer {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--vr-border);
+  padding: 0 10px;
+  background: var(--vr-surface-strong);
+}
+
+/* Code opens in the Interface design tab. Its first painted workspace is the
+   code ribbon followed by the same web design canvas, not a source editor. */
+.render-workspace-skeleton-code-shell {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: 50px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.render-workspace-skeleton-code-ribbon {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--vr-border);
+  padding: 8px 16px;
+  background: var(--vr-surface-soft);
+}
+
+.render-workspace-skeleton-code-ribbon > div:first-child > div:first-child {
+  background: var(--vr-bg);
+}
+
+@media (max-width: 1100px) {
+  .render-workspace-skeleton-layout--web {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
+  .render-workspace-skeleton-ppt-body {
+    grid-template-columns: 208px minmax(0, 1fr) 300px;
+  }
+
+  .render-workspace-skeleton-ppt-rules {
+    display: none;
+  }
 }
 
 @keyframes renderWorkspaceContentReveal {

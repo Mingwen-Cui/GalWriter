@@ -1,5 +1,11 @@
 import { playerControlCatalog } from './playerSettingsPanelConfig';
-import { CornerEditor, LayerOrderMenu } from '../shared/inspectors/GeometryPopovers';
+import {
+  CornerEditor,
+  getLayerOrderChanges,
+  LayerOrderMenu,
+  normalizeLayerEntries,
+  type LayerChange,
+} from '../shared/inspectors/GeometryPopovers';
 import { AppearanceStackInspector } from '../shared/inspectors/AppearanceStackInspector';
 import { webAppearance } from '../shared/paint/appearance';
 import {
@@ -52,6 +58,7 @@ import {
   PositionAlignButtons,
 } from '../shared/inspectors/InspectorControls';
 import { ImageFillPopover, SolidColorPopover } from '../shared/paint/ColorPopovers';
+import { parseColorValue, toHex8 } from '../shared/paint/colorValue';
 import { CustomFontUploadButton } from '../video/shared/CustomFontUploadButton';
 import { renderObjectText } from '../video/objectInspector/i18n';
 import type {
@@ -71,6 +78,7 @@ type InspectorProps = {
   element: WebMenuElement;
   layerElements?: WebMenuElement[];
   onLayerUpdate?: (id: string, patch: Partial<WebMenuElement>) => void;
+  onLayerReorder?: (changes: LayerChange[]) => void;
   onLayerSelect?: (id: string) => void;
   language: Language;
   surface?: 'start' | 'archive' | 'settings' | 'game' | 'flow';
@@ -412,6 +420,7 @@ export function StartMenuElementInspector({
   element,
   layerElements,
   onLayerUpdate,
+  onLayerReorder,
   onLayerSelect,
   language,
   surface = 'start',
@@ -433,6 +442,20 @@ export function StartMenuElementInspector({
   const [fillBlendMenuOpen, setFillBlendMenuOpen] = useState(false);
   const [textBlendMenuOpen, setTextBlendMenuOpen] = useState(false);
   const buttonMotion = resolveWebButtonMotion(element.buttonMotion);
+  const layerEntries = (layerElements || [element]).map((item) => ({
+    id: item.id,
+    name: item.text || item.kind,
+    z: item.zIndex ?? 0,
+  }));
+  const normalizedLayerEntries = normalizeLayerEntries(layerEntries);
+  const normalizedZIndex = normalizedLayerEntries.find((item) => item.id === element.id)?.z ?? 0;
+  const commitLayerZIndex = (zIndex: number) => {
+    const changes = getLayerOrderChanges(layerEntries, element.id, zIndex);
+    if (onLayerReorder && changes.length > 0) onLayerReorder(changes);
+    else if (onLayerUpdate && changes.length > 0)
+      changes.forEach((change) => onLayerUpdate(change.id, { zIndex: change.z }));
+    else if (changes.length > 0) onUpdate({ zIndex: changes[0].z });
+  };
   const updateButtonMotionState = (
     stateKey: ButtonMotionStateKey,
     patch: Partial<WebButtonMotionState>,
@@ -482,6 +505,19 @@ export function StartMenuElementInspector({
     element.backgroundGradientStart || '#0ea5e9',
     element.backgroundGradientEnd || '#0f172a',
   );
+  const buttonTextColorType = element.textColorType || 'solid';
+  const buttonTextGradientStops = normalizeGradientStops(
+    element.textGradientStops,
+    element.textGradientStart || element.textColor || '#ffffff',
+    element.textGradientEnd || '#0ea5e9',
+  );
+  const updateButtonTextGradientStops = (stops: typeof buttonTextGradientStops) =>
+    onUpdate({
+      textColorType: 'gradient',
+      textGradientStops: stops,
+      textGradientStart: stops[0]?.color || element.textGradientStart || '#ffffff',
+      textGradientEnd: stops.at(-1)?.color || element.textGradientEnd || '#0ea5e9',
+    });
   const hasTextControls = element.kind !== 'image';
   const textStrokeTarget = element.textStrokeTarget || 'text';
   const strokeIsText = element.kind === 'text' && textStrokeTarget === 'text';
@@ -698,22 +734,19 @@ export function StartMenuElementInspector({
           <NumberField
             icon={<Layers className="h-4 w-4" />}
             label={inspectorCopy.zIndex}
-            value={element.zIndex ?? 0}
-            min={-100}
-            max={9999}
-            onChange={(zIndex) => onUpdate({ zIndex: Math.min(9999, zIndex) })}
+            value={normalizedZIndex}
+            min={0}
+            max={999}
+            onChange={commitLayerZIndex}
           />
           <div className="min-w-0 flex-1">
             <LayerOrderMenu
               language={language}
               className="w-full justify-start"
-              items={(layerElements || [element]).map((item) => ({
-                id: item.id,
-                name: item.text || item.kind,
-                z: item.zIndex ?? 0,
-              }))}
+              items={layerEntries}
               selectedId={element.id}
               onSelect={onLayerSelect}
+              onReorder={onLayerReorder}
               onChange={(id, zIndex) =>
                 onLayerUpdate ? onLayerUpdate(id, { zIndex }) : onUpdate({ zIndex })
               }
@@ -981,6 +1014,126 @@ export function StartMenuElementInspector({
               </div>
             )}
           </ControlRow>
+        </Group>
+      )}
+
+      {element.kind === 'button' && (
+        <Group
+          title={descriptionCopy.textColor}
+          icon={<Palette className="h-3.5 w-3.5" />}
+          tone="text"
+          expandLabel={inspectorCopy.expand}
+          collapseLabel={inspectorCopy.collapse}
+          showDescriptions={showDescriptions}
+          secondary={null}
+        >
+          {buttonTextColorType === 'gradient' ? (
+            <InlineGradientControl
+              label={descriptionCopy.textColor}
+              stops={buttonTextGradientStops}
+              onOpen={() =>
+                setPopover(popover?.group === 'text' ? null : { group: 'text', type: 'gradient' })
+              }
+              onAlphaChange={(alpha) =>
+                updateButtonTextGradientStops(
+                  buttonTextGradientStops.map((stop) => ({ ...stop, alpha })),
+                )
+              }
+            />
+          ) : (
+            (() => {
+              const parsed = parseColorValue(element.textColor || '#ffffff');
+              return (
+                <InlineColorControl
+                  label={descriptionCopy.textColor}
+                  color={parsed.hex}
+                  alpha={parsed.alpha}
+                  hexLabel="HEX"
+                  alphaLabel="%"
+                  onColorChange={(color) => onUpdate({ textColor: color, textColorType: 'solid' })}
+                  onAlphaChange={(alpha) =>
+                    onUpdate({ textColor: toHex8(parsed.hex, alpha), textColorType: 'solid' })
+                  }
+                  onColorAndAlphaChange={({ color, alpha }) =>
+                    onUpdate({ textColor: toHex8(color, alpha), textColorType: 'solid' })
+                  }
+                  onOpen={() =>
+                    setPopover(popover?.group === 'text' ? null : { group: 'text', type: 'solid' })
+                  }
+                />
+              );
+            })()
+          )}
+          {popover?.group === 'text' &&
+            (popover.type === 'solid' || popover.type === 'gradient') && (
+              <FloatingPopover
+                language={language}
+                popoverKey={popover.type}
+                title={descriptionCopy.textColor}
+                onClose={() => setPopover(null)}
+              >
+                <div className="property-editor-popover space-y-3">
+                  <div className="grid h-10 grid-cols-2 overflow-hidden rounded-xl bg-slate-100">
+                    {[
+                      {
+                        value: 'solid' as const,
+                        label: text.popover.solidTitle,
+                        icon: <Palette className="h-3.5 w-3.5" />,
+                      },
+                      {
+                        value: 'gradient' as const,
+                        label: text.popover.gradientTitle,
+                        icon: <GradientIcon />,
+                      },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`flex h-10 min-w-0 items-center justify-center gap-1 px-2 text-xs font-bold ${popover.type === option.value ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-white'}`}
+                        title={option.label}
+                        aria-label={option.label}
+                        aria-pressed={popover.type === option.value}
+                        onClick={() => {
+                          onUpdate({ textColorType: option.value });
+                          setPopover({ group: 'text', type: option.value });
+                        }}
+                      >
+                        {option.icon}
+                        <span className="truncate">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {popover.type === 'gradient' ? (
+                    <GradientEditorPopover
+                      language={language}
+                      angle={element.textGradientAngle ?? 90}
+                      stops={buttonTextGradientStops}
+                      onAngleChange={(textGradientAngle) =>
+                        onUpdate({ textColorType: 'gradient', textGradientAngle })
+                      }
+                      onStopsChange={updateButtonTextGradientStops}
+                    />
+                  ) : (
+                    <SolidColorPopover
+                      tone="fill"
+                      text={text.popover}
+                      color={parseColorValue(element.textColor || '#ffffff').hex}
+                      alpha={parseColorValue(element.textColor || '#ffffff').alpha}
+                      onColorChange={(color) =>
+                        onUpdate({ textColor: color, textColorType: 'solid' })
+                      }
+                      onAlphaChange={(alpha) => {
+                        const parsed = parseColorValue(element.textColor || '#ffffff');
+                        onUpdate({ textColor: toHex8(parsed.hex, alpha), textColorType: 'solid' });
+                      }}
+                      onColorAndAlphaChange={({ color, alpha }) =>
+                        onUpdate({ textColor: toHex8(color, alpha), textColorType: 'solid' })
+                      }
+                    />
+                  )}
+                </div>
+              </FloatingPopover>
+            )}
         </Group>
       )}
 

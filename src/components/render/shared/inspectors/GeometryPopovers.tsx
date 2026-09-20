@@ -4,12 +4,77 @@ import type { Language } from '../../../../lib/i18n';
 import { FloatingPopover, FloatingPopoverHeaderContext, NumberField } from './InspectorControls';
 
 export type LayerEntry = { id: string; name: string; z: number };
+export type LayerChange = { id: string; z: number };
+export const LAYER_ORDER_EXCEPTION = 999;
+
+const compareLayerEntries = (a: LayerEntry, b: LayerEntry) => b.z - a.z || a.id.localeCompare(b.id);
+
+/**
+ * Returns a dense layer order while preserving the current front-to-back order.
+ * 999 is reserved as the single explicit out-of-band layer value.
+ */
+export const normalizeLayerEntries = (items: LayerEntry[]) => {
+  const sorted = [...items].sort(compareLayerEntries);
+  const special = sorted.find((item) => item.z === LAYER_ORDER_EXCEPTION);
+  const regular = sorted.filter((item) => item.id !== special?.id);
+  const normalized = new Map<string, number>();
+  if (special) normalized.set(special.id, LAYER_ORDER_EXCEPTION);
+  regular.forEach((item, index) => {
+    normalized.set(item.id, regular.length - 1 - index);
+  });
+  return items.map((item) => ({ ...item, z: normalized.get(item.id) ?? 0 }));
+};
+
+/**
+ * Moves an item to a requested Z value and returns changes for every affected
+ * item so the collection remains unique and contiguous.
+ */
+export const getLayerOrderChanges = (
+  items: LayerEntry[],
+  selectedId: string,
+  requestedZ: number,
+): LayerChange[] => {
+  if (items.length === 0) return [];
+  const normalized = normalizeLayerEntries(items);
+  const selected = normalized.find((item) => item.id === selectedId);
+  if (!selected) return [];
+  const special = normalized.find((item) => item.z === LAYER_ORDER_EXCEPTION);
+  const wantsException = Math.round(requestedZ) === LAYER_ORDER_EXCEPTION;
+
+  if (wantsException) {
+    const regular = normalized.filter((item) => item.id !== selectedId).sort(compareLayerEntries);
+    return [
+      { id: selectedId, z: LAYER_ORDER_EXCEPTION },
+      ...regular.map((item, index) => ({ id: item.id, z: regular.length - 1 - index })),
+    ];
+  }
+
+  const specialId = special?.id === selectedId ? undefined : special?.id;
+  const regular = normalized
+    .filter((item) => item.id !== selectedId && item.id !== specialId)
+    .sort(compareLayerEntries);
+  const regularCount = normalized.length - (specialId ? 1 : 0);
+  const target = Math.min(
+    regularCount - 1,
+    Math.max(0, Number.isFinite(requestedZ) ? Math.round(requestedZ) : 0),
+  );
+  const insertAt = regularCount - 1 - target;
+  const ordered = [...regular];
+  ordered.splice(insertAt, 0, selected);
+
+  return [
+    ...ordered.map((item, index) => ({ id: item.id, z: regularCount - 1 - index })),
+    ...(specialId ? [{ id: specialId, z: LAYER_ORDER_EXCEPTION }] : []),
+  ];
+};
+
 export function LayerOrderMenu({
   language,
   items,
   selectedId,
   onSelect,
   onChange,
+  onReorder,
   className = '',
 }: {
   language: Language;
@@ -17,26 +82,41 @@ export function LayerOrderMenu({
   selectedId: string;
   onSelect?: (id: string) => void;
   onChange: (id: string, z: number) => void;
+  onReorder?: (changes: LayerChange[]) => void;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const t = (zh: string, en: string) => (language === 'zh' ? zh : en);
-  const sorted = [...items].sort((a, b) => b.z - a.z || a.id.localeCompare(b.id));
+  const sorted = normalizeLayerEntries(items).sort(compareLayerEntries);
+  const openMenu = () => {
+    if (!open && onReorder) {
+      const normalized = normalizeLayerEntries(items);
+      const changes = normalized
+        .filter((item, index) => item.z !== items[index]?.z)
+        .map((item) => ({ id: item.id, z: item.z }));
+      if (changes.length > 0) onReorder(changes);
+    }
+    setOpen(!open);
+  };
+  const commitZ = (id: string, z: number) => {
+    const changes = getLayerOrderChanges(items, id, z);
+    if (onReorder && changes.length > 0) onReorder(changes);
+    else changes.forEach((change) => onChange(change.id, change.z));
+  };
   const move = (id: string, delta: number) => {
     const index = sorted.findIndex((v) => v.id === id);
     const to = index + delta;
     if (to < 0 || to >= sorted.length) return;
     const neighbor = sorted[to];
-    const beyond = sorted[to + delta];
-    const z = beyond && beyond.z !== neighbor.z ? (neighbor.z + beyond.z) / 2 : neighbor.z - delta;
-    onChange(id, z);
+    commitZ(id, neighbor.z);
   };
   return (
     <>
       <button
         type="button"
         className={`property-add ${className}`}
-        onClick={() => setOpen(!open)}
+        onClick={openMenu}
         aria-expanded={open}
       >
         <Layers size={14} />
@@ -57,10 +137,40 @@ export function LayerOrderMenu({
                   </button>
                   <input
                     className="w-14 bg-transparent text-right text-xs"
-                    type="number"
-                    value={item.z}
+                    type="text"
+                    inputMode="numeric"
+                    value={drafts[item.id] ?? String(item.z)}
                     aria-label={`${item.name} Z`}
-                    onChange={(e) => onChange(item.id, Number(e.target.value) || 0)}
+                    min={0}
+                    max={LAYER_ORDER_EXCEPTION}
+                    onFocus={() =>
+                      setDrafts((current) => ({ ...current, [item.id]: String(item.z) }))
+                    }
+                    onChange={(e) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [item.id]: e.target.value.replace(/[^\d]/g, '').slice(0, 3),
+                      }))
+                    }
+                    onBlur={(e) => {
+                      commitZ(item.id, Number(e.currentTarget.value));
+                      setDrafts((current) => {
+                        const next = { ...current };
+                        delete next[item.id];
+                        return next;
+                      });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur();
+                      if (e.key === 'Escape') {
+                        setDrafts((current) => {
+                          const next = { ...current };
+                          delete next[item.id];
+                          return next;
+                        });
+                        e.currentTarget.blur();
+                      }
+                    }}
                   />
                   <button
                     type="button"

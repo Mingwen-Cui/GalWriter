@@ -9,6 +9,7 @@ import type {
 } from '../video/shared/types';
 import { StartMenuElementInspector } from '../web/StartMenuElementInspector';
 import { InspectorGroup } from '../shared/inspectors/InspectorControls';
+import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import type { PptCopy } from './i18n';
 import { toPptManualElementPatch, toPptWebInspectorElement } from './pptWebInspectorAdapter';
 
@@ -21,6 +22,7 @@ export function PptManualInspector({
   showDescriptions,
   onUpdateBackgroundColor,
   onUpdateElement,
+  onUpdateElements,
   onDeleteElement,
   fontFamilyManager,
 }: {
@@ -32,6 +34,7 @@ export function PptManualInspector({
   showDescriptions: boolean;
   onUpdateBackgroundColor: (color: string) => void;
   onUpdateElement: (elementId: string, patch: Partial<PptManualElement>) => void;
+  onUpdateElements?: (changes: LayerChange[]) => void;
   onDeleteElement: (elementId: string) => void;
   fontFamilyManager?: {
     options: RenderFontFamilyOption[];
@@ -71,6 +74,7 @@ export function PptManualInspector({
           const item = slide.elements.find((e) => e.id === id);
           if (item) onUpdateElement(id, toPptManualElementPatch(item, patch));
         }}
+        onLayerReorder={onUpdateElements}
         language={language}
         showDescriptions={showDescriptions}
         buttonFunctions={element.kind === 'button' ? ['custom', 'link'] : undefined}

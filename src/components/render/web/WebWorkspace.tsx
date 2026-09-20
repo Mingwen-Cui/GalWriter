@@ -55,6 +55,7 @@ import type {
 } from './WebPlaytestPreview';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
+import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 
 const webSmallTabClass =
   'h-8 rounded-lg px-2 text-[11px] font-black text-[var(--vr-text-soft)] transition-colors hover:text-[var(--vr-text)]';
@@ -948,6 +949,27 @@ export function WebWorkspace({
       source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
     );
   };
+  const updateActivePageLayerOrder = (changes: LayerChange[]) => {
+    if (changes.length === 0) return;
+    const changeMap = new Map(changes.map((change) => [change.id, change.z]));
+    const apply = (elements: WebMenuElement[]) =>
+      elements.map((element) =>
+        changeMap.has(element.id) ? { ...element, zIndex: changeMap.get(element.id) } : element,
+      );
+
+    if (currentPreviewSurface === 'game') {
+      const toolbar = resolvedToolbarElements;
+      const dialogue = webSettings.dialogueOverlayElements || [];
+      if (changes.some((change) => toolbar.some((element) => element.id === change.id))) {
+        updateWebSettings('previewToolbarElements', apply(toolbar));
+      }
+      if (changes.some((change) => dialogue.some((element) => element.id === change.id))) {
+        updateWebSettings('dialogueOverlayElements', apply(dialogue));
+      }
+      return;
+    }
+    updateWebSettings(activeElementSettingsKey, apply(activePageElements));
+  };
   const deleteStartMenuElement = (id: string) => {
     const pageMatch = /^(archive|settings):(.*)$/.exec(id);
     if (pageMatch) {
@@ -1188,6 +1210,7 @@ export function WebWorkspace({
           element={selectedStartMenuElement}
           layerElements={activePageElements}
           onLayerUpdate={updateActivePageElement}
+          onLayerReorder={updateActivePageLayerOrder}
           onLayerSelect={setSelectedStartMenuElementId}
           language={language}
           surface={currentPreviewSurface}

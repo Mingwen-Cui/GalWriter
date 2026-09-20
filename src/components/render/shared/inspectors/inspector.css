@@ -251,6 +251,7 @@
 }
 .property-floating-popover-body {
   border-radius: 0 0 16px 16px;
+  overflow-x: hidden;
 }
 .property-floating-popover-body > .property-editor-popover,
 .property-floating-popover-body > .property-paint-popover {
