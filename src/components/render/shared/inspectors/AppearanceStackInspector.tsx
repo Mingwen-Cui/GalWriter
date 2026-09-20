@@ -14,11 +14,13 @@ export function AppearanceStackInspector({
   value,
   onChange,
   groups = ['fills', 'strokes', 'shadows'],
+  hideFillOpacityForSolidGradient = false,
 }: {
   language: Language;
   value: SurfaceAppearance;
   onChange: (value: SurfaceAppearance) => void;
   groups?: Array<keyof SurfaceAppearance>;
+  hideFillOpacityForSolidGradient?: boolean;
 }) {
   const t = (zh: string, en: string, ja = en) =>
     language === 'zh' ? zh : language === 'ja' ? ja : en;
@@ -191,13 +193,16 @@ export function AppearanceStackInspector({
                   value={selected}
                   onChange={(patch) => update('fills', selected.id, patch)}
                 />
-                <NumberField
-                  label={t('不透明度 · %', 'Opacity · %')}
-                  value={selected.opacity}
-                  min={0}
-                  max={100}
-                  onChange={(opacity) => update('fills', selected.id, { opacity })}
-                />
+                {(!hideFillOpacityForSolidGradient ||
+                  (selected.type !== 'solid' && selected.type !== 'gradient')) && (
+                  <NumberField
+                    label={t('不透明度 · %', 'Opacity · %')}
+                    value={selected.opacity}
+                    min={0}
+                    max={100}
+                    onChange={(opacity) => update('fills', selected.id, { opacity })}
+                  />
+                )}
               </>
             )}
             {editing.group === 'strokes' && 'width' in selected && (

@@ -1402,6 +1402,7 @@ export function StartMenuElementInspector({
             ? { ...webAppearance(element), fills: [] }
             : webAppearance(element)
         }
+        hideFillOpacityForSolidGradient={element.kind === 'button'}
         onChange={(appearance) =>
           onUpdate({
             appearance: element.kind === 'image' ? { ...appearance, fills: [] } : appearance,

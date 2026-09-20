@@ -88,23 +88,23 @@ export const buildRehearsalArchivePageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const settingsCopy = getWebSettingsCopy(language);
-  const elements: WebMenuElement[] = [
+  return [
     text(
       'archive-title',
       'title',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText92'),
+      8,
+      16,
+      48,
       10,
-      8,
-      32,
-      8,
-      28,
+      42,
     ),
     button(
       'archive-back',
       'back',
       settingsCopy.backToMainMenu,
-      78,
       8,
+      29,
       14,
       7,
       choiceColor,
@@ -114,8 +114,8 @@ export const buildRehearsalArchivePageElements = (
       'archive-slot',
       'slot',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText107'),
-      24,
-      40,
+      8,
+      42,
       52,
       15,
       choiceColor,
@@ -125,10 +125,10 @@ export const buildRehearsalArchivePageElements = (
       'archive-slot-continue',
       'slotContinue',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText119'),
-      56,
-      46,
-      12,
-      5,
+      42,
+      47,
+      14,
+      6,
       choiceColor,
       choiceTextColor,
       true,
@@ -137,10 +137,10 @@ export const buildRehearsalArchivePageElements = (
       'archive-slot-delete',
       'slotDelete',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText120'),
-      69,
-      46,
-      7,
-      5,
+      58,
+      47,
+      12,
+      6,
       choiceColor,
       choiceTextColor,
     ),
@@ -148,68 +148,32 @@ export const buildRehearsalArchivePageElements = (
       'archive-new',
       'new',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText124'),
-      24,
-      59,
-      52,
+      8,
+      62,
+      30,
       9,
       choiceColor,
       choiceTextColor,
       true,
     ),
-  ];
-  return elements
-    .map((element) => {
-      if (element.role === 'title') {
-        return { ...element, x: 18, y: 24, width: 64, height: 12, fontSize: 46 };
-      }
-      if (element.role === 'subtitle') {
-        return { ...element, x: 18, y: 38, width: 64, height: 6, fontSize: 18 };
-      }
-      const gradient =
-        element.role === 'new'
-          ? { start: '#38bdf8', end: '#2563eb', y: 57 }
-          : element.role === 'save'
-            ? { start: '#22d3ee', end: '#0f766e', y: 68 }
-            : element.role === 'settings'
-              ? { start: '#a78bfa', end: '#7c3aed', y: 79 }
-              : null;
-      if (!gradient) return element;
-      return {
-        ...element,
-        text:
-          element.role === 'save'
-            ? formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText152')
-            : element.text,
-        x: 32,
-        y: gradient.y,
-        width: 36,
-        height: 9,
-        fontSize: 18,
-        textColor: '#ffffff',
-        backgroundType: 'gradient' as const,
-        backgroundColor: gradient.start,
-        backgroundGradientStart: gradient.start,
-        backgroundGradientEnd: gradient.end,
-        backgroundGradientAngle: 135,
-        backgroundGradientShape: 'linear' as const,
-        backgroundGradientStops: [
-          { id: `${element.id}-start`, color: gradient.start, alpha: 100, position: 0 },
-          { id: `${element.id}-end`, color: gradient.end, alpha: 100, position: 100 },
-        ],
-        borderColor: 'rgba(255,255,255,0.30)',
-        borderRadius: 14,
-      };
-    })
-    .sort((left, right) => {
-      const order: Record<string, number> = {
-        title: 0,
-        subtitle: 1,
-        new: 2,
-        save: 3,
-        settings: 4,
-      };
-      return (order[left.role || ''] ?? 99) - (order[right.role || ''] ?? 99);
-    });
+  ].map((element) => {
+    if (element.role === 'title') return { ...element, textColor: '#252a59', textAlign: 'left' };
+    const primary = element.role === 'new' || element.role === 'slotContinue';
+    return {
+      ...element,
+      primary,
+      fontSize: element.role === 'slot' ? 16 : 15,
+      textColor: primary ? '#ffffff' : '#334155',
+      backgroundColor: primary ? '#625bf6' : '#ffffff',
+      borderColor: primary ? '#4f46c5' : 'rgba(15,23,42,0.28)',
+      borderWidth: primary ? 1.5 : 1,
+      borderRadius: element.role === 'back' ? 999 : 14,
+      shadowColor: '#0f172a',
+      shadowOpacity: primary ? 18 : 12,
+      shadowBlur: primary ? 24 : 16,
+      shadowOffsetY: primary ? 8 : 6,
+    };
+  });
 };
 
 export const buildRehearsalSettingsPageElements = (
@@ -218,15 +182,15 @@ export const buildRehearsalSettingsPageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const positions: Record<string, [number, number, number, number]> = {
-    mode: [8, 22, 40, 15],
-    speed: [8, 39, 40, 17],
-    textSize: [8, 58, 40, 17],
-    auto: [54, 22, 38, 15],
-    animationSpeed: [54, 39, 38, 17],
-    sound: [54, 58, 38, 15],
-    controls: [54, 75, 38, 18],
-    preview: [8, 77, 40, 16],
-    reset: [54, 10, 24, 7],
+    mode: [8, 42, 38, 12],
+    speed: [8, 56, 38, 14],
+    textSize: [8, 72, 38, 14],
+    preview: [8, 88, 38, 10],
+    auto: [52, 42, 38, 12],
+    animationSpeed: [52, 56, 38, 14],
+    sound: [52, 72, 38, 12],
+    controls: [52, 86, 38, 12],
+    reset: [76, 29, 14, 7],
   };
   return [
     text(
@@ -234,30 +198,40 @@ export const buildRehearsalSettingsPageElements = (
       'title',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText192'),
       8,
-      8,
-      40,
-      9,
-      30,
+      16,
+      48,
+      10,
+      42,
     ),
     button(
       'settings-back',
       'back',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText196'),
-      80,
-      10,
-      12,
+      8,
+      29,
+      14,
       7,
       choiceColor,
       choiceTextColor,
     ),
     ...playerControlCatalog(language).map(({ id, label, forms }) => ({
       ...button(`settings-${id}`, id, label, ...positions[id], choiceColor, choiceTextColor),
-      fontSize: 16,
+      fontSize: id === 'reset' ? 14 : 15,
       textAlign: 'left' as const,
-      backgroundColor: '#111c2de8',
+      textColor: id === 'reset' ? '#ffffff' : '#334155',
+      backgroundColor: id === 'reset' ? '#625bf6' : '#ffffff',
+      borderColor: id === 'reset' ? '#4f46c5' : 'rgba(15,23,42,0.28)',
+      borderWidth: id === 'reset' ? 1.5 : 1,
+      borderRadius: id === 'reset' ? 999 : 14,
+      shadowColor: '#0f172a',
+      shadowOpacity: id === 'reset' ? 18 : 12,
+      shadowBlur: id === 'reset' ? 24 : 16,
+      shadowOffsetY: id === 'reset' ? 8 : 6,
       settingsControlForm: forms[0],
     })),
-  ];
+  ].map((element) =>
+    element.role === 'title' ? { ...element, textColor: '#252a59', textAlign: 'left' } : element,
+  );
 };
 
 import { arrangeToolbarRow } from './webToolbarLayout';
