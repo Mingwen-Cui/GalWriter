@@ -1425,6 +1425,12 @@ export function WebPlaytestPreview({
       : settings.startMenuButtonPosition === 'bottomRight'
         ? 100 - 8 - defaultButtonWidth
         : 50 - defaultButtonWidth / 2;
+  const activePreviewSave = getActiveWebSaveSlot(previewSaves);
+  const canContinuePreviewSave = Boolean(
+    activePreviewSave &&
+    activePreviewSave.currentId !== 'THE_END' &&
+    runtimeNodes.some((node) => node.id === activePreviewSave.currentId),
+  );
   const startMenuActions = [
     {
       key: 'flowOverview',
@@ -1433,13 +1439,11 @@ export function WebPlaytestPreview({
       primary: false,
       onClick: () => setFlowOverviewOpen(true),
     },
-    getActiveWebSaveSlot(previewSaves) &&
-    getActiveWebSaveSlot(previewSaves)?.currentId !== 'THE_END' &&
-    runtimeNodes.some((node) => node.id === getActiveWebSaveSlot(previewSaves)?.currentId)
+    previewMode === 'edit' || canContinuePreviewSave
       ? {
           key: 'continue',
           label: formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1168'),
-          disabled: false,
+          disabled: !canContinuePreviewSave,
           primary: true,
           onClick: continuePreviewSave,
         }
@@ -1576,7 +1580,7 @@ export function WebPlaytestPreview({
     : defaultStartMenuElements;
   const startMenuElements = rawStartMenuElements.map((element) =>
     element.role === 'title' || element.role === 'subtitle'
-      ? { ...element, textAlign: 'center' as const }
+      ? { ...element, textAlign: 'left' as const }
       : element,
   );
   const flowOverviewElements = settings.flowOverviewElements || [];

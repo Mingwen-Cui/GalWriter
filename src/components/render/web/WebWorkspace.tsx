@@ -754,7 +754,14 @@ export function WebWorkspace({
     null,
   );
   useEffect(() => {
-    if (webSettings.showStartMenu) return;
+    if (webSettings.showStartMenu) {
+      // Switching back from the header's "no UI" mode must also restore the
+      // editor's selected surface. Otherwise the header says "main menu" while
+      // the preview remains controlled by the stale `game` surface.
+      setEditPreviewSurface((surface) => (surface === 'game' ? 'start' : surface));
+      setCurrentPreviewSurface((surface) => (surface === 'game' ? 'start' : surface));
+      return;
+    }
     setEditPreviewSurface('game');
     setCurrentPreviewSurface('game');
     setSelectedStartMenuElementId(null);
@@ -1186,6 +1193,7 @@ export function WebWorkspace({
           surface={currentPreviewSurface}
           selectedElementIds={selectedPreviewElementIds}
           showDescriptions={showSettingDescriptions}
+          showButtonMotion
           onUpdate={updateSelectedPageElement}
           fontFamilyManager={{
             options: webFontOptions,

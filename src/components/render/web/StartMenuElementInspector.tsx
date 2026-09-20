@@ -19,6 +19,7 @@ import {
   Radius,
   RotateCw,
   Ruler,
+  Sparkles,
   Type,
   Volume2,
 } from 'lucide-react';
@@ -57,9 +58,12 @@ import type {
   RenderCustomFont,
   RenderFillType,
   RenderFontFamilyOption,
+  WebButtonMotion,
+  WebButtonMotionState,
   WebMenuElement,
 } from '../video/shared/types';
 import { formatWebText, getWebShadowOrdinal, getWebStructuredText } from './i18n';
+import { resolveWebButtonMotion, type ResolvedWebButtonMotionState } from './webButtonMotion';
 import { webImageFillBackgroundColor } from './webElementStyle';
 import { normalizeGradientStops } from './webGradientStops';
 
@@ -82,6 +86,8 @@ type InspectorProps = {
   onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
   onImageCropEditingChange?: (elementId: string | null) => void;
   onGradientEditingChange?: (group: 'text' | 'fill' | 'stroke' | null) => void;
+  /** Shows the button motion editor only in the Web and Code workspaces. */
+  showButtonMotion?: boolean;
   fontFamilyManager?: {
     options: RenderFontFamilyOption[];
     onSelect: (value: string) => void;
@@ -419,12 +425,24 @@ export function StartMenuElementInspector({
   onImageCropEditingChange,
   onGradientEditingChange,
   fontFamilyManager,
+  showButtonMotion = false,
 }: InspectorProps) {
   const text = renderObjectText(language);
   const [popover, setPopover] = useState<Popover>(null);
   const [radiusPopoverOpen, setRadiusPopoverOpen] = useState(false);
   const [fillBlendMenuOpen, setFillBlendMenuOpen] = useState(false);
   const [textBlendMenuOpen, setTextBlendMenuOpen] = useState(false);
+  const buttonMotion = resolveWebButtonMotion(element.buttonMotion);
+  const updateButtonMotionState = (
+    stateKey: ButtonMotionStateKey,
+    patch: Partial<WebButtonMotionState>,
+  ) =>
+    onUpdate({
+      buttonMotion: {
+        ...(element.buttonMotion || {}),
+        [stateKey]: { ...buttonMotion[stateKey], ...patch },
+      },
+    });
 
   useEffect(() => {
     if (!popover) return;
@@ -1223,6 +1241,101 @@ export function StartMenuElementInspector({
         </Group>
       )}
 
+      {showButtonMotion && element.kind === 'button' && (
+        <Group
+          title={formatWebText(
+            language,
+            'componentsrenderwebStartMenuElementInspectorButtonMotionTitle',
+          )}
+          icon={<Sparkles className="h-3.5 w-3.5" />}
+          tone="animation"
+          expandLabel={inspectorCopy.expand}
+          collapseLabel={inspectorCopy.collapse}
+          showDescriptions={showDescriptions}
+          titleDescription={formatWebText(
+            language,
+            'componentsrenderwebStartMenuElementInspectorButtonMotionDescription',
+          )}
+          secondary={null}
+        >
+          <div className="space-y-2">
+            <ButtonMotionStateEditor
+              language={language}
+              stateKey="hover"
+              state={buttonMotion.hover}
+              onChange={(patch) => updateButtonMotionState('hover', patch)}
+            />
+            <ButtonMotionStateEditor
+              language={language}
+              stateKey="pressed"
+              state={buttonMotion.pressed}
+              onChange={(patch) => updateButtonMotionState('pressed', patch)}
+            />
+            <label className="block space-y-1">
+              <span className="property-field-label">
+                {formatWebText(
+                  language,
+                  'componentsrenderwebStartMenuElementInspectorButtonMotionOrigin',
+                )}
+              </span>
+              <select
+                className="h-8 w-full rounded-md bg-white px-2 text-xs text-slate-800"
+                value={buttonMotion.transformOrigin}
+                onChange={(event) =>
+                  onUpdate({
+                    buttonMotion: {
+                      ...(element.buttonMotion || {}),
+                      transformOrigin: event.target.value,
+                    } as WebButtonMotion,
+                  })
+                }
+              >
+                <option value="center center">
+                  {formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorButtonMotionCenter',
+                  )}
+                </option>
+                <option value="left center">
+                  {formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorButtonMotionLeft',
+                  )}
+                </option>
+                <option value="right center">
+                  {formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorButtonMotionRight',
+                  )}
+                </option>
+                <option value="center top">
+                  {formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorButtonMotionTop',
+                  )}
+                </option>
+                <option value="center bottom">
+                  {formatWebText(
+                    language,
+                    'componentsrenderwebStartMenuElementInspectorButtonMotionBottom',
+                  )}
+                </option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="h-8 w-full rounded-md bg-white text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+              onClick={() => onUpdate({ buttonMotion: undefined })}
+            >
+              {formatWebText(
+                language,
+                'componentsrenderwebStartMenuElementInspectorButtonMotionReset',
+              )}
+            </button>
+          </div>
+        </Group>
+      )}
+
       {hasFillControls && (
         <AppearanceStackInspector
           language={language}
@@ -1373,6 +1486,136 @@ function SettingDescription({
     <div className={`space-y-1 ${className}`}>
       {show && <div className="px-1 text-[10px] leading-4 text-slate-500">{label}</div>}
       {children}
+    </div>
+  );
+}
+
+type ButtonMotionStateKey = 'hover' | 'pressed';
+
+function ButtonMotionStateEditor({
+  language,
+  stateKey,
+  state,
+  onChange,
+}: {
+  language: Language;
+  stateKey: ButtonMotionStateKey;
+  state: ResolvedWebButtonMotionState;
+  onChange: (patch: Partial<WebButtonMotionState>) => void;
+}) {
+  const prefix = 'componentsrenderwebStartMenuElementInspectorButtonMotion';
+  const title = formatWebText(
+    language,
+    `${prefix}${stateKey === 'hover' ? 'Hover' : 'Pressed'}` as Parameters<typeof formatWebText>[1],
+  );
+  const enabledLabel = formatWebText(
+    language,
+    `${prefix}Enabled` as Parameters<typeof formatWebText>[1],
+  );
+  const labels = {
+    scale: formatWebText(language, `${prefix}Scale` as Parameters<typeof formatWebText>[1]),
+    translateX: formatWebText(
+      language,
+      `${prefix}TranslateX` as Parameters<typeof formatWebText>[1],
+    ),
+    translateY: formatWebText(
+      language,
+      `${prefix}TranslateY` as Parameters<typeof formatWebText>[1],
+    ),
+    rotate: formatWebText(language, `${prefix}Rotate` as Parameters<typeof formatWebText>[1]),
+    duration: formatWebText(language, `${prefix}Duration` as Parameters<typeof formatWebText>[1]),
+    easing: formatWebText(language, `${prefix}Easing` as Parameters<typeof formatWebText>[1]),
+    shadow: formatWebText(language, `${prefix}Shadow` as Parameters<typeof formatWebText>[1]),
+  };
+  const motionText = (suffix: string) =>
+    formatWebText(language, `${prefix}${suffix}` as Parameters<typeof formatWebText>[1]);
+  return (
+    <div className="space-y-2 rounded-lg bg-white/60 p-2">
+      <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-700">
+        <span>{title}</span>
+        <label className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+          <input
+            type="checkbox"
+            checked={state.enabled}
+            onChange={(event) => onChange({ enabled: event.target.checked })}
+            className="accent-indigo-600"
+          />
+          {enabledLabel}
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberField
+          label={labels.scale}
+          value={state.scale}
+          min={0.85}
+          max={1.2}
+          step={0.01}
+          onChange={(scale) => onChange({ scale })}
+        />
+        <NumberField
+          label={labels.rotate}
+          value={state.rotate}
+          min={-12}
+          max={12}
+          step={1}
+          onChange={(rotate) => onChange({ rotate })}
+        />
+        <NumberField
+          label={labels.translateX}
+          value={state.translateX}
+          min={-24}
+          max={24}
+          step={1}
+          onChange={(translateX) => onChange({ translateX })}
+        />
+        <NumberField
+          label={labels.translateY}
+          value={state.translateY}
+          min={-24}
+          max={24}
+          step={1}
+          onChange={(translateY) => onChange({ translateY })}
+        />
+        <NumberField
+          label={labels.duration}
+          value={state.duration}
+          min={0}
+          max={1200}
+          step={10}
+          onChange={(duration) => onChange({ duration })}
+        />
+        <label className="min-w-0 space-y-1">
+          <span className="property-field-label">{labels.easing}</span>
+          <select
+            className="h-8 w-full rounded-md bg-white px-2 text-xs text-slate-800"
+            value={state.easing}
+            onChange={(event) =>
+              onChange({ easing: event.target.value as WebButtonMotionState['easing'] })
+            }
+          >
+            <option value="ease">{motionText('Ease')}</option>
+            <option value="linear">{motionText('Linear')}</option>
+            <option value="ease-in">{motionText('EaseIn')}</option>
+            <option value="ease-out">{motionText('EaseOut')}</option>
+            <option value="ease-in-out">{motionText('EaseInOut')}</option>
+          </select>
+        </label>
+      </div>
+      <label className="block space-y-1">
+        <span className="property-field-label">{labels.shadow}</span>
+        <select
+          className="h-8 w-full rounded-md bg-white px-2 text-xs text-slate-800"
+          value={state.shadow}
+          onChange={(event) =>
+            onChange({ shadow: event.target.value as WebButtonMotionState['shadow'] })
+          }
+        >
+          <option value="same">{motionText('Same')}</option>
+          <option value="lift">{motionText('Lift')}</option>
+          <option value="inset">{motionText('Inset')}</option>
+          <option value="none">{motionText('None')}</option>
+        </select>
+      </label>
     </div>
   );
 }

@@ -281,6 +281,25 @@ export type RenderEditableObjects = {
   choice: RenderEditableTextObject;
 };
 
+export type WebButtonMotionEasing = 'linear' | 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out';
+
+export type WebButtonMotionState = {
+  enabled?: boolean;
+  scale?: number;
+  translateX?: number;
+  translateY?: number;
+  rotate?: number;
+  duration?: number;
+  easing?: WebButtonMotionEasing;
+  shadow?: 'same' | 'lift' | 'inset' | 'none';
+};
+
+export type WebButtonMotion = {
+  hover?: WebButtonMotionState;
+  pressed?: WebButtonMotionState;
+  transformOrigin?: string;
+};
+
 export type WebMenuElement = {
   appearance?: SurfaceAppearance;
   settingsControlForm?: 'switch' | 'segmented' | 'slider' | 'stepper' | 'select';
@@ -411,6 +430,7 @@ export type WebMenuElement = {
   linkTarget?: '_blank' | '_self';
   actionValue?: number;
   actionValueInputMode?: 'drag' | 'slider';
+  buttonMotion?: WebButtonMotion;
 };
 
 export type WebExportSettings = {

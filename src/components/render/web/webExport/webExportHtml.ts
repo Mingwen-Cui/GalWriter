@@ -23,6 +23,7 @@ import {
   mountWebEnding,
 } from '../webPlaybackUi';
 import { WEB_EXPORT_STYLES } from './webExportStyles';
+import { WEB_BUTTON_MOTION_CSS } from '../webButtonMotion';
 
 export const makeIndexHtml = (
   title: string,
@@ -58,6 +59,7 @@ export const makeIndexHtml = (
   <script src="./content.js"></script>
   <style>${WEB_EXPORT_STYLES}
 ${PLAYER_SETTINGS_CSS}
+${WEB_BUTTON_MOTION_CSS}
 ${WEB_PLAYBACK_UI_CSS}</style>
 </head>
 <body>
@@ -259,7 +261,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     settings.startMenuButtonSize = ["compact", "normal", "large"].includes(settings.startMenuButtonSize) ? settings.startMenuButtonSize : "normal";
     settings.startMenuElements = (Array.isArray(settings.startMenuElements) ? settings.startMenuElements : []).map((element) =>
       element && (element.role === "title" || element.role === "subtitle")
-        ? Object.assign({}, element, { textAlign: "center" })
+        ? Object.assign({}, element, { textAlign: "left" })
         : element,
     );
     if (settings.startMenuElements.length > 0 && !settings.startMenuElements.some((element) => element && element.role === "flowOverview")) {
@@ -481,6 +483,38 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       target.style.textAlign = align;
       target.style.justifyContent = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
       target.style.whiteSpace = "pre-wrap";
+    }
+    function motionEasing(value, fallback) {
+      return ["linear", "ease", "ease-in", "ease-out", "ease-in-out"].includes(value) ? value : fallback;
+    }
+    function motionShadow(value, baseShadow, fallback) {
+      if (value === "none") return "none";
+      if (value === "same") return baseShadow || "none";
+      if (value === "lift") return "0 16px 32px rgba(15, 23, 42, 0.24)";
+      if (value === "inset") return "inset 0 2px 7px rgba(15, 23, 42, 0.2)";
+      return fallback || "none";
+    }
+    function applyCustomButtonMotion(target, element) {
+      const motion = element && element.buttonMotion ? element.buttonMotion : {};
+      const hover = motion.hover || {};
+      const pressed = motion.pressed || {};
+      const number = (value, min, max, fallback) => clamp(value, min, max, fallback);
+      const transform = (state, fallback) => {
+        if (state.enabled === false) return "translate(0px, 0px) rotate(0deg) scale(1)";
+        return "translate(" + number(state.translateX, -24, 24, 0) + "px, " + number(state.translateY, -24, 24, 0) + "px) rotate(" + number(state.rotate, -12, 12, 0) + "deg) scale(" + number(state.scale, 0.85, 1.2, fallback) + ")";
+      };
+      const baseShadow = target.style.boxShadow || "none";
+      target.dataset.gwButtonMotion = "true";
+      target.style.setProperty("--gw-button-motion-origin", motion.transformOrigin || "center center");
+      target.style.setProperty("--gw-button-motion-hover-transform", transform(hover, 1.03));
+      target.style.setProperty("--gw-button-motion-pressed-transform", transform(pressed, 0.96));
+      target.style.setProperty("--gw-button-motion-hover-duration", number(hover.duration, 0, 1200, 160) + "ms");
+      target.style.setProperty("--gw-button-motion-pressed-duration", number(pressed.duration, 0, 1200, 80) + "ms");
+      target.style.setProperty("--gw-button-motion-hover-easing", motionEasing(hover.easing, "ease-out"));
+      target.style.setProperty("--gw-button-motion-pressed-easing", motionEasing(pressed.easing, "ease-in"));
+      target.style.setProperty("--gw-button-motion-base-shadow", baseShadow);
+      target.style.setProperty("--gw-button-motion-hover-shadow", hover.enabled === false ? baseShadow : motionShadow(hover.shadow, baseShadow, "none"));
+      target.style.setProperty("--gw-button-motion-pressed-shadow", pressed.enabled === false ? baseShadow : motionShadow(pressed.shadow, baseShadow, "none"));
     }
     function dialogueBackground() {
       if (style.dialogBackgroundType === "image" && style.dialogImageUrl) {
@@ -979,6 +1013,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         applyCustomButtonTextStyle(button, element, "#ffffff");
         applyCustomBoxEffects(button, element);
         applyElementRadius(button, element, 9);
+        applyCustomButtonMotion(button, element);
       }
       slots.forEach((save) => {
         const row = document.createElement("div");
@@ -1251,6 +1286,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
             button.style.background = 'transparent'; button.style.border = '0'; button.style.boxShadow = 'none';
             gwAppearance(button, element.appearance, [element.borderTopLeftRadius ?? element.borderRadius ?? 12, element.borderTopRightRadius ?? element.borderRadius ?? 12, element.borderBottomRightRadius ?? element.borderRadius ?? 12, element.borderBottomLeftRadius ?? element.borderRadius ?? 12].map((value) => value + 'px').join(' '));
           }
+          applyCustomButtonMotion(button, element);
           wrapper.appendChild(button);
         } else {
           const text = document.createElement("div");

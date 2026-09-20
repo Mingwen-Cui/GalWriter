@@ -23,6 +23,7 @@ import type {
   StartMenuResizeHandle,
 } from './webPlaytestStartMenuTools';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
+import { WEB_BUTTON_MOTION_CSS, webButtonMotionStyle } from './webButtonMotion';
 
 const textColorWithAlpha = (color: string | undefined, alpha: number | undefined) => {
   return webColorWithAlpha(color, alpha, '#ffffff');
@@ -159,6 +160,12 @@ export function WebPlaytestStartMenuElement({
         : Math.max(0, Math.min(100, element.opacity ?? 100)) / 100
       : 0.34,
   };
+  const elementBoxStyle = element.kind === 'button' ? webElementBoxStyle(element) : {};
+  const { boxShadow: _baseBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
+  const buttonMotionStyle =
+    element.kind === 'button'
+      ? webButtonMotionStyle(element, typeof _baseBoxShadow === 'string' ? _baseBoxShadow : 'none')
+      : {};
   const textElementStyle: CSSProperties = {
     ...textAlignStyle(element.textAlign),
     ...webElementShadowStyle(element, 'text'),
@@ -331,6 +338,7 @@ export function WebPlaytestStartMenuElement({
       }}
       onDoubleClick={startEditingText}
     >
+      {element.kind === 'button' && <style>{WEB_BUTTON_MOTION_CSS}</style>}
       {previewMode === 'edit' && element.kind === 'button' && (
         <div className="pointer-events-none absolute left-0 top-0 z-10 max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
           {functionLabel}
@@ -400,6 +408,7 @@ export function WebPlaytestStartMenuElement({
           type="button"
           onPointerDown={(event) => {
             if (previewMode === 'edit' && !imageCropEditing) {
+              event.preventDefault();
               event.stopPropagation();
               onBeginDrag(event, element, 'move');
               return;
@@ -430,21 +439,26 @@ export function WebPlaytestStartMenuElement({
             });
           }}
           onPointerUp={(event) => {
+            if (previewMode === 'edit') {
+              event.preventDefault();
+              event.stopPropagation();
+            }
             if (!backgroundImageDragRef.current) return;
             backgroundImageDragRef.current = null;
             event.currentTarget.releasePointerCapture(event.pointerId);
           }}
-          disabled={previewMode !== 'edit' && Boolean(element.disabled && !action)}
+          disabled={previewMode !== 'edit' && Boolean(element.disabled || action?.disabled)}
+          data-gw-button-motion="true"
+          data-gw-button-motion-editing={previewMode === 'edit' ? 'true' : undefined}
           onClick={(event) => {
-            if (editingStartMenuElementId === element.id) return;
             if (previewMode === 'edit') {
+              event.preventDefault();
+              event.stopPropagation();
+              if (editingStartMenuElementId === element.id) return;
               if (element.role === 'flowDirection' || element.role === 'flowFitView') {
-                event.preventDefault();
-                event.stopPropagation();
                 action?.onClick();
                 return;
               }
-              event.preventDefault();
               return;
             }
             action?.onClick();
@@ -452,11 +466,13 @@ export function WebPlaytestStartMenuElement({
           className={`relative h-full w-full rounded-lg border font-black transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#625BF6]/20 ${
             previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'
           } ${
-            element.role === 'continue'
-              ? 'hover:-translate-y-0.5 hover:shadow-xl'
-              : element.role === 'new' || element.role === 'save'
-                ? 'hover:-translate-x-1'
-                : 'hover:-translate-y-0.5'
+            previewMode === 'test'
+              ? element.role === 'continue'
+                ? 'hover:-translate-y-0.5 hover:shadow-xl'
+                : element.role === 'new' || element.role === 'save'
+                  ? 'hover:-translate-x-1'
+                  : 'hover:-translate-y-0.5'
+              : ''
           } ${settings.startMenuTemplate === 'minimal' || element.backgroundType === 'gradient' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
           style={{
             backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
@@ -484,7 +500,9 @@ export function WebPlaytestStartMenuElement({
             whiteSpace: 'pre-wrap',
             fontSize: element.fontSize,
             ...radiusStyle(element, 12),
-            ...webElementBoxStyle(element),
+            ...elementBoxStyleWithoutShadow,
+            ...buttonMotionStyle,
+            boxShadow: 'var(--gw-button-motion-base-shadow, none)',
             mixBlendMode: element.blendMode as CSSProperties['mixBlendMode'],
             ...(element.appearance
               ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }

@@ -27,6 +27,7 @@ import {
 import type { WebSaveSlot } from './webExport/webSaveSlots';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
+import { WEB_BUTTON_MOTION_CSS, webButtonMotionStyle } from './webButtonMotion';
 
 type PlacementResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -761,6 +762,16 @@ function MenuPageElementLayer({
             const control = renderControl?.(element);
             const ButtonShell = control ? 'div' : 'button';
             const isRenaming = renamingButton?.id === element.id;
+            const elementBoxStyle = webElementBoxStyle(element);
+            const { boxShadow: baseBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
+            const buttonMotionStyle = webButtonMotionStyle(
+              element,
+              typeof baseBoxShadow === 'string' ? baseBoxShadow : 'none',
+            );
+            const buttonLayoutStyle = {
+              transform: 'var(--gw-button-layout-transform, none)',
+              '--gw-button-layout-transform': commonStyle.transform,
+            } as CSSProperties;
             const background =
               element.fillEnabled === false
                 ? undefined
@@ -786,21 +797,27 @@ function MenuPageElementLayer({
 
             return (
               <Fragment key={element.id}>
+                <style>{WEB_BUTTON_MOTION_CSS}</style>
                 <ButtonShell
                   key={element.id}
                   type="button"
+                  data-gw-button-motion="true"
+                  data-gw-button-motion-editing={editable ? 'true' : undefined}
                   className={`pointer-events-auto absolute border text-left font-black shadow-[0_12px_32px_rgba(0,0,0,0.18)] ${
                     editable && selected ? 'overflow-visible cursor-move' : 'overflow-hidden'
                   } ${editable ? 'cursor-move' : control ? '' : 'active:scale-[0.99]'}`}
                   style={{
                     ...commonStyle,
+                    ...buttonLayoutStyle,
                     ...contentStyle,
                     backgroundImage: element.backgroundType === 'gradient' ? background : undefined,
                     backgroundColor:
                       element.backgroundType === 'gradient' ? 'transparent' : background,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    ...webElementBoxStyle(element),
+                    ...elementBoxStyleWithoutShadow,
+                    ...buttonMotionStyle,
+                    boxShadow: 'var(--gw-button-motion-base-shadow, none)',
                     ...(element.appearance
                       ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
                       : {}),

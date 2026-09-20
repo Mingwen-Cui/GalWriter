@@ -409,10 +409,10 @@ export const buildRehearsalStartMenuElements = (
   const startMenuAccentDark = '#4F46C5';
   const startMenuText = '#252A59';
   const startMenuMuted = '#68719A';
-  const resolvedTitle = title && title !== '开始' ? title : '序章';
+  const resolvedTitle = title && title !== '开始' ? title : '故事首页';
   const subtitle =
     language === 'zh'
-      ? '选择一条路径，开始你的故事'
+      ? '选择一条路径，开启你的旅程'
       : language === 'ja'
         ? '物語の道を選び、旅を始めよう'
         : 'Choose a path and begin your story';
@@ -421,7 +421,8 @@ export const buildRehearsalStartMenuElements = (
       ...text(
         'title',
         'title',
-        resolvedTitle || formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText275'),
+        resolvedTitle ||
+          formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText275'),
         8,
         16,
         44,
@@ -431,16 +432,7 @@ export const buildRehearsalStartMenuElements = (
       textAlign: 'left',
     },
     {
-      ...text(
-        'subtitle',
-        'subtitle',
-        subtitle,
-        8,
-        28,
-        42,
-        6,
-        16,
-      ),
+      ...text('subtitle', 'subtitle', subtitle, 8, 28, 42, 6, 16),
       textAlign: 'left',
     },
     {
@@ -449,7 +441,7 @@ export const buildRehearsalStartMenuElements = (
         'save',
         formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText281'),
         8,
-        70,
+        66,
         30,
         9,
         choiceColor,
@@ -464,7 +456,7 @@ export const buildRehearsalStartMenuElements = (
       8,
       42,
       30,
-      10,
+      9,
       choiceColor,
       choiceTextColor,
       true,
@@ -485,7 +477,7 @@ export const buildRehearsalStartMenuElements = (
       'new',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText295'),
       8,
-      55,
+      54,
       30,
       9,
       choiceColor,
@@ -526,10 +518,10 @@ export const buildRehearsalStartMenuElements = (
       primary: isPrimary,
       fontSize: isUtility ? 15 : 18,
       fontWeight: 700,
-      textAlign: isUtility ? 'center' : 'left',
-      textColor: isUtility ? '#334155' : startMenuText,
+      textAlign: 'center',
+      textColor: isPrimary ? '#ffffff' : isUtility ? '#334155' : startMenuText,
       backgroundType: 'solid' as const,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: isPrimary ? startMenuAccent : '#FFFFFF',
       backgroundGradientStart: startMenuAccent,
       backgroundGradientEnd: startMenuAccentDark,
       backgroundGradientAngle: 135,
@@ -538,7 +530,7 @@ export const buildRehearsalStartMenuElements = (
         { id: `${element.id}-start`, color: startMenuAccent, alpha: 100, position: 0 },
         { id: `${element.id}-end`, color: startMenuAccentDark, alpha: 100, position: 100 },
       ],
-      borderColor: isPrimary ? '#172033' : 'rgba(15,23,42,0.28)',
+      borderColor: isPrimary ? startMenuAccentDark : 'rgba(15,23,42,0.28)',
       borderWidth: isPrimary ? 1.5 : 1,
       borderRadius: isUtility ? 999 : 16,
       shadowColor: '#0f172a',
