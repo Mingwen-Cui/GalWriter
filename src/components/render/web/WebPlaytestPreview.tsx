@@ -2308,6 +2308,7 @@ export function WebPlaytestPreview({
           width={settings.flowOverviewMinimapWidth}
           height={settings.flowOverviewMinimapHeight}
           embedded
+          controlAppearance={flowMinimapElement}
           // In edit mode this surface is an element on the canvas: it must
           // yield pointer input to the parent so it can be selected, moved and
           // resized.  Navigation remains interactive in test mode.

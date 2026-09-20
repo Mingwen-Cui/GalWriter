@@ -458,9 +458,7 @@ export function WebPlaytestStartMenuElement({
           }}
           className={`relative h-full w-full rounded-lg border font-black transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#625BF6]/20 ${
             isFlowIconControl ? 'gw-flow-control' : ''
-          } ${
-            previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'
-          } ${
+          } ${previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'} ${
             previewMode === 'test'
               ? element.role === 'continue'
                 ? 'hover:-translate-y-0.5 hover:shadow-xl'

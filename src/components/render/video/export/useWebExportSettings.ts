@@ -214,13 +214,17 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     scale: 1,
     rotation: 0,
     textVisible: false,
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
-    borderWidth: 0,
-    borderRadius: 14,
-    fillEnabled: false,
-    strokeEnabled: false,
-    shadowEnabled: false,
+    backgroundColor: '#ffffff',
+    borderColor: '#4f46e5',
+    borderWidth: 1,
+    borderRadius: 10,
+    textColor: '#4338ca',
+    fillEnabled: true,
+    strokeEnabled: true,
+    shadowEnabled: true,
+    shadowOpacity: 12,
+    shadowBlur: 10,
+    shadowOffsetY: 3,
   },
 ];
 
@@ -322,8 +326,43 @@ const normalizeFlowControlShapes = (settings: WebExportSettings): WebExportSetti
   return changed ? { ...settings, flowOverviewElements: normalized } : settings;
 };
 
+const normalizeFlowMinimapControls = (settings: WebExportSettings): WebExportSettings => {
+  const elements = settings.flowOverviewElements || [];
+  let changed = false;
+  const normalized = elements.map((element) => {
+    if (element.role !== 'flowMinimap') return element;
+    // Upgrade only the former transparent built-in minimap. Existing custom
+    // appearances stay untouched, while new and migrated minimaps show the
+    // editable controls immediately.
+    const isFormerDefault =
+      element.backgroundColor === 'transparent' &&
+      element.borderColor === 'transparent' &&
+      element.borderWidth === 0 &&
+      element.fillEnabled === false &&
+      element.strokeEnabled === false &&
+      element.shadowEnabled === false;
+    if (!isFormerDefault) return element;
+    changed = true;
+    return {
+      ...element,
+      backgroundColor: '#ffffff',
+      borderColor: '#4f46e5',
+      borderWidth: 1,
+      borderRadius: 10,
+      textColor: '#4338ca',
+      fillEnabled: true,
+      strokeEnabled: true,
+      shadowEnabled: true,
+      shadowOpacity: 12,
+      shadowBlur: 10,
+      shadowOffsetY: 3,
+    };
+  });
+  return changed ? { ...settings, flowOverviewElements: normalized } : settings;
+};
+
 const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSettings => {
-  const normalizedSettings = normalizeFlowControlShapes(settings);
+  const normalizedSettings = normalizeFlowMinimapControls(normalizeFlowControlShapes(settings));
   const elements = normalizedSettings.flowOverviewElements || [];
   const controls = defaultFlowOverviewElements.filter(
     (defaultElement) => !elements.some((element) => element.role === defaultElement.role),

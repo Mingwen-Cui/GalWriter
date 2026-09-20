@@ -46,6 +46,20 @@ type Props = {
   height?: number;
   embedded?: boolean;
   interactive?: boolean;
+  /**
+   * The flow editor exposes the minimap as one selectable canvas element.
+   * These values let its regular appearance inspector style the control row
+   * inside the minimap as well, rather than leaving a hidden hard-coded UI.
+   */
+  controlAppearance?: {
+    fillEnabled?: boolean;
+    strokeEnabled?: boolean;
+    backgroundColor?: string;
+    borderColor?: string;
+    borderWidth?: number;
+    borderRadius?: number;
+    textColor?: string;
+  };
 };
 
 const DEFAULT_MINIMAP_WIDTH = 220;
@@ -81,6 +95,7 @@ export function InteractiveSegmentMinimap({
   height = DEFAULT_MINIMAP_HEIGHT,
   embedded = false,
   interactive = true,
+  controlAppearance,
 }: Props) {
   const minimapWidth = clamp(width, 160, 440);
   const minimapHeight = clamp(height, 110, 320);
@@ -138,6 +153,21 @@ export function InteractiveSegmentMinimap({
   };
 
   const maskPath = `M0,0h${minimapWidth}v${minimapHeight}h-${minimapWidth}z M${viewport.x},${viewport.y}h${viewport.width}v${viewport.height}h-${viewport.width}z`;
+  const controlStyle = {
+    '--interactive-minimap-control-background':
+      controlAppearance?.fillEnabled === false
+        ? '#ffffff'
+        : (controlAppearance?.backgroundColor ?? '#ffffff'),
+    '--interactive-minimap-control-border':
+      controlAppearance?.strokeEnabled === false
+        ? 'transparent'
+        : (controlAppearance?.borderColor ?? '#4f46e5'),
+    '--interactive-minimap-control-border-width': `${
+      controlAppearance?.strokeEnabled === false ? 0 : (controlAppearance?.borderWidth ?? 1)
+    }px`,
+    '--interactive-minimap-control-radius': `${controlAppearance?.borderRadius ?? 10}px`,
+    '--interactive-minimap-control-color': controlAppearance?.textColor ?? '#4338ca',
+  } as CSSProperties;
 
   return (
     <div
@@ -146,6 +176,7 @@ export function InteractiveSegmentMinimap({
         {
           '--interactive-minimap-width': `${minimapWidth}px`,
           '--interactive-minimap-height': `${minimapHeight}px`,
+          ...controlStyle,
         } as CSSProperties
       }
     >
@@ -229,7 +260,7 @@ export function InteractiveSegmentMinimap({
           </svg>
         </div>
       </div>
-      <div className="minimap-controls flex h-11 w-full items-center border-t border-[var(--toolbar-border)] bg-transparent px-2 py-1">
+      <div className="minimap-controls flex h-14 w-full items-center border-t border-[var(--toolbar-border)] bg-transparent px-2 py-1.5">
         <div
           className="react-flow__panel react-flow__controls horizontal !static !m-0 !flex !h-full !w-full !flex-row !items-center !justify-around !gap-2 !border-none !bg-transparent !p-0 !shadow-none"
           aria-label="Control Panel"
@@ -242,9 +273,16 @@ export function InteractiveSegmentMinimap({
             disabled={!interactive || !canZoomIn}
             onClick={interactive ? onZoomIn : undefined}
           >
-            <svg viewBox="0 0 32 32" aria-hidden="true">
+            <svg
+              className="interactive-minimap-control-icon"
+              viewBox="0 0 32 32"
+              aria-hidden="true"
+            >
               <path d="M32 18.133H18.133V32h-4.266V18.133H0v-4.266h13.867V0h4.266v13.867H32z" />
             </svg>
+            <span className="interactive-minimap-control-label">
+              {formatVideoText(language, 'interactiveMinimapZoomIn')}
+            </span>
           </button>
           <button
             type="button"
@@ -254,9 +292,12 @@ export function InteractiveSegmentMinimap({
             disabled={!interactive || !canZoomOut}
             onClick={interactive ? onZoomOut : undefined}
           >
-            <svg viewBox="0 0 32 5" aria-hidden="true">
+            <svg className="interactive-minimap-control-icon" viewBox="0 0 32 5" aria-hidden="true">
               <path d="M0 0h32v4.2H0z" />
             </svg>
+            <span className="interactive-minimap-control-label">
+              {formatVideoText(language, 'interactiveMinimapZoomOut')}
+            </span>
           </button>
           <button
             type="button"
@@ -266,9 +307,16 @@ export function InteractiveSegmentMinimap({
             disabled={!interactive}
             onClick={interactive ? onFitView : undefined}
           >
-            <svg viewBox="0 0 32 30" aria-hidden="true">
+            <svg
+              className="interactive-minimap-control-icon"
+              viewBox="0 0 32 30"
+              aria-hidden="true"
+            >
               <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
             </svg>
+            <span className="interactive-minimap-control-label">
+              {formatVideoText(language, 'interactiveMinimapFitView')}
+            </span>
           </button>
           {isDesktopViewport && showFullscreenToggle && (
             <button
