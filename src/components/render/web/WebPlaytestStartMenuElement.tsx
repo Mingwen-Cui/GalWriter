@@ -1,6 +1,7 @@
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type { CSSProperties, ReactNode } from 'react';
 import { useRef, useState } from 'react';
+import { WebInlineText } from './WebInlineText';
 import { ArrowRight, RotateCw } from 'lucide-react';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
@@ -75,7 +76,7 @@ type WebPlaytestStartMenuElementProps = {
   dynamicText?: string;
   flowMinimap?: ReactNode;
   onEnsureStartMenuElements: () => void;
-  onSelectElement: (id: string) => void;
+  onSelectElement: (id: string | null) => void;
   onSetEditingElement: (id: string | null) => void;
   onUpdateElement: (id: string, patch: Partial<StartMenuElement>) => void;
   onDeleteElement?: (id: string) => void;
@@ -126,7 +127,6 @@ export function WebPlaytestStartMenuElement({
     width: 0,
     height: 0,
   });
-  if (!element.visible && previewMode !== 'edit') return null;
   const elementBackground =
     element.fillEnabled === false
       ? undefined
@@ -194,6 +194,8 @@ export function WebPlaytestStartMenuElement({
       : element.role === 'flowBranch' && dynamicText !== undefined
         ? dynamicText || element.text
         : element.text;
+  const isEditingText = previewMode === 'edit' && editingStartMenuElementId === element.id;
+
   const openImagePicker = (event: React.MouseEvent<HTMLElement>) => {
     if (previewMode !== 'edit') return;
     event.preventDefault();
@@ -202,56 +204,38 @@ export function WebPlaytestStartMenuElement({
     imageInputRef.current?.click();
   };
 
-  const content = (
-    <span
-      data-start-menu-text-id={element.id}
-      contentEditable={previewMode === 'edit' && editingStartMenuElementId === element.id}
-      suppressContentEditableWarning
-      onDoubleClick={(event) => {
-        if (previewMode !== 'edit') return;
-        event.stopPropagation();
-        event.preventDefault();
-        ensureAndSelect();
-        onSetEditingElement(element.id);
-      }}
-      onPointerDown={(event) => {
-        if (previewMode === 'edit' && !imageCropEditing) {
-          event.stopPropagation();
-          onBeginDrag(event, element, 'move');
-        }
-      }}
-      onBlur={(event) => {
-        onUpdateElement(element.id, {
-          text: event.currentTarget.textContent || '',
-        });
-        onSetEditingElement(null);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' || (event.key === 'Enter' && !event.shiftKey)) {
-          event.preventDefault();
-          event.currentTarget.blur();
-        }
-      }}
-      className={`outline-none ${
-        previewMode === 'edit' && editingStartMenuElementId !== element.id ? 'cursor-text' : ''
-      } ${
-        previewMode === 'edit' && editingStartMenuElementId === element.id
-          ? 'opacity-50 caret-white'
-          : ''
-      } ${!visibleText && element.textVisible !== false && previewMode === 'edit' ? 'min-h-[1em] min-w-10 rounded border border-dashed border-white/35 px-1 text-white/45' : ''}`}
-      style={webElementTextPaintStyle(element)}
-    >
-      {visibleText ||
-        (previewMode === 'edit' && editingStartMenuElementId !== element.id
-          ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText218')
-          : '')}
-    </span>
-  );
+  const content =
+    element.textVisible === false ? null : (
+      <WebInlineText
+        value={element.text}
+        displayValue={previewMode === 'edit' ? element.text : visibleText}
+        editable={previewMode === 'edit'}
+        editing={isEditingText}
+        placeholder={formatWebText(
+          language,
+          'componentsrenderwebWebPlaytestStartMenuElementText218',
+        )}
+        style={webElementTextPaintStyle(element)}
+        onStart={() => {
+          ensureAndSelect();
+          onSetEditingElement(element.id);
+        }}
+        onCommit={(text) => {
+          onUpdateElement(element.id, { text });
+          onSetEditingElement(null);
+          onSelectElement(null);
+        }}
+        onCancel={() => {
+          onSetEditingElement(null);
+          onSelectElement(null);
+        }}
+      />
+    );
 
   const startEditingText = (event: React.MouseEvent<HTMLElement>) => {
     if (previewMode !== 'edit' || (element.kind !== 'text' && element.kind !== 'button')) return;
     event.stopPropagation();
-    event.preventDefault();
+    if (isEditingText) return;
     ensureAndSelect();
     onSetEditingElement(element.id);
   };
@@ -316,27 +300,41 @@ export function WebPlaytestStartMenuElement({
         ? RotateCw
         : null;
   const isFlowIconControl = Boolean(FlowControlIcon && element.textVisible === false);
+  const ButtonShell = previewMode === 'edit' ? 'div' : 'button';
+
+  if (!element.visible && previewMode !== 'edit') return null;
 
   return (
     <div
-      className={`absolute origin-center pointer-events-auto ${previewMode === 'edit' ? 'cursor-grab touch-none select-none active:cursor-grabbing' : ''}`}
+      className={`absolute origin-center pointer-events-auto ${
+        previewMode === 'edit'
+          ? isEditingText
+            ? 'cursor-text select-text'
+            : 'cursor-grab touch-none select-none active:cursor-grabbing'
+          : ''
+      }`}
       data-selectable-element-id={element.id}
       style={{
         ...elementStyle,
         zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
       }}
       onPointerDown={(event) => {
+        if (isEditingText) {
+          event.stopPropagation();
+          return;
+        }
         if (!imageCropEditing) onBeginDrag(event, element, 'move');
       }}
       onClick={(event) => {
         if (previewMode !== 'edit') return;
         event.stopPropagation();
+        if (isEditingText) return;
         ensureAndSelect();
       }}
       onDoubleClick={startEditingText}
     >
       {element.kind === 'button' && <style>{WEB_BUTTON_MOTION_CSS}</style>}
-      {previewMode === 'edit' && element.kind === 'button' && (
+      {previewMode === 'edit' && !isEditingText && element.kind === 'button' && (
         <div className="pointer-events-none absolute left-0 top-0 z-10 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
           {functionLabel}
         </div>
@@ -401,9 +399,13 @@ export function WebPlaytestStartMenuElement({
           </label>
         )
       ) : element.kind === 'button' ? (
-        <button
-          type="button"
+        <ButtonShell
           onPointerDown={(event) => {
+            if (isEditingText) {
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
             if (previewMode === 'edit' && !imageCropEditing) {
               event.preventDefault();
               event.stopPropagation();
@@ -447,7 +449,8 @@ export function WebPlaytestStartMenuElement({
             if (previewMode === 'edit') {
               event.preventDefault();
               event.stopPropagation();
-              if (editingStartMenuElementId === element.id) return;
+              if (isEditingText) return;
+              ensureAndSelect();
               if (element.role === 'flowDirection' || element.role === 'flowFitView') {
                 action?.onClick();
                 return;
@@ -528,6 +531,7 @@ export function WebPlaytestStartMenuElement({
             )}
           {previewMode === 'edit' &&
             selected &&
+            !isEditingText &&
             gradientEditing === 'fill' &&
             element.backgroundType === 'gradient' && (
               <GradientCanvasControl
@@ -561,7 +565,7 @@ export function WebPlaytestStartMenuElement({
               content
             )}
           </span>
-        </button>
+        </ButtonShell>
       ) : (
         <div
           className={`flex h-full w-full items-center ${
@@ -574,6 +578,7 @@ export function WebPlaytestStartMenuElement({
       )}
       {previewMode === 'edit' &&
         selected &&
+        !isEditingText &&
         gradientEditing === 'text' &&
         element.kind === 'text' &&
         element.textColorType === 'gradient' && (
@@ -727,7 +732,7 @@ export function WebPlaytestStartMenuElement({
           <div className="pointer-events-none absolute inset-0 z-20 border-2 border-dashed border-white/90 shadow-[0_0_0_9999px_rgba(15,23,42,0.16)]" />
         </div>
       )}
-      {previewMode === 'edit' && selected && (
+      {previewMode === 'edit' && selected && !isEditingText && (
         <WebEditableElementFrame
           visible={!imageCropEditing && element.visible}
           onRotatePointerDown={(event) => onBeginDrag(event, element, 'rotate')}

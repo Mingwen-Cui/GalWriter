@@ -1,6 +1,8 @@
 import { webElementTextPaintStyle } from './webElementStyle';
 import type { PlayerSettingsPanelConfig } from './playerSettingsPanelConfig';
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { Language } from '../../../lib/i18n';
 import type { WebMenuElement } from '../video/shared/types';
 import {
@@ -17,12 +19,15 @@ type Props = {
   defaults: PlayerSettingsValues;
   elements: WebMenuElement[];
   element?: WebMenuElement;
+  editableLabel?: ReactNode;
   onChange: (patch: Partial<PlayerSettingsValues>) => void;
   onClose: () => void;
 };
 
 export function PlayerSettingsPanel(props: Props) {
   const root = useRef<HTMLDivElement>(null);
+  const [labelHost, setLabelHost] = useState<HTMLElement | null>(null);
+  const hasEditableLabel = props.editableLabel !== undefined;
   const latest = useRef(props);
   latest.current = props;
   const controller = useRef<ReturnType<typeof mountPlayerSettings> | null>(null);
@@ -66,11 +71,17 @@ export function PlayerSettingsPanel(props: Props) {
         });
       });
     }
+    if (hasEditableLabel) {
+      const label = host.querySelector<HTMLElement>('[data-role-label]');
+      // The runtime owns the widget, while the editor owns only its label.
+      label?.replaceChildren();
+      setLabelHost(label);
+    }
     return () => {
       mounted.destroy();
       if (controller.current === mounted) controller.current = null;
     };
-  }, [markup, elementConfig]);
+  }, [markup, elementConfig, hasEditableLabel]);
   useLayoutEffect(() => {
     controller.current?.sync(props.values);
   }, [props.values]);
@@ -81,11 +92,15 @@ export function PlayerSettingsPanel(props: Props) {
         ref={root}
         className={props.element ? 'gw-ps-widget-surface' : 'gw-ps-surface'}
         onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          if (hasEditableLabel) event.preventDefault();
+        }}
         onKeyDown={(event) => {
           event.stopPropagation();
           if (event.key === 'Escape') props.onClose();
         }}
       />
+      {hasEditableLabel && labelHost && createPortal(props.editableLabel, labelHost)}
     </>
   );
 }

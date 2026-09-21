@@ -1,3 +1,4 @@
+import { WebInlineText } from './WebInlineText';
 import { playerControlCatalog } from './playerSettingsPanelConfig';
 import type React from 'react';
 import type { CSSProperties } from 'react';
@@ -443,16 +444,7 @@ export function WebPreviewMenuPages({
     setActiveGuideLines([]);
     document.body.style.cursor = '';
   };
-  const editableArchiveElements = archiveShowsSaveExample
-    ? archiveElements.map((element) =>
-        element.role === 'slot'
-          ? {
-              ...element,
-              text: formatWebText(language, 'componentsrenderwebWebPreviewMenuPagesText428'),
-            }
-          : element,
-      )
-    : archiveElements;
+  const editableArchiveElements = archiveElements;
   const activeArchiveSave = saveSlots[0] || null;
   const testArchiveElements = archiveElements
     .filter(
@@ -607,7 +599,7 @@ export function WebPreviewMenuPages({
           <MenuPageElementLayer
             page="settings"
             elements={settingsElements}
-            renderControl={(element) =>
+            renderControl={(element, label) =>
               playerControlCatalog(language).some((control) => control.id === element.role) ? (
                 <PlayerSettingsPanel
                   config={settings.playerSettingsPanel}
@@ -616,6 +608,7 @@ export function WebPreviewMenuPages({
                   defaults={playerDefaults.current}
                   elements={[element]}
                   element={element}
+                  editableLabel={previewMode === 'edit' ? label : undefined}
                   onClose={onCloseSettings}
                   onChange={(patch) => {
                     if (patch.autoAdvance !== undefined)
@@ -682,7 +675,7 @@ type MenuPageElementLayerProps = {
   ) => void;
   onAction: (element: WebMenuElement) => void;
   renderSuffix?: (element: WebMenuElement) => string;
-  renderControl?: (element: WebMenuElement) => React.ReactNode;
+  renderControl?: (element: WebMenuElement, label: React.ReactNode) => React.ReactNode;
   slotPreviewActive?: boolean;
   onToggleSlotPreview?: () => void;
 };
@@ -707,11 +700,10 @@ function MenuPageElementLayer({
   onToggleSlotPreview,
 }: MenuPageElementLayerProps) {
   const editable = previewMode === 'edit';
-  const [renamingButton, setRenamingButton] = useState<{ id: string; value: string } | null>(null);
-  const commitRename = (element: WebMenuElement) => {
-    if (renamingButton?.id !== element.id) return;
-    onUpdateElement(element.id, { text: renamingButton.value });
-    setRenamingButton(null);
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const finishEditing = () => {
+    setEditingElementId(null);
+    onSelectElement?.(null);
   };
 
   return (
@@ -722,6 +714,27 @@ function MenuPageElementLayer({
           const selected =
             editable &&
             (selectedElementId === element.id || selectedElementIds.includes(element.id));
+          const isRenaming = editable && editingElementId === element.id;
+          const startEditing = () => {
+            if (!editable || isRenaming) return;
+            onSelectElement?.(element.id);
+            setEditingElementId(element.id);
+          };
+          const label =
+            element.textVisible === false ? null : (
+              <WebInlineText
+                value={element.text}
+                editable={editable}
+                editing={isRenaming}
+                style={webElementTextPaintStyle(element)}
+                onStart={startEditing}
+                onCommit={(text) => {
+                  onUpdateElement(element.id, { text });
+                  finishEditing();
+                }}
+                onCancel={finishEditing}
+              />
+            );
           const suffix = renderSuffix?.(element) || '';
           const commonStyle: CSSProperties = {
             left: `${element.x}%`,
@@ -754,9 +767,8 @@ function MenuPageElementLayer({
                 : 'center';
 
           if (element.kind === 'button') {
-            const control = renderControl?.(element);
-            const ButtonShell = control ? 'div' : 'button';
-            const isRenaming = renamingButton?.id === element.id;
+            const control = renderControl?.(element, label);
+            const ButtonShell = editable || control ? 'div' : 'button';
             const elementBoxStyle = webElementBoxStyle(element);
             const { boxShadow: baseBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
             const buttonMotionStyle = webButtonMotionStyle(
@@ -820,15 +832,14 @@ function MenuPageElementLayer({
                   aria-disabled={!editable && element.disabled}
                   {...(!control ? { disabled: !editable && element.disabled } : {})}
                   onPointerDown={(event) => {
-                    if (editable) onBeginElementDrag(page, event, element, 'move');
+                    if (isRenaming) event.stopPropagation();
+                    else if (editable) onBeginElementDrag(page, event, element, 'move');
                   }}
+                  onDoubleClick={startEditing}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (editable) {
-                      if (event.detail > 1) {
-                        setRenamingButton({ id: element.id, value: element.text });
-                        return;
-                      }
+                      if (isRenaming) return;
                       if (event.button === 2) return;
                       onSelectElement?.(element.id);
                       return;
@@ -877,23 +888,16 @@ function MenuPageElementLayer({
                         textAlign: element.textAlign || 'center',
                       }}
                     >
-                      {element.textVisible !== false && (
-                        <span
-                          className="whitespace-pre-line"
-                          style={webElementTextPaintStyle(element)}
-                        >
-                          {element.text}
-                        </span>
-                      )}
+                      {label}
                       {suffix && <span className="text-xs opacity-70">{suffix}</span>}
                     </span>
                   )}
-                  {editable && element.role && (
+                  {editable && !isRenaming && element.role && (
                     <span className="pointer-events-none absolute left-0 top-0 z-[250] max-w-full -translate-y-[calc(100%+4px)] truncate rounded-full bg-slate-950/78 px-2 py-0.5 text-[10px] font-black text-white shadow backdrop-blur">
                       {element.text || element.role}
                     </span>
                   )}
-                  {selected && (
+                  {selected && !isRenaming && (
                     <SelectedElementFrame
                       page={page}
                       element={element}
@@ -910,6 +914,7 @@ function MenuPageElementLayer({
                   )}
                   {editable &&
                     selected &&
+                    !isRenaming &&
                     gradientEditingElement?.id === element.id &&
                     gradientEditingElement.group === 'fill' &&
                     element.backgroundType === 'gradient' && (
@@ -932,30 +937,6 @@ function MenuPageElementLayer({
                       />
                     )}
                 </ButtonShell>
-                {isRenaming && (
-                  <input
-                    autoFocus
-                    aria-label="Rename button"
-                    className="pointer-events-auto absolute border border-indigo-300 bg-slate-950/92 px-4 text-center font-black text-white outline-none ring-1 ring-indigo-500"
-                    style={{
-                      ...commonStyle,
-                      ...contentStyle,
-                      zIndex: 3000,
-                      backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                      textAlign: element.textAlign || 'center',
-                    }}
-                    value={renamingButton.value}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onChange={(event) =>
-                      setRenamingButton({ id: element.id, value: event.target.value })
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') commitRename(element);
-                      if (event.key === 'Escape') setRenamingButton(null);
-                    }}
-                    onBlur={() => commitRename(element)}
-                  />
-                )}
               </Fragment>
             );
           }
@@ -1043,72 +1024,69 @@ function MenuPageElementLayer({
           }
 
           return (
-            <button
-              key={element.id}
-              type="button"
-              className="pointer-events-auto absolute flex items-center border-0 bg-transparent p-0 font-black"
-              style={{
-                ...commonStyle,
-                ...contentStyle,
-                justifyContent,
-                textAlign: element.textAlign || 'left',
-                ...webElementShadowStyle(element, 'text'),
-                ...(element.textStrokeTarget === 'box' ? webElementBoxStyle(element) : {}),
-                ...(element.appearance
-                  ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
-                  : {}),
-              }}
-              onPointerDown={(event) => {
-                if (editable) onBeginElementDrag(page, event, element, 'move');
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (!editable || event.button === 2) return;
-                if (event.detail > 1) {
-                  const next = window.prompt('', element.text);
-                  if (next !== null) onUpdateElement(element.id, { text: next });
-                  return;
-                }
-                onSelectElement?.(element.id);
-              }}
-            >
-              {element.appearance && (
-                <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
-              )}
-              {element.textVisible !== false && (
-                <span className="whitespace-pre-line" style={webElementTextPaintStyle(element)}>
-                  {element.text}
-                </span>
-              )}
-              {selected && (
-                <SelectedElementFrame
-                  page={page}
-                  element={element}
-                  onUpdateElement={onUpdateElement}
-                  onBeginElementDrag={onBeginElementDrag}
-                  slotPreviewActive={slotPreviewActive}
-                  onToggleSlotPreview={
-                    page === 'archive' && element.role === 'slot' ? onToggleSlotPreview : undefined
-                  }
-                />
-              )}
-              {editable &&
-                selected &&
-                gradientEditingElement?.id === element.id &&
-                gradientEditingElement.group === 'text' &&
-                element.textColorType === 'gradient' && (
-                  <GradientCanvasControl
-                    shape="linear"
-                    angle={element.textGradientAngle ?? 90}
-                    onGeometryChange={(geometry) =>
-                      onUpdateElement(element.id, {
-                        textGradientAngle: geometry.angle,
-                        textColorType: 'gradient',
-                      })
+            <Fragment key={element.id}>
+              <div
+                className="pointer-events-auto absolute flex items-center border-0 bg-transparent p-0 font-black"
+                style={{
+                  ...commonStyle,
+                  ...contentStyle,
+                  justifyContent,
+                  textAlign: element.textAlign || 'left',
+                  ...webElementShadowStyle(element, 'text'),
+                  ...(element.textStrokeTarget === 'box' ? webElementBoxStyle(element) : {}),
+                  ...(element.appearance
+                    ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+                    : {}),
+                }}
+                onPointerDown={(event) => {
+                  if (isRenaming) event.stopPropagation();
+                  else if (editable) onBeginElementDrag(page, event, element, 'move');
+                }}
+                onDoubleClick={startEditing}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!editable || event.button === 2) return;
+                  if (isRenaming) return;
+                  onSelectElement?.(element.id);
+                }}
+              >
+                {element.appearance && (
+                  <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
+                )}
+                {label}
+                {selected && !isRenaming && (
+                  <SelectedElementFrame
+                    page={page}
+                    element={element}
+                    onUpdateElement={onUpdateElement}
+                    onBeginElementDrag={onBeginElementDrag}
+                    slotPreviewActive={slotPreviewActive}
+                    onToggleSlotPreview={
+                      page === 'archive' && element.role === 'slot'
+                        ? onToggleSlotPreview
+                        : undefined
                     }
                   />
                 )}
-            </button>
+                {editable &&
+                  selected &&
+                  !isRenaming &&
+                  gradientEditingElement?.id === element.id &&
+                  gradientEditingElement.group === 'text' &&
+                  element.textColorType === 'gradient' && (
+                    <GradientCanvasControl
+                      shape="linear"
+                      angle={element.textGradientAngle ?? 90}
+                      onGeometryChange={(geometry) =>
+                        onUpdateElement(element.id, {
+                          textGradientAngle: geometry.angle,
+                          textColorType: 'gradient',
+                        })
+                      }
+                    />
+                  )}
+              </div>
+            </Fragment>
           );
         })}
     </div>

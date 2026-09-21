@@ -1,3 +1,4 @@
+import { WebInlineText } from './WebInlineText';
 import { WebToolbarSelectionTools } from './WebToolbarSelectionTools';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
@@ -734,24 +735,14 @@ function ToolbarElement({
   // The editable target therefore cannot itself be a <button>.
   const ElementContainer = editable ? 'div' : 'button';
   const [editingText, setEditingText] = useState(false);
-  const textEditorRef = useRef<HTMLSpanElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const beginTextEditing = () => {
     if (!editable || (toolbarControl && element.textVisible === false) || element.kind === 'image')
       return;
     onSelect?.(element.id);
     setEditingText(true);
-    window.requestAnimationFrame(() => {
-      const editor = textEditorRef.current;
-      if (!editor) return;
-      editor.focus();
-      const range = document.createRange();
-      range.selectNodeContents(editor);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-    });
   };
+
   const justifyContent =
     element.textAlign === 'left'
       ? 'flex-start'
@@ -967,13 +958,16 @@ function ToolbarElement({
             : {}),
         } as React.CSSProperties
       }
-      onPointerDown={(event) => beginDrag(event, 'move')}
+      onPointerDown={(event) => {
+        if (editingText) event.stopPropagation();
+        else beginDrag(event, 'move');
+      }}
       onClick={(event) => {
         event.stopPropagation();
         if (editable) {
+          if (editingText) return;
           if (event.detail > 1) {
             if (element.kind === 'image') imageInputRef.current?.click();
-            else if (element.kind === 'button' && onDoubleClickButton) onDoubleClickButton();
             else beginTextEditing();
             return;
           }
@@ -1022,31 +1016,23 @@ function ToolbarElement({
           <>
             {icon}
             {element.textVisible !== false && (
-              <span
-                ref={textEditorRef}
-                contentEditable={editable && editingText}
-                suppressContentEditableWarning
-                className={`min-w-0 ${toolbarControl ? 'gw-playback-label' : 'whitespace-pre-line'} outline-none ${
-                  editable && !editingText ? 'cursor-text' : ''
-                } ${editable && editingText ? 'opacity-50 caret-white' : ''}`}
-                onPointerDown={(event) => {
-                  if (editingText) event.stopPropagation();
-                }}
-                onBlur={(event) => {
-                  if (!editingText) return;
-                  onUpdate?.(element.id, { text: event.currentTarget.textContent || '' });
+              <WebInlineText
+                value={element.text}
+                displayValue={editable ? element.text : (displayLabel ?? element.text)}
+                editable={editable}
+                editing={editingText}
+                className={toolbarControl ? 'gw-playback-label' : 'min-w-0'}
+                onStart={beginTextEditing}
+                onCommit={(text) => {
+                  onUpdate?.(element.id, { text });
                   setEditingText(false);
+                  onSelect?.(null);
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape' || (event.key === 'Enter' && !event.shiftKey)) {
-                    event.preventDefault();
-                    event.currentTarget.blur();
-                  }
+                onCancel={() => {
+                  setEditingText(false);
+                  onSelect?.(null);
                 }}
-              >
-                {(editingText ? element.text : (displayLabel ?? element.text)) ||
-                  (editable && !editingText && element.kind === 'button' ? '双击编辑' : '')}
-              </span>
+              />
             )}
           </>
         )}
@@ -1065,7 +1051,7 @@ function ToolbarElement({
           />
         )}
       </span>
-      {selected && editable && onUpdate && selectedElementIds.length < 2 && (
+      {selected && editable && !editingText && onUpdate && selectedElementIds.length < 2 && (
         <WebEditableElementFrame
           compact={toolbarControl}
           ringClassName="ring-1 ring-indigo-500"

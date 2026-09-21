@@ -360,20 +360,6 @@ export function WebPlaytestPreview({
     },
     [_onUpdateRenderStyle, renderStyle],
   );
-  React.useEffect(() => {
-    if (!editingStartMenuElementId) return;
-    const editor = startMenuEditorRef.current?.querySelector<HTMLElement>(
-      `[data-start-menu-text-id="${editingStartMenuElementId}"]`,
-    );
-    if (!editor) return;
-    editor.focus();
-    const selection = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-  }, [editingStartMenuElementId]);
   const [presentationVisible, setPresentationVisible] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
   const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
@@ -1685,21 +1671,16 @@ export function WebPlaytestPreview({
   );
   const updateStartMenuElement = React.useCallback(
     (id: string, patch: Partial<StartMenuElement>) => {
-      const source = isPreviewFlowOverviewOpen
-        ? flowOverviewElements
-        : settings.startMenuElements && settings.startMenuElements.length > 0
-          ? settings.startMenuElements
-          : defaultStartMenuElements;
+      const source = isPreviewFlowOverviewOpen ? flowOverviewElements : rawStartMenuElements;
       commitEditableSurfaceElements(
         source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
       );
     },
     [
       commitEditableSurfaceElements,
-      defaultStartMenuElements,
       flowOverviewElements,
       isPreviewFlowOverviewOpen,
-      settings.startMenuElements,
+      rawStartMenuElements,
     ],
   );
   const beginStartMenuEditDrag = (
@@ -1714,11 +1695,7 @@ export function WebPlaytestPreview({
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
-    const source = isPreviewFlowOverviewOpen
-      ? flowOverviewElements
-      : settings.startMenuElements && settings.startMenuElements.length > 0
-        ? settings.startMenuElements
-        : defaultStartMenuElements;
+    const source = isPreviewFlowOverviewOpen ? flowOverviewElements : rawStartMenuElements;
     if (!isPreviewFlowOverviewOpen && !settings.startMenuElements?.length)
       commitStartMenuElements(defaultStartMenuElements);
     const shouldMoveGroup =

@@ -284,7 +284,7 @@ export function mountPlayerSettings(
       ? row.dataset.panelState !== 'visible'
       : element.visible === false;
     const label = row.querySelector<HTMLElement>('[data-role-label]');
-    if (label && element.text) label.textContent = element.text;
+    if (label && typeof element.text === 'string') label.textContent = element.text;
     row
       .querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button')
       .forEach((control) => {
