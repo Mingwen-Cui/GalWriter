@@ -28,16 +28,23 @@ export const assistantPanelJa = {
       'この短編ドラマと確定済みの主要人物「{characterName}」用に、中心となるシーン設定カードを 1 枚だけ作成してください。JSON のみを返してください：{"cards":[{"type":"scene","sceneName":"...","location":"...","time":"...","weather":"...","visual":"...","sound":"...","items":"...","notes":"..."}]}。人物カードとストーリーカードは返さないでください。依頼：{request}',
     useLibraryScene: 'ライブラリのシーンを使う：{name}',
     createScene: 'AI で新しいシーンを作成',
-    characterPlaced: '人物設定「{name}」を配置しました。中心となるシーンを選ぶか、AI で新しく作成してください。',
-    scenePlaced: 'シーン設定「{name}」を配置しました。人物とシーンが確定したため、プロットを生成します。',
-    characterCreated: '人物設定「{name}」を作成しました。中心となるシーンを選ぶか、AI で新しく作成してください。',
-    sceneCreated: 'シーン設定「{name}」を作成しました。人物とシーンが確定したため、プロットを生成します。',
-    characterGenerationFailed: '人物設定を生成できませんでした。選び直すか、もう一度試してください。',
+    characterPlaced:
+      '人物設定「{name}」を配置しました。中心となるシーンを選ぶか、AI で新しく作成してください。',
+    scenePlaced:
+      'シーン設定「{name}」を配置しました。人物とシーンが確定したため、プロットを生成します。',
+    characterCreated:
+      '人物設定「{name}」を作成しました。中心となるシーンを選ぶか、AI で新しく作成してください。',
+    sceneCreated:
+      'シーン設定「{name}」を作成しました。人物とシーンが確定したため、プロットを生成します。',
+    characterGenerationFailed:
+      '人物設定を生成できませんでした。選び直すか、もう一度試してください。',
     sceneGenerationFailed: 'シーン設定を生成できませんでした。選び直すか、もう一度試してください。',
     fallbackCharacterName: 'AI キャラクター',
     fallbackSceneName: 'AI シーン',
   },
   creativeStory: {
+    inputPlaceholder: '物語のアイデアを書くか、上の選択肢を選んでください',
+    continueSetup: '確認して続ける',
     taskTitle: 'リアルタイム創作',
     chooseGenre: '最初から舞台を決める必要はありません。今日はどんな物語に入りたいですか？',
     surpriseMe: 'まだ決めていないので、物語の扉を見せて',
@@ -46,7 +53,8 @@ export const assistantPanelJa = {
     chooseOpening: 'この方向には雰囲気があります。物語をどこから始めますか？',
     customDirection: '自分の言葉で説明する',
     directionHint: '混ぜたいジャンル、雰囲気、物語の感触を一文で書いてください。',
-    chooseStoryDoor: '選択から三つの物語の扉を開きました。一番入りたいものを選ぶか、別の組を表示してください。',
+    chooseStoryDoor:
+      '選択から三つの物語の扉を開きました。一番入りたいものを選ぶか、別の組を表示してください。',
     changeDoors: '別の物語の扉を見る',
     storyDoorFailed: '物語の扉を開けませんでした。別の方向を選ぶか、もう一度試してください。',
     chooseBackground:
@@ -56,10 +64,8 @@ export const assistantPanelJa = {
     choosePlayer: 'ジャンルと人物の方向が決まりました。演じる人物を候補から選んでください。',
     characterFallback:
       'AI の出力形式が不完全だったため、創作を続けられる4人の人物原型を用意しました。',
-    chooseLead:
-      '次に、もう一人の重要人物を選んでください。二人の関係を中心に物語が進みます。',
-    preparing:
-      '登場人物と第一幕の準備ができました。プレイ中、AI は重要な場面で決定を待ちます。',
+    chooseLead: '次に、もう一人の重要人物を選んでください。二人の関係を中心に物語が進みます。',
+    preparing: '登場人物と第一幕の準備ができました。プレイ中、AI は重要な場面で決定を待ちます。',
     enter: 'ゲームを始める',
     resume: '前回の創作を続ける',
     generatedCharactersFailed: '人物を準備できませんでした。もう一度お試しください。',

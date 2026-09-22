@@ -28,7 +28,6 @@ import {
 import { formatCharacterNodeText, formatSceneNodeText } from '../../lib/export';
 import type { Language } from '../../lib/i18n';
 import { htmlToSpeechText } from '../../lib/tts';
-import { createCreativeStorySessionHandlers } from './creativeStorySession';
 import {
   alignAssistantCardsToPlaceholders,
   ASSISTANT_VISUALIZE_OPTION_PREFIX,
@@ -64,6 +63,12 @@ import {
   orderAssistantCardsForCreation,
   parseAssistantGeneratedOptions,
 } from './assistantPanelHelpers';
+import {
+  checkpointCreativeMessages,
+  isCreativeWorkflow,
+  selectCreativeChoice,
+} from './creativeChoiceHistory';
+import { createCreativeStorySessionHandlers } from './creativeStorySession';
 
 type ArticleRoleLibraryCandidate = {
   node: Node;
@@ -71,37 +76,36 @@ type ArticleRoleLibraryCandidate = {
 };
 
 const createArticleRoleLibraryPicker = (candidates: ArticleRoleLibraryCandidate[]) => ({
-  candidates: candidates
-    .map((node) => {
-      const data = node.node.data || {};
-      const summary = [
-        data.identity,
-        data.appearance,
-        data.traits,
-        data.personality,
-        data.habits,
-        data.speechStyle,
-        data.features,
-        data.background,
-        data.notes,
-        data.other,
-      ]
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        .join('\n');
-      return {
-        nodeId: node.node.id,
-        name: String(data.characterName || '未命名人物'),
-        identity: typeof data.identity === 'string' ? data.identity : undefined,
-        imageUrl:
-          typeof data.avatarUrl === 'string'
-            ? data.avatarUrl
-            : typeof data.imageUrl === 'string'
-              ? data.imageUrl
-              : undefined,
-        summary,
-        source: node.source,
-      };
-    }),
+  candidates: candidates.map((node) => {
+    const data = node.node.data || {};
+    const summary = [
+      data.identity,
+      data.appearance,
+      data.traits,
+      data.personality,
+      data.habits,
+      data.speechStyle,
+      data.features,
+      data.background,
+      data.notes,
+      data.other,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join('\n');
+    return {
+      nodeId: node.node.id,
+      name: String(data.characterName || '未命名人物'),
+      identity: typeof data.identity === 'string' ? data.identity : undefined,
+      imageUrl:
+        typeof data.avatarUrl === 'string'
+          ? data.avatarUrl
+          : typeof data.imageUrl === 'string'
+            ? data.imageUrl
+            : undefined,
+      summary,
+      source: node.source,
+    };
+  }),
 });
 
 const createArticleRoleLibraryNodes = (
@@ -198,7 +202,10 @@ interface UseAssistantPanelParams {
   flowWidth: number;
   selectedAssistantTargetNodes: Node[];
   nodes: Node[];
-  callAIForTextResult: (prompt: string, options?: { signal?: AbortSignal }) => Promise<AITextResult>;
+  callAIForTextResult: (
+    prompt: string,
+    options?: { signal?: AbortSignal },
+  ) => Promise<AITextResult>;
   callAIForTextStream?: (prompt: string, handlers?: AITextStreamHandlers) => Promise<AITextResult>;
   createAssistantCards: (
     cards: AssistantCardDraft[],
@@ -272,7 +279,7 @@ interface UseAssistantPanelResult {
   assistantTaskPendingCloseId: string | null;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleStopAssistantGeneration: () => void;
-  handleAssistantOptionSelect: (value: string) => Promise<void>;
+  handleAssistantOptionSelect: (value: string, messageId?: string) => Promise<void>;
   handleAssistantCandidateNodeSelect: (nodeId: string) => Promise<void>;
   handleStartAssistantFlow: (
     flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
@@ -380,6 +387,7 @@ export const useAssistantPanel = ({
   const [assistantHistoryVersion, setAssistantHistoryVersion] = useState(0);
   const assistantAbortControllerRef = useRef<AbortController | null>(null);
   const creativeStoryGenerationRef = useRef(0);
+  const creativeChoiceBusyRef = useRef(false);
 
   const assistantPanelWidth = Math.min(
     Math.max(assistantWidth, 300),
@@ -499,13 +507,17 @@ export const useAssistantPanel = ({
 
   const setAssistantMessages = useCallback(
     (updater: SetStateAction<AssistantMessage[]>) => {
+      const workflow = structuredClone(assistantWorkflowRef.current);
       setAssistantTasks((tasks) =>
         tasks.map((task) => {
           if (task.id !== activeAssistantTaskId) return task;
-          const nextMessages =
+          let nextMessages =
             typeof updater === 'function'
               ? (updater as (messages: AssistantMessage[]) => AssistantMessage[])(task.messages)
               : updater;
+          if (isCreativeWorkflow(workflow)) {
+            nextMessages = checkpointCreativeMessages(nextMessages, task.messages, task, workflow);
+          }
           const firstUserMessage = nextMessages
             .find((message) => message.role === 'user')
             ?.content.trim();
@@ -1411,11 +1423,14 @@ You must fill every placeholder card index exactly once. Placeholder card plan: 
 
       if (cards.some((card) => !hasAssistantCardContent(card))) {
         try {
-          const retryResult = await callAIForTextResult(`${prompt}
+          const retryResult = await callAIForTextResult(
+            `${prompt}
 
-The previous streaming response did not complete every placeholder card. Return one normal JSON object only, with cards for this exact placeholder plan: ${placeholderPlan}.`, {
-            signal,
-          });
+The previous streaming response did not complete every placeholder card. Return one normal JSON object only, with cards for this exact placeholder plan: ${placeholderPlan}.`,
+            {
+              signal,
+            },
+          );
           const jsonText = extractFirstJsonObject(retryResult.content);
           const parsed = JSON.parse(jsonText) as {
             reply?: string;
@@ -1761,23 +1776,43 @@ The previous streaming response did not complete every placeholder card. Return 
             text: context.previewText,
           })),
       };
-      setAssistantMessages((messages) => [...messages, userMessage]);
+      const pendingInput = activeAssistantTask?.messages.at(-1);
+      if (pendingInput?.inputPrompt && pendingInput.creativeCheckpoint) {
+        assistantWorkflowRef.current = structuredClone(pendingInput.creativeCheckpoint.workflow);
+      }
+      setAssistantMessages((messages) => [
+        ...messages.map((message) =>
+          message.id === pendingInput?.id && message.inputPrompt
+            ? { ...message, inputResponse: draftText }
+            : message,
+        ),
+        userMessage,
+      ]);
 
       const workflow = assistantWorkflowRef.current;
       const isIdeaWorkflow = workflow.type === 'idea-awaiting';
       if (workflow.type === 'creative-role-preference-custom-awaiting') {
-        await submitCreativeStoryRolePreference(draftText);
+        try {
+          await submitCreativeStoryRolePreference(draftText);
+        } finally {
+          setAssistantLoading(false);
+        }
         return;
       }
       if (workflow.type === 'creative-direction-custom-awaiting') {
-        await submitCreativeStoryCustomDirection(draftText);
+        try {
+          await submitCreativeStoryCustomDirection(draftText);
+        } finally {
+          setAssistantLoading(false);
+        }
         return;
       }
       if (workflow.type === 'creative-background-custom-awaiting') {
         const task = getCreativeTask();
         if (!task?.creativeSession) return;
         try {
-          const result = await callAIForTextResult(`将用户描述的故事背景整理成一张视觉小说场景设定卡。只返回 JSON：
+          const result =
+            await callAIForTextResult(`将用户描述的故事背景整理成一张视觉小说场景设定卡。只返回 JSON：
 {"cards":[{"type":"scene","sceneName":"","location":"","time":"","weather":"","visual":"","sound":"","items":"","notes":""}]}
 用户描述：${draftText}`);
           const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
@@ -1806,7 +1841,11 @@ The previous streaming response did not complete every placeholder card. Return 
         } catch {
           setAssistantMessages((messages) => [
             ...messages,
-            { id: uuidv4(), role: 'assistant', content: assistantPanelCopy(language).creativeStory.openingFailed },
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: assistantPanelCopy(language).creativeStory.openingFailed,
+            },
           ]);
         }
         return;
@@ -1933,7 +1972,10 @@ The previous streaming response did not complete every placeholder card. Return 
             options: [
               ...characterLibraryItems.map((item) => ({
                 id: uuidv4(),
-                label: language === 'zh' ? `使用库人物：${item.name}` : `Use library character: ${item.name}`,
+                label:
+                  language === 'zh'
+                    ? `使用库人物：${item.name}`
+                    : `Use library character: ${item.name}`,
                 value: `__short_drama_character_library__:${item.id}`,
               })),
               {
@@ -2050,9 +2092,10 @@ The previous streaming response did not complete every placeholder card. Return 
       let forcedMode: AssistantCardPlacementMode | undefined;
       let placementOptions: AssistantCardPlacementOptions | undefined;
       const isShortDramaStoryOnly = workflow.type === 'short-drama-ready';
-      const shortDramaSetupNodeIds = workflow.type === 'short-drama-ready'
-        ? [workflow.characterNodeId, workflow.sceneNodeId]
-        : [];
+      const shortDramaSetupNodeIds =
+        workflow.type === 'short-drama-ready'
+          ? [workflow.characterNodeId, workflow.sceneNodeId]
+          : [];
       const shortDramaCopy = assistantPanelCopy(language).shortDramaFlow;
       if (shortDramaSetupNodeIds.length > 0) {
         placementOptions = { setupNodeIds: shortDramaSetupNodeIds };
@@ -2304,11 +2347,12 @@ ${availableSettingLibraryContext || '无'}`;
             // preceding steps. While streaming this final stage, reserve only
             // story-card slots; otherwise the generic bundle placeholder
             // helper creates another empty character and scene above them.
-            placeholderCards: isShortDramaStoryOnly || shortDramaUsesLibrary
-              ? buildAssistantPlaceholderCards(effectiveUserText, forcedMode || 'append').filter(
-                  (card) => getAssistantDraftType(card) === 'story',
-                )
-              : undefined,
+            placeholderCards:
+              isShortDramaStoryOnly || shortDramaUsesLibrary
+                ? buildAssistantPlaceholderCards(effectiveUserText, forcedMode || 'append').filter(
+                    (card) => getAssistantDraftType(card) === 'story',
+                  )
+                : undefined,
             signal: abortController.signal,
           });
           if (abortController.signal.aborted) return;
@@ -2408,10 +2452,7 @@ ${availableSettingLibraryContext || '无'}`;
             preparedPlaceholderCards,
           ),
         );
-        if (
-          isShortDramaStoryOnly ||
-          (shortDramaUsesLibrary && !shortDramaUsesLibraryReferences)
-        ) {
+        if (isShortDramaStoryOnly || (shortDramaUsesLibrary && !shortDramaUsesLibraryReferences)) {
           cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
         }
         if (isArticleTeachingWorkflow) {
@@ -2842,7 +2883,7 @@ cards 必须正好有 3 张。`);
     ],
   );
 
-  const handleAssistantOptionSelect = useCallback(
+  const dispatchAssistantOptionSelect = useCallback(
     async (value: string) => {
       const shortDramaCharacterLibraryPrefix = '__short_drama_character_library__:';
       const shortDramaSceneLibraryPrefix = '__short_drama_scene_library__:';
@@ -2855,7 +2896,9 @@ cards 必须正好有 3 张。`);
       }
 
       if (value.startsWith('__creative_role_preference__:')) {
-        await handleCreativeStoryRolePreference(value.slice('__creative_role_preference__:'.length));
+        await handleCreativeStoryRolePreference(
+          value.slice('__creative_role_preference__:'.length),
+        );
         return;
       }
 
@@ -2865,10 +2908,7 @@ cards 必须正好有 3 张。`);
       }
 
       if (value.startsWith('__creative_traits__:')) {
-        const levels = value
-          .slice('__creative_traits__:'.length)
-          .split(',')
-          .map(Number);
+        const levels = value.slice('__creative_traits__:'.length).split(',').map(Number);
         await handleCreativeStoryCharacterTraits(levels);
         return;
       }
@@ -2909,7 +2949,8 @@ cards 必须正好有 3 张。`);
         const imageUrl =
           typeof sceneNode.data.coverImageUrl === 'string'
             ? sceneNode.data.coverImageUrl
-            : Array.isArray(sceneNode.data.images) && typeof sceneNode.data.images[0]?.url === 'string'
+            : Array.isArray(sceneNode.data.images) &&
+                typeof sceneNode.data.images[0]?.url === 'string'
               ? sceneNode.data.images[0].url
               : undefined;
         const session: CreativeStorySession = {
@@ -3083,7 +3124,9 @@ cards 必须正好有 3 张。`);
         setAssistantLoading(true);
         try {
           const result = await callAIForTextResult(
-            formatLocalizedCopy(shortDramaCopy.createCharacterPrompt, { request: workflow.request }),
+            formatLocalizedCopy(shortDramaCopy.createCharacterPrompt, {
+              request: workflow.request,
+            }),
           );
           const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
             cards?: AssistantCardDraft[];
@@ -3118,7 +3161,9 @@ cards 必须正好有 3 张。`);
             {
               id: uuidv4(),
               role: 'assistant',
-              content: formatLocalizedCopy(shortDramaCopy.characterCreated, { name: characterName }),
+              content: formatLocalizedCopy(shortDramaCopy.characterCreated, {
+                name: characterName,
+              }),
               cardPosition: placement.position,
               cardNodeIds: placement.nodeIds,
               options: [
@@ -3881,6 +3926,51 @@ cards 必须正好有 3 张。`);
       setAssistantMessages,
       setSavedStoryProfile,
       updateCreativeStorySession,
+    ],
+  );
+
+  const handleAssistantOptionSelect = useCallback(
+    async (value: string, messageId?: string) => {
+      if (assistantLoading || creativeChoiceBusyRef.current) return;
+      if (!value.startsWith('__creative_') || value === '__creative_enter__' || !messageId) {
+        await dispatchAssistantOptionSelect(value);
+        return;
+      }
+      const task = assistantTasksRef.current.find(
+        (item) => item.id === activeAssistantTaskIdRef.current,
+      );
+      if (!task) return;
+      if (
+        (value.startsWith('__creative_traits__:') || value.startsWith('__creative_lead__:')) &&
+        !hasTextApiKey
+      ) {
+        onMissingTextApiKeyRequest?.();
+        return;
+      }
+      const choice = selectCreativeChoice(task, messageId, value);
+      if (!choice) return;
+      // Lock synchronously: a second click can arrive before React updates disabled buttons.
+      creativeChoiceBusyRef.current = true;
+      pushAssistantHistory();
+      assistantWorkflowRef.current = choice.workflow;
+      const nextTasks = assistantTasksRef.current.map((item) =>
+        item.id === task.id ? choice.task : item,
+      );
+      assistantTasksRef.current = nextTasks;
+      setAssistantTasks(nextTasks);
+      setAssistantInput('');
+      try {
+        await dispatchAssistantOptionSelect(value);
+      } finally {
+        creativeChoiceBusyRef.current = false;
+      }
+    },
+    [
+      assistantLoading,
+      dispatchAssistantOptionSelect,
+      pushAssistantHistory,
+      hasTextApiKey,
+      onMissingTextApiKeyRequest,
     ],
   );
 

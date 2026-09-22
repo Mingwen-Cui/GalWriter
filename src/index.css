@@ -446,7 +446,15 @@ html.region-placement-dragging * {
   cursor: crosshair !important;
 }
 
-/* Right-click box selection also keeps a stable crosshair while the button is held. */
+/* Box selection keeps a stable crosshair while the left button is held. */
+.canvas-panning,
+.canvas-panning * {
+  cursor: grabbing !important;
+}
+
+.story-canvas-flow .react-flow__pane.draggable {
+  cursor: default;
+}
 html.canvas-selection-dragging,
 html.canvas-selection-dragging * {
   cursor: crosshair !important;

@@ -776,7 +776,7 @@ export const createCreativeStorySessionHandlers = ({
   const creativeCopy = assistantPanelCopy(language).creativeStory;
   const getTask = (sessionId?: string) =>
     tasksRef.current.find(
-      (task) => task.creativeSession && (!sessionId || task.creativeSession.id === sessionId),
+      (task) => task.creativeSession && (sessionId ? task.creativeSession.id === sessionId : task.id === activeTaskIdRef.current),
     ) || null;
   const updateSession = (taskId: string, session: CreativeStorySession) =>
     setTasks((current) => {
@@ -1008,7 +1008,7 @@ sceneEnvironment 只用于内部场景预设，不要把室内/室外写进 note
     workflowRef.current = { type: 'creative-direction-custom-awaiting', sessionId: task.creativeSession.id };
     setMessages((messages) => [
       ...messages,
-      { id: uuidv4(), role: 'assistant', content: creativeCopy.directionHint },
+      { id: uuidv4(), role: 'assistant', content: creativeCopy.directionHint, inputPrompt: creativeCopy.directionHint },
     ]);
   };
 
@@ -1081,7 +1081,7 @@ sceneEnvironment 只用于内部场景预设，不要把室内/室外写进 note
     };
     setMessages((messages) => [
       ...messages,
-      { id: uuidv4(), role: 'assistant', content: creativeCopy.rolePreferenceHint },
+      { id: uuidv4(), role: 'assistant', content: creativeCopy.rolePreferenceHint, inputPrompt: creativeCopy.rolePreferenceHint },
     ]);
   };
 
@@ -1368,6 +1368,7 @@ cards 只能是 2 到 3 张 story 卡。每张卡必须自然写到题材和两�
       id: uuidv4(), title: creativeCopy.taskTitle, createdAt: now, updatedAt: now, kind: 'creative-playtest', creativeSession: session,
       messages: [{
         id: uuidv4(), role: 'assistant', content: creativeCopy.chooseGenre,
+        creativeCheckpoint: { workflow: { type: 'creative-genre-awaiting' }, session: structuredClone(session) },
         options: [
           ...getCreativeStoryGenres(language).map((genre) => ({
             id: uuidv4(),

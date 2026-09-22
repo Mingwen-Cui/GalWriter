@@ -101,7 +101,46 @@ export function StoryCanvasWorkspace({
   storyCardPlacementPreviewScale = 1,
   selectionMenuProps,
 }: StoryCanvasWorkspaceProps) {
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, getViewport, setViewport } = useReactFlow();
+  const panCleanupRef = useRef<(() => void) | null>(null);
+  const suppressContextMenuRef = useRef(false);
+  const selectionPressRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressSelectionClickRef = useRef(false);
+  const [isPanning, setIsPanning] = useState(false);
+  useEffect(() => () => panCleanupRef.current?.(), []);
+
+  const startRightPan: MouseEventHandler<HTMLDivElement> = (event) => {
+    suppressContextMenuRef.current = false;
+    if (
+      event.button !== 2 ||
+      event.altKey ||
+      (event.target as HTMLElement).closest('button, input, textarea, [contenteditable="true"]')
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    panCleanupRef.current?.();
+    const start = { x: event.clientX, y: event.clientY, viewport: getViewport() };
+    const move = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - start.x;
+      const dy = moveEvent.clientY - start.y;
+      if (!suppressContextMenuRef.current && Math.hypot(dx, dy) < 5) return;
+      suppressContextMenuRef.current = true;
+      setIsPanning(true);
+      void setViewport({ ...start.viewport, x: start.viewport.x + dx, y: start.viewport.y + dy });
+    };
+    const stop = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', stop);
+      window.removeEventListener('blur', stop);
+      setIsPanning(false);
+      panCleanupRef.current = null;
+    };
+    panCleanupRef.current = stop;
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', stop);
+    window.addEventListener('blur', stop);
+  };
   const overlayPositionClass = miniMapPosition === 'left' ? 'left-4' : 'right-4';
   const footerSpacingClass = showStats ? '' : 'canvas-bottom-overlay-no-footer';
   const isDesktopViewport = useDesktopViewport();
@@ -129,6 +168,10 @@ export function StoryCanvasWorkspace({
   }, [cardPlacementPreviewKind]);
 
   const handleCanvasMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
+    const press = selectionPressRef.current;
+    if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 5) {
+      suppressSelectionClickRef.current = true;
+    }
     onMouseMove(event);
     if (isPointPlacement && !cardPlacementStartScreen && placementPreviewRef.current) {
       placementPreviewRef.current.style.left = `${event.clientX - (placementPreviewSize.width / 2) * placementPreviewScale}px`;
@@ -153,14 +196,37 @@ export function StoryCanvasWorkspace({
     <>
       <div
         ref={canvasWrapperRef}
-        className={`relative h-full w-full ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
+        className={`relative h-full w-full ${isPanning ? 'canvas-panning' : ''} ${bubbleStyle === 'glass' ? 'bubble-glass-mode' : 'bubble-flat-mode'}`}
         onMouseDownCapture={(event) => {
-          onMouseDown(event);
+          suppressSelectionClickRef.current = false;
+          selectionPressRef.current =
+            event.button === 0 &&
+            !cardPlacementPreviewKind &&
+            (event.target as HTMLElement).classList.contains('react-flow__pane')
+              ? { x: event.clientX, y: event.clientY }
+              : null;
+          startRightPan(event);
+          if (event.isPropagationStopped()) return;
+          if (!cardPlacementPreviewKind) onMouseDown(event);
           onBackgroundCardPlacementStart?.(event);
           onDynamicWrapSelectionStart?.(event);
         }}
+        onClickCapture={(event) => {
+          if (suppressSelectionClickRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
+            suppressSelectionClickRef.current = false;
+          }
+        }}
+        onContextMenuCapture={(event) => {
+          if (suppressContextMenuRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
         onMouseMoveCapture={handleCanvasMouseMove}
         onMouseUpCapture={(event) => {
+          selectionPressRef.current = null;
           onMouseUp(event);
           onBackgroundCardPlacementEnd?.(event);
           onDynamicWrapSelectionEnd?.(event);
@@ -201,13 +267,21 @@ export function StoryCanvasWorkspace({
         <ReactFlow
           {...reactFlowProps}
           connectionMode={ConnectionMode.Loose}
-          panOnDrag={isRightDragging ? false : interactionMode === 'select' ? [0] : false}
+          panOnDrag={
+            isRightDragging
+              ? false
+              : isDesktopViewport
+                ? [1, 2]
+                : interactionMode === 'select'
+                  ? [0, 1, 2]
+                  : [1, 2]
+          }
           selectionOnDrag={false}
           selectionMode={SelectionMode.Partial}
           panOnScroll={scrollMode === 'pan'}
           zoomOnScroll={scrollMode === 'zoom'}
           panOnScrollMode={scrollMode === 'pan' ? PanOnScrollMode.Vertical : undefined}
-          selectionKeyCode="Shift"
+          selectionKeyCode={null}
           deleteKeyCode={null}
           proOptions={{ hideAttribution: true }}
           fitView

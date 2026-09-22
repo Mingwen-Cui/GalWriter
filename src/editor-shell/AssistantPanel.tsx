@@ -24,6 +24,7 @@ import {
   Video,
   X,
 } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type {
   CSSProperties,
   Dispatch,
@@ -69,7 +70,7 @@ interface AssistantPanelProps {
   handleCloseAssistantTask: (taskId: string) => void;
   handleAssistantSend: (overrideText?: string) => Promise<void>;
   handleStopAssistantGeneration: () => void;
-  handleAssistantOptionSelect: (value: string) => Promise<void>;
+  handleAssistantOptionSelect: (value: string, messageId?: string) => Promise<void>;
   handleStartAssistantFlow: (
     flow: 'idea' | 'profile' | 'starter' | 'revision' | 'future',
   ) => Promise<void>;
@@ -592,6 +593,13 @@ export function AssistantPanel({
   language,
 }: AssistantPanelProps) {
   const ui = assistantPanelCopy(language);
+  const reduceMotion = useReducedMotion();
+  const pendingPrompt = assistantMessages.at(-1)?.inputPrompt;
+  const composerPlaceholder =
+    pendingPrompt ||
+    (assistantTasks.find((task) => task.id === activeAssistantTaskId)?.kind === 'creative-playtest'
+      ? ui.creativeStory.inputPlaceholder
+      : ui.inputPlaceholder);
   const activeAssistantTask = assistantTasks.find((task) => task.id === activeAssistantTaskId);
   const isCardReviewTask = activeAssistantTask?.kind === 'card-review';
   const [shouldRender, setShouldRender] = useState(assistantOpen);
@@ -697,6 +705,12 @@ export function AssistantPanel({
       assistantInputRef.current?.focus();
     });
   }, [assistantInputExpanded, assistantInputFocused]);
+
+  useEffect(() => {
+    if (!pendingPrompt || !assistantOpen) return;
+    const frame = window.requestAnimationFrame(() => assistantInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [pendingPrompt, assistantOpen, activeAssistantTaskId]);
 
   const handlePanelTransitionEnd = (event: ReactTransitionEvent<HTMLElement>) => {
     if (event.target !== event.currentTarget || event.propertyName !== 'transform') return;
@@ -863,7 +877,7 @@ export function AssistantPanel({
       message.content.includes('continue writing plots'));
 
   const visibleAssistantMessages = assistantMessages.filter(
-    (message) => !isLegacyAssistantWelcomeMessage(message),
+    (message) => !isLegacyAssistantWelcomeMessage(message) && !message.inputPrompt,
   );
   const showTransparentWelcomeGradient = welcomeGradientState !== 'hidden';
 
@@ -1487,169 +1501,189 @@ export function AssistantPanel({
             </div>
           </section>
         ) : null}
-        {!showArticleUploadPage &&
-          visibleAssistantMessages.map((message) =>
-            message.role === 'thought' ? (
-              <div key={message.id} className="flex justify-start">
-                <button
-                  type="button"
-                  onClick={() => toggleAssistantThought(message.id)}
-                  className="assistant-message-bubble assistant-message-thought max-w-[88%] rounded-2xl rounded-bl-md border border-indigo-100 bg-indigo-50 px-3.5 py-2.5 text-left text-xs leading-relaxed text-indigo-700 transition-colors dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200"
+        <AnimatePresence initial={false}>
+          {!showArticleUploadPage &&
+            visibleAssistantMessages.map((message) =>
+              message.role === 'thought' ? (
+                <motion.div
+                  key={message.id}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex justify-start"
                 >
-                  <div className="mb-1 flex items-center gap-2 font-black">
-                    <BrainCircuit className="h-3.5 w-3.5" />
-                    <span>
-                      {message.collapsed
-                        ? language === 'zh'
-                          ? 'AI 已完成思考'
-                          : language === 'ja'
-                            ? 'AIの思考が完了しました'
-                            : 'AI thought complete'
-                        : language === 'zh'
-                          ? 'AI 正在思考'
-                          : language === 'ja'
-                            ? 'AI思考中...'
-                            : 'AI is thinking...'}
-                    </span>
-                    <ChevronDown
-                      className={`h-3.5 w-3.5 transition-transform ${
-                        message.collapsed ? '-rotate-90' : ''
-                      }`}
-                    />
-                  </div>
-                  {!message.collapsed && (
-                    <div className="whitespace-pre-wrap text-indigo-700/90 dark:text-indigo-100/90">
-                      {message.content}
+                  <button
+                    type="button"
+                    onClick={() => toggleAssistantThought(message.id)}
+                    className="assistant-message-bubble assistant-message-thought max-w-[88%] rounded-2xl rounded-bl-md border border-indigo-100 bg-indigo-50 px-3.5 py-2.5 text-left text-xs leading-relaxed text-indigo-700 transition-colors dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200"
+                  >
+                    <div className="mb-1 flex items-center gap-2 font-black">
+                      <BrainCircuit className="h-3.5 w-3.5" />
+                      <span>
+                        {message.collapsed
+                          ? language === 'zh'
+                            ? 'AI 已完成思考'
+                            : language === 'ja'
+                              ? 'AIの思考が完了しました'
+                              : 'AI thought complete'
+                          : language === 'zh'
+                            ? 'AI 正在思考'
+                            : language === 'ja'
+                              ? 'AI思考中...'
+                              : 'AI is thinking...'}
+                      </span>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform ${
+                          message.collapsed ? '-rotate-90' : ''
+                        }`}
+                      />
                     </div>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <div
-                key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`whitespace-pre-wrap text-sm leading-relaxed ${
-                    message.contextPreviews?.length
-                      ? 'assistant-message-context-stack flex w-full max-w-[94%] flex-col gap-2'
-                      : `assistant-message-bubble ${
-                          message.role === 'user'
-                            ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
-                            : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
-                        }`
-                  } ${message.contextPreviews?.length ? '' : 'max-w-[88%] rounded-2xl px-3.5 py-2.5'}`}
+                    {!message.collapsed && (
+                      <div className="whitespace-pre-wrap text-indigo-700/90 dark:text-indigo-100/90">
+                        {message.content}
+                      </div>
+                    )}
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }}
+                  transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                  key={message.id}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.contextPreviews && message.contextPreviews.length > 0 && (
-                    <div className="grid gap-2">
-                      {message.contextPreviews.map((preview) => (
-                        <AssistantContextPreviewCard
-                          key={preview.id}
-                          title={preview.title}
-                          contextBadge={preview.label || ui.cardReview.contextBadge}
-                          imageUrl={preview.imageUrl}
-                          text={preview.text}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {message.contextPreviews?.length && message.content ? (
-                    <div
-                      className={`w-fit max-w-[88%] px-3.5 py-2.5 ${
-                        message.role === 'user'
-                          ? 'ml-auto rounded-2xl rounded-br-md bg-indigo-600 text-white shadow-sm'
-                          : 'rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
-                      }`}
-                    >
-                      {message.content}
-                    </div>
-                  ) : !message.contextPreviews?.length ? (
-                    message.content
-                  ) : null}
-                  {message.role === 'assistant' && message.articleRolePicker && (
-                    <ArticleRolePicker
-                      {...message.articleRolePicker}
-                      onSelect={(nodeId) =>
-                        void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
-                      }
-                      onConfirm={() => void handleAssistantOptionSelect('__article_role_confirm__')}
-                    />
-                  )}
-                  {message.role === 'assistant' && message.characterTraitControls && (
-                    <CreativeCharacterTraitControls
-                      controls={message.characterTraitControls}
-                      disabled={assistantLoading}
-                      onConfirm={(levels) =>
-                        void handleAssistantOptionSelect(`__creative_traits__:${levels.join(',')}`)
-                      }
-                      onSkip={() => void handleAssistantOptionSelect('__creative_traits__:skip')}
-                    />
-                  )}
-                  {message.role === 'assistant' &&
-                    message.options &&
-                    message.options.length > 0 && (
-                      <div className={`grid gap-2 ${isCardReviewTask ? 'mt-2' : 'mt-3'}`}>
-                        {message.options.map((option) => (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => void handleAssistantOptionSelect(option.value)}
-                            disabled={assistantLoading}
-                            className={`rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60 ${
-                              option.selected
-                                ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/70 dark:text-indigo-100'
-                                : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'
-                            }`}
-                          >
-                            <span className="flex items-center justify-between gap-2 text-xs font-black text-indigo-700 dark:text-indigo-200">
-                              <span className="flex items-center gap-1.5">
-                                {option.selected && (
-                                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                                )}
-                                {option.label}
-                              </span>
-                              {isCardReviewTask && (
-                                <span className="shrink-0 text-[10px] font-bold text-indigo-500 dark:text-indigo-300">
-                                  {ui.cardReview.useSuggestion} ›
-                                </span>
-                              )}
-                            </span>
-                            {option.description && (
-                              <span className="mt-1 block line-clamp-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                                {option.description}
-                              </span>
-                            )}
-                          </button>
+                  <div
+                    className={`whitespace-pre-wrap text-sm leading-relaxed ${
+                      message.contextPreviews?.length
+                        ? 'assistant-message-context-stack flex w-full max-w-[94%] flex-col gap-2'
+                        : `assistant-message-bubble ${
+                            message.role === 'user'
+                              ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
+                              : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                          }`
+                    } ${message.contextPreviews?.length ? '' : 'max-w-[88%] rounded-2xl px-3.5 py-2.5'}`}
+                  >
+                    {message.contextPreviews && message.contextPreviews.length > 0 && (
+                      <div className="grid gap-2">
+                        {message.contextPreviews.map((preview) => (
+                          <AssistantContextPreviewCard
+                            key={preview.id}
+                            title={preview.title}
+                            contextBadge={preview.label || ui.cardReview.contextBadge}
+                            imageUrl={preview.imageUrl}
+                            text={preview.text}
+                          />
                         ))}
                       </div>
                     )}
-                  {message.role === 'assistant' &&
-                    (message.cardPosition || (message.cardNodeIds?.length ?? 0) > 0) && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onAssistantMessagePositionClick({
-                            position: message.cardPosition,
-                            nodeIds: message.cardNodeIds,
-                          })
-                        }
-                        className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-black text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
-                        title={
-                          language === 'zh'
-                            ? '跳转到生成卡片的位置'
-                            : language === 'ja'
-                              ? '生成したカードの位置へ移動'
-                              : 'Jump to generated card position'
-                        }
+                    {message.contextPreviews?.length && message.content ? (
+                      <div
+                        className={`w-fit max-w-[88%] px-3.5 py-2.5 ${
+                          message.role === 'user'
+                            ? 'ml-auto rounded-2xl rounded-br-md bg-indigo-600 text-white shadow-sm'
+                            : 'rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                        }`}
                       >
-                        <MapPin className="h-3.5 w-3.5" />
-                        {ui.position}
-                      </button>
+                        {message.content}
+                      </div>
+                    ) : !message.contextPreviews?.length ? (
+                      message.content
+                    ) : null}
+                    {message.role === 'assistant' && message.articleRolePicker && (
+                      <ArticleRolePicker
+                        {...message.articleRolePicker}
+                        onSelect={(nodeId) =>
+                          void handleAssistantOptionSelect(`__article_role_select__:${nodeId}`)
+                        }
+                        onConfirm={() =>
+                          void handleAssistantOptionSelect('__article_role_confirm__')
+                        }
+                      />
                     )}
-                </div>
-              </div>
-            ),
-          )}
+                    {message.role === 'assistant' && message.characterTraitControls && (
+                      <CreativeCharacterTraitControls
+                        controls={message.characterTraitControls}
+                        disabled={assistantLoading}
+                        onConfirm={(levels) =>
+                          void handleAssistantOptionSelect(
+                            `__creative_traits__:${levels.join(',')}`,
+                            message.id,
+                          )
+                        }
+                        onSkip={() =>
+                          void handleAssistantOptionSelect('__creative_traits__:skip', message.id)
+                        }
+                      />
+                    )}
+                    {message.role === 'assistant' &&
+                      message.options &&
+                      message.options.length > 0 && (
+                        <div className={`grid gap-2 ${isCardReviewTask ? 'mt-2' : 'mt-3'}`}>
+                          {message.options.map((option) => (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() =>
+                                void handleAssistantOptionSelect(option.value, message.id)
+                              }
+                              aria-pressed={Boolean(option.selected)}
+                              disabled={assistantLoading}
+                              className={`rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60 ${
+                                option.selected
+                                  ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/70 dark:text-indigo-100'
+                                  : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'
+                              }`}
+                            >
+                              <span className="flex items-center justify-between gap-2 text-xs font-black text-indigo-700 dark:text-indigo-200">
+                                <span className="flex items-center gap-1.5">
+                                  {option.selected && (
+                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                                  )}
+                                  {option.label}
+                                </span>
+                                {isCardReviewTask && (
+                                  <span className="shrink-0 text-[10px] font-bold text-indigo-500 dark:text-indigo-300">
+                                    {ui.cardReview.useSuggestion} ›
+                                  </span>
+                                )}
+                              </span>
+                              {option.description && (
+                                <span className="mt-1 block line-clamp-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                  {option.description}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    {message.role === 'assistant' &&
+                      (message.cardPosition || (message.cardNodeIds?.length ?? 0) > 0) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onAssistantMessagePositionClick({
+                              position: message.cardPosition,
+                              nodeIds: message.cardNodeIds,
+                            })
+                          }
+                          className="mt-2 flex h-7 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-black text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                          title={
+                            language === 'zh'
+                              ? '跳转到生成卡片的位置'
+                              : language === 'ja'
+                                ? '生成したカードの位置へ移動'
+                                : 'Jump to generated card position'
+                          }
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
+                          {ui.position}
+                        </button>
+                      )}
+                  </div>
+                </motion.div>
+              ),
+            )}
+        </AnimatePresence>
         {!showArticleUploadPage && assistantLoading && (
           <div className="flex justify-start">
             <div className="assistant-message-bubble assistant-message-loading flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
@@ -1864,12 +1898,16 @@ export function AssistantPanel({
                   onFocus={() => setAssistantInputFocused(true)}
                   onBlur={() => setAssistantInputFocused(false)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
+                    if (
+                      event.key === 'Enter' &&
+                      !event.shiftKey &&
+                      !event.nativeEvent.isComposing
+                    ) {
                       event.preventDefault();
                       void sendAssistantMessage();
                     }
                   }}
-                  placeholder={ui.inputPlaceholder}
+                  placeholder={composerPlaceholder}
                   rows={3}
                   className="custom-scrollbar min-h-[7.5rem] w-full flex-1 resize-none bg-transparent text-sm text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
                 />
@@ -1989,7 +2027,7 @@ export function AssistantPanel({
                       void sendAssistantMessage();
                     }
                   }}
-                  placeholder={ui.inputPlaceholder}
+                  placeholder={composerPlaceholder}
                   rows={1}
                   className="custom-scrollbar h-9 min-h-9 flex-1 resize-none bg-transparent text-sm leading-9 text-slate-800 outline-none transition-[height] duration-300 ease-out placeholder:text-slate-400 dark:text-white"
                 />

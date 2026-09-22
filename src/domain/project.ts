@@ -1,6 +1,7 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { Dispatch, SetStateAction } from 'react';
 
+import type { AssistantCardDraft } from '../agent/planning/agentCardDraft';
 import type { RenderStyle } from '../components/render/video/shared/types';
 import type { Language } from '../lib/i18n';
 
@@ -87,6 +88,49 @@ export interface AIButtonsConfig {
   dialogue_only: boolean;
 }
 
+export type CreativeStoryWorkflow =
+  | { type: 'creative-genre-awaiting' }
+  | {
+      type: 'creative-role-preference-awaiting';
+      sessionId: string;
+    }
+  | {
+      type: 'creative-role-preference-custom-awaiting';
+      sessionId: string;
+    }
+  | {
+      type: 'creative-character-traits-awaiting';
+      sessionId: string;
+    }
+  | { type: 'creative-background-awaiting' }
+  | {
+      type: 'creative-background-candidate-awaiting';
+      sessionId: string;
+      candidates: Array<{
+        id: string;
+        name: string;
+        description: string;
+        scene: AssistantCardDraft;
+      }>;
+    }
+  | { type: 'creative-direction-custom-awaiting'; sessionId: string }
+  | { type: 'creative-background-custom-awaiting' }
+  | {
+      type: 'creative-player-awaiting';
+      sessionId: string;
+      backgroundNodeId: string;
+      backgroundName: string;
+      candidates: Array<{ nodeId: string; name: string; imageUrl?: string }>;
+    }
+  | {
+      type: 'creative-lead-awaiting';
+      sessionId: string;
+      backgroundNodeId: string;
+      backgroundName: string;
+      player: { nodeId: string; name: string; imageUrl?: string };
+      candidates: Array<{ nodeId: string; name: string; imageUrl?: string }>;
+    };
+
 export type AssistantMessage = {
   id: string;
   role: 'user' | 'assistant' | 'thought';
@@ -132,6 +176,11 @@ export type AssistantMessage = {
     skipped?: boolean;
   };
   options?: AssistantMessageOption[];
+  /** State before this setup choice, used when revising an earlier answer. */
+  creativeCheckpoint?: { workflow: CreativeStoryWorkflow; session: CreativeStorySession };
+  selectedChoice?: string;
+  inputPrompt?: string;
+  inputResponse?: string;
 };
 
 export type AssistantMessageOption = {

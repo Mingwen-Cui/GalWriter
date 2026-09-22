@@ -38,7 +38,7 @@ export const translations = {
     nodes: '节点',
     paths: '路径',
     selectedItems: '已选择卡片/节点',
-    footerHint: '右击箭头线段删除。双击箭头线段反向。',
+    footerHint: '左键拖动空白处框选，按住右键拖动画布。右击箭头删除，双击箭头反向。',
 
     // AI Actions
     aiAssistant: 'AI 续写助手',
@@ -81,7 +81,8 @@ export const translations = {
     finish: '完成',
     contactTitle: '联系作者 (崔铭文)',
     contactDesc: '如果您在使用过程中遇到任何问题或建议，欢迎通过以下方式联系我：',
-    freeNotice: '本软件由崔铭文独立设计与开发，仍在持续迭代中。欢迎围绕产品合作、授权、技术交流或岗位机会与作者沟通。',
+    freeNotice:
+      '本软件由崔铭文独立设计与开发，仍在持续迭代中。欢迎围绕产品合作、授权、技术交流或岗位机会与作者沟通。',
     author: '作者',
     apiKeyLocalOnly: '所有 API Key 均保存在您的本地设备中，不会上传至任何服务器。',
 
@@ -116,7 +117,8 @@ export const translations = {
     includeApiProfiles: '导出正在使用的 API 配置',
     includeApiProfilesDesc: '勾选后会把当前启用的文本、图片、语音 API 配置和 API Key 写入 ZIP。',
     includeSettingLibrary: '导出设定库中的已保存卡片',
-    includeSettingLibraryDesc: '勾选后会把已保存的人物、场景设定及其图片写入 ZIP；重新导入时会合并回设定库。',
+    includeSettingLibraryDesc:
+      '勾选后会把已保存的人物、场景设定及其图片写入 ZIP；重新导入时会合并回设定库。',
     confirmSave: '导出 ZIP',
 
     // Guide
@@ -210,7 +212,7 @@ export const translations = {
     paths: 'Paths',
     selectedItems: 'Selected cards/nodes',
     footerHint:
-      'Right-click arrows to delete. Click the lock icon on background cards to unlock/lock.',
+      'Left-drag empty canvas to select; hold right mouse to pan. Right-click arrows to delete.',
 
     // AI Actions
     aiAssistant: 'AI Writing Assistant',
@@ -253,9 +255,11 @@ export const translations = {
     finish: 'Finish',
     contactTitle: 'Contact Author (Mingwen Cui)',
     contactDesc: 'If you encounter any issues or have suggestions, feel free to contact me via:',
-    freeNotice: 'Independently designed and developed by Mingwen Cui, this software is actively evolving. Product partnerships, licensing, technical exchange, and career opportunities are welcome.',
+    freeNotice:
+      'Independently designed and developed by Mingwen Cui, this software is actively evolving. Product partnerships, licensing, technical exchange, and career opportunities are welcome.',
     author: 'Author',
-    apiKeyLocalOnly: 'All API keys are stored locally on your device and are never uploaded to any server.',
+    apiKeyLocalOnly:
+      'All API keys are stored locally on your device and are never uploaded to any server.',
 
     // MiniMap
     showMiniMap: 'Show MiniMap',
@@ -380,7 +384,7 @@ export const translations = {
     nodes: 'ノード',
     paths: 'パス',
     selectedItems: '選択したカード/ノード',
-    footerHint: '矢印を右クリックして削除。背景カードのロックアイコンをクリックしてロック/解除。',
+    footerHint: '空白を左ドラッグで範囲選択、右ドラッグでキャンバス移動。矢印を右クリックで削除。',
 
     // AI Actions
     aiAssistant: 'AI執筆アシスタント',
@@ -423,9 +427,11 @@ export const translations = {
     finish: '完了',
     contactTitle: '開発者に連絡 (崔銘文)',
     contactDesc: '問題が発生した場合や提案がある場合は、お気軽にご連絡ください：',
-    freeNotice: '本ソフトウェアは崔銘文が独立して設計・開発し、継続的に改善しています。製品協業、ライセンス、技術交流、採用に関するご相談を歓迎します。',
+    freeNotice:
+      '本ソフトウェアは崔銘文が独立して設計・開発し、継続的に改善しています。製品協業、ライセンス、技術交流、採用に関するご相談を歓迎します。',
     author: '開発者',
-    apiKeyLocalOnly: 'すべての API キーはお使いのデバイスにローカル保存され、サーバーにはアップロードされません。',
+    apiKeyLocalOnly:
+      'すべての API キーはお使いのデバイスにローカル保存され、サーバーにはアップロードされません。',
 
     // MiniMap
     showMiniMap: 'ミニマップを表示',

@@ -5,7 +5,7 @@ import type {
   AssistantCardDraft,
   AssistantCardPlacementMode,
 } from '../../agent/planning/agentCardDraft';
-import type { AssistantStoryProfile } from '../../domain/project';
+import type { AssistantStoryProfile, CreativeStoryWorkflow } from '../../domain/project';
 import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 import type { Language } from '../../lib/i18n';
 import { htmlToSpeechText } from '../../lib/tts';
@@ -40,47 +40,7 @@ export type AssistantHistorySnapshot = {
 export type AssistantWorkflowState =
   | { type: 'idle' }
   | { type: 'idea-awaiting' }
-  | { type: 'creative-genre-awaiting' }
-  | {
-      type: 'creative-role-preference-awaiting';
-      sessionId: string;
-    }
-  | {
-      type: 'creative-role-preference-custom-awaiting';
-      sessionId: string;
-    }
-  | {
-      type: 'creative-character-traits-awaiting';
-      sessionId: string;
-    }
-  | { type: 'creative-background-awaiting' }
-  | {
-      type: 'creative-background-candidate-awaiting';
-      sessionId: string;
-      candidates: Array<{
-        id: string;
-        name: string;
-        description: string;
-        scene: AssistantCardDraft;
-      }>;
-    }
-  | { type: 'creative-direction-custom-awaiting'; sessionId: string }
-  | { type: 'creative-background-custom-awaiting' }
-  | {
-      type: 'creative-player-awaiting';
-      sessionId: string;
-      backgroundNodeId: string;
-      backgroundName: string;
-      candidates: Array<{ nodeId: string; name: string; imageUrl?: string }>;
-    }
-  | {
-      type: 'creative-lead-awaiting';
-      sessionId: string;
-      backgroundNodeId: string;
-      backgroundName: string;
-      player: { nodeId: string; name: string; imageUrl?: string };
-      candidates: Array<{ nodeId: string; name: string; imageUrl?: string }>;
-    }
+  | CreativeStoryWorkflow
   | {
       type: 'profile-collecting';
       step: AssistantStoryProfileStep;

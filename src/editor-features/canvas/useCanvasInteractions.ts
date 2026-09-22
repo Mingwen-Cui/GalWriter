@@ -194,6 +194,7 @@ export const useCanvasInteractions = ({
   const [showSelectionMenuAfterRightDrag, setShowSelectionMenuAfterRightDrag] = useState(false);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const selectionIdsRef = useRef<Set<string>>(new Set());
+  const additiveSelectionIdsRef = useRef<Set<string>>(new Set());
   const rightSelectionRef = useRef(false);
   const touchLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -511,7 +512,7 @@ export const useCanvasInteractions = ({
   );
 
   const startSelection = useCallback(
-    (x: number, y: number, showMenuOnComplete = false) => {
+    (x: number, y: number, showMenuOnComplete = false, additive = false) => {
       setIsRightDragging(true);
       setShowSelectionMenuAfterRightDrag(false);
       onRightSelectionComplete?.(false);
@@ -520,6 +521,7 @@ export const useCanvasInteractions = ({
       selectionIdsRef.current = new Set(
         nodes.filter((node) => node.selected).map((node) => node.id),
       );
+      additiveSelectionIdsRef.current = additive ? new Set(selectionIdsRef.current) : new Set();
       if (selectionBoxRef.current) {
         selectionBoxRef.current.style.display = 'none';
         selectionBoxRef.current.style.width = '0px';
@@ -531,11 +533,12 @@ export const useCanvasInteractions = ({
 
   const selectNodesInRect = useCallback(
     (rect: { x: number; y: number; width: number; height: number }) => {
-      const nextSelectionIds = new Set(
-        getIntersectingNodes(rect, true)
+      const nextSelectionIds = new Set([
+        ...additiveSelectionIdsRef.current,
+        ...getIntersectingNodes(rect, true)
           .filter((node) => !node.data?.locked)
           .map((node) => node.id),
-      );
+      ]);
       const previousSelectionIds = selectionIdsRef.current;
       const selectionChanged =
         nextSelectionIds.size !== previousSelectionIds.size ||
@@ -612,7 +615,13 @@ export const useCanvasInteractions = ({
       rightSelectionRef.current = false;
       startPosRef.current = null;
     },
-    [getSelectionRect, isRightDragging, onRightSelectionComplete, selectNodesInRect, selectionBoxRef],
+    [
+      getSelectionRect,
+      isRightDragging,
+      onRightSelectionComplete,
+      selectNodesInRect,
+      selectionBoxRef,
+    ],
   );
 
   const startQuickConnect = useCallback((event: ReactMouseEvent) => {
@@ -673,16 +682,25 @@ export const useCanvasInteractions = ({
         if (startQuickConnect(event)) return;
       }
 
+      // Keep card dragging and connection handles independent of empty-canvas selection.
       if (
-        event.button !== 2 &&
-        !(interactionMode === 'box' && event.button === 0) &&
-        !(event.shiftKey && event.button === 0)
-      ) {
+        event.button !== 0 ||
+        target.closest(
+          '.react-flow__node, .react-flow__edge, .react-flow__controls, .react-flow__minimap',
+        )
+      )
         return;
-      }
-      startSelection(event.clientX, event.clientY, event.button === 2);
+      if (!target.closest('.react-flow__pane')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      startSelection(
+        event.clientX,
+        event.clientY,
+        true,
+        event.shiftKey || event.ctrlKey || event.metaKey,
+      );
     },
-    [interactionMode, onRightSelectionComplete, startQuickConnect, startSelection],
+    [onRightSelectionComplete, startQuickConnect, startSelection],
   );
 
   const handleMouseMove = useCallback(
@@ -699,6 +717,25 @@ export const useCanvasInteractions = ({
     },
     [endSelection, finishQuickConnect],
   );
+
+  useEffect(() => {
+    if (!isRightDragging) return;
+    const move = (event: MouseEvent) => updateSelection(event.clientX, event.clientY);
+    const up = (event: MouseEvent) => endSelection(event.clientX, event.clientY);
+    const cancel = () => {
+      if (selectionBoxRef.current) selectionBoxRef.current.style.display = 'none';
+      startPosRef.current = null;
+      setIsRightDragging(false);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('blur', cancel);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      window.removeEventListener('blur', cancel);
+    };
+  }, [isRightDragging, updateSelection, endSelection, selectionBoxRef]);
 
   const handleTouchStart = useCallback(
     (event: ReactTouchEvent | TouchEvent) => {

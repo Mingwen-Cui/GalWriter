@@ -37,6 +37,8 @@ export const assistantPanelZh = {
     fallbackSceneName: 'AI 场景',
   },
   creativeStory: {
+    inputPlaceholder: '补充你的故事想法，或选择上方的选项',
+    continueSetup: '确认并继续',
     taskTitle: '实时创作',
     chooseGenre: '先不用想好具体背景。今天，你想进入一个怎样的故事？',
     surpriseMe: '我还没想好，让 AI 带我逛逛',
@@ -48,7 +50,8 @@ export const assistantPanelZh = {
     chooseStoryDoor: '我根据你的选择打开了三扇故事门。挑一扇最想进入的；不满意也可以换一批。',
     changeDoors: '换一批故事门',
     storyDoorFailed: '暂时没能打开故事门，请换个方向或再试一次。',
-    chooseBackground: '先选一个故事背景。它会成为这次游玩的第一幕，你也可以用自己的话描述一个新背景。',
+    chooseBackground:
+      '先选一个故事背景。它会成为这次游玩的第一幕，你也可以用自己的话描述一个新背景。',
     describeBackground: '我来描述背景',
     backgroundHint: '请描述你想进入的故事背景。',
     choosePlayer: '题材与角色方向已确定。请从候选中选择你要扮演的角色。',

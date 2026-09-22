@@ -38,11 +38,15 @@ export const assistantPanelEn = {
     fallbackSceneName: 'AI scene',
   },
   creativeStory: {
+    inputPlaceholder: 'Add your story ideas, or choose an option above',
+    continueSetup: 'Confirm and continue',
     taskTitle: 'Live story creation',
-    chooseGenre: 'You do not need a full setting yet. What kind of story do you want to step into today?',
+    chooseGenre:
+      'You do not need a full setting yet. What kind of story do you want to step into today?',
     surpriseMe: 'I am not sure — show me some story doors',
     chooseRolePreference: 'The genre is set. What kind of character would you like to play?',
-    rolePreferenceHint: 'Describe the role, identity, or contrast you want to play in one sentence.',
+    rolePreferenceHint:
+      'Describe the role, identity, or contrast you want to play in one sentence.',
     chooseOpening: 'This direction has a feeling. How would you like the story to begin?',
     customDirection: 'I want to describe it myself',
     directionHint: 'Describe a genre mix, atmosphere, or story feeling in one sentence.',
@@ -192,7 +196,8 @@ Return JSON only:
     },
     continue: {
       title: 'Play, chat, and create a story',
-      description: 'Choose a setting first; everyday dialogue plays out, and you decide only at key branches.',
+      description:
+        'Choose a setting first; everyday dialogue plays out, and you decide only at key branches.',
       prompt:
         'I want to create a story by playing and talking with AI. First guide me to choose a setting and cast; then advance about 3–10 sentences at a time. Everyday dialogue should be narrative only; ask a concrete question with options only at relationship turns, irreversible consequences, or route forks; and you may output affection changes.',
     },
