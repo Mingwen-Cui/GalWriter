@@ -25,6 +25,7 @@ import type {
   StoryPresentation,
 } from '../../../domain/project';
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
+import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
 import type { Language } from '../../../lib/i18n';
 import {
   getInlineSwitchAction,
@@ -1740,7 +1741,7 @@ export function WebPlaytestPreview({
     // Use the primary button so a normal drag box-selects and a normal empty
     // click clears selection, rather than hiding multi-select behind right
     // click.
-    if (previewMode !== 'edit' || event.button !== 0) return;
+    if (previewMode !== 'edit' || event.button !== (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2)) return;
     const rect = startMenuEditorRef.current?.getBoundingClientRect();
     if (!rect) return;
     event.preventDefault();

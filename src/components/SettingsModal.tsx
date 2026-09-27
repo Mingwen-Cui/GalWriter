@@ -22,6 +22,8 @@ import {
   Maximize,
   MessageCircle,
   Mic,
+  MousePointer2,
+  Keyboard,
   Palette,
   Play,
   PlayCircle,
@@ -57,6 +59,7 @@ import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import { AISettingsPanel } from './AISettingsPanel';
 import { DraggableNumberInput } from './DraggableNumberInput';
 import { settingsModalCopy } from './i18n/settings-modal';
+import { DEFAULT_KEYBOARD_MOUSE_SETTINGS, DEFAULT_SHORTCUTS, updateKeyboardMouseSettings, useKeyboardMouseSettings, type ShortcutAction } from '../lib/keyboardMouseSettings';
 import { PlaytestSettingsWorkbench } from './PlaytestSettingsWorkbench';
 import type { SharedCanvasSettings } from './render/canvas/canvasSettings';
 import {
@@ -522,8 +525,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   updateRenderStyle,
   onApplySettingsToOtherProjects,
 }) => {
+  const keyboardMouse = useKeyboardMouseSettings();
+  const [recordingShortcut, setRecordingShortcut] = useState<ShortcutAction | null>(null);
   const [activeSettingsTab, setActiveSettingsTab] = useState<
-    'appearance' | 'editor' | 'playtest' | 'ai' | 'about'
+    'appearance' | 'keyboardMouse' | 'editor' | 'playtest' | 'ai' | 'about'
   >('appearance');
   const [aboutPage, setAboutPage] = useState<'contact' | 'help'>('contact');
   const [isApplyingSettings, setIsApplyingSettings] = useState(false);
@@ -760,6 +765,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="settings-modal-tabs flex-1 space-y-1.5">
                 {[
                   { id: 'appearance', label: s.theme, icon: <ImageIcon className="w-4 h-4" /> },
+                  { id: 'keyboardMouse', label: s.keyboardMouse, icon: <MousePointer2 className="w-4 h-4" /> },
                   {
                     id: 'editor',
                     label: s.editorTab,
@@ -1224,6 +1230,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
 
+              {activeSettingsTab === 'keyboardMouse' && (
+                <div className="mx-auto w-full max-w-4xl space-y-6">
+                  <div>
+                    <h2 className="text-xl font-black text-[var(--text-primary)]">{s.keyboardMouse}</h2>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">{s.keyboardMouseDescription}</p>
+                  </div>
+                  <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-sm">
+                    <div className="mb-4 flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)]/10 text-[var(--accent)]"><MousePointer2 className="h-5 w-5" /></span>
+                      <div><h3 className="font-bold text-[var(--text-primary)]">{s.selectionButton}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">{s.selectionButtonDescription}</p></div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(['left', 'right'] as const).map((button) => (
+                        <button key={button} type="button" onClick={() => updateKeyboardMouseSettings({ selectionButton: button })} aria-pressed={keyboardMouse.selectionButton === button}
+                          className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-colors ${keyboardMouse.selectionButton === button ? 'border-[var(--accent)] bg-[var(--accent)]/8 ring-1 ring-[var(--accent)]/30' : 'border-[var(--card-border)] hover:border-[var(--accent)]/40'}`}>
+                          <svg viewBox="0 0 64 78" className="h-14 w-12 shrink-0" aria-hidden="true">
+                            <rect x="8" y="3" width="48" height="70" rx="22" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[var(--text-muted)]" />
+                            <path d="M32 4v27M8 31h48" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--text-muted)]" />
+                            <path d={button === 'left' ? 'M10 25V15a13 13 0 0 1 21-10v20Z' : 'M54 25V15A13 13 0 0 0 33 5v20Z'} fill="var(--accent)" opacity={keyboardMouse.selectionButton === button ? 0.9 : 0.22} />
+                            <text x="32" y="49" textAnchor="middle" fontSize="7" fill="currentColor" className="text-[var(--text-muted)]">{button === 'left' ? 'LEFT' : 'RIGHT'}</text>
+                          </svg>
+                          <span className="min-w-0"><span className="block text-sm font-bold text-[var(--text-primary)]">{button === 'left' ? s.leftClickSelection : s.rightClickSelection}</span><span className="mt-1 block text-xs text-[var(--text-muted)]">{button === 'left' ? s.leftClickSelectionHint : s.rightClickSelectionHint}</span></span>
+                          <span className={`ml-auto h-4 w-4 shrink-0 rounded-full border ${keyboardMouse.selectionButton === button ? 'border-[var(--accent)] bg-[var(--accent)] ring-2 ring-[var(--accent)]/20' : 'border-[var(--card-border)]'}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-sm">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)]/10 text-[var(--accent)]"><Keyboard className="h-5 w-5" /></span><div><h3 className="font-bold text-[var(--text-primary)]">{s.keyboardShortcuts}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">{s.keyboardShortcutsDescription}</p></div></div>
+                      <button type="button" onClick={() => updateKeyboardMouseSettings({ shortcuts: DEFAULT_SHORTCUTS })} className="shrink-0 rounded-lg border border-[var(--card-border)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--accent)]">{s.resetShortcuts}</button>
+                    </div>
+                    <div className="divide-y divide-[var(--card-border)]">
+                      {(['copy', 'paste', 'cut', 'undo', 'redo', 'delete', 'selectAll', 'duplicate', 'save'] as ShortcutAction[]).map((action) => (
+                        <div key={action} className="flex min-h-12 items-center justify-between gap-3 py-2">
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{s.shortcutActions[action]}</span>
+                          <button type="button" onClick={() => setRecordingShortcut(action)} onKeyDown={(event) => {
+                            if (!recordingShortcut) return;
+                            event.preventDefault(); event.stopPropagation();
+                            const key = event.key;
+                            if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return;
+                            const parts = [event.ctrlKey ? 'Ctrl' : '', event.metaKey ? '⌘' : '', event.altKey ? 'Alt' : '', event.shiftKey ? 'Shift' : '', key.length === 1 ? key.toUpperCase() : key === ' ' ? 'Space' : key].filter(Boolean);
+                            if (parts.length === 1 && !['Delete', 'Backspace', 'Escape'].includes(parts[0])) return;
+                            updateKeyboardMouseSettings({ shortcuts: { ...keyboardMouse.shortcuts, [recordingShortcut]: parts.join('+') } });
+                            setRecordingShortcut(null);
+                          }} className={`min-w-28 rounded-lg border px-3 py-1.5 text-center font-mono text-xs font-bold ${recordingShortcut === action ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--card-border)] bg-[var(--app-bg)] text-[var(--text-primary)]'}`}>
+                            {recordingShortcut === action ? s.pressShortcut : keyboardMouse.shortcuts[action] || DEFAULT_KEYBOARD_MOUSE_SETTINGS.shortcuts[action]}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              )}
               {activeSettingsTab === 'editor' && (
                 <div className="space-y-5">
                   <section className={settingsRowClass}>

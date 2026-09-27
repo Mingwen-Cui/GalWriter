@@ -4,7 +4,11 @@ import { settingsModalJa } from './ja';
 import { settingsModalZh } from './zh';
 
 type LocalizedDictionary<Value> = {
-  [Key in keyof Value]: Value[Key] extends string ? string : Value[Key];
+  [Key in keyof Value]: Value[Key] extends string
+    ? string
+    : Value[Key] extends Record<string, string>
+      ? { [NestedKey in keyof Value[Key]]: string }
+      : Value[Key];
 };
 
 type SettingsModalDictionary = LocalizedDictionary<typeof settingsModalEn>;

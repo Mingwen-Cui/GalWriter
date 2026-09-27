@@ -15,6 +15,7 @@ import type { ComponentProps, CSSProperties, MouseEventHandler, RefObject } from
 import { useEffect, useRef, useState } from 'react';
 
 import { SelectionMenu } from '../../editor-features/selection-tools/SelectionMenu';
+import { useKeyboardMouseSettings } from '../../lib/keyboardMouseSettings';
 import { useDesktopViewport } from '../../lib/useDesktopViewport';
 import { SmartGuides } from './SmartGuides';
 
@@ -102,6 +103,7 @@ export function StoryCanvasWorkspace({
   selectionMenuProps,
 }: StoryCanvasWorkspaceProps) {
   const { fitView, zoomIn, zoomOut, getViewport, setViewport } = useReactFlow();
+  const keyboardMouse = useKeyboardMouseSettings();
   const panCleanupRef = useRef<(() => void) | null>(null);
   const suppressContextMenuRef = useRef(false);
   const selectionPressRef = useRef<{ x: number; y: number } | null>(null);
@@ -109,10 +111,11 @@ export function StoryCanvasWorkspace({
   const [isPanning, setIsPanning] = useState(false);
   useEffect(() => () => panCleanupRef.current?.(), []);
 
-  const startRightPan: MouseEventHandler<HTMLDivElement> = (event) => {
+  const startCanvasPan: MouseEventHandler<HTMLDivElement> = (event) => {
     suppressContextMenuRef.current = false;
+    const panButton = keyboardMouse.selectionButton === 'left' ? 2 : 1;
     if (
-      event.button !== 2 ||
+      event.button !== panButton ||
       event.altKey ||
       (event.target as HTMLElement).closest('button, input, textarea, [contenteditable="true"]')
     )
@@ -200,12 +203,12 @@ export function StoryCanvasWorkspace({
         onMouseDownCapture={(event) => {
           suppressSelectionClickRef.current = false;
           selectionPressRef.current =
-            event.button === 0 &&
+            event.button === (keyboardMouse.selectionButton === 'left' ? 0 : 2) &&
             !cardPlacementPreviewKind &&
             (event.target as HTMLElement).classList.contains('react-flow__pane')
               ? { x: event.clientX, y: event.clientY }
               : null;
-          startRightPan(event);
+          startCanvasPan(event);
           if (event.isPropagationStopped()) return;
           if (!cardPlacementPreviewKind) onMouseDown(event);
           onBackgroundCardPlacementStart?.(event);

@@ -17,6 +17,7 @@ import type { ReactNode, RefObject } from 'react';
 import { useRef, useState } from 'react';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
+import { useKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
 import type { Language } from '../../../lib/i18n';
 import { AudioPlaylistModal, type AudioPlaylistItem } from '../../AudioPlaylistModal';
 import { getRenderObjects } from '../video/shared/renderObjects';
@@ -465,6 +466,7 @@ export function PreviewFloatingElementLayer({
   onAction?: (element: WebMenuElement) => void;
   onDoubleClickButton?: (element: WebMenuElement) => void;
 }) {
+  const keyboardMouse = useKeyboardMouseSettings();
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
   const marqueeRef = useRef<{
@@ -533,7 +535,7 @@ export function PreviewFloatingElementLayer({
   };
   const handleLayerPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (previewMode !== 'edit' || event.currentTarget !== event.target) return;
-    if (event.button !== 0 && event.button !== 2) return;
+    if (event.button !== (keyboardMouse.selectionButton === 'left' ? 0 : 2)) return;
     setSelectedElementIds([]);
     onSelectElement?.(null);
     onSelectElements?.([]);

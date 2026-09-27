@@ -26,6 +26,7 @@ import type {
   TimelineWheelMode,
 } from '../shared/types';
 import { formatSeconds, getTimelineSegmentLayout } from '../timeline/timelineUtils';
+import { useKeyboardMouseSettings } from '../../../../lib/keyboardMouseSettings';
 
 type VideoTimelinePanelProps = {
   language: Language;
@@ -188,6 +189,7 @@ export function VideoTimelinePanel({
   hasVideoCover,
   onOpenVideoCover,
 }: VideoTimelinePanelProps) {
+  const keyboardMouse = useKeyboardMouseSettings();
   const TIMELINE_COLLAPSED_HEIGHT = 44;
   const isCollapsed = timelineHeight <= TIMELINE_COLLAPSED_HEIGHT;
   const selectionDragRef = useRef<{
@@ -340,7 +342,8 @@ export function VideoTimelinePanel({
   };
 
   const handleBoxSelectPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (status === 'rendering' || (event.button !== 0 && event.button !== 2)) return;
+    const selectionButton = keyboardMouse.selectionButton === 'left' ? 0 : 2;
+    if (status === 'rendering' || event.button !== selectionButton) return;
     const target = event.target as HTMLElement;
     if (
       target.closest(

@@ -34,6 +34,7 @@ interface UseCanvasInteractionsParams {
   handleDeleteNode: (id: string) => void;
   handleUpdateNode: (id: string, updates: Record<string, unknown>) => void;
   onRightSelectionComplete?: (showMenu: boolean) => void;
+  selectionButton?: 'left' | 'right';
 }
 
 const getConvexHull = (points: { x: number; y: number }[]) => {
@@ -189,6 +190,7 @@ export const useCanvasInteractions = ({
   handleDeleteNode,
   handleUpdateNode,
   onRightSelectionComplete,
+  selectionButton = 'left',
 }: UseCanvasInteractionsParams) => {
   const [isRightDragging, setIsRightDragging] = useState(false);
   const [showSelectionMenuAfterRightDrag, setShowSelectionMenuAfterRightDrag] = useState(false);
@@ -672,8 +674,9 @@ export const useCanvasInteractions = ({
     (event: ReactMouseEvent) => {
       const target = event.target as HTMLElement;
       if (target.closest('button, input, textarea, [contenteditable="true"]')) return;
+      const selectionMouseButton = selectionButton === 'left' ? 0 : 2;
 
-      if (event.button !== 2) {
+      if (event.button !== selectionMouseButton) {
         setShowSelectionMenuAfterRightDrag(false);
         onRightSelectionComplete?.(false);
       }
@@ -684,7 +687,7 @@ export const useCanvasInteractions = ({
 
       // Keep card dragging and connection handles independent of empty-canvas selection.
       if (
-        event.button !== 0 ||
+        event.button !== selectionMouseButton ||
         target.closest(
           '.react-flow__node, .react-flow__edge, .react-flow__controls, .react-flow__minimap',
         )
@@ -700,7 +703,7 @@ export const useCanvasInteractions = ({
         event.shiftKey || event.ctrlKey || event.metaKey,
       );
     },
-    [onRightSelectionComplete, startQuickConnect, startSelection],
+    [onRightSelectionComplete, selectionButton, startQuickConnect, startSelection],
   );
 
   const handleMouseMove = useCallback(

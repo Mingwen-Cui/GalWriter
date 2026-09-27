@@ -122,6 +122,7 @@ import { useAssistantSystem } from './useAssistantSystem';
 import { useEditorFooterHint } from './useEditorFooterHint';
 import { useEditorHistory } from './useEditorHistory';
 import { useEditorKeyboardShortcuts } from './useEditorKeyboardShortcuts';
+import { useKeyboardMouseSettings } from '../../lib/keyboardMouseSettings';
 import { useEditorUtilityActions } from './useEditorUtilityActions';
 import { useGraphPresentation } from './useGraphPresentation';
 import { usePlotStructureGeneration } from './usePlotStructureGeneration';
@@ -132,6 +133,7 @@ import { useStoryPresentationBindings } from './useStoryPresentationBindings';
 import { syncCloseButtonBehavior } from './windowBehavior';
 
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
+  const keyboardMouse = useKeyboardMouseSettings();
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
   const { alert: showDialogAlert } = useDialog();
@@ -1259,16 +1261,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setTtsLoading,
     getCenterPosition,
     showToast,
-  });
-
-  useEditorKeyboardShortcuts({
-    deleteSelected,
-    handleCopy,
-    handlePaste,
-    redo,
-    showToast,
-    textCopiedMessage: storyEditorCopy.textCopied,
-    undo,
   });
 
   const handleUpdateNode = useCallback(
@@ -2431,6 +2423,20 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     showToast,
   });
 
+  useEditorKeyboardShortcuts({
+    deleteSelected,
+    handleCopy,
+    handlePaste,
+    redo,
+    showToast,
+    textCopiedMessage: storyEditorCopy.textCopied,
+    undo,
+    shortcuts: keyboardMouse.shortcuts,
+    duplicate: () => { handleCopy(); handlePaste(); },
+    selectAll: () => setNodes((current) => current.map((node) => ({ ...node, selected: !node.data?.locked }))),
+    save: () => { void saveCurrentProject(); },
+  });
+
   const footerHint = useEditorFooterHint({
     assistantOpen,
     language,
@@ -2614,6 +2620,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     canvasTouchAction,
   } = useCanvasInteractions({
     nodes,
+    selectionButton: keyboardMouse.selectionButton,
     interactionMode,
     selectionBoxRef,
     screenToFlowPosition,

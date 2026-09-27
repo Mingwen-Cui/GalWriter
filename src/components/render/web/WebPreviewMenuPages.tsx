@@ -29,6 +29,7 @@ import {
 import type { WebSaveSlot } from './webExport/webSaveSlots';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
+import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
 import { WEB_BUTTON_MOTION_CSS, webButtonMotionStyle } from './webButtonMotion';
 
 type PlacementResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -266,7 +267,7 @@ export function WebPreviewMenuPages({
     // Editable elements stop propagation before this empty-canvas handler.
     // Left-drag is the normal marquee-selection gesture; a zero-size marquee
     // from a plain empty click clears the current selection.
-    if (previewMode !== 'edit' || event.button !== 0) return;
+    if (previewMode !== 'edit' || event.button !== (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2)) return;
     const root = page === 'archive' ? archiveRootRef.current : settingsRootRef.current;
     const rect = root?.getBoundingClientRect();
     if (!rect) return;

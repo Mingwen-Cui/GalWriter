@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { ShortcutMap } from '../../lib/keyboardMouseSettings';
 
 type UseEditorKeyboardShortcutsOptions = {
   deleteSelected: () => void;
@@ -8,6 +9,10 @@ type UseEditorKeyboardShortcutsOptions = {
   showToast: (message: string, tone?: 'success' | 'error') => void;
   textCopiedMessage: string;
   undo: () => void;
+  shortcuts: ShortcutMap;
+  duplicate: () => void;
+  selectAll: () => void;
+  save: () => void;
 };
 
 export function useEditorKeyboardShortcuts({
@@ -18,12 +23,19 @@ export function useEditorKeyboardShortcuts({
   showToast,
   textCopiedMessage,
   undo,
+  shortcuts,
+  duplicate,
+  selectAll,
+  save,
 }: UseEditorKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().includes('MAC');
-      const modifier = isMac ? event.metaKey : event.ctrlKey;
-      const key = event.key.toLowerCase();
+      const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+      const pressed = [event.ctrlKey || event.metaKey ? 'Ctrl' : '', event.altKey ? 'Alt' : '', event.shiftKey ? 'Shift' : '', key].filter(Boolean).join('+');
+      const matches = (action: keyof ShortcutMap) => {
+        const configured = (shortcuts[action] || '').replace(/Command|Cmd|⌘/gi, 'Ctrl').replace(/\s/g, '');
+        return configured.toLowerCase() === pressed.toLowerCase();
+      };
       const activeElement = document.activeElement;
       const activeTag = activeElement?.tagName.toLowerCase();
       const hasInputSelection =
@@ -34,7 +46,7 @@ export function useEditorKeyboardShortcuts({
         activeElement.selectionStart !== activeElement.selectionEnd;
       const hasDocumentSelection = Boolean(window.getSelection()?.toString());
 
-      if (modifier && key === 'c' && (hasInputSelection || hasDocumentSelection)) {
+      if (matches('copy') && (hasInputSelection || hasDocumentSelection)) {
         showToast(textCopiedMessage);
         return;
       }
@@ -46,27 +58,21 @@ export function useEditorKeyboardShortcuts({
         return;
       }
 
-      if (modifier && key === 'z') {
-        event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
-      } else if (modifier && key === 'y') {
-        event.preventDefault();
-        redo();
-      } else if (modifier && key === 'c') {
-        handleCopy();
-      } else if (modifier && key === 'v') {
-        event.preventDefault();
-        handlePaste();
-      } else if (key === 'delete' || key === 'backspace') {
-        if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
-          event.preventDefault();
-          deleteSelected();
-        }
-      }
+      const action = (['copy', 'paste', 'cut', 'undo', 'redo', 'delete', 'selectAll', 'duplicate', 'save'] as const).find(matches);
+      if (!action) return;
+      event.preventDefault();
+      if (action === 'copy') handleCopy();
+      else if (action === 'paste') handlePaste();
+      else if (action === 'cut') { handleCopy(); deleteSelected(); }
+      else if (action === 'undo') undo();
+      else if (action === 'redo') redo();
+      else if (action === 'delete') deleteSelected();
+      else if (action === 'selectAll') selectAll();
+      else if (action === 'duplicate') duplicate();
+      else if (action === 'save') save();
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [deleteSelected, handleCopy, handlePaste, redo, showToast, textCopiedMessage, undo]);
+  }, [deleteSelected, duplicate, handleCopy, handlePaste, redo, save, selectAll, shortcuts, showToast, textCopiedMessage, undo]);
 }

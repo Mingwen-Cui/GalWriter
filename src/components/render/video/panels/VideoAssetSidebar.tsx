@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import { MEDIA_FILE_ACCEPT } from '../../../../lib/mediaImport';
 import type { AssetCardLayout, AssetRegionOption } from '../shared/types';
+import { useKeyboardMouseSettings } from '../../../../lib/keyboardMouseSettings';
 
 type VideoAssetSidebarProps = {
   language: Language;
@@ -106,12 +107,14 @@ export function VideoAssetSidebar({
   handleAssetScaleHandleMove,
   handleAssetScaleHandleEnd,
 }: VideoAssetSidebarProps) {
+  const keyboardMouse = useKeyboardMouseSettings();
   const selectionDragRef = useRef<{
     startX: number;
     startY: number;
     currentX: number;
     currentY: number;
     pointerId: number;
+    button: number;
   } | null>(null);
   const suppressNextContextMenuRef = useRef(false);
   const [selectionBox, setSelectionBox] = useState<{
@@ -137,7 +140,8 @@ export function VideoAssetSidebar({
 
   const handleSelectionPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.currentTarget.focus({ preventScroll: true });
-    if (event.button !== 2) return;
+    const selectionButton = keyboardMouse.selectionButton === 'left' ? 0 : 2;
+    if (event.button !== selectionButton) return;
     const target = event.target as HTMLElement;
     if (target.closest('button,input,select,textarea,[draggable="true"]')) return;
     event.preventDefault();
@@ -147,6 +151,7 @@ export function VideoAssetSidebar({
       currentX: event.clientX,
       currentY: event.clientY,
       pointerId: event.pointerId,
+      button: event.button,
     };
     selectionDragRef.current = drag;
     setSelectionBox(drag);
@@ -173,7 +178,7 @@ export function VideoAssetSidebar({
     const height = Math.abs(drag.currentY - drag.startY);
     if (width < 5 && height < 5) return;
 
-    suppressNextContextMenuRef.current = true;
+    suppressNextContextMenuRef.current = drag.button === 2;
     const selectionRect = {
       left: Math.min(drag.startX, drag.currentX),
       right: Math.max(drag.startX, drag.currentX),
@@ -196,7 +201,7 @@ export function VideoAssetSidebar({
       .filter((id): id is string => Boolean(id));
     const uniqueIds = Array.from(new Set(ids));
     setAssetSelection(uniqueIds);
-    if (uniqueIds.length > 0) {
+    if (drag.button === 2 && uniqueIds.length > 0) {
       openContextMenu(event as unknown as React.MouseEvent<HTMLElement>, {
         kind: 'asset',
         selectedNodeIds: uniqueIds,
