@@ -886,7 +886,7 @@ html.canvas-selection-dragging * {
   border: 1px solid #dbe3f0;
   border-radius: 0.8rem;
   background: #fff;
-  padding: 0.7rem 0.8rem 1.65rem;
+  padding: 0.7rem 0.8rem;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.045);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
@@ -931,8 +931,13 @@ html.canvas-selection-dragging * {
   font-weight: 800;
 }
 
+.assistant-story-outline__node-heading input {
+  flex: 1 1 auto;
+  width: 0;
+}
+
 .assistant-story-outline__node textarea {
-  min-height: 2.6rem;
+  min-height: 3.8rem;
   resize: vertical;
   padding-left: 2rem;
   color: #64748b;
@@ -941,9 +946,9 @@ html.canvas-selection-dragging * {
 }
 
 .assistant-story-outline__count {
-  position: absolute;
-  right: 0.75rem;
-  bottom: 0.5rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
   color: #4f46e5;
   font-size: 0.66rem;
   font-weight: 700;

@@ -1960,7 +1960,11 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         const textNodeId = uuidv4();
         const x = center.x - regionWidth / 2 + index * regionGap;
         const y = top;
-        const text = `${stage.subtitle}\n本阶段约 ${stage.estimatedCharacterCount.toLocaleString()} 字`;
+        const stageCount = assistantCopy.profileFlow.outlineCount.replace(
+          '{count}',
+          stage.estimatedCharacterCount.toLocaleString(language === 'zh' ? 'zh-CN' : language),
+        );
+        const text = `${stage.subtitle}\n${stageCount}`;
         return {
           title: stage.title,
           groupNodeId,

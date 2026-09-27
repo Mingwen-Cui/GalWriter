@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 
 import type { AssistantStoryOutline } from '../editor-state/editorConfig';
 import type { Language } from '../lib/i18n';
+import { assistantPanelCopy } from './i18n/assistant';
 
 type Props = {
   outline: AssistantStoryOutline;
@@ -15,7 +16,10 @@ const textFor = (language: Language, zh: string, ja: string, en: string) =>
   language === 'ja' ? ja : language === 'en' ? en : zh;
 
 const formatCount = (count: number, language: Language) =>
-  `${textFor(language, '约', '約', '~')} ${Math.round(count).toLocaleString(language === 'zh' ? 'zh-CN' : language)} ${textFor(language, '字', '字', 'chars')}`;
+  assistantPanelCopy(language).profileFlow.outlineCount.replace(
+    '{count}',
+    Math.round(count).toLocaleString(language === 'zh' ? 'zh-CN' : language),
+  );
 
 export function AssistantStoryOutlineFlow({ outline, language, onChange }: Props) {
   const [maximized, setMaximized] = useState(false);
@@ -63,10 +67,13 @@ export function AssistantStoryOutlineFlow({ outline, language, onChange }: Props
                       onChange({ ...outline, stages });
                     }}
                   />
+                  <span className="assistant-story-outline__count">
+                    {formatCount(stage.estimatedCharacterCount, language)}
+                  </span>
                 </div>
                 <textarea
                   aria-label={textFor(language, `第 ${index + 1} 段内容`, `第${index + 1}段の内容`, `Stage ${index + 1} summary`)}
-                  rows={2}
+                  rows={3}
                   value={stage.subtitle}
                   onChange={(event) => {
                     const stages = outline.stages.map((item, itemIndex) =>
@@ -75,9 +82,6 @@ export function AssistantStoryOutlineFlow({ outline, language, onChange }: Props
                     onChange({ ...outline, stages });
                   }}
                 />
-                <span className="assistant-story-outline__count">
-                  {formatCount(stage.estimatedCharacterCount, language)}
-                </span>
               </article>
               {index < outline.stages.length - 1 && (
                 <div className="assistant-story-outline__connector" aria-hidden="true">

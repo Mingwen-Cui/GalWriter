@@ -436,9 +436,7 @@ export async function buildPptxBuffer({
     const sceneTextOverrides = textOverrides[scene.id] || {};
     const sceneTitle = sceneTextOverrides['dialog-title'] ?? scene.title;
     const sceneBody = sceneTextOverrides['dialog-body'] ?? scene.text;
-    const sceneNameplate =
-      sceneTextOverrides.nameplate ??
-      scene.characters.find((character) => character.name)?.name?.trim();
+    const nameplateCharacters = scene.characters.filter((character) => character.name?.trim());
     const slide = pptx.addSlide();
     slide.hidden = hiddenSlideIds.has(scene.id);
     const sceneSlideNumber = slideByNodeId.get(scene.id);
@@ -453,12 +451,8 @@ export async function buildPptxBuffer({
     const body = objects.body;
     const nameplate = objects.nameplate;
     const choiceObject = objects.choice;
-    const speakerName = sceneNameplate;
     const shouldRenderNameplate =
-      Boolean(speakerName) && style.nameplateVisible !== false && nameplate.visible;
-    const nameplateObjectName = `ppt-nameplate-${scene.id}`;
-    const nameplateTextObjectName = `${nameplateObjectName}-text`;
-    let nameplateAnimationTargetsAdded = false;
+      nameplateCharacters.length > 0 && style.nameplateVisible !== false && nameplate.visible;
     const addAnimationTargets = (
       objectName: string,
       target: PptAnimationExportTarget['animation']['target'],
@@ -618,11 +612,6 @@ export async function buildPptxBuffer({
         flipH: character.flipX,
       });
       addAnimationTargets(objectName, 'character', character.sourceNodeId);
-      if (shouldRenderNameplate && character.sourceNodeId === speakerCharacter?.sourceNodeId) {
-        addAnimationTargets(nameplateObjectName, 'nameplate');
-        addAnimationTargets(nameplateTextObjectName, 'nameplate');
-        nameplateAnimationTargetsAdded = true;
-      }
       let currentCharacterObjectName = objectName;
       for (const [index, animation] of sceneAnimations
         .filter(
@@ -646,11 +635,6 @@ export async function buildPptxBuffer({
         addNativeSwitch(currentCharacterObjectName, nextObjectName, animation);
         currentCharacterObjectName = nextObjectName;
       }
-    }
-
-    if (shouldRenderNameplate && !nameplateAnimationTargetsAdded) {
-      addAnimationTargets(nameplateObjectName, 'nameplate');
-      addAnimationTargets(nameplateTextObjectName, 'nameplate');
     }
 
     if (scene.lightOverlayUrl) {
@@ -779,36 +763,94 @@ export async function buildPptxBuffer({
       }
     }
     if (shouldRenderNameplate) {
-      const x = Math.max(0, Math.min(11.8, 0.93 + nameplate.x / 100));
-      const y = Math.max(0, Math.min(7.0, 5.63 - nameplate.y / 100));
-      const w = Math.max(1.1, Math.min(5, (13.333 * nameplate.width) / 100));
-      const h = Math.max(0.26, nameplate.height / 100);
-      const nameplateFrame = page.frame(x, y, w, h);
-      slide.addShape(pptx.ShapeType.roundRect, {
-        objectName: nameplateObjectName,
-        ...nameplateFrame,
-        rectRadius: Math.max(0.02, nameplate.radius / 180),
-        fill: { color: hex(nameplate.fill.color), transparency: 100 - nameplate.fill.alpha },
-        line: nameplate.stroke.enabled
-          ? {
-              color: hex(nameplate.stroke.color),
-              transparency: 100 - nameplate.stroke.alpha,
-              width: nameplate.stroke.width,
-            }
-          : { transparency: 100 },
-        rotate: nameplate.rotation,
-      });
-      slide.addText(speakerName, {
-        objectName: nameplateTextObjectName,
-        ...page.frame(x + 0.06, y + 0.05, w - 0.12, Math.max(0.16, h - 0.1)),
-        fontFace: toPptFontFace(nameplate.fontFamily),
-        fontSize: Math.max(8 * page.scale, nameplate.fontSize * 0.66 * page.scale),
-        bold: nameplate.fontWeight >= 700,
-        color: hex(style.nameplateTextColor || '#FFFFFF'),
-        align: nameplate.textAlign,
-        margin: 0,
-        rotate: nameplate.rotation,
-      });
+      const followCharacter = style.nameplateFollowCharacter !== false;
+      const height = Math.min(0.4, Math.max(0.32, nameplate.height / 100));
+      const fontSize = Math.max(
+        10 * page.scale,
+        (style.nameplateFontSize || nameplate.fontSize) * 0.66 * page.scale,
+      );
+      for (const [index, character] of nameplateCharacters.entries()) {
+        const label =
+          nameplateCharacters.length === 1
+            ? textOverrides[scene.id]?.nameplate ?? character.name?.trim() ?? ''
+            : character.name?.trim() ?? '';
+        if (!label) continue;
+        const width = Math.max(1.1, Math.min(3.2, label.length * fontSize * 0.009 + 0.55));
+        const baseX =
+          character.position === 'left' ? 0.24 : character.position === 'right' ? 0.76 : 0.5;
+        const characterCenter = baseX + character.offsetX / 1000;
+        const centerX = followCharacter
+          ? characterCenter + (style.nameplateOffsetX || 0) / 1920
+          : 0.5 + (index - (nameplateCharacters.length - 1) / 2) * 0.18;
+        const characterTop =
+          1 - CHARACTER_STAGE_MAX_HEIGHT_PERCENT / 100 - character.offsetY / 1000;
+        const x = Math.max(0.02, Math.min(13.313 - width, centerX * 13.333 - width / 2));
+        const y = followCharacter
+          ? Math.max(
+              0.04,
+              Math.min(6.9, (characterTop + 0.02) * 7.5 + (style.nameplateOffsetY || 0) / 144),
+            )
+          : Math.max(
+              0.04,
+              Math.min(
+                6.9,
+                (panel.y / 1080) * 7.5 -
+                  (style.nameplateInside ? -0.12 : height + 0.12) +
+                  (style.nameplateOffsetY || 0) / 144,
+              ),
+            );
+        const objectName = `ppt-nameplate-${scene.id}-${character.sourceNodeId}`;
+        const textObjectName = `${objectName}-text`;
+        const nameplateFrame = page.frame(x, y, width, height);
+        slide.addShape(pptx.ShapeType.roundRect, {
+          objectName,
+          ...nameplateFrame,
+          rectRadius: Math.max(0.02, nameplate.radius / 180),
+          fill: { color: hex(nameplate.fill.color), transparency: 0 },
+          line: nameplate.stroke.enabled
+            ? {
+                color: hex(nameplate.stroke.color),
+                transparency: 100 - nameplate.stroke.alpha,
+                width: nameplate.stroke.width,
+              }
+            : { transparency: 100 },
+          rotate: nameplate.rotation,
+        });
+        slide.addText(label, {
+          objectName: textObjectName,
+          ...page.frame(x + 0.08, y + 0.04, width - 0.16, Math.max(0.2, height - 0.08)),
+          fontFace: toPptFontFace(style.nameplateFontFamily || nameplate.fontFamily),
+          fontSize,
+          bold: nameplate.fontWeight >= 700,
+          color: hex(style.nameplateTextColor || '#FFFFFF'),
+          align: 'center',
+          margin: 0,
+          rotate: nameplate.rotation,
+        });
+        addAnimationTargets(
+          objectName,
+          followCharacter ? 'character' : 'nameplate',
+          followCharacter ? character.sourceNodeId : undefined,
+        );
+        addAnimationTargets(
+          textObjectName,
+          followCharacter ? 'character' : 'nameplate',
+          followCharacter ? character.sourceNodeId : undefined,
+        );
+        const explicitNameplateAnimations = sceneAnimations.filter(
+          (animation) => animation.target === 'nameplate' && animation.source !== 'tag',
+        );
+        if (followCharacter) {
+          explicitNameplateAnimations.forEach((animation) => {
+            animationTargets.push({ slideNumber: sceneSlideNumber!, objectName, animation });
+            animationTargets.push({
+              slideNumber: sceneSlideNumber!,
+              objectName: textObjectName,
+              animation,
+            });
+          });
+        }
+      }
     }
     const sceneNotes =
       pptSettings.speakerNotes?.[scene.id] ||

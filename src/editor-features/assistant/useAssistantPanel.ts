@@ -2213,6 +2213,7 @@ The previous streaming response did not complete every placeholder card. Return 
           disableAutomaticAssistantBackgrounds: true,
           skipAnimation: true,
         };
+        const outlineCountCopy = assistantPanelCopy(language).profileFlow.outlineCount;
         effectiveUserText = formatLocalizedCopy(
           assistantPanelCopy(language).profileFlow.generatePrompt,
           {
@@ -2221,10 +2222,10 @@ The previous streaming response did not complete every placeholder card. Return 
               assistantPanelCopy(language).profileFlow.profileSummary,
             ),
             outline: [
-              `${workflow.outline.lengthLabel} · ${workflow.outline.estimatedCharacterCount.toLocaleString()} 字`,
+              `${workflow.outline.lengthLabel} · ${formatLocalizedCopy(outlineCountCopy, { count: workflow.outline.estimatedCharacterCount.toLocaleString() })}`,
               ...workflow.outline.stages.map(
                 (stage, index) =>
-                  `${index + 1}. ${stage.title}（约 ${stage.estimatedCharacterCount.toLocaleString()} 字）\n${stage.subtitle}`,
+                  `${index + 1}. ${stage.title} (${formatLocalizedCopy(outlineCountCopy, { count: stage.estimatedCharacterCount.toLocaleString() })})\n${stage.subtitle}`,
               ),
             ].join('\n'),
           },

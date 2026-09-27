@@ -2347,11 +2347,21 @@ function ScenePreview({
   const body = objects.body;
   const panel = objects.dialogBox;
   const nameplate = objects.nameplate;
-  const speakerName =
-    textOverrides?.nameplate ?? scene.characters.find((character) => character.name)?.name?.trim();
+  const opaqueNameplate = {
+    ...nameplate,
+    fill: {
+      ...nameplate.fill,
+      alpha: 100,
+      gradientStops: nameplate.fill.gradientStops.map((stop) => ({ ...stop, alpha: 100 })),
+    },
+  };
+  const nameplateCharacters = scene.characters.filter((character) => character.name?.trim());
   const titleText = textOverrides?.['dialog-title'] ?? scene.title;
   const bodyText = textOverrides?.['dialog-body'] ?? scene.text;
   const bodyAnimations = findAnimation(animations, 'dialog-body');
+  const explicitNameplateAnimations = animations.filter(
+    (animation) => animation.target === 'nameplate' && animation.source !== 'tag',
+  );
   const bodyAnimation = bodyAnimations.find(
     (animation) => animation.textBuild?.mode === 'line-wipe',
   );
@@ -2455,6 +2465,84 @@ function ScenePreview({
           }}
         />
       ) : null}
+      {nameplate.visible && renderStyle.nameplateVisible !== false
+        ? nameplateCharacters.map((character, index) => {
+            const followCharacter = renderStyle.nameplateFollowCharacter !== false;
+            const basePosition =
+              character.position === 'left' ? 24 : character.position === 'right' ? 76 : 50;
+            const characterCenter = basePosition + character.offsetX / 10;
+            const labelLeft = followCharacter
+              ? characterCenter + (renderStyle.nameplateOffsetX || 0) / 19.2
+              : 50 + (index - (nameplateCharacters.length - 1) / 2) * 18;
+            const labelTop = followCharacter
+              ? Math.max(
+                  2,
+                  Math.min(
+                    82,
+                    8 - character.offsetY / 10 + 2 + (renderStyle.nameplateOffsetY || 0) / 10.8,
+                  ),
+                )
+              : Math.max(
+                  2,
+                  (panelLayout.y - (renderStyle.nameplateInside ? -12 : nameplate.height + 14)) /
+                    10.8 + (renderStyle.nameplateOffsetY || 0) / 10.8,
+                );
+            const characterAnimations = findAnimation(
+              animations,
+              'character',
+              character.sourceNodeId,
+            );
+            const label =
+              nameplateCharacters.length === 1
+                ? (textOverrides?.nameplate ?? character.name?.trim())
+                : character.name?.trim();
+            if (!label) return null;
+            const nameplateFontSize = Math.max(16, renderStyle.nameplateFontSize || 18);
+            const nameplateHeight = Math.min(40, Math.max(32, nameplate.height || 40));
+            return (
+              <div
+                key={`nameplate:${character.sourceNodeId}`}
+                aria-label={`人物标签：${label}`}
+                className="pointer-events-none absolute z-50 inline-flex max-w-[28%] -translate-x-1/2 items-center justify-center gap-2 overflow-hidden border px-4 text-center font-extrabold shadow-xl"
+                style={{
+                  left: `${Math.max(3, Math.min(97, labelLeft))}%`,
+                  top: `${labelTop}%`,
+                  minWidth: '84px',
+                  height: `${nameplateHeight}px`,
+                  minHeight: `${nameplateHeight}px`,
+                  boxSizing: 'border-box',
+                  paddingTop: '5px',
+                  paddingBottom: '5px',
+                  borderRadius:
+                    nameplate.corners?.map((radius) => `${radius}px`).join(' ') || nameplate.radius,
+                  fontFamily:
+                    renderStyle.nameplateFontFamily ||
+                    nameplate.fontFamily ||
+                    renderStyle.titleFontFamily,
+                  fontSize: `${nameplateFontSize}px`,
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  ...objectPaint(opaqueNameplate),
+                  ...textPaint(nameplate),
+                  color: alphaColor(
+                    renderStyle.nameplateTextColor,
+                    renderStyle.nameplateTextColorAlpha ?? 100,
+                  ),
+                  ...previewStyle(
+                    followCharacter
+                      ? [...characterAnimations, ...explicitNameplateAnimations]
+                      : explicitNameplateAnimations,
+                    previewing,
+                    previewAtMs,
+                  ),
+                }}
+              >
+                {label}
+              </div>
+            );
+          })
+        : null}
       <PptEditableObject
         kind="dialogBox"
         target="dialog-panel"
@@ -2515,38 +2603,6 @@ function ScenePreview({
           <PresentationText block={textLayout.body} />
         </PptEditableObject>
       </PptEditableObject>
-      {speakerName && nameplate.visible && renderStyle.nameplateVisible !== false ? (
-        <PptEditableObject
-          kind="nameplate"
-          target="nameplate"
-          label="人名"
-          object={nameplate}
-          selected={selected}
-          animation={findAnimation(animations, 'nameplate')}
-          previewing={previewing}
-          previewAtMs={previewAtMs}
-          editable={editable}
-          onSelect={onSelect}
-          onUpdate={onUpdateObject}
-          textValue={speakerName}
-          onTextChange={(text) => onUpdateText?.('nameplate', text)}
-          className="absolute z-50 grid place-items-center px-3 text-center"
-          style={{
-            left: `${(panelLayout.x + nameplate.x) / 19.2}%`,
-            bottom: `${(1080 - (panelLayout.y + panelLayout.height) - nameplate.y) / 10.8}%`,
-            width: `${nameplate.width}%`,
-            height: `${nameplate.height}px`,
-            ...objectPaint(nameplate),
-            ...textPaint(nameplate),
-            color: alphaColor(
-              renderStyle.nameplateTextColor,
-              renderStyle.nameplateTextColorAlpha ?? 100,
-            ),
-          }}
-        >
-          {speakerName}
-        </PptEditableObject>
-      ) : null}
     </>
   );
 }
