@@ -227,6 +227,10 @@ export function useProjectManagement(params: UseProjectManagementParams) {
   // Internal refs
   // =========================================================================
   const isSavingProjectRef = useRef(false);
+  const languageRef = useRef(language);
+  React.useLayoutEffect(() => {
+    languageRef.current = language;
+  }, [language]);
 
   const getSettingLibraryItemsForExport = useCallback(
     () => localPersistenceService.listSettingLibraryItems(),
@@ -418,12 +422,11 @@ export function useProjectManagement(params: UseProjectManagementParams) {
       setShowProjectHome(false);
       await localPersistenceService.saveLastProjectId(projectId);
       if (options?.fromHome) {
-        showToast(language === 'zh' ? '已打开本地项目' : 'Project opened');
+        showToast(languageRef.current === 'zh' ? '已打开本地项目' : 'Project opened');
       }
     },
     [
       applyProjectData,
-      language,
       resetAssistantTasks,
       showToast,
       setHistory,

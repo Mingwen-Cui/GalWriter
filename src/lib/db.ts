@@ -8,6 +8,7 @@ import type {
   StoryProject,
 } from '../domain/project';
 import type { SettingLibraryItem } from '../domain/settingLibrary';
+import type { Language } from './i18n';
 import { registerBlobAsset } from './blobAssetRegistry';
 
 export interface AutoSaveRecord {
@@ -31,6 +32,7 @@ export interface LocalProjectSummary {
 }
 
 export interface LocalAppSettings {
+  language: Language;
   theme: 'light' | 'dark' | 'system' | null;
   lastProjectId: string | null;
   startupProjectId: string | null;
@@ -154,6 +156,7 @@ const DB_NAME = 'GalWriterDB';
 const DB_VERSION = 6;
 const APP_SETTINGS_KEY = 'current';
 const DEFAULT_APP_SETTINGS: LocalAppSettings = {
+  language: 'zh',
   theme: null,
   lastProjectId: null,
   startupProjectId: null,
@@ -720,10 +723,11 @@ export const saveAppSettings = async (
   nextSettings: Partial<LocalAppSettings>,
 ): Promise<LocalAppSettings> => {
   const db = await getDB();
-  const current = ((await db.get('appSettings', APP_SETTINGS_KEY)) ??
-    DEFAULT_APP_SETTINGS) as LocalAppSettings;
+  const tx = db.transaction('appSettings', 'readwrite');
+  const current = ((await tx.store.get(APP_SETTINGS_KEY)) ?? DEFAULT_APP_SETTINGS) as LocalAppSettings;
   const merged = { ...DEFAULT_APP_SETTINGS, ...current, ...nextSettings };
-  await db.put('appSettings', merged, APP_SETTINGS_KEY);
+  await tx.store.put(merged, APP_SETTINGS_KEY);
+  await tx.done;
   return merged;
 };
 

@@ -6,6 +6,7 @@ import type {
   StoryProject,
 } from '../domain/project';
 import type { SettingLibraryItem } from '../domain/settingLibrary';
+import type { Language } from '../lib/i18n';
 import {
   deleteLocalProject,
   deleteSettingLibraryItem,
@@ -141,6 +142,10 @@ export const localPersistenceService = {
 
   async saveTheme(theme: 'light' | 'dark' | 'system') {
     await saveAppSettings({ theme });
+  },
+
+  async saveLanguage(language: Language) {
+    await saveAppSettings({ language });
   },
 
   async saveCloseButtonBehavior(closeButtonBehavior: 'minimize' | 'quit') {

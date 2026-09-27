@@ -921,12 +921,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setShowHeaderActionLabels(!showHeaderActionLabels)}
-                                className={`relative h-5 w-10 rounded-full transition-all duration-300 ${showHeaderActionLabels ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
+                                className={`relative h-5 w-10 rounded-full transition-all duration-100 ${showHeaderActionLabels ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
                                 aria-pressed={showHeaderActionLabels}
                                 aria-label={s.showHeaderActionLabels}
                               >
                                 <span
-                                  className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${showHeaderActionLabels ? 'left-6' : 'left-1'}`}
+                                  className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-100 ${showHeaderActionLabels ? 'left-6' : 'left-1'}`}
                                 />
                               </button>
                             </div>
@@ -937,12 +937,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setShowSideToolbarLabels(!showSideToolbarLabels)}
-                                className={`relative h-5 w-10 rounded-full transition-all duration-300 ${showSideToolbarLabels ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
+                                className={`relative h-5 w-10 rounded-full transition-all duration-100 ${showSideToolbarLabels ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
                                 aria-pressed={showSideToolbarLabels}
                                 aria-label={s.showSideToolbarLabels}
                               >
                                 <span
-                                  className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${showSideToolbarLabels ? 'left-6' : 'left-1'}`}
+                                  className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-100 ${showSideToolbarLabels ? 'left-6' : 'left-1'}`}
                                 />
                               </button>
                             </div>
@@ -1038,12 +1038,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => item.setter(!item.value)}
-                              className={`w-10 h-5 rounded-full transition-all duration-300 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                              className={`w-10 h-5 rounded-full transition-all duration-100 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                               aria-pressed={item.value}
                               aria-label={item.label}
                             >
                               <div
-                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
+                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
                               />
                             </button>
                           </div>
@@ -1088,10 +1088,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </span>
                         <button
                           onClick={() => item.setter(!item.value)}
-                          className={`w-10 h-5 rounded-full transition-all duration-300 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                          className={`w-10 h-5 rounded-full transition-all duration-100 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                         >
                           <div
-                            className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
+                            className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
                           />
                         </button>
                       </div>
@@ -1152,10 +1152,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setShowPresetColors(!showPresetColors)}
-                        className={`w-10 h-5 overflow-hidden rounded-full transition-all duration-300 relative text-[0px] ${showPresetColors ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                        className={`w-10 h-5 overflow-hidden rounded-full transition-all duration-100 relative text-[0px] ${showPresetColors ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                       >
                         <div
-                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${showPresetColors ? 'left-6' : 'left-1'}`}
+                          className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${showPresetColors ? 'left-6' : 'left-1'}`}
                         />
                         {showPresetColors ? s.shownInToolbar : s.hiddenInToolbar}
                       </button>
@@ -1419,7 +1419,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className={segmentedControlClass}>
                       <button
                         onClick={() => setEdgeStyle('step')}
-                        className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-300 ${edgeStyle === 'step' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
+                        className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-100 ${edgeStyle === 'step' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
                       >
                         <div className="w-11 h-8 flex items-center justify-center">
                           <div className="relative w-8 h-5">
@@ -1436,7 +1436,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                       <button
                         onClick={() => setEdgeStyle('bezier')}
-                        className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-300 ${edgeStyle === 'bezier' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
+                        className={`flex-1 flex flex-col items-center gap-1.5 rounded-md py-3 transition-all duration-100 ${edgeStyle === 'bezier' ? 'bg-[var(--card-bg)] text-[var(--accent)] shadow-sm ring-1 ring-[var(--card-border)]' : 'text-[var(--text-muted)] opacity-70 hover:opacity-100'}`}
                       >
                         <div className="w-11 h-8 flex items-center justify-center">
                           <div className="relative w-8 h-5">
@@ -2268,10 +2268,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </span>
                             <button
                               onClick={() => item.setter(!item.value)}
-                              className={`w-10 h-5 rounded-full transition-all duration-300 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                              className={`w-10 h-5 rounded-full transition-all duration-100 relative ${item.value ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                             >
                               <div
-                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
+                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${item.value ? 'left-6' : 'left-1'}`}
                               />
                             </button>
                           </div>
@@ -2623,10 +2623,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </span>
                             <button
                               onClick={() => setPlayTestAutoAdvance(!playTestAutoAdvance)}
-                              className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestAutoAdvance ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                              className={`w-10 h-5 rounded-full transition-all duration-100 relative shrink-0 ${playTestAutoAdvance ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                             >
                               <div
-                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestAutoAdvance ? 'left-6' : 'left-1'}`}
+                                className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${playTestAutoAdvance ? 'left-6' : 'left-1'}`}
                               />
                             </button>
                           </div>
@@ -2666,10 +2666,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </span>
                           <button
                             onClick={() => setPlayTestVideoAutoPlay(!playTestVideoAutoPlay)}
-                            className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestVideoAutoPlay ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                            className={`w-10 h-5 rounded-full transition-all duration-100 relative shrink-0 ${playTestVideoAutoPlay ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                           >
                             <div
-                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestVideoAutoPlay ? 'left-6' : 'left-1'}`}
+                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${playTestVideoAutoPlay ? 'left-6' : 'left-1'}`}
                             />
                           </button>
                         </div>
@@ -2682,10 +2682,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setPlayTestHideCharacterTags(!playTestHideCharacterTags)}
-                            className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideCharacterTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                            className={`w-10 h-5 rounded-full transition-all duration-100 relative shrink-0 ${playTestHideCharacterTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                           >
                             <div
-                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideCharacterTags ? 'left-6' : 'left-1'}`}
+                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${playTestHideCharacterTags ? 'left-6' : 'left-1'}`}
                             />
                           </button>
                         </div>
@@ -2694,10 +2694,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setPlayTestHideSceneTags(!playTestHideSceneTags)}
-                            className={`w-10 h-5 rounded-full transition-all duration-300 relative shrink-0 ${playTestHideSceneTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
+                            className={`w-10 h-5 rounded-full transition-all duration-100 relative shrink-0 ${playTestHideSceneTags ? 'bg-[var(--accent)] shadow-md' : 'bg-[var(--app-bg)] border border-[var(--header-border)]'}`}
                           >
                             <div
-                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-sm ${playTestHideSceneTags ? 'left-6' : 'left-1'}`}
+                              className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-100 shadow-sm ${playTestHideSceneTags ? 'left-6' : 'left-1'}`}
                             />
                           </button>
                         </div>
@@ -2767,10 +2767,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               onClick={() =>
                                 setSkipAssistantAgentAnimation(!skipAssistantAgentAnimation)
                               }
-                              className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${skipAssistantAgentAnimation ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
+                              className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-100 ${skipAssistantAgentAnimation ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
                             >
                               <div
-                                className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${skipAssistantAgentAnimation ? 'left-6' : 'left-1'}`}
+                                className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-100 ${skipAssistantAgentAnimation ? 'left-6' : 'left-1'}`}
                               />
                             </button>
                           </div>
@@ -2793,10 +2793,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               onClick={() =>
                                 setAssistantMemorySkillEnabled(!assistantMemorySkillEnabled)
                               }
-                              className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-300 ${assistantMemorySkillEnabled ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
+                              className={`relative h-5 w-10 shrink-0 rounded-full transition-all duration-100 ${assistantMemorySkillEnabled ? 'bg-[var(--accent)] shadow-md' : 'border border-[var(--header-border)] bg-[var(--app-bg)]'}`}
                             >
                               <div
-                                className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-300 ${assistantMemorySkillEnabled ? 'left-6' : 'left-1'}`}
+                                className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-100 ${assistantMemorySkillEnabled ? 'left-6' : 'left-1'}`}
                               />
                             </button>
                           </div>
