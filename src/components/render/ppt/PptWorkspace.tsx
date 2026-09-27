@@ -66,7 +66,7 @@ import {
   updateManualElement,
 } from './pptManualContent';
 import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCanvas';
-import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
+import { getKeyboardMouseSettings, getWheelDelta } from '../../../lib/keyboardMouseSettings';
 
 const isConfiguredSelectionButton = (button: number) =>
   button === (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2);
@@ -1008,7 +1008,7 @@ export function PptWorkspace({
       const now = Date.now();
       if (now - stageWheelAtRef.current < 280) return;
       stageWheelAtRef.current = now;
-      if (event.deltaY > 0) next();
+      if (getWheelDelta(event.deltaY) > 0) next();
       else previous();
     },
     [next, previous],

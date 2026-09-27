@@ -22,6 +22,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
+import { getWheelDelta } from '../../../../lib/keyboardMouseSettings';
 import { formatVideoText } from '../i18n';
 import { drawRenderFrame } from '../preview/frameRenderer';
 import { EXPORT_FORMAT_OPTIONS, FRAME_RATE_OPTIONS, RESOLUTION_OPTIONS } from '../shared/constants';
@@ -586,7 +587,7 @@ export function InteractiveSegmentExportWorkspace({
     const pointerY = event.clientY - rect.top;
     const modeScale =
       event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
-    const normalizedDelta = clamp(event.deltaY * modeScale, -240, 240);
+    const normalizedDelta = clamp(getWheelDelta(event.deltaY) * modeScale, -240, 240);
     const zoomDelta = Math.exp(-normalizedDelta * 0.0014);
     setViewportZoomAt(viewportZoomRef.current * zoomDelta, pointerX, pointerY);
   };

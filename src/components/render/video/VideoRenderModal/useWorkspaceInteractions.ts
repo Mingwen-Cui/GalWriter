@@ -1,6 +1,7 @@
 import type { Dispatch, PointerEvent, SetStateAction } from 'react';
 import { useEffect, useRef } from 'react';
 
+import { getWheelDelta } from '../../../../lib/keyboardMouseSettings';
 import {
   ASSET_CARD_MAX_SCALE,
   ASSET_CARD_MIN_SCALE,
@@ -379,7 +380,7 @@ export const useWorkspaceInteractions = ({
       event.stopPropagation();
       const maxScrollLeft = element.scrollWidth - element.clientWidth;
       const scrollDelta =
-        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        getWheelDelta(Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY);
       if (maxScrollLeft <= 0 || scrollDelta === 0) return;
 
       const movingRight = scrollDelta > 0;

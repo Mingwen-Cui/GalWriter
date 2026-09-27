@@ -2,14 +2,19 @@ import { useSyncExternalStore } from 'react';
 
 export type ShortcutAction = 'copy' | 'paste' | 'cut' | 'undo' | 'redo' | 'delete' | 'selectAll' | 'duplicate' | 'save';
 export type ShortcutMap = Record<ShortcutAction, string>;
-export type KeyboardMouseSettings = { selectionButton: 'left' | 'right'; middleButtonPans: boolean; shortcuts: ShortcutMap };
+export type KeyboardMouseSettings = {
+  selectionButton: 'left' | 'right';
+  middleButtonPans: boolean;
+  invertWheelDirection: boolean;
+  shortcuts: ShortcutMap;
+};
 
 export const DEFAULT_SHORTCUTS: ShortcutMap = {
   copy: 'Ctrl+C', paste: 'Ctrl+V', cut: 'Ctrl+X', undo: 'Ctrl+Z', redo: 'Ctrl+Y',
   delete: 'Delete', selectAll: 'Ctrl+A', duplicate: 'Ctrl+D', save: 'Ctrl+S',
 };
 export const DEFAULT_KEYBOARD_MOUSE_SETTINGS: KeyboardMouseSettings = {
-  selectionButton: 'left', middleButtonPans: true, shortcuts: DEFAULT_SHORTCUTS,
+  selectionButton: 'left', middleButtonPans: true, invertWheelDirection: false, shortcuts: DEFAULT_SHORTCUTS,
 };
 
 const STORAGE_KEY = 'galwriter.keyboardMouseSettings.v1';
@@ -26,6 +31,7 @@ function load(): KeyboardMouseSettings {
       cached = {
         selectionButton: parsed?.selectionButton === 'right' ? 'right' : 'left',
         middleButtonPans: parsed?.middleButtonPans !== false,
+        invertWheelDirection: parsed?.invertWheelDirection === true,
         shortcuts: { ...DEFAULT_SHORTCUTS, ...(parsed?.shortcuts || {}) },
       };
     } catch { cached = DEFAULT_KEYBOARD_MOUSE_SETTINGS; }
@@ -34,6 +40,10 @@ function load(): KeyboardMouseSettings {
 }
 
 export function getKeyboardMouseSettings() { return load(); }
+
+export function getWheelDelta(delta: number) {
+  return load().invertWheelDirection ? -delta : delta;
+}
 
 export function updateKeyboardMouseSettings(patch: Partial<KeyboardMouseSettings>) {
   const current = load();

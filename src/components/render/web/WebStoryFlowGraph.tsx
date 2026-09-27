@@ -19,6 +19,7 @@ import type {
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
+import { getWheelDelta } from '../../../lib/keyboardMouseSettings';
 import type { Language } from '../../../lib/i18n';
 import { getNodeDisplayText, getNodeDisplayTitle, stripHtml } from '../video/shared/storyNodes';
 import { formatVideoText } from '../video/i18n';
@@ -459,7 +460,7 @@ export function WebStoryFlowGraph({
   const onWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
-    const delta = clamp(event.deltaY, -240, 240);
+    const delta = clamp(getWheelDelta(event.deltaY), -240, 240);
     setZoomAt(
       zoomRef.current * Math.exp(-delta * 0.0014),
       event.clientX - rect.left,

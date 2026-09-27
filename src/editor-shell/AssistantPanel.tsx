@@ -3,15 +3,17 @@ import {
   CheckCircle2,
   ChevronDown,
   Download,
+  FilePlus2,
   FileText,
   Image,
   Lightbulb,
   Loader2,
+  Maximize2,
   MapPin,
   Mic,
+  Minimize2,
   Pause,
   PencilLine,
-  Plus,
   PlusCircle,
   Redo2,
   RefreshCw,
@@ -55,6 +57,8 @@ interface AssistantPanelProps {
   assistantOpen: boolean;
   isMobile: boolean;
   assistantPanelWidth: number;
+  assistantPanelExpanded: boolean;
+  toggleAssistantPanelExpanded: () => void;
   assistantLoading: boolean;
   assistantListening: boolean;
   assistantDocuments: AssistantDocument[];
@@ -560,6 +564,8 @@ export function AssistantPanel({
   assistantOpen,
   isMobile,
   assistantPanelWidth,
+  assistantPanelExpanded,
+  toggleAssistantPanelExpanded,
   assistantLoading,
   assistantListening,
   assistantDocuments,
@@ -1079,7 +1085,7 @@ export function AssistantPanel({
       ref={assistantPanelRef}
       className={`${
         isMobile
-          ? 'assistant-panel-mobile fixed inset-y-0 right-0 z-[220] w-[min(26rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] shadow-sm'
+          ? `assistant-panel-mobile fixed inset-y-0 right-0 z-[220] shadow-sm ${assistantPanelExpanded ? 'w-screen max-w-none' : 'w-[min(26rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)]'}`
           : `assistant-panel-desktop relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-sm ${showStats ? '' : 'assistant-panel-full-height'}`
       } assistant-panel-shell assistant-panel-chat-surface ${
         panelVisible ? 'assistant-panel-entered' : 'assistant-panel-exiting'
@@ -1157,6 +1163,44 @@ export function AssistantPanel({
             }
           >
             <Redo2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleAssistantPanelExpanded}
+            aria-label={
+              assistantPanelExpanded
+                ? language === 'zh'
+                  ? '还原 AI 助手宽度'
+                  : language === 'ja'
+                    ? 'AIアシスタントの幅を戻す'
+                    : 'Restore AI assistant width'
+                : language === 'zh'
+                  ? '加宽 AI 助手'
+                  : language === 'ja'
+                    ? 'AIアシスタントを拡大'
+                    : 'Expand AI assistant'
+            }
+            aria-pressed={assistantPanelExpanded}
+            className="assistant-glass-action flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-300"
+            title={
+              assistantPanelExpanded
+                ? language === 'zh'
+                  ? '还原宽度'
+                  : language === 'ja'
+                    ? '幅を戻す'
+                    : 'Restore width'
+                : language === 'zh'
+                  ? '加宽对话框'
+                  : language === 'ja'
+                    ? '会話欄を広げる'
+                    : 'Expand conversation panel'
+            }
+          >
+            {assistantPanelExpanded ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
           </button>
           <button
             onClick={() => setAssistantOpen(false)}
@@ -2057,7 +2101,7 @@ export function AssistantPanel({
                     {assistantDocumentLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Plus className="h-4 w-4" />
+                      <FilePlus2 className="h-4 w-4" />
                     )}
                   </button>
                   <div className="flex items-center gap-2">
@@ -2135,7 +2179,7 @@ export function AssistantPanel({
                   {assistantDocumentLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Plus className="h-4 w-4" />
+                    <FilePlus2 className="h-4 w-4" />
                   )}
                 </button>
                 <textarea

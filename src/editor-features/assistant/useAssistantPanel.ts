@@ -273,6 +273,8 @@ interface UseAssistantPanelResult {
   assistantOpen: boolean;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   assistantPanelWidth: number;
+  assistantPanelExpanded: boolean;
+  toggleAssistantPanelExpanded: () => void;
   assistantResizing: boolean;
   assistantInput: string;
   setAssistantInput: Dispatch<SetStateAction<string>>;
@@ -363,6 +365,8 @@ export const useAssistantPanel = ({
   }, [isMobile]);
 
   const [assistantWidth, setAssistantWidth] = useState(360);
+  const [assistantPanelExpanded, setAssistantPanelExpanded] = useState(false);
+  const assistantRestoreWidthRef = useRef(360);
   const [assistantResizing, setAssistantResizing] = useState(false);
   const assistantResizeRef = useRef<{
     startX: number;
@@ -411,10 +415,18 @@ export const useAssistantPanel = ({
   const creativeStoryGenerationRef = useRef(0);
   const creativeChoiceBusyRef = useRef(false);
 
-  const assistantPanelWidth = Math.min(
-    Math.max(assistantWidth, 300),
-    Math.min(560, Math.max(320, flowWidth - 180)),
-  );
+  const maxAssistantPanelWidth = Math.min(760, Math.max(300, flowWidth + assistantWidth - 480));
+  const assistantPanelWidth = Math.min(Math.max(assistantWidth, 300), maxAssistantPanelWidth);
+  const toggleAssistantPanelExpanded = useCallback(() => {
+    if (assistantPanelExpanded) {
+      setAssistantWidth(assistantRestoreWidthRef.current);
+      setAssistantPanelExpanded(false);
+      return;
+    }
+    assistantRestoreWidthRef.current = assistantPanelWidth;
+    setAssistantWidth(maxAssistantPanelWidth);
+    setAssistantPanelExpanded(true);
+  }, [assistantPanelExpanded, assistantPanelWidth, maxAssistantPanelWidth]);
 
   const activeAssistantTask = useMemo(
     () => assistantTasks.find((task) => task.id === activeAssistantTaskId) || assistantTasks[0],
@@ -4193,6 +4205,7 @@ cards 必须正好有 3 张。`);
       if (isMobile) return;
 
       event.preventDefault();
+      if (assistantPanelExpanded) setAssistantPanelExpanded(false);
       event.currentTarget.setPointerCapture(event.pointerId);
       assistantResizeRef.current = {
         startX: event.clientX,
@@ -4201,7 +4214,7 @@ cards 必须正好有 3 张。`);
       };
       setAssistantResizing(true);
     },
-    [assistantPanelWidth, isMobile],
+    [assistantPanelExpanded, assistantPanelWidth, isMobile],
   );
 
   const handleAssistantResizePointerMove = useCallback(
@@ -4212,11 +4225,11 @@ cards 必须正好有 3 张。`);
       const delta = resize.startX - event.clientX;
       if (Math.abs(delta) > 4) resize.dragged = true;
 
-      const maxWidth = Math.min(560, Math.max(320, flowWidth - 180));
+      const maxWidth = Math.min(760, Math.max(300, flowWidth + assistantWidth - 480));
       const nextWidth = Math.min(Math.max(resize.startWidth + delta, 300), maxWidth);
       setAssistantWidth(nextWidth);
     },
-    [flowWidth, isMobile],
+    [assistantWidth, flowWidth, isMobile],
   );
 
   const handleAssistantResizePointerUp = useCallback(() => {
@@ -4242,6 +4255,8 @@ cards 必须正好有 3 张。`);
     assistantOpen,
     setAssistantOpen,
     assistantPanelWidth,
+    assistantPanelExpanded,
+    toggleAssistantPanelExpanded,
     assistantResizing,
     assistantInput,
     setAssistantInput,

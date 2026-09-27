@@ -213,7 +213,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [customAiPromptsEnabled, setCustomAiPromptsEnabled] = useState(false);
   const [aiPrompts, setAiPrompts] = useState<AIPromptsConfig>(defaultAIPrompts);
   const [aiButtonsConfig, setAiButtonsConfig] = useState<AIButtonsConfig>(defaultAIButtonsConfig);
-  const [opaqueAssistantMessagesInGlass, setOpaqueAssistantMessagesInGlass] = useState(false);
+  const [opaqueAssistantMessagesInGlass, setOpaqueAssistantMessagesInGlass] = useState(true);
   const [opaqueFooterInGlass, setOpaqueFooterInGlass] = useState(false);
 
   const flowWidth = useStore((s) => s.width);
@@ -2101,6 +2101,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     assistantOpen,
     setAssistantOpen,
     assistantPanelWidth,
+    assistantPanelExpanded,
+    toggleAssistantPanelExpanded,
     assistantResizing,
     assistantInput,
     setAssistantInput,
@@ -3122,6 +3124,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           assistantOpen={assistantOpen}
           isMobile={isMobile}
           assistantPanelWidth={assistantPanelWidth}
+          assistantPanelExpanded={assistantPanelExpanded}
+          toggleAssistantPanelExpanded={toggleAssistantPanelExpanded}
           assistantLoading={assistantLoading}
           assistantListening={assistantListening}
           assistantDocuments={assistantDocuments}

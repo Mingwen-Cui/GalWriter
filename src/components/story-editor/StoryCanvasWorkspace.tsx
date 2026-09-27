@@ -5,13 +5,18 @@ import {
   ControlButton,
   Controls,
   MiniMap,
-  PanOnScrollMode,
   ReactFlow,
   SelectionMode,
   useReactFlow,
 } from '@xyflow/react';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import type { ComponentProps, CSSProperties, MouseEventHandler, RefObject } from 'react';
+import type {
+  ComponentProps,
+  CSSProperties,
+  MouseEventHandler,
+  RefObject,
+  WheelEvent as ReactWheelEvent,
+} from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { SelectionMenu } from '../../editor-features/selection-tools/SelectionMenu';
@@ -144,6 +149,41 @@ export function StoryCanvasWorkspace({
     window.addEventListener('mouseup', stop);
     window.addEventListener('blur', stop);
   };
+  const handleWheelCapture = (event: ReactWheelEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (
+      !target.closest('.react-flow') ||
+      target.closest('.nowheel, .react-flow__controls, .react-flow__minimap, .canvas-bottom-overlay, input, textarea, select, [contenteditable="true"]')
+    )
+      return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const deltaScale =
+      event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+    const delta = event.deltaY * deltaScale * (keyboardMouse.invertWheelDirection ? -1 : 1);
+    if (delta === 0) return;
+
+    const viewport = getViewport();
+    if (scrollMode === 'pan') {
+      void setViewport({ ...viewport, y: viewport.y - delta }, { duration: 0 });
+      return;
+    }
+
+    const bounds = canvasWrapperRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const nextZoom = Math.min(1.5, Math.max(0.1, viewport.zoom * Math.exp(-delta * 0.0014)));
+    const flowX = (event.clientX - bounds.left - viewport.x) / viewport.zoom;
+    const flowY = (event.clientY - bounds.top - viewport.y) / viewport.zoom;
+    void setViewport(
+      {
+        x: event.clientX - bounds.left - flowX * nextZoom,
+        y: event.clientY - bounds.top - flowY * nextZoom,
+        zoom: nextZoom,
+      },
+      { duration: 0 },
+    );
+  };
   const overlayPositionClass = miniMapPosition === 'left' ? 'left-4' : 'right-4';
   const footerSpacingClass = showStats ? '' : 'canvas-bottom-overlay-no-footer';
   const isDesktopViewport = useDesktopViewport();
@@ -228,6 +268,7 @@ export function StoryCanvasWorkspace({
           }
         }}
         onMouseMoveCapture={handleCanvasMouseMove}
+        onWheelCapture={handleWheelCapture}
         onMouseUpCapture={(event) => {
           selectionPressRef.current = null;
           onMouseUp(event);
@@ -281,9 +322,8 @@ export function StoryCanvasWorkspace({
           }
           selectionOnDrag={false}
           selectionMode={SelectionMode.Partial}
-          panOnScroll={scrollMode === 'pan'}
-          zoomOnScroll={scrollMode === 'zoom'}
-          panOnScrollMode={scrollMode === 'pan' ? PanOnScrollMode.Vertical : undefined}
+          panOnScroll={false}
+          zoomOnScroll={false}
           selectionKeyCode={null}
           deleteKeyCode={null}
           proOptions={{ hideAttribution: true }}

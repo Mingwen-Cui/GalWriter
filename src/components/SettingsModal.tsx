@@ -1270,6 +1270,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <button type="button" aria-pressed={!keyboardMouse.middleButtonPans} onClick={() => updateKeyboardMouseSettings({ middleButtonPans: false })} className={compactTextButtonClass(!keyboardMouse.middleButtonPans)}>{s.off}</button>
                       </div>
                     </div>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--card-border)] pt-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-[var(--text-primary)]">{s.invertWheelDirection}</h4>
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">{s.invertWheelDirectionDescription}</p>
+                      </div>
+                      <div className={segmentedControlClass}>
+                        <button type="button" aria-pressed={!keyboardMouse.invertWheelDirection} onClick={() => updateKeyboardMouseSettings({ invertWheelDirection: false })} className={compactTextButtonClass(!keyboardMouse.invertWheelDirection)}>{s.normalWheelDirection}</button>
+                        <button type="button" aria-pressed={keyboardMouse.invertWheelDirection} onClick={() => updateKeyboardMouseSettings({ invertWheelDirection: true })} className={compactTextButtonClass(keyboardMouse.invertWheelDirection)}>{s.reversedWheelDirection}</button>
+                      </div>
+                    </div>
                   </section>
                   <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-sm">
                     <div className="mb-4 flex items-start justify-between gap-3">
