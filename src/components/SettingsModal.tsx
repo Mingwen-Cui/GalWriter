@@ -780,7 +780,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     key={tab.id}
                     onClick={() => setActiveSettingsTab(tab.id as any)}
-                    className={`settings-modal-tab relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
+                    className={`settings-modal-tab relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-none ${
                       activeSettingsTab === tab.id
                         ? 'bg-[var(--card-bg)] shadow-md text-[var(--accent)] scale-[1.02] border border-[var(--card-border)]'
                         : tab.id === 'ai' && settingsAttentionTarget
@@ -818,7 +818,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className={`settings-modal-content min-w-0 flex-1 flex flex-col h-full bg-transparent overflow-x-hidden overflow-y-auto custom-scrollbar ${activeSettingsTab === 'playtest' ? 'p-5' : 'p-8 pt-7'}`}
             >
               {activeSettingsTab === 'appearance' && (
-                <div className="min-w-0 space-y-5 animate-in slide-in-from-right-4 duration-500">
+                <div className="min-w-0 space-y-5">
                   <section>
                     <header className="hidden">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
@@ -1160,16 +1160,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         {showPresetColors ? s.shownInToolbar : s.hiddenInToolbar}
                       </button>
                     </header>
-                    {!isDesktopApp && (
-                      <p className="text-xs text-[var(--text-muted)] font-medium px-4">
-                        {s.bgColorsDesc}
-                      </p>
-                    )}
                     <div className="grid grid-cols-3 gap-5">
                       {presetColors.map((color, idx) => (
                         <div
                           key={idx}
-                          className="group relative flex items-center gap-4 bg-[var(--app-bg)]/50 p-4 rounded-xl border border-[var(--card-border)] transition-all hover:bg-[var(--card-bg)] hover:shadow-xl dark:hover:shadow-none hover:border-indigo-100 dark:hover:border-indigo-500/30"
+                          className="group relative flex items-center gap-4 bg-[var(--app-bg)]/50 p-4 rounded-xl border border-[var(--card-border)] transition-[background-color,border-color,box-shadow] duration-100 hover:bg-[var(--card-bg)] hover:shadow-xl dark:hover:shadow-none hover:border-indigo-100 dark:hover:border-indigo-500/30"
                         >
                           <div className="relative w-12 h-12 shrink-0">
                             <input
@@ -1183,7 +1178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
                             />
                             <div
-                              className="w-full h-full rounded-lg border-4 border-white dark:border-slate-700 shadow-lg ring-1 ring-slate-100 dark:ring-slate-900 group-hover:scale-110 transition-transform duration-500"
+                              className="w-full h-full rounded-lg border-4 border-white dark:border-slate-700 shadow-lg ring-1 ring-slate-100 dark:ring-slate-900 group-hover:scale-110 transition-transform duration-100"
                               style={{ backgroundColor: color }}
                             />
                           </div>
@@ -1210,11 +1205,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           s.hoverButtonAnimationsDesc,
                         )}
                       </h3>
-                      {!isDesktopApp && (
-                        <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">
-                          {s.hoverButtonAnimationsDesc}
-                        </p>
-                      )}
                     </div>
                     <div className={segmentedControlClass}>
                       <button
@@ -1235,7 +1225,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {activeSettingsTab === 'editor' && (
-                <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
+                <div className="space-y-5">
                   <section className={settingsRowClass}>
                     <div className="min-w-0 shrink-0">
                       <h3 className={settingsRowTitleClass}>剧情 Tag 颜色</h3>
@@ -2292,7 +2282,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {activeSettingsTab === 'playtest' && (
-                <div className="animate-in slide-in-from-right-4 duration-500 pb-6">
+                <div className="pb-6">
                   <PlaytestSettingsWorkbench
                     language={language}
                     canvasSettings={playtestCanvasSettings}
@@ -2827,7 +2817,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {activeSettingsTab === 'about' && aboutPage === 'contact' && (
-                <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
+                <div className="space-y-10">
                   <section>
                     <header className="flex items-center gap-3 mb-6">
                       <h3 className="text-base font-black text-[var(--text-primary)]">
@@ -2859,9 +2849,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div
                           key={item.id}
                           onClick={() => handleContactCopy(item.value, item.id as any)}
-                          className="flex flex-col p-6 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl group transition-all hover:border-[var(--accent)] hover:shadow-2xl dark:hover:shadow-none cursor-pointer active:scale-95"
+                          className="flex flex-col p-6 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-xl group transition-[border-color,box-shadow] duration-100 hover:border-[var(--accent)] hover:shadow-2xl dark:hover:shadow-none cursor-pointer active:scale-95"
                         >
-                          <div className="w-12 h-12 bg-[var(--app-bg)] rounded-lg flex items-center justify-center text-[var(--accent)] mb-4 group-hover:scale-110 transition-transform duration-500">
+                          <div className="w-12 h-12 bg-[var(--app-bg)] rounded-lg flex items-center justify-center text-[var(--accent)] mb-4 group-hover:scale-110 transition-transform duration-100">
                             {item.icon}
                           </div>
                           <div className="space-y-1">
@@ -2905,7 +2895,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </section>
 
                   <section className="bg-white dark:bg-black rounded-2xl p-10 text-center relative overflow-hidden group border border-slate-100 dark:border-white/5 shadow-sm dark:shadow-none">
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                     <img
                       src="./glass.png"
                       alt=""
@@ -2984,7 +2974,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {activeSettingsTab === 'about' && aboutPage === 'help' && (
-                <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <div className="space-y-8">
                   <button
                     type="button"
                     onClick={() => setAboutPage('contact')}

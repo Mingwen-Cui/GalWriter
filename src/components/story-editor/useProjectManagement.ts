@@ -89,6 +89,7 @@ interface UseProjectManagementParams {
   setProjectTitle: React.Dispatch<React.SetStateAction<string>>;
   setShowSaveNameModal: React.Dispatch<React.SetStateAction<boolean>>;
   setShowProjectHome: React.Dispatch<React.SetStateAction<boolean>>;
+  setSkipProjectHomeOnStartup: React.Dispatch<React.SetStateAction<boolean>>;
   setProjectIdsPendingDeletion: React.Dispatch<React.SetStateAction<string[]>>;
   setShowProjectSavePrompt: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAppClosePrompt: React.Dispatch<React.SetStateAction<boolean>>;
@@ -177,6 +178,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     setProjectTitle,
     setShowSaveNameModal,
     setShowProjectHome,
+    setSkipProjectHomeOnStartup,
     setShowProjectSavePrompt,
     setShowAppClosePrompt,
     setProjectListLoading,
@@ -1152,9 +1154,23 @@ export function useProjectManagement(params: UseProjectManagementParams) {
             projects.some((project) => project.id === appSettings.startupProjectId),
         );
         setStartupProjectId(startupProjectExists ? appSettings.startupProjectId : null);
-        setShowProjectHome(!startupProjectExists && !isMobile && projects.length > 0);
+        setSkipProjectHomeOnStartup(Boolean(appSettings.skipProjectHomeOnStartup));
+        setShowProjectHome(
+          !appSettings.skipProjectHomeOnStartup &&
+            !startupProjectExists &&
+            !isMobile &&
+            projects.length > 0,
+        );
         if (startupProjectExists && appSettings.startupProjectId) {
           setProjectIdToLoad(appSettings.startupProjectId);
+        } else if (appSettings.skipProjectHomeOnStartup && !isMobile && projects.length > 0) {
+          const lastProjectExists = Boolean(
+            appSettings.lastProjectId &&
+              projects.some((project) => project.id === appSettings.lastProjectId),
+          );
+          setProjectIdToLoad(
+            lastProjectExists ? appSettings.lastProjectId : projects[0].id,
+          );
         }
         setDefaultProjectSaveDir(appSettings.defaultProjectSaveDir || null);
         if (!isTauriRuntime()) {

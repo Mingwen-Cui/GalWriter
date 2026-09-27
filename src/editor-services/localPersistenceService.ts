@@ -190,6 +190,10 @@ export const localPersistenceService = {
     await saveAppSettings({ startupProjectId });
   },
 
+  async saveSkipProjectHomeOnStartup(skipProjectHomeOnStartup: boolean) {
+    await saveAppSettings({ skipProjectHomeOnStartup });
+  },
+
   async loadResumeState(): Promise<ResumeState> {
     const appSettings = await getAppSettings();
     const exactProject = appSettings.lastProjectId

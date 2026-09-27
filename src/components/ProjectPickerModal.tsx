@@ -39,6 +39,8 @@ interface ProjectPickerModalProps {
   showCloseButton?: boolean;
   defaultProjectSaveDir?: string | null;
   startupProjectId?: string | null;
+  skipProjectHomeOnStartup?: boolean;
+  onSkipProjectHomeOnStartupChange?: (skip: boolean) => void;
   onClose: () => void;
   onCreateProject: () => void;
   onOpenProject: (projectId: string) => void;
@@ -128,6 +130,8 @@ export function ProjectPickerModal({
   showCloseButton = false,
   defaultProjectSaveDir,
   startupProjectId = null,
+  skipProjectHomeOnStartup = false,
+  onSkipProjectHomeOnStartupChange,
   onClose,
   onCreateProject,
   onOpenProject,
@@ -295,7 +299,7 @@ export function ProjectPickerModal({
     stripExternalTextFromSvgDataUrl(project.thumbnailDataUrl);
   const isProjectActionMenuTarget = (target: EventTarget | null) =>
     target instanceof Element && target.closest('[data-project-action-menu]') !== null;
-  const actionButtonClass = `flex w-full items-center gap-3 rounded-xl text-left text-sm font-bold text-slate-900 transition-all duration-300 hover:bg-white/70 hover:text-indigo-600 dark:text-slate-100 dark:hover:bg-slate-800/70 dark:hover:text-indigo-300 ${
+  const actionButtonClass = `flex w-full items-center gap-3 rounded-xl text-left text-sm font-bold text-slate-900 transition-colors duration-50 hover:bg-white/70 hover:text-indigo-600 dark:text-slate-100 dark:hover:bg-slate-800/70 dark:hover:text-indigo-300 ${
     isMobile
       ? 'min-h-[58px] flex-col justify-center px-2 py-2 text-center'
       : 'flex-row-reverse justify-end px-4 py-3'
@@ -460,7 +464,7 @@ export function ProjectPickerModal({
             className={`shrink-0 border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 ${
               isMobile
                 ? `${onImportExample ? 'grid-cols-4' : 'grid-cols-3'} grid gap-2 border-b p-3`
-                : 'flex h-full min-h-0 w-52 flex-col border-r p-5'
+                : 'relative flex h-full min-h-0 w-52 flex-col border-r p-5'
             }`}
           >
             <button
@@ -540,15 +544,34 @@ export function ProjectPickerModal({
                 <LayoutTemplate className={actionIconClass} />
               </button>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              className={`mt-auto w-full rounded-xl bg-slate-900 py-3 text-sm font-black text-white shadow-xl transition-all hover:bg-black active:scale-95 dark:bg-white dark:text-slate-900 dark:shadow-none dark:hover:bg-slate-100 ${
-                isMobile ? 'hidden' : ''
-              }`}
-            >
-              {isZh ? '完成' : 'Done'}
-            </button>
+            {!isMobile && (
+              <div className="absolute inset-x-5 bottom-5">
+                {onSkipProjectHomeOnStartupChange && (
+                  <label className="mb-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white/70 p-3 text-xs font-semibold leading-5 text-slate-600 shadow-sm transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-900">
+                    <input
+                      type="checkbox"
+                      checked={skipProjectHomeOnStartup}
+                      onChange={(event) => onSkipProjectHomeOnStartupChange(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600"
+                    />
+                    <span className="min-w-0">
+                      {language === 'zh'
+                        ? '下次启动时不再显示项目列表'
+                        : language === 'ja'
+                          ? '次回起動時にプロジェクト一覧を表示しない'
+                          : 'Do not show the project list at startup'}
+                    </span>
+                  </label>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full rounded-xl bg-slate-900 py-3 text-sm font-black text-white shadow-xl transition-all hover:bg-black active:scale-95 dark:bg-white dark:text-slate-900 dark:shadow-none dark:hover:bg-slate-100"
+                >
+                  {isZh ? '完成' : 'Done'}
+                </button>
+              </div>
+            )}
           </div>
 
           <section

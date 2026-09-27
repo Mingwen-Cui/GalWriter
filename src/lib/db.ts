@@ -34,6 +34,7 @@ export interface LocalAppSettings {
   theme: 'light' | 'dark' | 'system' | null;
   lastProjectId: string | null;
   startupProjectId: string | null;
+  skipProjectHomeOnStartup: boolean;
   closeButtonBehavior: 'minimize' | 'quit';
   projectFilePaths: Record<string, string>;
   defaultProjectSaveDir: string | null;
@@ -156,6 +157,7 @@ const DEFAULT_APP_SETTINGS: LocalAppSettings = {
   theme: null,
   lastProjectId: null,
   startupProjectId: null,
+  skipProjectHomeOnStartup: false,
   closeButtonBehavior: 'quit',
   projectFilePaths: {},
   defaultProjectSaveDir: null,

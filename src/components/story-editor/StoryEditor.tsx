@@ -276,6 +276,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [includeApiProfilesInExport, setIncludeApiProfilesInExport] = useState(false);
   const [includeSettingLibraryInExport, setIncludeSettingLibraryInExport] = useState(false);
   const [showProjectHome, setShowProjectHome] = useState(false);
+  const [skipProjectHomeOnStartup, setSkipProjectHomeOnStartup] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectFilePath, setCurrentProjectFilePath] = useState<string | null>(null);
   const [defaultProjectSaveDir, setDefaultProjectSaveDir] = useState<string | null>(null);
@@ -2386,6 +2387,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setProjectTitle,
     setShowSaveNameModal,
     setShowProjectHome,
+    setSkipProjectHomeOnStartup,
     setProjectIdsPendingDeletion,
     setShowProjectSavePrompt,
     setShowAppClosePrompt,
@@ -3527,6 +3529,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         showCloseButton={Boolean(currentProjectId)}
         defaultProjectSaveDir={defaultProjectSaveDir}
         startupProjectId={startupProjectId}
+        skipProjectHomeOnStartup={skipProjectHomeOnStartup}
+        onSkipProjectHomeOnStartupChange={(skip) => {
+          setSkipProjectHomeOnStartup(skip);
+          void localPersistenceService.saveSkipProjectHomeOnStartup(skip);
+        }}
         onClose={() => setShowProjectHome(false)}
         onCreateProject={() => {
           requestProjectAction({ type: 'create' });
