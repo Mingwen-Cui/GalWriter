@@ -389,7 +389,7 @@ export function WebPlaytestDialoguePanel({
         {selectedFrame('dialogBox')}
         {editMode && marqueeBox && (
           <div
-            className="pointer-events-none absolute z-[250] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
+            className="gw-marquee-selection gw-marquee-selection--web pointer-events-none absolute z-[250]"
             style={{
               left: marqueeBox.x,
               top: marqueeBox.y,

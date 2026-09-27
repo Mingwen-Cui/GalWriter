@@ -116,6 +116,7 @@ export function VideoAssetSidebar({
     pointerId: number;
     button: number;
   } | null>(null);
+  const selectionSurfaceRef = useRef<HTMLDivElement | null>(null);
   const suppressNextContextMenuRef = useRef(false);
   const [selectionBox, setSelectionBox] = useState<{
     startX: number;
@@ -161,7 +162,13 @@ export function VideoAssetSidebar({
   const handleSelectionPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = selectionDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const next = { ...drag, currentX: event.clientX, currentY: event.clientY };
+    const bounds = assetViewportRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const next = {
+      ...drag,
+      currentX: Math.max(bounds.left, Math.min(bounds.right, event.clientX)),
+      currentY: Math.max(bounds.top, Math.min(bounds.bottom, event.clientY)),
+    };
     selectionDragRef.current = next;
     setSelectionBox(next);
   };
@@ -294,7 +301,7 @@ export function VideoAssetSidebar({
           </select>
         </div>
       </div>
-      <div className="relative min-h-0 flex-1">
+      <div ref={selectionSurfaceRef} className="relative min-h-0 flex-1">
         <div
           ref={assetViewportRef}
           tabIndex={0}
@@ -482,18 +489,22 @@ export function VideoAssetSidebar({
             </div>
           </div>
         </div>
+        {selectionBox && selectionSurfaceRef.current && (
+          <div
+            className="gw-marquee-selection pointer-events-none absolute z-[9999]"
+            style={{
+              left:
+                Math.min(selectionBox.startX, selectionBox.currentX) -
+                selectionSurfaceRef.current.getBoundingClientRect().left,
+              top:
+                Math.min(selectionBox.startY, selectionBox.currentY) -
+                selectionSurfaceRef.current.getBoundingClientRect().top,
+              width: Math.abs(selectionBox.currentX - selectionBox.startX),
+              height: Math.abs(selectionBox.currentY - selectionBox.startY),
+            }}
+          />
+        )}
       </div>
-      {selectionBox && (
-        <div
-          className="pointer-events-none fixed z-[9999] rounded border border-[var(--vr-accent)] bg-[var(--vr-accent)]/15 shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset]"
-          style={{
-            left: Math.min(selectionBox.startX, selectionBox.currentX),
-            top: Math.min(selectionBox.startY, selectionBox.currentY),
-            width: Math.abs(selectionBox.currentX - selectionBox.startX),
-            height: Math.abs(selectionBox.currentY - selectionBox.startY),
-          }}
-        />
-      )}
     </aside>
   );
 }

@@ -421,6 +421,17 @@ body,
   cursor: grabbing;
 }
 
+.gw-marquee-selection {
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.gw-marquee-selection--web {
+  border-width: 3px;
+}
+
 .story-canvas-flow--placing-card .react-flow__pane {
   cursor: none;
 }

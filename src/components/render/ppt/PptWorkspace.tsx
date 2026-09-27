@@ -5,7 +5,7 @@ import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import { themeRenderPatch } from '../experienceThemes';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import type { InlinePresentationActionType } from '../../../domain/project';
@@ -66,6 +66,10 @@ import {
   updateManualElement,
 } from './pptManualContent';
 import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCanvas';
+import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
+
+const isConfiguredSelectionButton = (button: number) =>
+  button === (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2);
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { resolvePptTagAnimations } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
@@ -85,6 +89,7 @@ import {
   type PptWorkspaceViewMode,
 } from './pptWorkspaceModel';
 import { NotesPanel, PptSidebar } from './PptWorkspaceSidebar';
+import { PptBoxSelectionContext, pptBoxSelectionKey, pptManualBoxSelectionKey } from './PptBoxSelectionContext';
 
 type ViewMode = PptWorkspaceViewMode;
 type SidebarTab = PptWorkspaceSidebarTab;
@@ -1504,6 +1509,126 @@ export function SlideCanvas({
   onUpdateManualElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
   onSelectBackground?: () => void;
 }) {
+  const slideCanvasRef = useRef<HTMLDivElement>(null);
+  const marqueeDragRef = useRef<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    pointerId: number;
+    button: number;
+  } | null>(null);
+  const [marquee, setMarquee] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const [boxSelectedKeys, setBoxSelectedKeys] = useState<Set<string>>(() => new Set());
+  const suppressMarqueeContextMenuRef = useRef(false);
+  const suppressMarqueeClickRef = useRef(false);
+  const beginSlideMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!editable || !isConfiguredSelectionButton(event.button)) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-editable-frame-control]')) return;
+    const startedOnElement = Boolean(
+      target.closest(
+        '.ppt-selectable:not([data-ppt-selection-target="background"]),[data-ppt-manual-element-id]',
+      ),
+    );
+    if (startedOnElement && !event.shiftKey) {
+      setBoxSelectedKeys(new Set());
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    setBoxSelectedKeys(new Set());
+    const next = {
+      startX: event.clientX,
+      startY: event.clientY,
+      currentX: event.clientX,
+      currentY: event.clientY,
+      pointerId: event.pointerId,
+      button: event.button,
+    };
+    marqueeDragRef.current = next;
+    setMarquee(next);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveSlideMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = marqueeDragRef.current;
+    const bounds = slideCanvasRef.current?.getBoundingClientRect();
+    if (!drag || drag.pointerId !== event.pointerId || !bounds) return;
+    const next = {
+      ...drag,
+      currentX: Math.max(bounds.left, Math.min(bounds.right, event.clientX)),
+      currentY: Math.max(bounds.top, Math.min(bounds.bottom, event.clientY)),
+    };
+    marqueeDragRef.current = next;
+    setMarquee(next);
+  };
+  const finishSlideMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = marqueeDragRef.current;
+    const canvas = slideCanvasRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !canvas) return;
+    marqueeDragRef.current = null;
+    setMarquee(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    suppressMarqueeContextMenuRef.current = drag.button === 2;
+    const left = Math.min(drag.startX, drag.currentX);
+    const right = Math.max(drag.startX, drag.currentX);
+    const top = Math.min(drag.startY, drag.currentY);
+    const bottom = Math.max(drag.startY, drag.currentY);
+    if (right - left < 5 && bottom - top < 5) return;
+    suppressMarqueeClickRef.current = true;
+    const allMatches = Array.from(
+      canvas.querySelectorAll<HTMLElement>('.ppt-selectable,[data-ppt-manual-element-id]'),
+    )
+      .map((element) => ({
+        element,
+        rect: element.getBoundingClientRect(),
+      }))
+      .filter(
+        ({ rect }) =>
+          rect.left <= right && rect.right >= left && rect.top <= bottom && rect.bottom >= top,
+      );
+    const nonBackgroundMatches = allMatches.filter(
+      ({ element }) => element.dataset.pptSelectionTarget !== 'background',
+    );
+    const matches = (nonBackgroundMatches.length ? nonBackgroundMatches : allMatches).sort(
+      (left, right) =>
+        left.rect.width * left.rect.height - right.rect.width * right.rect.height,
+    );
+    setBoxSelectedKeys(
+      new Set(
+        matches
+          .map(({ element }) =>
+            element.dataset.pptManualElementId
+              ? pptManualBoxSelectionKey(element.dataset.pptManualElementId)
+              : element.dataset.pptSelectionTarget
+                ? pptBoxSelectionKey(
+                    element.dataset.pptSelectionTarget,
+                    element.dataset.pptSelectionTargetId,
+                  )
+                : undefined,
+          )
+          .filter((key): key is string => Boolean(key)),
+      ),
+    );
+    const selectedElement = matches[0]?.element;
+    if (selectedElement?.dataset.pptManualElementId) {
+      onSelectManualElement?.(selectedElement.dataset.pptManualElementId);
+    } else if (selectedElement?.dataset.pptSelectionTarget) {
+      onSelect({
+        target: selectedElement.dataset.pptSelectionTarget as Selection['target'],
+        targetId: selectedElement.dataset.pptSelectionTargetId || undefined,
+        label: selectedElement.dataset.pptSelectionLabel || selectedElement.getAttribute('aria-label') || '',
+      });
+    } else {
+      onSelectBackground?.();
+    }
+  };
   const transitionStyle =
     transition.effect === 'none' ? undefined : { animationDuration: `${transition.durationMs}ms` };
   const canvasBackgroundColor =
@@ -1514,18 +1639,42 @@ export function SlideCanvas({
     : pptBackgroundCss(backgroundStyle);
   const shouldFitContent = layout === 'LAYOUT_STANDARD' && layoutContentMode === 'fit';
   return (
+    <PptBoxSelectionContext.Provider value={boxSelectedKeys}>
     <div
       data-presentation-width={webSettings.canvasWidth}
       data-presentation-height={webSettings.canvasHeight}
       className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
+      ref={slideCanvasRef}
       style={{
         backgroundColor: canvasBackgroundColor,
         ...backgroundPaint,
         ...transitionStyle,
       }}
       onClick={(event) => {
+        if (suppressMarqueeClickRef.current) {
+          suppressMarqueeClickRef.current = false;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         if (!editable || event.target !== event.currentTarget) return;
         onSelectBackground?.();
+      }}
+      onClickCapture={(event) => {
+        if (!suppressMarqueeClickRef.current) return;
+        suppressMarqueeClickRef.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onPointerDownCapture={beginSlideMarquee}
+      onPointerMoveCapture={moveSlideMarquee}
+      onPointerUpCapture={finishSlideMarquee}
+      onPointerCancelCapture={finishSlideMarquee}
+      onContextMenu={(event) => {
+        if (!suppressMarqueeContextMenuRef.current) return;
+        suppressMarqueeContextMenuRef.current = false;
+        event.preventDefault();
+        event.stopPropagation();
       }}
     >
       <div
@@ -1628,7 +1777,29 @@ export function SlideCanvas({
           ) : null}
         </div>
       )}
+      {marquee && slideCanvasRef.current && (() => {
+        const bounds = slideCanvasRef.current!.getBoundingClientRect();
+        const canvas = slideCanvasRef.current!;
+        const canvasStyle = window.getComputedStyle(canvas);
+        const scaleX = Math.max(0.01, canvas.offsetWidth ? bounds.width / canvas.offsetWidth : 1);
+        const scaleY = Math.max(0.01, canvas.offsetHeight ? bounds.height / canvas.offsetHeight : 1);
+        const borderLeft = Number.parseFloat(canvasStyle.borderLeftWidth) || 0;
+        const borderTop = Number.parseFloat(canvasStyle.borderTopWidth) || 0;
+        return (
+          <div
+            className="gw-marquee-selection pointer-events-none absolute z-[100]"
+            style={{
+              left: (Math.min(marquee.startX, marquee.currentX) - bounds.left) / scaleX - borderLeft,
+              top: (Math.min(marquee.startY, marquee.currentY) - bounds.top) / scaleY - borderTop,
+              width: Math.abs(marquee.currentX - marquee.startX) / scaleX,
+              height: Math.abs(marquee.currentY - marquee.startY) / scaleY,
+              borderWidth: `${3 / Math.min(scaleX, scaleY)}px`,
+            }}
+          />
+        );
+      })()}
     </div>
+    </PptBoxSelectionContext.Provider>
   );
 }
 
@@ -1744,7 +1915,9 @@ function PptCoverTextBox({
   onUpdateLayout?: (patch: Partial<PptTextBoxLayout>) => void;
 }) {
   const selection = { target, label };
-  const isSelected = selected?.target === target;
+  const boxSelection = useContext(PptBoxSelectionContext);
+  const isSelected =
+    selected?.target === target || boxSelection.has(pptBoxSelectionKey(target));
   const [isEditingText, setIsEditingText] = useState(false);
   const [draftText, setDraftText] = useState('');
   const textEditorRef = useRef<HTMLDivElement>(null);
@@ -1828,7 +2001,7 @@ function PptCoverTextBox({
     setIsEditingText(true);
   };
   const beginMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!editable || !onUpdateLayout || event.button !== 0 || isEditingText) return;
+    if (!editable || !onUpdateLayout || !isConfiguredSelectionButton(event.button) || isEditingText) return;
     event.preventDefault();
     event.stopPropagation();
     onSelect(selection);
@@ -1925,6 +2098,9 @@ function PptCoverTextBox({
       role="button"
       tabIndex={0}
       aria-label={`选择${label}`}
+      data-ppt-selection-target={target}
+      data-ppt-selection-label={label}
+      data-ppt-selection-key={pptBoxSelectionKey(target)}
       className={`ppt-selectable absolute z-20 ${isSelected ? 'is-selected' : ''} ${editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
       style={{
         left: `${(layout.x / PPT_CONTENT_WIDTH) * 100}%`,
@@ -2348,7 +2524,9 @@ function PptEditableObject({
   children: ReactNode;
 }) {
   const selection = { target, label };
-  const isSelected = selected?.target === target;
+  const boxSelection = useContext(PptBoxSelectionContext);
+  const isSelected =
+    selected?.target === target || boxSelection.has(pptBoxSelectionKey(target));
   const [isEditingText, setIsEditingText] = useState(false);
   const [draftText, setDraftText] = useState('');
   const textEditorRef = useRef<HTMLDivElement>(null);
@@ -2388,7 +2566,7 @@ function PptEditableObject({
     if (shouldCommit && nextText !== textValue) onTextChange?.(nextText);
   };
   const beginDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!editable || !onUpdate || event.button !== 0) return;
+    if (!editable || !onUpdate || !isConfiguredSelectionButton(event.button)) return;
     event.preventDefault();
     event.stopPropagation();
     onSelect(selection);
@@ -2501,6 +2679,9 @@ function PptEditableObject({
       tabIndex={0}
       aria-label={`选择${label}`}
       data-render-object={kind}
+      data-ppt-selection-target={target}
+      data-ppt-selection-label={label}
+      data-ppt-selection-key={pptBoxSelectionKey(target)}
       onClick={(event) => {
         event.stopPropagation();
         onSelect(selection);
@@ -2731,10 +2912,12 @@ function Selectable({
   const textEditorRef = useRef<HTMLDivElement>(null);
   const initialTextRef = useRef('');
   const discardTextEditRef = useRef(false);
+  const boxSelection = useContext(PptBoxSelectionContext);
   const active =
     selected &&
     animationKey(selected.target, selected.targetId) ===
-      animationKey(selection.target, selection.targetId);
+      animationKey(selection.target, selection.targetId) ||
+    boxSelection.has(pptBoxSelectionKey(selection.target, selection.targetId));
   useEffect(() => {
     if (!isEditingText) return;
     const frame = window.requestAnimationFrame(() => {
@@ -2773,6 +2956,10 @@ function Selectable({
       role="button"
       tabIndex={0}
       aria-label={`选择${selection.label}`}
+      data-ppt-selection-target={selection.target}
+      data-ppt-selection-target-id={selection.targetId}
+      data-ppt-selection-label={selection.label}
+      data-ppt-selection-key={pptBoxSelectionKey(selection.target, selection.targetId)}
       onClick={(event) => {
         event.stopPropagation();
         onSelect(selection);

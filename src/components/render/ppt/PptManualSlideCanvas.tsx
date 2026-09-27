@@ -1,6 +1,6 @@
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 
 import type {
   PptManualElement,
@@ -14,6 +14,11 @@ import {
 } from '../web/WebEditableElementFrame';
 import { gradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
 import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH } from './pptWorkspaceModel';
+import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
+import { PptBoxSelectionContext, pptManualBoxSelectionKey } from './PptBoxSelectionContext';
+
+const isConfiguredSelectionButton = (button: number) =>
+  button === (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2);
 
 const buttonClass = (variant: 'primary' | 'secondary' | 'link') =>
   variant === 'primary'
@@ -185,6 +190,7 @@ export function PptManualElementLayer({
   onUpdateElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
   onNavigateSlide?: (slideId: string) => void;
 }) {
+  const boxSelection = useContext(PptBoxSelectionContext);
   const [editingElementId, setEditingElementId] = useState<string>();
   const [draftText, setDraftText] = useState('');
   const textEditorRef = useRef<HTMLDivElement>(null);
@@ -231,7 +237,7 @@ export function PptManualElementLayer({
       onUpdateElement?.(element.id, { text: nextText });
   };
   const beginMove = (event: React.PointerEvent<HTMLDivElement>, element: PptManualElement) => {
-    if (!editable || !onUpdateElement || event.button !== 0 || editingElementId === element.id)
+    if (!editable || !onUpdateElement || !isConfiguredSelectionButton(event.button) || editingElementId === element.id)
       return;
     event.preventDefault();
     event.stopPropagation();
@@ -351,10 +357,13 @@ export function PptManualElementLayer({
       window.open(element.url, '_blank', 'noopener,noreferrer');
   };
   return (
-    <div className="pointer-events-none absolute inset-0 z-30">
+    <div className={`absolute inset-0 z-30 ${editable ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       {elements.map((element) => {
         if (element.visible === false && !editable) return null;
-        const selected = editable && selectedElementId === element.id;
+        const selected =
+          editable &&
+          (selectedElementId === element.id ||
+            boxSelection.has(pptManualBoxSelectionKey(element.id)));
         const editingText =
           editingElementId === element.id && (element.kind === 'text' || element.kind === 'button');
         const style: React.CSSProperties = {
@@ -376,6 +385,8 @@ export function PptManualElementLayer({
             role={editable ? 'button' : undefined}
             tabIndex={editable ? 0 : undefined}
             className={`pointer-events-auto absolute ${editable ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
+            data-ppt-manual-element-id={element.id}
+            data-ppt-selection-key={pptManualBoxSelectionKey(element.id)}
             style={style}
             onPointerDown={(event) => beginMove(event, element)}
             onDoubleClick={(event) => beginTextEdit(event, element)}

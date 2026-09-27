@@ -69,6 +69,7 @@ export function WebEditableElementFrame({
             touchAction: 'none',
             zIndex: 2147483646,
           }}
+          data-editable-frame-control="rotate"
           onPointerDown={(event) => {
             event.stopPropagation();
             onRotatePointerDown(event);
@@ -136,6 +137,7 @@ export function WebEditableElementFrame({
           <span
             key={handle}
             tabIndex={-1}
+            data-editable-frame-control="resize"
             className={`pointer-events-auto absolute z-[270] grid h-3 w-3 place-items-center ${positionClass[handle]}`}
             style={{
               cursor: cursorByHandle[handle],

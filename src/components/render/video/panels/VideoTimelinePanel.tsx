@@ -200,6 +200,7 @@ export function VideoTimelinePanel({
     pointerId: number;
     button: number;
   } | null>(null);
+  const selectionSurfaceRef = useRef<HTMLDivElement | null>(null);
   const suppressNextContextMenuRef = useRef(false);
   const suppressNextClickRef = useRef(false);
   const [selectionBox, setSelectionBox] = useState<{
@@ -369,7 +370,12 @@ export function VideoTimelinePanel({
   const handleBoxSelectPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = selectionDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const next = { ...drag, currentX: event.clientX, currentY: event.clientY };
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const next = {
+      ...drag,
+      currentX: Math.max(bounds.left, Math.min(bounds.right, event.clientX)),
+      currentY: Math.max(bounds.top, Math.min(bounds.bottom, event.clientY)),
+    };
     selectionDragRef.current = next;
     setSelectionBox(next);
   };
@@ -664,6 +670,7 @@ export function VideoTimelinePanel({
             </div>
           </div>
           <div
+            ref={selectionSurfaceRef}
             className="relative"
             onClickCapture={suppressBoxSelectClick}
             onPointerDown={handleBoxSelectPointerDown}
@@ -671,6 +678,21 @@ export function VideoTimelinePanel({
             onPointerUp={handleBoxSelectPointerEnd}
             onPointerCancel={handleBoxSelectPointerEnd}
           >
+            {selectionBox && selectionSurfaceRef.current && (() => {
+              const rect = getSelectionRect(selectionBox);
+              const surface = selectionSurfaceRef.current!.getBoundingClientRect();
+              return (
+                <div
+                  className="gw-marquee-selection pointer-events-none absolute z-[9999]"
+                  style={{
+                    left: rect.left - surface.left,
+                    top: rect.top - surface.top,
+                    width: rect.right - rect.left,
+                    height: rect.bottom - rect.top,
+                  }}
+                />
+              );
+            })()}
             <div
               className="pointer-events-none absolute bottom-0 top-0 z-20"
               style={{ left: TIMELINE_LABEL_WIDTH + 12 + timelinePlayheadLeft }}
@@ -1227,17 +1249,6 @@ export function VideoTimelinePanel({
           </div>
         </div>
       </div>
-      {selectionBox && (
-        <div
-          className="pointer-events-none fixed z-[9999] rounded border border-[var(--vr-accent)] bg-[var(--vr-accent)]/15 shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset]"
-          style={{
-            left: getSelectionRect(selectionBox).left,
-            top: getSelectionRect(selectionBox).top,
-            width: getSelectionRect(selectionBox).right - getSelectionRect(selectionBox).left,
-            height: getSelectionRect(selectionBox).bottom - getSelectionRect(selectionBox).top,
-          }}
-        />
-      )}
     </section>
   );
 }

@@ -1180,7 +1180,7 @@ function MarqueeLayer({
   if (!visible || !box) return null;
   return (
     <div
-      className="pointer-events-none absolute z-[70] border border-sky-400 bg-sky-400/14 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
+      className="gw-marquee-selection gw-marquee-selection--web pointer-events-none absolute z-[70]"
       style={{
         left: `${box.x}%`,
         top: `${box.y}%`,

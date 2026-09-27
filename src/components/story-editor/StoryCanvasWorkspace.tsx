@@ -113,9 +113,9 @@ export function StoryCanvasWorkspace({
 
   const startCanvasPan: MouseEventHandler<HTMLDivElement> = (event) => {
     suppressContextMenuRef.current = false;
-    const panButton = keyboardMouse.selectionButton === 'left' ? 2 : 1;
+    const panButton = keyboardMouse.selectionButton === 'left' ? 2 : 0;
     if (
-      event.button !== panButton ||
+      (event.button !== panButton && !(event.button === 1 && keyboardMouse.middleButtonPans)) ||
       event.altKey ||
       (event.target as HTMLElement).closest('button, input, textarea, [contenteditable="true"]')
     )
@@ -264,7 +264,7 @@ export function StoryCanvasWorkspace({
         )}
         <div
           ref={selectionBoxRef}
-          className="pointer-events-none fixed z-[9999] rounded-sm border-2 border-dashed border-indigo-500 bg-indigo-500/10"
+          className="gw-marquee-selection pointer-events-none fixed z-[9999]"
           style={{ display: 'none' }}
         />
         <ReactFlow
