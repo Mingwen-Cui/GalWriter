@@ -18,11 +18,13 @@ export function PptManualInspector({
   language,
   slide,
   selectedElementId,
+  selectedElementIds = [],
   slides,
   showDescriptions,
   onUpdateBackgroundColor,
   onUpdateElement,
   onUpdateElements,
+  onAlignSelected,
   onDeleteElement,
   fontFamilyManager,
 }: {
@@ -30,11 +32,13 @@ export function PptManualInspector({
   language: Language;
   slide: PptManualSlide;
   selectedElementId?: string;
+  selectedElementIds?: string[];
   slides: Array<{ id: string; title: string }>;
   showDescriptions: boolean;
   onUpdateBackgroundColor: (color: string) => void;
   onUpdateElement: (elementId: string, patch: Partial<PptManualElement>) => void;
   onUpdateElements?: (changes: LayerChange[]) => void;
+  onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
   onDeleteElement: (elementId: string) => void;
   fontFamilyManager?: {
     options: RenderFontFamilyOption[];
@@ -70,11 +74,13 @@ export function PptManualInspector({
       <StartMenuElementInspector
         element={toPptWebInspectorElement(element)}
         layerElements={slide.elements.map(toPptWebInspectorElement)}
+        selectedElementIds={selectedElementIds}
         onLayerUpdate={(id, patch) => {
           const item = slide.elements.find((e) => e.id === id);
           if (item) onUpdateElement(id, toPptManualElementPatch(item, patch));
         }}
         onLayerReorder={onUpdateElements}
+        onAlignSelected={onAlignSelected}
         language={language}
         showDescriptions={showDescriptions}
         buttonFunctions={element.kind === 'button' ? ['custom', 'link'] : undefined}

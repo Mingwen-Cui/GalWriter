@@ -156,6 +156,8 @@ export type PersistedRenderWorkspaceState = {
   pptPast?: PptExportSettings[];
   pptFuture?: PptExportSettings[];
   codeSettings?: RenpyExportSettings;
+  codePast?: RenpyExportSettings[];
+  codeFuture?: RenpyExportSettings[];
   codeTarget?: CodeExportTarget;
   savedAt?: number;
 };

@@ -353,6 +353,7 @@ export function PptWorkspace({
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
   const [slideClipboard, setSlideClipboard] = useState<PptManualSlide>();
   const [manualElementClipboard, setManualElementClipboard] = useState<PptManualElement>();
+  const [boxSelectedKeys, setBoxSelectedKeys] = useState<Set<string>>(() => new Set());
   const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
   const stageViewportRef = useRef<HTMLElement>(null);
@@ -383,6 +384,7 @@ export function PptWorkspace({
   const selectedManualElement = (manualSlide?.elements || activeSlideElements).find(
     (element) => element.id === selectedManualElementId,
   );
+  const selectedCanvasSelectionKeys = Array.from(boxSelectedKeys);
   const defaultSlideBackground =
     selectedId === 'cover'
       ? toPptBackgroundStyle(webSettings)
@@ -522,6 +524,7 @@ export function PptWorkspace({
     setIsPreviewing(false);
     setTimelinePlayheadMs(undefined);
     setSelectedManualElementId(undefined);
+    setBoxSelectedKeys(new Set());
   }, []);
   const saveManualSlides = (nextSlides: PptManualSlide[], nextOrder?: string[]) =>
     updatePptSettings({
@@ -751,6 +754,114 @@ export function PptWorkspace({
         ),
       },
     });
+  };
+  const alignSelectedCanvasElements = (
+    selectionKeys: string[],
+    axis: 'x' | 'y',
+    value: 'start' | 'center' | 'end',
+  ) => {
+    if (selectionKeys.length < 2) return;
+    const manualElements = manualSlide?.elements || activeSlideElements;
+    const renderObjects = getRenderObjects(renderStyle);
+    const objectKindByTarget: Record<string, RenderEditableObjectKind> = {
+      'dialog-panel': 'dialogBox',
+      'dialog-title': 'title',
+      'dialog-body': 'body',
+      nameplate: 'nameplate',
+      choice: 'choice',
+    };
+    const selectedItems = selectionKeys.flatMap((key) => {
+      if (key.startsWith('manual:')) {
+        const id = key.slice('manual:'.length);
+        const element = manualElements.find((item) => item.id === id);
+        return element
+          ? [{ key, x: element.x, y: element.y, width: element.width, height: element.height }]
+          : [];
+      }
+      if (!key.startsWith('ppt:')) return [];
+      const [, target] = key.split(':');
+      if (!target) return [];
+      if (target === 'cover-title' || target === 'cover-subtitle' || target === 'cover-description') {
+        const layout = resolvePptTextBoxLayout(textBoxLayouts.cover?.[target], target);
+        return [{ key, x: layout.x, y: layout.y, width: layout.width, height: layout.height }];
+      }
+      const kind = objectKindByTarget[target];
+      const object = kind ? renderObjects[kind] : undefined;
+      return object
+        ? [{ key, x: object.x, y: object.y, width: object.width, height: object.height }]
+        : [];
+    });
+    if (selectedItems.length < 2) return;
+    const minX = Math.min(...selectedItems.map((item) => item.x));
+    const maxX = Math.max(...selectedItems.map((item) => item.x + item.width));
+    const minY = Math.min(...selectedItems.map((item) => item.y));
+    const maxY = Math.max(...selectedItems.map((item) => item.y + item.height));
+    const nextPosition = (item: (typeof selectedItems)[number]) =>
+      Math.round(
+        axis === 'x'
+          ? value === 'start'
+            ? minX
+            : value === 'center'
+              ? (minX + maxX - item.width) / 2
+              : maxX - item.width
+          : value === 'start'
+            ? minY
+            : value === 'center'
+              ? (minY + maxY - item.height) / 2
+              : maxY - item.height,
+      );
+    const manualIds = new Set(
+      selectedItems
+        .filter((item) => item.key.startsWith('manual:'))
+        .map((item) => item.key.slice('manual:'.length)),
+    );
+    const nextElements = manualElements.map((element) => {
+      if (!manualIds.has(element.id)) return element;
+      const item = selectedItems.find((selectedItem) => selectedItem.key === `manual:${element.id}`);
+      if (!item) return element;
+      return axis === 'x'
+        ? { ...element, x: nextPosition(item) }
+        : { ...element, y: nextPosition(item) };
+    });
+    if (manualIds.size > 0) {
+      if (manualSlide) {
+        saveManualSlides(
+          manualSlides.map((slide) =>
+            slide.id === manualSlide.id ? { ...slide, elements: nextElements } : slide,
+          ),
+        );
+      } else {
+        updatePptSettings({ slideElements: { ...slideElements, [selectedId]: nextElements } });
+      }
+    }
+    const nextCoverLayouts = { ...(textBoxLayouts.cover || {}) };
+    selectedItems.forEach((item) => {
+      if (!item.key.startsWith('ppt:cover-')) return;
+      const target = item.key
+        .slice('ppt:'.length)
+        .split(':')[0] as 'cover-title' | 'cover-subtitle' | 'cover-description' | undefined;
+      if (!target) return;
+      const layout = resolvePptTextBoxLayout(textBoxLayouts.cover?.[target], target);
+      nextCoverLayouts[target] = {
+        ...layout,
+        [axis]: nextPosition(item),
+      };
+    });
+    if (selectedItems.some((item) => item.key.startsWith('ppt:cover-')))
+      updatePptSettings({
+        textBoxLayouts: { ...textBoxLayouts, cover: nextCoverLayouts },
+      });
+    const nextRenderObjects = { ...renderObjects };
+    let hasRenderObjectPosition = false;
+    selectedItems.forEach((item) => {
+      if (!item.key.startsWith('ppt:')) return;
+      const target = item.key.slice('ppt:'.length).split(':')[0];
+      const kind = objectKindByTarget[target];
+      if (!kind) return;
+      nextRenderObjects[kind] = { ...nextRenderObjects[kind], [axis]: nextPosition(item) };
+      hasRenderObjectPosition = true;
+    });
+    if (hasRenderObjectPosition) updateRenderStyle('renderObjects', nextRenderObjects);
   };
   const updateActiveManualLayerOrder = (changes: LayerChange[]) => {
     if (changes.length === 0) return;
@@ -1325,6 +1436,8 @@ export function PptWorkspace({
                           selectedManualElementId={selectedManualElementId}
                           onSelectManualElement={selectManualElement}
                           onUpdateManualElement={updateActiveManualElement}
+                          onDeleteManualElement={deleteActiveManualElement}
+                          onBoxSelectionChange={(keys) => setBoxSelectedKeys(new Set(keys))}
                           onSelectBackground={selectBackground}
                         />
                       </VirtualPresentationStage>
@@ -1392,6 +1505,10 @@ export function PptWorkspace({
               onUpdateSlideBackgroundColor={updateActiveSlideBackgroundColor}
               onUpdateManualElement={updateActiveManualElement}
               onUpdateManualElements={updateActiveManualLayerOrder}
+              selectedCanvasSelectionKeys={selectedCanvasSelectionKeys}
+              onAlignSelectedCanvasElements={(axis, value) =>
+                alignSelectedCanvasElements(selectedCanvasSelectionKeys, axis, value)
+              }
               onDeleteManualElement={deleteActiveManualElement}
               onUpdateCoverText={(target, text) => updatePptText(target, text)}
               onUpdateCoverTextBoxLayout={(target, patch) => updatePptTextBoxLayout(target, patch)}
@@ -1474,6 +1591,8 @@ export function SlideCanvas({
   selectedManualElementId,
   onSelectManualElement,
   onUpdateManualElement,
+  onDeleteManualElement,
+  onBoxSelectionChange,
   onSelectBackground,
 }: {
   selectedId: string;
@@ -1507,6 +1626,8 @@ export function SlideCanvas({
   selectedManualElementId?: string;
   onSelectManualElement?: (elementId: string) => void;
   onUpdateManualElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
+  onDeleteManualElement?: (elementId: string) => void;
+  onBoxSelectionChange?: (keys: string[]) => void;
   onSelectBackground?: () => void;
 }) {
   const slideCanvasRef = useRef<HTMLDivElement>(null);
@@ -1525,6 +1646,10 @@ export function SlideCanvas({
     currentY: number;
   } | null>(null);
   const [boxSelectedKeys, setBoxSelectedKeys] = useState<Set<string>>(() => new Set());
+  const updateBoxSelection = (keys: Set<string>) => {
+    setBoxSelectedKeys(keys);
+    onBoxSelectionChange?.(Array.from(keys));
+  };
   const suppressMarqueeContextMenuRef = useRef(false);
   const suppressMarqueeClickRef = useRef(false);
   const beginSlideMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -1537,12 +1662,12 @@ export function SlideCanvas({
       ),
     );
     if (startedOnElement && !event.shiftKey) {
-      setBoxSelectedKeys(new Set());
+      updateBoxSelection(new Set());
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    setBoxSelectedKeys(new Set());
+    updateBoxSelection(new Set());
     const next = {
       startX: event.clientX,
       startY: event.clientY,
@@ -1600,7 +1725,7 @@ export function SlideCanvas({
       (left, right) =>
         left.rect.width * left.rect.height - right.rect.width * right.rect.height,
     );
-    setBoxSelectedKeys(
+    updateBoxSelection(
       new Set(
         matches
           .map(({ element }) =>
@@ -1703,6 +1828,7 @@ export function SlideCanvas({
           selectedElementId={selectedManualElementId}
           onSelectElement={onSelectManualElement}
           onUpdateElement={onUpdateManualElement}
+          onDeleteElement={onDeleteManualElement}
           onNavigateSlide={onChoose}
           onSelectBackground={onSelectBackground}
         />
@@ -1772,6 +1898,7 @@ export function SlideCanvas({
               selectedElementId={selectedManualElementId}
               onSelectElement={onSelectManualElement}
               onUpdateElement={onUpdateManualElement}
+              onDeleteElement={onDeleteManualElement}
               onNavigateSlide={onChoose}
             />
           ) : null}
@@ -1793,7 +1920,7 @@ export function SlideCanvas({
               top: (Math.min(marquee.startY, marquee.currentY) - bounds.top) / scaleY - borderTop,
               width: Math.abs(marquee.currentX - marquee.startX) / scaleX,
               height: Math.abs(marquee.currentY - marquee.startY) / scaleY,
-              borderWidth: `${3 / Math.min(scaleX, scaleY)}px`,
+              borderWidth: `${2 / Math.min(scaleX, scaleY)}px`,
             }}
           />
         );
@@ -2166,6 +2293,10 @@ function PptCoverTextBox({
           onToggleVisible={(event) => {
             event.stopPropagation();
             onUpdateLayout({ visible: layout.visible === false });
+          }}
+          onDelete={(event) => {
+            event.stopPropagation();
+            onUpdateLayout({ visible: false });
           }}
           onRotatePointerDown={beginRotate}
           onResizePointerDown={beginResize}
@@ -2732,6 +2863,10 @@ function PptEditableObject({
           onToggleVisible={(event) => {
             event.stopPropagation();
             onUpdate(kind, { visible: !object.visible });
+          }}
+          onDelete={(event) => {
+            event.stopPropagation();
+            onUpdate(kind, { visible: false });
           }}
           onRotatePointerDown={beginRotate}
           onResizePointerDown={beginResize}

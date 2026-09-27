@@ -45,6 +45,8 @@ type RenderHeaderProps = {
   webFuture: unknown[];
   pptPast: unknown[];
   pptFuture: unknown[];
+  codePast: unknown[];
+  codeFuture: unknown[];
   webShowStartMenu: boolean;
   pptRibbonTab: 'insert' | 'animation' | 'transition';
   pptRibbonCollapsed: boolean;
@@ -66,6 +68,8 @@ type RenderHeaderProps = {
   redoWeb: () => void;
   undoPpt: () => void;
   redoPpt: () => void;
+  undoCode: () => void;
+  redoCode: () => void;
   setWebShowStartMenu: (enabled: boolean) => void;
   setPptRibbonTab: (tab: 'insert' | 'animation' | 'transition') => void;
   setPptRibbonCollapsed: (collapsed: boolean) => void;
@@ -89,6 +93,8 @@ export function RenderHeader({
   webFuture,
   pptPast,
   pptFuture,
+  codePast,
+  codeFuture,
   webShowStartMenu,
   pptRibbonTab,
   pptRibbonCollapsed,
@@ -110,6 +116,8 @@ export function RenderHeader({
   redoWeb,
   undoPpt,
   redoPpt,
+  undoCode,
+  redoCode,
   setWebShowStartMenu,
   setPptRibbonTab,
   setPptRibbonCollapsed,
@@ -477,8 +485,8 @@ export function RenderHeader({
           <div className="mr-1 flex items-center gap-1 border-r border-[var(--vr-border)] pr-2">
             <button
               type="button"
-              onClick={() => document.execCommand('undo')}
-              disabled={isRendering}
+              onClick={undoCode}
+              disabled={codePast.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
               title={getCodeText(language, 'Undo')}
               aria-label={getCodeText(language, 'Undo')}
@@ -487,8 +495,8 @@ export function RenderHeader({
             </button>
             <button
               type="button"
-              onClick={() => document.execCommand('redo')}
-              disabled={isRendering}
+              onClick={redoCode}
+              disabled={codeFuture.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
               title={getCodeText(language, 'Redo')}
               aria-label={getCodeText(language, 'Redo')}

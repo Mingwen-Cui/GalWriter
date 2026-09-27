@@ -103,6 +103,8 @@ export function PptSidebar({
   onUpdateSlideBackgroundColor,
   onUpdateManualElement,
   onUpdateManualElements,
+  selectedCanvasSelectionKeys,
+  onAlignSelectedCanvasElements,
   onDeleteManualElement,
   onUpdateCoverText,
   onUpdateCoverTextBoxLayout,
@@ -147,6 +149,11 @@ export function PptSidebar({
   onUpdateSlideBackgroundColor: (color: string) => void;
   onUpdateManualElement: (elementId: string, patch: Partial<PptManualElement>) => void;
   onUpdateManualElements?: (changes: LayerChange[]) => void;
+  selectedCanvasSelectionKeys: string[];
+  onAlignSelectedCanvasElements: (
+    axis: 'x' | 'y',
+    value: 'start' | 'center' | 'end',
+  ) => void;
   onDeleteManualElement: (elementId: string) => void;
   onUpdateCoverText: (
     target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle' | 'cover-description'>,
@@ -554,11 +561,13 @@ export function PptSidebar({
                     language={language}
                     slide={manualSlide}
                     selectedElementId={selectedManualElementId}
+                    selectedElementIds={selectedCanvasSelectionKeys}
                     slides={slides}
                     showDescriptions={showParameterDescriptions}
                     onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
                     onUpdateElement={onUpdateManualElement}
                     onUpdateElements={onUpdateManualElements}
+                    onAlignSelected={onAlignSelectedCanvasElements}
                     onDeleteElement={onDeleteManualElement}
                     fontFamilyManager={fontFamilyManager}
                   />
@@ -581,6 +590,8 @@ export function PptSidebar({
                     showDescriptions={showParameterDescriptions}
                     onUpdateText={onUpdateCoverText}
                     onUpdateLayout={onUpdateCoverTextBoxLayout}
+                    selectedElementIds={selectedCanvasSelectionKeys}
+                    onAlignSelected={onAlignSelectedCanvasElements}
                     fontFamilyManager={fontFamilyManager}
                   />
                 ) : (
@@ -612,11 +623,13 @@ export function PptSidebar({
               language={language}
               slide={manualSlide}
               selectedElementId={selectedManualElementId}
+              selectedElementIds={selectedCanvasSelectionKeys}
               slides={slides}
               showDescriptions={showParameterDescriptions}
               onUpdateBackgroundColor={onUpdateSlideBackgroundColor}
               onUpdateElement={onUpdateManualElement}
               onUpdateElements={onUpdateManualElements}
+              onAlignSelected={onAlignSelectedCanvasElements}
               onDeleteElement={onDeleteManualElement}
               fontFamilyManager={fontFamilyManager}
             />
@@ -629,6 +642,8 @@ export function PptSidebar({
               showDescriptions={showParameterDescriptions}
               onUpdateText={onUpdateCoverText}
               onUpdateLayout={onUpdateCoverTextBoxLayout}
+              selectedElementIds={selectedCanvasSelectionKeys}
+              onAlignSelected={onAlignSelectedCanvasElements}
               fontFamilyManager={fontFamilyManager}
             />
           ) : (

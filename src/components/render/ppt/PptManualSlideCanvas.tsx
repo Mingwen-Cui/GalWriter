@@ -181,6 +181,7 @@ export function PptManualElementLayer({
   selectedElementId,
   onSelectElement,
   onUpdateElement,
+  onDeleteElement,
   onNavigateSlide,
 }: {
   elements: PptManualElement[];
@@ -188,6 +189,7 @@ export function PptManualElementLayer({
   selectedElementId?: string;
   onSelectElement?: (elementId: string) => void;
   onUpdateElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
+  onDeleteElement?: (elementId: string) => void;
   onNavigateSlide?: (slideId: string) => void;
 }) {
   const boxSelection = useContext(PptBoxSelectionContext);
@@ -485,9 +487,15 @@ export function PptManualElementLayer({
             )}
             {selected ? (
               <WebEditableElementFrame
-                visible
-                showVisibilityControl={false}
-                onToggleVisible={(event) => event.stopPropagation()}
+                visible={element.visible !== false}
+                onToggleVisible={(event) => {
+                  event.stopPropagation();
+                  onUpdateElement?.(element.id, { visible: element.visible === false });
+                }}
+                onDelete={(event) => {
+                  event.stopPropagation();
+                  onDeleteElement?.(element.id);
+                }}
                 onRotatePointerDown={(event) => beginRotate(event, element)}
                 onResizePointerDown={(event, handle) => beginResize(event, element, handle)}
               />
@@ -505,6 +513,7 @@ export function PptManualSlideCanvas({
   selectedElementId,
   onSelectElement,
   onUpdateElement,
+  onDeleteElement,
   onNavigateSlide,
   onSelectBackground,
 }: {
@@ -513,6 +522,7 @@ export function PptManualSlideCanvas({
   selectedElementId?: string;
   onSelectElement?: (elementId: string) => void;
   onUpdateElement?: (elementId: string, patch: Partial<PptManualElement>) => void;
+  onDeleteElement?: (elementId: string) => void;
   onNavigateSlide?: (slideId: string) => void;
   onSelectBackground?: () => void;
 }) {
@@ -545,6 +555,7 @@ export function PptManualSlideCanvas({
         selectedElementId={selectedElementId}
         onSelectElement={onSelectElement}
         onUpdateElement={onUpdateElement}
+        onDeleteElement={onDeleteElement}
         onNavigateSlide={onNavigateSlide}
       />
     </div>

@@ -21,6 +21,8 @@ export function PptCoverTextInspector({
   showDescriptions,
   onUpdateText,
   onUpdateLayout,
+  selectedElementIds = [],
+  onAlignSelected,
   fontFamilyManager,
 }: {
   target: CoverTextTarget;
@@ -30,6 +32,8 @@ export function PptCoverTextInspector({
   showDescriptions: boolean;
   onUpdateText: (target: CoverTextTarget, text: string) => void;
   onUpdateLayout: (target: CoverTextTarget, patch: Partial<PptTextBoxLayout>) => void;
+  selectedElementIds?: string[];
+  onAlignSelected?: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
   fontFamilyManager?: {
     options: RenderFontFamilyOption[];
     onPresetsChange: (options: RenderFontFamilyOption[]) => void;
@@ -39,6 +43,7 @@ export function PptCoverTextInspector({
   return (
     <StartMenuElementInspector
       element={toPptCoverWebInspectorElement(target, text, layout)}
+      selectedElementIds={selectedElementIds}
       language={language}
       showDescriptions={showDescriptions}
       fontFamilyManager={
@@ -57,6 +62,7 @@ export function PptCoverTextInspector({
         if (next.text !== undefined) onUpdateText(target, next.text);
         if (Object.keys(next.layoutPatch).length) onUpdateLayout(target, next.layoutPatch);
       }}
+      onAlignSelected={onAlignSelected}
     />
   );
 }

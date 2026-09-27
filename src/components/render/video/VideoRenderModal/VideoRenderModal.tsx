@@ -193,6 +193,12 @@ export function VideoRenderModal({
   const [codeSettings, setCodeSettings] = useState<RenpyExportSettings>(() =>
     normalizeRenpyExportSettings(nodes, persistedWorkspace?.codeSettings),
   );
+  const [codePast, setCodePast] = useState<RenpyExportSettings[]>(
+    () => persistedWorkspace?.codePast || [],
+  );
+  const [codeFuture, setCodeFuture] = useState<RenpyExportSettings[]>(
+    () => persistedWorkspace?.codeFuture || [],
+  );
   const [codeTarget, setCodeTarget] = useState<CodeExportTarget>(() =>
     launchIntent?.workspaceMode === 'code'
       ? launchIntent.codeTarget
@@ -201,9 +207,16 @@ export function VideoRenderModal({
         : 'renpy',
   );
   const capturePptState = (): PptHistoryState => structuredClone(pptSettings);
+  const captureCodeState = (): RenpyExportSettings => structuredClone(codeSettings);
   const pushPptHistory = () => {
     setPptPast((previous) => [...previous.slice(-49), capturePptState()]);
     setPptFuture([]);
+  };
+  const updateCodeSettings = (next: RenpyExportSettings) => {
+    if (JSON.stringify(next) === JSON.stringify(codeSettings)) return;
+    setCodePast((previous) => [...previous.slice(-49), captureCodeState()]);
+    setCodeFuture([]);
+    setCodeSettings(structuredClone(next));
   };
   const [pptRibbonTab, setPptRibbonTab] = useState<'insert' | 'animation' | 'transition'>(
     launchIntent?.workspaceMode === 'ppt' && launchIntent.entryMode === 'manual'
@@ -901,6 +914,8 @@ export function VideoRenderModal({
     workspaceMode,
     pptSettings,
     codeSettings,
+    codePast: codePast.slice(-50),
+    codeFuture: codeFuture.slice(0, 50),
     codeTarget,
     selectedIds: [...selectedIds],
     timelineIds,
@@ -1177,6 +1192,22 @@ export function VideoRenderModal({
     setPptSettings(next);
   };
 
+  const undoCode = () => {
+    if (codePast.length === 0 || status === 'rendering') return;
+    const previous = codePast[codePast.length - 1];
+    setCodePast((past) => past.slice(0, -1));
+    setCodeFuture((future) => [captureCodeState(), ...future].slice(0, 50));
+    setCodeSettings(previous);
+  };
+
+  const redoCode = () => {
+    if (codeFuture.length === 0 || status === 'rendering') return;
+    const next = codeFuture[0];
+    setCodeFuture((future) => future.slice(1));
+    setCodePast((past) => [...past.slice(-49), captureCodeState()]);
+    setCodeSettings(next);
+  };
+
   const seekTimelineTime = (
     time: number,
     options?: { keepPlaying?: boolean; preserveFocus?: boolean },
@@ -1443,6 +1474,8 @@ export function VideoRenderModal({
     interactivePreviewBounds,
     outputDir,
     pptSettings,
+    codePast,
+    codeFuture,
     codeSettings,
     codeTarget,
     renderStyle,
@@ -1912,7 +1945,12 @@ export function VideoRenderModal({
         else redoPpt();
         return;
       }
-      if (workspaceMode === 'code') return;
+      if (workspaceMode === 'code') {
+        if (key === 'z' && event.shiftKey) redoCode();
+        else if (key === 'z') undoCode();
+        else redoCode();
+        return;
+      }
       if (key === 'z' && event.shiftKey) redoTimeline();
       else if (key === 'z') undoTimeline();
       else redoTimeline();
@@ -2370,6 +2408,8 @@ export function VideoRenderModal({
           webFuture={webFuture}
           pptPast={pptPast}
           pptFuture={pptFuture}
+          codePast={codePast}
+          codeFuture={codeFuture}
           webShowStartMenu={webSettings.showStartMenu}
           pptRibbonTab={pptRibbonTab}
           pptRibbonCollapsed={pptRibbonCollapsed}
@@ -2397,6 +2437,8 @@ export function VideoRenderModal({
           redoWeb={redoWeb}
           undoPpt={undoPpt}
           redoPpt={redoPpt}
+          undoCode={undoCode}
+          redoCode={redoCode}
           setWebShowStartMenu={(enabled) => updateWebSettings('showStartMenu', enabled)}
           setPptRibbonTab={setPptRibbonTab}
           setPptRibbonCollapsed={setPptRibbonCollapsed}
@@ -2716,7 +2758,7 @@ export function VideoRenderModal({
                     projectName={webProjectName || defaultWebProjectName}
                     target={codeTarget}
                     settings={codeSettings}
-                    onSettingsChange={setCodeSettings}
+                    onSettingsChange={updateCodeSettings}
                     webRenderStyle={renderStyle}
                     webChoiceColor={webChoiceColor}
                     webChoiceTextColor={webChoiceTextColor}
