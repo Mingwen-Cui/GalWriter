@@ -2837,9 +2837,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 leading-relaxed font-medium px-4">
                       {s.contactDesc}
                     </p>
-                    <p className="text-sm font-bold leading-relaxed px-4 py-3 mb-5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">
-                      {s.freeNotice}
-                    </p>
                     <div className="grid grid-cols-2 gap-6">
                       {[
                         {

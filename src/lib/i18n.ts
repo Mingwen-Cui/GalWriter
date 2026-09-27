@@ -79,10 +79,8 @@ export const translations = {
     bgCard: '背景卡片',
     connectToAIHub: '连接到 AI 总汇',
     finish: '完成',
-    contactTitle: '联系作者 (崔铭文)',
+    contactTitle: '联系作者',
     contactDesc: '如果您在使用过程中遇到任何问题或建议，欢迎通过以下方式联系我：',
-    freeNotice:
-      '本软件由崔铭文独立设计与开发，仍在持续迭代中。欢迎围绕产品合作、授权、技术交流或岗位机会与作者沟通。',
     author: '作者',
     apiKeyLocalOnly: '所有 API Key 均保存在您的本地设备中，不会上传至任何服务器。',
 
@@ -253,10 +251,8 @@ export const translations = {
     bgCard: 'Background Card',
     connectToAIHub: 'Connect to AI Hub',
     finish: 'Finish',
-    contactTitle: 'Contact Author (Mingwen Cui)',
+    contactTitle: 'Contact Author',
     contactDesc: 'If you encounter any issues or have suggestions, feel free to contact me via:',
-    freeNotice:
-      'Independently designed and developed by Mingwen Cui, this software is actively evolving. Product partnerships, licensing, technical exchange, and career opportunities are welcome.',
     author: 'Author',
     apiKeyLocalOnly:
       'All API keys are stored locally on your device and are never uploaded to any server.',
@@ -425,10 +421,8 @@ export const translations = {
     bgCard: '背景カード',
     connectToAIHub: 'AIハブに接続',
     finish: '完了',
-    contactTitle: '開発者に連絡 (崔銘文)',
+    contactTitle: '開発者に連絡',
     contactDesc: '問題が発生した場合や提案がある場合は、お気軽にご連絡ください：',
-    freeNotice:
-      '本ソフトウェアは崔銘文が独立して設計・開発し、継続的に改善しています。製品協業、ライセンス、技術交流、採用に関するご相談を歓迎します。',
     author: '開発者',
     apiKeyLocalOnly:
       'すべての API キーはお使いのデバイスにローカル保存され、サーバーにはアップロードされません。',

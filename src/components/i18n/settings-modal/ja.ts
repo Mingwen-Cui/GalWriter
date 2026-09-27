@@ -203,9 +203,7 @@ export const settingsModalJa = {
   layoutImmersive: '画像・テキスト統合',
   choiceColumns: 'ボタン配置',
   videoAutoPlay: '動画の自動再生',
-  contactTitle: '開発者に連絡 (崔銘文)',
+  contactTitle: '開発者に連絡',
   contactDesc: '問題が発生した場合や提案がある場合は、お気軽にご連絡ください：',
-  freeNotice:
-    '本ソフトウェアは崔銘文が独立して設計・開発し、継続的に改善しています。製品協業、ライセンス、技術交流、採用に関するご相談を歓迎します。',
   cancel: 'キャンセル',
 } as const;

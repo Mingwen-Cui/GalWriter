@@ -201,9 +201,7 @@ export const settingsModalEn = {
   layoutImmersive: 'Merged Media/Text',
   choiceColumns: 'Button Layout',
   videoAutoPlay: 'Video Auto-play',
-  contactTitle: 'Contact Author (Mingwen Cui)',
+  contactTitle: 'Contact Author',
   contactDesc: 'If you encounter any issues or have suggestions, feel free to contact me via:',
-  freeNotice:
-    'Independently designed and developed by Mingwen Cui, this software is actively evolving. Product partnerships, licensing, technical exchange, and career opportunities are welcome.',
   cancel: 'Cancel',
 } as const;
