@@ -135,6 +135,7 @@ export type AssistantMessage = {
   id: string;
   role: 'user' | 'assistant' | 'thought';
   content: string;
+  composerPlaceholder?: string;
   collapsed?: boolean;
   contextPreviews?: Array<{
     id: string;
@@ -176,11 +177,30 @@ export type AssistantMessage = {
     skipped?: boolean;
   };
   options?: AssistantMessageOption[];
+  storyOutline?: AssistantStoryOutline;
+  storyProfile?: AssistantStoryProfile;
+  storyProfileSaved?: boolean;
+  storyProfileQuestion?: {
+    progress: string;
+    title: string;
+    hint: string;
+    multiple: boolean;
+  };
   /** State before this setup choice, used when revising an earlier answer. */
   creativeCheckpoint?: { workflow: CreativeStoryWorkflow; session: CreativeStorySession };
   selectedChoice?: string;
   inputPrompt?: string;
   inputResponse?: string;
+};
+
+export type AssistantStoryOutline = {
+  lengthLabel: string;
+  estimatedCharacterCount: number;
+  stages: Array<{
+    title: string;
+    subtitle: string;
+    estimatedCharacterCount: number;
+  }>;
 };
 
 export type AssistantMessageOption = {

@@ -5,7 +5,7 @@ import type {
   AssistantCardDraft,
   AssistantCardPlacementMode,
 } from '../../agent/planning/agentCardDraft';
-import type { AssistantStoryProfile, CreativeStoryWorkflow } from '../../domain/project';
+import type { AssistantStoryOutline, AssistantStoryProfile, CreativeStoryWorkflow } from '../../domain/project';
 import type { AssistantMessage, AssistantTask } from '../../editor-state/editorConfig';
 import type { Language } from '../../lib/i18n';
 import { htmlToSpeechText } from '../../lib/tts';
@@ -48,15 +48,14 @@ export type AssistantWorkflowState =
       waitingForText?: boolean;
     }
   | {
-      type: 'profile-awaiting-opening';
+      type: 'profile-awaiting-outline';
       profile: AssistantStoryProfile;
-      openings: AssistantStoryOpening[];
+      outline: AssistantStoryOutline;
     }
   | {
       type: 'profile-ready-to-generate';
       profile: AssistantStoryProfile;
-      opening: AssistantStoryOpening;
-      discussing?: boolean;
+      outline: AssistantStoryOutline;
     }
   | { type: 'starter-theme' }
   | { type: 'starter-style'; theme: string; style?: string; supplement?: string }
@@ -135,14 +134,6 @@ export type AssistantArticleAnalysisStep = {
 };
 
 export type AssistantStoryProfileStep = 'persona' | 'genre' | 'dynamics' | 'world' | 'plot';
-
-export type AssistantStoryOpening = {
-  title: string;
-  world: string;
-  plot: string;
-  matchReason: string;
-  opening: string;
-};
 
 export const createAssistantStoryProfile = (): AssistantStoryProfile => ({
   version: 1,

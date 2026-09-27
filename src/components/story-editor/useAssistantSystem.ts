@@ -1405,7 +1405,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         .filter((title): title is string => Boolean(title));
       const uniqueStoryChapterTitles = Array.from(new Set(storyChapterTitles));
       const chapterBackgroundNodes: Node[] = [];
-      if (uniqueStoryChapterTitles.length > 0) {
+      if (uniqueStoryChapterTitles.length > 0 && !options?.disableAutomaticAssistantBackgrounds) {
         const storyX = columnXByType.get('story') ?? center.x - AI_STORY_CARD_WIDTH / 2;
         const chapterGap = 140;
         const chapterPadding = 56;
@@ -1523,7 +1523,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         batchGroups.set(key, group);
       });
       const batchBackgroundColors = ['#eef2ff', '#ecfeff', '#f0fdf4', '#fff7ed', '#fdf2f8'];
-      const batchBackgroundNodes = Array.from(batchGroups.values()).map((group, groupIndex) => {
+      const batchBackgroundNodes = options?.disableAutomaticAssistantBackgrounds
+        ? []
+        : Array.from(batchGroups.values()).map((group, groupIndex) => {
         const padding = 48;
         const isStoryGroup = group.type === 'story';
         const bounds = group.indexes.reduce(
@@ -1571,7 +1573,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
             assistantAutoFitPadding: padding,
           },
         } satisfies Node;
-      });
+          });
 
       const nodeByDraftRef = new Map<string, Node>();
       remainingCards.forEach((card, index) => {
@@ -1945,6 +1947,180 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       presetSettingLibraryItems,
       savedSettingLibraryItems,
     ],
+  );
+
+  const createAssistantStoryOutlineBackgrounds = useCallback(
+    (stages: Array<{ title: string; subtitle: string; estimatedCharacterCount: number }>) => {
+      const center = getCenterPosition();
+      const regionWidth = 920;
+      const regionGap = 1080;
+      const top = center.y - 170;
+      const regions = stages.map((stage, index) => {
+        const groupNodeId = uuidv4();
+        const textNodeId = uuidv4();
+        const x = center.x - regionWidth / 2 + index * regionGap;
+        const y = top;
+        const text = `${stage.subtitle}\n本阶段约 ${stage.estimatedCharacterCount.toLocaleString()} 字`;
+        return {
+          title: stage.title,
+          groupNodeId,
+          textNodeId,
+          x,
+          y,
+          groupNode: {
+            id: groupNodeId,
+            type: 'groupNode',
+            position: { x, y },
+            dragHandle: '.custom-drag-handle',
+            style: { width: regionWidth, height: 240, zIndex: -2 },
+            data: {
+              id: groupNodeId,
+              title: stage.title,
+              color: '#4f46e5',
+              language,
+              gap: 40,
+              childIds: [textNodeId],
+              assistantAutoFitPending: false,
+              assistantAutoFitChildIds: [textNodeId],
+              assistantAutoFitPadding: 40,
+            },
+          } satisfies Node,
+          textNode: {
+            id: textNodeId,
+            type: 'textNode',
+            position: { x: x + 40, y: y + 72 },
+            style: { width: regionWidth - 80, height: 112 },
+            data: {
+              id: textNodeId,
+              content: text,
+              fontSize: 21,
+              color: '#334155',
+              fontFamily: 'system-ui, sans-serif',
+              isBold: false,
+              textAlign: 'left',
+            },
+          } satisfies Node,
+        };
+      });
+
+      setNodes((currentNodes) => [
+        ...currentNodes.map((node) => ({ ...node, selected: false })),
+        ...regions.flatMap(({ groupNode, textNode }) => [groupNode, textNode]),
+      ]);
+
+      return regions.map(({ title, groupNodeId, textNodeId, x, y }) => ({
+        title,
+        groupNodeId,
+        textNodeId,
+        x,
+        y,
+      }));
+    },
+    [getCenterPosition, language, setNodes],
+  );
+
+  const placeAssistantStoryCardsIntoOutlineBackgrounds = useCallback(
+    (
+      cards: AssistantCardDraft[],
+      nodeIds: string[],
+      regions: Array<{
+        title: string;
+        groupNodeId: string;
+        textNodeId: string;
+        x: number;
+        y: number;
+      }>,
+    ) => {
+      if (!cards.length || !nodeIds.length || !regions.length) return;
+      const normalize = (value: string) => value.trim().toLocaleLowerCase();
+      const regionByTitle = new Map(regions.map((region) => [normalize(region.title), region]));
+
+      setNodes((currentNodes) => {
+        const nodeById = new Map(currentNodes.map((node) => [node.id, node]));
+        const positions = new Map<string, { x: number; y: number }>();
+        const cardsByRegion = new Map(regions.map((region) => [region.groupNodeId, [] as string[]]));
+        const columnsByRegion = new Map(
+          regions.map((region) => [region.groupNodeId, [0, 0] as number[]]),
+        );
+
+        cards.forEach((card, index) => {
+          const nodeId = nodeIds[index];
+          const stage = typeof card.chapterTitle === 'string' ? card.chapterTitle : '';
+          const region = regionByTitle.get(normalize(stage)) || regions[0];
+          const node = nodeId ? nodeById.get(nodeId) : undefined;
+          if (!region || !node || !nodeId) return;
+
+          const columnHeights = columnsByRegion.get(region.groupNodeId)!;
+          const column = columnHeights[0] <= columnHeights[1] ? 0 : 1;
+          const height =
+            Number(node.measured?.height) ||
+            Number(node.style?.height) ||
+            (node.type === 'storyNode'
+              ? AI_STORY_CARD_HEIGHT
+              : node.type === 'characterNode'
+                ? AI_CHARACTER_CARD_LAYOUT_HEIGHT
+                : AI_SCENE_CARD_LAYOUT_HEIGHT);
+          const x = region.x + 40 + column * 450;
+          const y = region.y + 220 + columnHeights[column];
+          positions.set(nodeId, { x, y });
+          columnHeights[column] += height + 44;
+          cardsByRegion.get(region.groupNodeId)?.push(nodeId);
+        });
+
+        const updatedNodes = currentNodes.map((node) => {
+          const position = positions.get(node.id);
+          if (position) return { ...node, position };
+          const region = regions.find((candidate) => candidate.groupNodeId === node.id);
+          if (!region) return node;
+          const childIds = [region.textNodeId, ...(cardsByRegion.get(region.groupNodeId) || [])];
+          const children = childIds.flatMap((childId) => {
+              const child = nodeById.get(childId);
+              if (!child) return [];
+              const childPosition = positions.get(childId) || child.position;
+              const childWidth =
+                Number(child.measured?.width) ||
+                Number(child.style?.width) ||
+                (child.type === 'textNode' ? 840 : SETTING_NODE_CARD_WIDTH);
+              const childHeight =
+                Number(child.measured?.height) ||
+                Number(child.style?.height) ||
+                (child.type === 'storyNode'
+                  ? AI_STORY_CARD_HEIGHT
+                  : child.type === 'characterNode'
+                    ? AI_CHARACTER_CARD_LAYOUT_HEIGHT
+                    : child.type === 'sceneNode'
+                      ? AI_SCENE_CARD_LAYOUT_HEIGHT
+                      : 112);
+              return [{
+                left: childPosition.x,
+                top: childPosition.y,
+                right: childPosition.x + childWidth,
+                bottom: childPosition.y + childHeight,
+              }];
+            });
+          if (!children.length) return node;
+          const padding = 40;
+          const left = Math.min(...children.map((child) => child.left)) - padding;
+          const top = Math.min(...children.map((child) => child.top)) - padding;
+          const right = Math.max(...children.map((child) => child.right)) + padding;
+          const bottom = Math.max(...children.map((child) => child.bottom)) + padding;
+          return {
+            ...node,
+            position: { x: left, y: top },
+            style: { ...node.style, width: right - left, height: bottom - top, zIndex: -2 },
+            data: {
+              ...node.data,
+              childIds,
+              assistantAutoFitChildIds: childIds,
+              assistantAutoFitPending: false,
+            },
+          };
+        });
+
+        return updatedNodes;
+      });
+    },
+    [setNodes],
   );
 
   // =========================================================================
@@ -2896,6 +3072,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
+    handleAssistantStoryOutlineChange,
     handleNewAssistantTask,
     handleStartCardReview,
     handleRenameAssistantTask,
@@ -2936,6 +3113,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     callAIForTextResult,
     callAIForTextStream,
     createAssistantCards,
+    createAssistantStoryOutlineBackgrounds,
+    placeAssistantStoryCardsIntoOutlineBackgrounds,
     updateStreamingAssistantCards,
     removeAssistantNodes,
     setAssistantNodesLocked,
@@ -2985,6 +3164,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
     handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
+    handleAssistantStoryOutlineChange,
     handleNewAssistantTask,
     handleStartCardReview,
     handleRenameAssistantTask,
@@ -3019,6 +3199,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
 
     // Card operations
     createAssistantCards,
+    createAssistantStoryOutlineBackgrounds,
+    placeAssistantStoryCardsIntoOutlineBackgrounds,
     updateStreamingAssistantCards,
     removeAssistantNodes,
     handleGenerateAssistantImagesForNodes,

@@ -2118,6 +2118,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
+    handleAssistantStoryOutlineChange,
     handleNewAssistantTask,
     handleStartCardReview,
     handleRenameAssistantTask,
@@ -3132,6 +3133,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           activeAssistantTaskId={activeAssistantTaskId}
           assistantMessages={assistantMessages}
           assistantMessagesRef={assistantMessagesRef}
+          handleAssistantStoryOutlineChange={handleAssistantStoryOutlineChange}
           setAssistantOpen={setAssistantOpen}
           setAssistantInput={setAssistantInput}
           setAssistantInputContexts={setAssistantInputContexts}

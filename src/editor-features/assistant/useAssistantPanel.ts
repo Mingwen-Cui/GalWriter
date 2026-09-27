@@ -16,6 +16,7 @@ import { useDialog } from '../../editor-shell/DialogProvider';
 import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
 import type {
   AssistantMessage,
+  AssistantStoryOutline,
   AssistantStoryProfile,
   AssistantTask,
   CreativeStorySession,
@@ -39,7 +40,6 @@ import {
   type AssistantHistorySnapshot,
   type AssistantSpeechRecognitionCtor,
   type AssistantSpeechRecognitionEvent,
-  type AssistantStoryOpening,
   type AssistantStoryProfileStep,
   type AssistantWorkflowState,
   buildAssistantPlaceholderCards,
@@ -212,6 +212,26 @@ interface UseAssistantPanelParams {
     mode?: AssistantCardPlacementMode,
     options?: AssistantCardPlacementOptions,
   ) => Promise<AssistantCardPlacementResult>;
+  createAssistantStoryOutlineBackgrounds: (
+    stages: Array<{ title: string; subtitle: string; estimatedCharacterCount: number }>,
+  ) => Array<{
+    title: string;
+    groupNodeId: string;
+    textNodeId: string;
+    x: number;
+    y: number;
+  }>;
+  placeAssistantStoryCardsIntoOutlineBackgrounds: (
+    cards: AssistantCardDraft[],
+    nodeIds: string[],
+    regions: Array<{
+      title: string;
+      groupNodeId: string;
+      textNodeId: string;
+      x: number;
+      y: number;
+    }>,
+  ) => void;
   updateStreamingAssistantCards?: (
     nodeIds: string[] | undefined,
     cards: AssistantCardDraft[],
@@ -317,6 +337,8 @@ export const useAssistantPanel = ({
   callAIForTextResult,
   callAIForTextStream,
   createAssistantCards,
+  createAssistantStoryOutlineBackgrounds,
+  placeAssistantStoryCardsIntoOutlineBackgrounds,
   updateStreamingAssistantCards,
   removeAssistantNodes,
   setAssistantNodesLocked,
@@ -537,6 +559,21 @@ export const useAssistantPanel = ({
       );
     },
     [activeAssistantTaskId],
+  );
+
+  const handleAssistantStoryOutlineChange = useCallback(
+    (messageId: string, outline: AssistantStoryOutline) => {
+      setAssistantMessages((messages) =>
+        messages.map((message) =>
+          message.id === messageId ? { ...message, storyOutline: outline } : message,
+        ),
+      );
+      const workflow = assistantWorkflowRef.current;
+      if (workflow.type === 'profile-awaiting-outline') {
+        assistantWorkflowRef.current = { ...workflow, outline };
+      }
+    },
+    [setAssistantMessages],
   );
 
   const handleStopAssistantGeneration = useCallback(() => {
@@ -1554,7 +1591,7 @@ The previous streaming response did not complete every placeholder card. Return 
     [language],
   );
 
-  const generateStoryProfileOpenings = useCallback(
+  const generateStoryProfileOutline = useCallback(
     async (profile: AssistantStoryProfile) => {
       const profileCopy = assistantPanelCopy(language).profileFlow;
       if (!hasTextApiKey) {
@@ -1563,56 +1600,76 @@ The previous streaming response did not complete every placeholder card. Return 
       }
       setAssistantLoading(true);
       setAssistantMessages((messages) => [
-        ...messages,
+        ...messages.filter((message) => !message.storyOutline),
         { id: uuidv4(), role: 'assistant', content: profileCopy.generating },
       ]);
       try {
-        const prompt = formatLocalizedCopy(profileCopy.openingPrompt, {
+        const prompt = formatLocalizedCopy(profileCopy.outlinePrompt, {
           profile: formatStoryProfileForPrompt(profile, profileCopy.profileSummary),
         });
         const result = await callAIForTextResult(prompt);
         const parsed = JSON.parse(extractFirstJsonObject(result.content)) as {
-          openings?: Partial<AssistantStoryOpening>[];
+          lengthLabel?: unknown;
+          estimatedCharacterCount?: unknown;
+          stages?: Array<{
+            title?: unknown;
+            subtitle?: unknown;
+            estimatedCharacterCount?: unknown;
+          }>;
         };
-        const openings = (parsed.openings || [])
-          .map((opening) => ({
-            title: String(opening.title || '').trim(),
-            world: String(opening.world || '').trim(),
-            plot: String(opening.plot || '').trim(),
-            matchReason: String(opening.matchReason || '').trim(),
-            opening: String(opening.opening || '').trim(),
-          }))
-          .filter((opening) => opening.title && opening.opening && opening.world && opening.plot)
-          .slice(0, 3);
-        if (openings.length !== 3) throw new Error(profileCopy.failure);
+        const stages = (parsed.stages || [])
+          .map((stage) => {
+            const requestedCount = Number(stage.estimatedCharacterCount);
+            return {
+              title: String(stage.title || '').trim(),
+              subtitle: String(stage.subtitle || '').trim(),
+              estimatedCharacterCount: Number.isFinite(requestedCount)
+                ? Math.min(30_000, Math.max(300, Math.round(requestedCount)))
+                : 1_500,
+            };
+          })
+          .filter((stage) => stage.title && stage.subtitle)
+          .slice(0, 18);
+        if (stages.length < 4) throw new Error(profileCopy.failure);
+        const stageCharacterCount = stages.reduce(
+          (sum, stage) => sum + stage.estimatedCharacterCount,
+          0,
+        );
+        const outline: AssistantStoryOutline = {
+          lengthLabel: String(parsed.lengthLabel || profileCopy.estimatedLength),
+          estimatedCharacterCount: stageCharacterCount,
+          stages,
+        };
 
         assistantWorkflowRef.current = {
-          type: 'profile-awaiting-opening',
+          type: 'profile-awaiting-outline',
           profile,
-          openings,
+          outline,
         };
         setAssistantMessages((messages) => [
           ...messages,
           {
             id: uuidv4(),
             role: 'assistant',
-            content: profileCopy.resultIntro,
+            content: '',
+            storyOutline: outline,
+            storyProfile: profile,
+            composerPlaceholder: assistantPanelCopy(language).composerHints.outline,
             options: [
-              ...openings.map((opening, index) => ({
-                id: uuidv4(),
-                label: `${profileCopy.chooseOpening} · ${opening.title}`,
-                description: `${opening.world} · ${opening.plot}\n${opening.opening}\n${opening.matchReason}`,
-                value: `__profile_opening__:${index}`,
-              })),
               {
                 id: uuidv4(),
-                label: profileCopy.regenerate,
-                value: '__profile_regenerate__',
+                label: profileCopy.regenerateOutline,
+                value: '__profile_outline_regenerate__',
               },
               {
                 id: uuidv4(),
                 label: profileCopy.save,
                 value: '__profile_save__',
+              },
+              {
+                id: uuidv4(),
+                label: profileCopy.confirmOutline,
+                value: '__profile_outline_confirm__',
               },
             ],
           },
@@ -1639,21 +1696,22 @@ The previous streaming response did not complete every placeholder card. Return 
     (profile: AssistantStoryProfile, stepIndex: number) => {
       const step = STORY_PROFILE_STEPS[stepIndex];
       if (!step) {
-        void generateStoryProfileOpenings(profile);
+        void generateStoryProfileOutline(profile);
         return;
       }
       const profileCopy = assistantPanelCopy(language).profileFlow;
       const question = getStoryProfileQuestionCopy(step);
       const selectedValues = storyProfileValues(profile, step);
+      const progress = formatLocalizedCopy(profileCopy.progress, { current: stepIndex + 1 });
+      const hint = question.multiple ? profileCopy.chooseUpToThree : profileCopy.chooseOne;
       assistantWorkflowRef.current = { type: 'profile-collecting', step, profile };
       setAssistantMessages((messages) => [
         ...messages,
         {
           id: uuidv4(),
           role: 'assistant',
-          content: `${formatLocalizedCopy(profileCopy.progress, { current: stepIndex + 1 })}\n${question.title}\n${
-            question.multiple ? profileCopy.chooseUpToThree : profileCopy.chooseOne
-          }`,
+          content: '',
+          storyProfileQuestion: { progress, title: question.title, hint, multiple: question.multiple },
           options: [
             ...question.choices.map((label, index) => ({
               id: uuidv4(),
@@ -1672,11 +1730,6 @@ The previous streaming response did not complete every placeholder card. Return 
               : []),
             {
               id: uuidv4(),
-              label: profileCopy.custom,
-              value: `__profile_custom__:${step}`,
-            },
-            {
-              id: uuidv4(),
               label: profileCopy.skip,
               value: `__profile_skip__:${step}`,
             },
@@ -1684,7 +1737,7 @@ The previous streaming response did not complete every placeholder card. Return 
         },
       ]);
     },
-    [generateStoryProfileOpenings, getStoryProfileQuestionCopy, language, setAssistantMessages],
+    [generateStoryProfileOutline, getStoryProfileQuestionCopy, language, setAssistantMessages],
   );
 
   const {
@@ -1790,6 +1843,9 @@ The previous streaming response did not complete every placeholder card. Return 
       ]);
 
       const workflow = assistantWorkflowRef.current;
+      const isProfileOutlineGeneration = workflow.type === 'profile-ready-to-generate';
+      const profileOutlineStages =
+        workflow.type === 'profile-ready-to-generate' ? workflow.outline.stages : [];
       const isIdeaWorkflow = workflow.type === 'idea-awaiting';
       if (workflow.type === 'creative-role-preference-custom-awaiting') {
         try {
@@ -1869,6 +1925,7 @@ The previous streaming response did not complete every placeholder card. Return 
             id: uuidv4(),
             role: 'assistant',
             content: `主题确定为“${userText}”。你想写成什么样的故事？可以直接输入，也可以让我给出三个方向。`,
+            composerPlaceholder: assistantPanelCopy(language).composerHints.starterStyle,
             options: [
               {
                 id: uuidv4(),
@@ -1889,6 +1946,7 @@ The previous streaming response did not complete every placeholder card. Return 
             id: uuidv4(),
             role: 'assistant',
             content: `任务确认\n主题：${workflow.theme}\n故事方向：${userText}\n\n还有补充要求吗？`,
+            composerPlaceholder: assistantPanelCopy(language).composerHints.starterSupplement,
             options: [
               { id: uuidv4(), label: '确认并开始生成', value: '__starter_confirm__' },
               { id: uuidv4(), label: '添加补充要求', value: '__starter_supplement__' },
@@ -1911,6 +1969,7 @@ The previous streaming response did not complete every placeholder card. Return 
             id: uuidv4(),
             role: 'assistant',
             content: `任务确认\n主题：${workflow.theme}\n故事方向：${workflow.style}\n补充要求：${userText}\n\n确认后，我会依次生成人物、场景和剧情卡片。`,
+            composerPlaceholder: assistantPanelCopy(language).composerHints.starterSupplement,
             options: [
               { id: uuidv4(), label: '确认并开始生成', value: '__starter_confirm__' },
               { id: uuidv4(), label: '继续补充', value: '__starter_supplement__' },
@@ -1969,6 +2028,7 @@ The previous streaming response did not complete every placeholder card. Return 
               language === 'zh'
                 ? '先确定短剧的主要人物。请选择设定库中的人物，或让 AI 先新建一张人物设定卡。'
                 : 'Choose the main character from the setting library, or let AI create one first.',
+            composerPlaceholder: assistantPanelCopy(language).composerHints.shortDrama,
             options: [
               ...characterLibraryItems.map((item) => ({
                 id: uuidv4(),
@@ -2091,6 +2151,7 @@ The previous streaming response did not complete every placeholder card. Return 
       let effectiveUserText = userText;
       let forcedMode: AssistantCardPlacementMode | undefined;
       let placementOptions: AssistantCardPlacementOptions | undefined;
+      let profileOutlineRegions: ReturnType<typeof createAssistantStoryOutlineBackgrounds> = [];
       const isShortDramaStoryOnly = workflow.type === 'short-drama-ready';
       const shortDramaSetupNodeIds =
         workflow.type === 'short-drama-ready'
@@ -2134,7 +2195,12 @@ The previous streaming response did not complete every placeholder card. Return 
           request: workflow.request,
         });
         assistantWorkflowRef.current = { type: 'idle' };
-      } else if (workflow.type === 'profile-ready-to-generate' && !workflow.discussing) {
+      } else if (workflow.type === 'profile-ready-to-generate') {
+        profileOutlineRegions = createAssistantStoryOutlineBackgrounds(workflow.outline.stages);
+        placementOptions = {
+          disableAutomaticAssistantBackgrounds: true,
+          skipAnimation: true,
+        };
         effectiveUserText = formatLocalizedCopy(
           assistantPanelCopy(language).profileFlow.generatePrompt,
           {
@@ -2142,22 +2208,16 @@ The previous streaming response did not complete every placeholder card. Return 
               workflow.profile,
               assistantPanelCopy(language).profileFlow.profileSummary,
             ),
-            opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
+            outline: [
+              `${workflow.outline.lengthLabel} · ${workflow.outline.estimatedCharacterCount.toLocaleString()} 字`,
+              ...workflow.outline.stages.map(
+                (stage, index) =>
+                  `${index + 1}. ${stage.title}（约 ${stage.estimatedCharacterCount.toLocaleString()} 字）\n${stage.subtitle}`,
+              ),
+            ].join('\n'),
           },
         );
-        assistantWorkflowRef.current = { type: 'idle' };
-      } else if (workflow.type === 'profile-ready-to-generate' && workflow.discussing) {
-        effectiveUserText = formatLocalizedCopy(
-          assistantPanelCopy(language).profileFlow.discussPrompt,
-          {
-            profile: formatStoryProfileForPrompt(
-              workflow.profile,
-              assistantPanelCopy(language).profileFlow.profileSummary,
-            ),
-            opening: `${workflow.opening.title}\n${workflow.opening.world}\n${workflow.opening.plot}\n${workflow.opening.opening}`,
-            message: userText,
-          },
-        );
+        effectiveUserText += `\n\n阶段归属要求：只按上方确认的大纲生成内容。人物卡、场景卡和剧情卡都必须填写 chapterTitle，且只能使用大纲中的阶段标题原文。剧情按阶段顺序推进，每张卡都归入最合适的阶段；不要新增阶段。先完成全部阶段背景卡后才开始生成这些人物、场景与剧情卡。所有人物和场景卡都设置 generateImage=false，不生成图片。`;
         assistantWorkflowRef.current = { type: 'idle' };
       } else if (isIdeaWorkflow) {
         effectiveUserText = `请把这个新脑洞扩展成可落地的视觉小说开篇。用户脑洞：${userText}。请生成主要人物卡、核心场景卡，并生成6到10张按顺序推进的剧情卡，重点补足故事设定、角色关系、核心冲突和第一幕推进。`;
@@ -2312,7 +2372,12 @@ ${availableSettingLibraryContext || '无'}`;
       let preparedPlacement: AssistantCardPlacementResult | null = null;
       let preparedPlaceholderCards: AssistantCardDraft[] = [];
       if (wantsCards && !fillSelected) {
-        startAgentWaiting?.('AI Agent 正在生成内容', '正在设计人物、场景和剧情卡片');
+        startAgentWaiting?.(
+          'AI Agent 正在生成内容',
+          isProfileOutlineGeneration
+            ? '已放置大纲阶段背景卡，正在生成对应内容'
+            : '正在设计人物、场景和剧情卡片',
+        );
         const placeholders: AssistantCardDraft[] = [];
         if (placeholders.length > 0) {
           preparedPlaceholderCards = placeholders;
@@ -2333,6 +2398,7 @@ ${availableSettingLibraryContext || '无'}`;
         if (
           wantsCards &&
           !fillSelected &&
+          !isProfileOutlineGeneration &&
           !isArticleTeachingWorkflow &&
           !isShortDramaBundleRequest &&
           callAIForTextStream &&
@@ -2458,6 +2524,40 @@ ${availableSettingLibraryContext || '无'}`;
         if (isArticleTeachingWorkflow) {
           cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
         }
+        if (isProfileOutlineGeneration) {
+          const stageTitleByKey = new Map(
+            profileOutlineStages.map((stage) => [stage.title.trim().toLocaleLowerCase(), stage.title]),
+          );
+          const storyCardCount = cards.filter((card) => getAssistantDraftType(card) === 'story').length;
+          let storyCardIndex = 0;
+          cards = cards
+            .filter((card) => {
+              const type = getAssistantDraftType(card);
+              return type === 'character' || type === 'scene' || type === 'story';
+            })
+            .map((card) => {
+              const suppliedTitle = String(card.chapterTitle || '').trim();
+              const normalizedTitle = suppliedTitle.toLocaleLowerCase();
+              const type = getAssistantDraftType(card);
+              const fallbackStageIndex =
+                type === 'story' && storyCardCount > 0
+                  ? Math.min(
+                      profileOutlineStages.length - 1,
+                      Math.floor((storyCardIndex / storyCardCount) * profileOutlineStages.length),
+                    )
+                  : 0;
+              if (type === 'story') storyCardIndex += 1;
+              const chapterTitle =
+                stageTitleByKey.get(normalizedTitle) ||
+                profileOutlineStages[fallbackStageIndex]?.title ||
+                '故事阶段';
+              return {
+                ...card,
+                chapterTitle,
+                ...(type === 'character' || type === 'scene' ? { generateImage: false } : {}),
+              };
+            });
+        }
         const mode = forcedMode || parsed.mode || (fillSelected ? 'fill-selected' : 'append');
         const shouldPlaceCards = wantsCards || cards.length > 0;
         if (preparedPlacement?.count && cards.length === 0) {
@@ -2488,8 +2588,19 @@ ${availableSettingLibraryContext || '无'}`;
         } else if (shouldPlaceCards) {
           placement = await createAssistantCards(cards, mode, placementOptions);
         }
+        if (isProfileOutlineGeneration && placement.nodeIds?.length) {
+          placeAssistantStoryCardsIntoOutlineBackgrounds(
+            cards,
+            placement.nodeIds,
+            profileOutlineRegions,
+          );
+        }
         const actionText =
-          placement.count > 0 ? `\n\n已在画布上处理 ${placement.count} 张卡片。` : '';
+          placement.count > 0
+            ? isProfileOutlineGeneration
+              ? `\n\n已先放置 ${profileOutlineRegions.length} 个阶段背景卡，再将 ${placement.count} 张人物、场景和剧情卡归入对应阶段。`
+              : `\n\n已在画布上处理 ${placement.count} 张卡片。`
+            : '';
 
         const visualNodeIds = (placement.nodeIds || []).filter((_, index) => {
           const card = cards[index];
@@ -2498,7 +2609,9 @@ ${availableSettingLibraryContext || '无'}`;
           return type === 'character' || type === 'scene';
         });
         const visualizationRequestId =
-          visualNodeIds.length > 0 && onGenerateAssistantImagesRequest ? uuidv4() : '';
+          !isProfileOutlineGeneration && visualNodeIds.length > 0 && onGenerateAssistantImagesRequest
+            ? uuidv4()
+            : '';
         if (visualizationRequestId) {
           assistantVisualizationRequestsRef.current.set(visualizationRequestId, visualNodeIds);
         }
@@ -2572,6 +2685,8 @@ ${availableSettingLibraryContext || '无'}`;
       callAIForTextStream,
       beginCreativeCharacterSelection,
       createAssistantCards,
+      createAssistantStoryOutlineBackgrounds,
+      placeAssistantStoryCardsIntoOutlineBackgrounds,
       hasTextApiKey,
       assistantMemorySkillEnabled,
       assistantMemoryNotes,
@@ -2599,7 +2714,13 @@ ${availableSettingLibraryContext || '无'}`;
   );
 
   const requestAssistantOptions = useCallback(
-    async (prompt: string, heading: string, valuePrefix: string, refreshValue?: string) => {
+    async (
+      prompt: string,
+      heading: string,
+      valuePrefix: string,
+      refreshValue?: string,
+      composerPlaceholder?: string,
+    ) => {
       if (!hasTextApiKey) {
         onMissingTextApiKeyRequest?.();
         return;
@@ -2630,7 +2751,13 @@ options 必须正好有 3 项。`);
         }
         setAssistantMessages((messages) => [
           ...messages,
-          { id: uuidv4(), role: 'assistant', content: heading, options },
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: heading,
+            composerPlaceholder,
+            options,
+          },
         ]);
       } catch (error: any) {
         setAssistantMessages((messages) => [
@@ -2750,7 +2877,8 @@ options 必须正好有 3 项。`);
                 ? '你有一个新脑洞吗？\n从一句灵感开始，我可以帮你扩展成故事设定、角色和冲突。把那句灵感发给我就行。'
                 : language === 'ja'
                   ? '新しいアイデアがありますか？\n一文のひらめきから、物語設定・キャラクター・葛藤へ広げます。そのひらめきを送ってください。'
-                  : 'Do you have a new idea?\nStart with one spark, and I can expand it into story premise, characters, and conflict. Send me that spark.',
+                : 'Do you have a new idea?\nStart with one spark, and I can expand it into story premise, characters, and conflict. Send me that spark.',
+            composerPlaceholder: assistantPanelCopy(language).composerHints.idea,
           },
         ]);
         return;
@@ -2764,6 +2892,7 @@ options 必须正好有 3 项。`);
             id: uuidv4(),
             role: 'assistant',
             content: '起手式已启动。你想写什么主题？可以直接输入，也可以让我先给出三个主题。',
+            composerPlaceholder: assistantPanelCopy(language).composerHints.starterTheme,
             options: [{ id: uuidv4(), label: 'AI 给我 3 个主题', value: '__starter_topics__' }],
           },
         ]);
@@ -2789,6 +2918,7 @@ options 必须正好有 3 项。`);
             id: uuidv4(),
             role: 'assistant',
             content: '请直接说出修改意见。我会保留原卡片，并在它旁边生成修改后的版本。',
+            composerPlaceholder: assistantPanelCopy(language).composerHints.revision,
           },
         ]);
         return;
@@ -2843,6 +2973,7 @@ cards 必须正好有 3 张。`);
             id: uuidv4(),
             role: 'assistant',
             content: parsed.reply || '我画出了三个未来目标，请选择一个长期写作方向。',
+            composerPlaceholder: assistantPanelCopy(language).composerHints.future,
             cardPosition: placement.position,
             cardNodeIds: placement.nodeIds,
             options: cards.map((card, index) => ({
@@ -2884,7 +3015,7 @@ cards 必须正好有 3 张。`);
   );
 
   const dispatchAssistantOptionSelect = useCallback(
-    async (value: string) => {
+    async (value: string, messageId?: string) => {
       const shortDramaCharacterLibraryPrefix = '__short_drama_character_library__:';
       const shortDramaSceneLibraryPrefix = '__short_drama_scene_library__:';
       const allLibraryItems = [...savedSettingLibraryItems, ...presetSettingLibraryItems];
@@ -3416,7 +3547,7 @@ cards 必须正好有 3 张。`);
       if (value === '__profile_use_saved__') {
         const workflow = assistantWorkflowRef.current;
         if (workflow.type !== 'profile-collecting') return;
-        await generateStoryProfileOpenings(workflow.profile);
+        await generateStoryProfileOutline(workflow.profile);
         return;
       }
 
@@ -3430,83 +3561,73 @@ cards 必须正好有 3 张。`);
         return;
       }
 
-      if (value.startsWith('__profile_opening__:')) {
+      if (value === '__profile_outline_regenerate__') {
         const workflow = assistantWorkflowRef.current;
-        if (workflow.type !== 'profile-awaiting-opening') return;
-        const opening = workflow.openings[Number(value.slice('__profile_opening__:'.length))];
-        if (!opening) return;
-        assistantWorkflowRef.current = {
-          type: 'profile-ready-to-generate',
-          profile: workflow.profile,
-          opening,
-        };
-        setAssistantMessages((messages) => [
-          ...messages,
-          { id: uuidv4(), role: 'user', content: opening.title },
-          {
-            id: uuidv4(),
-            role: 'assistant',
-            content: formatLocalizedCopy(profileCopy.openingSelected, { title: opening.title }),
-            options: [
-              {
-                id: uuidv4(),
-                label: profileCopy.generateCards,
-                value: '__profile_generate__',
-              },
-              { id: uuidv4(), label: profileCopy.discuss, value: '__profile_discuss__' },
-              { id: uuidv4(), label: profileCopy.save, value: '__profile_save__' },
-            ],
-          },
-        ]);
+        if (workflow.type !== 'profile-awaiting-outline') return;
+        await generateStoryProfileOutline(workflow.profile);
         return;
       }
 
-      if (value === '__profile_regenerate__') {
+      if (value === '__profile_outline_confirm__') {
         const workflow = assistantWorkflowRef.current;
-        if (workflow.type !== 'profile-awaiting-opening') return;
-        await generateStoryProfileOpenings(workflow.profile);
+        if (workflow.type !== 'profile-awaiting-outline') return;
+        assistantWorkflowRef.current = {
+          type: 'profile-ready-to-generate',
+          profile: workflow.profile,
+          outline: workflow.outline,
+        };
+        await handleAssistantSend(profileCopy.generateCards);
         return;
       }
 
       if (value === '__profile_save__') {
         const workflow = assistantWorkflowRef.current;
-        if (
-          workflow.type !== 'profile-awaiting-opening' &&
-          workflow.type !== 'profile-ready-to-generate'
-        ) {
-          return;
-        }
+        const activeTask = assistantTasksRef.current.find(
+          (task) => task.id === activeAssistantTaskIdRef.current,
+        );
+        const profileFromMessage = activeTask?.messages.find(
+          (message) => message.id === messageId,
+        )?.storyProfile;
+        const profile = profileFromMessage ||
+          (workflow.type === 'profile-awaiting-outline' || workflow.type === 'profile-ready-to-generate'
+            ? workflow.profile
+            : null);
+        if (!profile) return;
         try {
-          await localPersistenceService.saveAssistantStoryProfile(workflow.profile);
-          setSavedStoryProfile(workflow.profile);
+          await localPersistenceService.saveAssistantStoryProfile(profile);
+          setSavedStoryProfile(profile);
           setAssistantMessages((messages) => [
-            ...messages,
-            { id: uuidv4(), role: 'assistant', content: profileCopy.saved },
+            ...messages.map((message) =>
+              message.id === messageId
+                ? {
+                    ...message,
+                    storyProfileSaved: true,
+                    options: message.options?.map((option) =>
+                      option.value === '__profile_save__'
+                        ? { ...option, label: profileCopy.savedShort }
+                        : option,
+                    ),
+                  }
+                : message,
+            ),
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: profileCopy.saved,
+              composerPlaceholder: assistantPanelCopy(language).composerHints.outline,
+            },
           ]);
         } catch {
           setAssistantMessages((messages) => [
             ...messages,
-            { id: uuidv4(), role: 'assistant', content: profileCopy.saveFailed },
+            {
+              id: uuidv4(),
+              role: 'assistant',
+              content: profileCopy.saveFailed,
+              composerPlaceholder: assistantPanelCopy(language).composerHints.outline,
+            },
           ]);
         }
-        return;
-      }
-
-      if (value === '__profile_generate__') {
-        const workflow = assistantWorkflowRef.current;
-        if (workflow.type !== 'profile-ready-to-generate') return;
-        await handleAssistantSend(profileCopy.generateCards);
-        return;
-      }
-
-      if (value === '__profile_discuss__') {
-        const workflow = assistantWorkflowRef.current;
-        if (workflow.type !== 'profile-ready-to-generate') return;
-        assistantWorkflowRef.current = { ...workflow, discussing: true };
-        setAssistantMessages((messages) => [
-          ...messages,
-          { id: uuidv4(), role: 'assistant', content: profileCopy.discussHint },
-        ]);
         return;
       }
 
@@ -3784,6 +3905,7 @@ cards 必须正好有 3 张。`);
           '这里有三个主题，选一个继续：',
           '__starter_theme__:',
           '__starter_topics__',
+          assistantPanelCopy(language).composerHints.starterTheme,
         );
         return;
       }
@@ -3797,6 +3919,7 @@ cards 必须正好有 3 张。`);
             id: uuidv4(),
             role: 'assistant',
             content: `主题确定为“${theme}”。你想写成什么样的故事？`,
+            composerPlaceholder: assistantPanelCopy(language).composerHints.starterStyle,
             options: [
               {
                 id: uuidv4(),
@@ -3816,6 +3939,7 @@ cards 必须正好有 3 张。`);
           '选择一种故事方向：',
           '__starter_style__:',
           '__starter_styles__',
+          assistantPanelCopy(language).composerHints.starterStyle,
         );
         return;
       }
@@ -3831,6 +3955,7 @@ cards 必须正好有 3 张。`);
             id: uuidv4(),
             role: 'assistant',
             content: `任务确认\n主题：${workflow.theme}\n故事方向：${style}\n\n还有补充要求吗？`,
+            composerPlaceholder: assistantPanelCopy(language).composerHints.starterSupplement,
             options: [
               { id: uuidv4(), label: '确认并开始生成', value: '__starter_confirm__' },
               { id: uuidv4(), label: '添加补充要求', value: '__starter_supplement__' },
@@ -3853,6 +3978,7 @@ cards 必须正好有 3 张。`);
             id: uuidv4(),
             role: 'assistant',
             content: '请直接输入补充要求，例如人物数量、时代背景、禁用元素或结局气质。',
+            composerPlaceholder: assistantPanelCopy(language).composerHints.starterSupplement,
           },
         ]);
         return;
@@ -3905,7 +4031,7 @@ cards 必须正好有 3 张。`);
       buildArticleRoleLibraryPicker,
       callAIForTextResult,
       createAssistantCards,
-      generateStoryProfileOpenings,
+      generateStoryProfileOutline,
       getStoryProfileQuestionCopy,
       handleAssistantSend,
       getCreativeTask,
@@ -3933,7 +4059,7 @@ cards 必须正好有 3 张。`);
     async (value: string, messageId?: string) => {
       if (assistantLoading || creativeChoiceBusyRef.current) return;
       if (!value.startsWith('__creative_') || value === '__creative_enter__' || !messageId) {
-        await dispatchAssistantOptionSelect(value);
+        await dispatchAssistantOptionSelect(value, messageId);
         return;
       }
       const task = assistantTasksRef.current.find(
@@ -4133,6 +4259,7 @@ cards 必须正好有 3 张。`);
     handleSelectAssistantTask,
     assistantMessages,
     assistantMessagesRef,
+    handleAssistantStoryOutlineChange,
     handleNewAssistantTask,
     handleStartCardReview,
     handleRenameAssistantTask,

@@ -40,11 +40,16 @@ import type {
   AssistantArticleAnalysisState,
   AssistantInputContext,
 } from '../editor-features/assistant/useAssistantPanel';
-import type { AssistantMessage, AssistantTask } from '../editor-state/editorConfig';
+import type {
+  AssistantMessage,
+  AssistantStoryOutline,
+  AssistantTask,
+} from '../editor-state/editorConfig';
 import { getAppAssetUrl } from '../lib/appAssets';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 import { assistantPanelCopy } from './i18n/assistant';
+import { AssistantStoryOutlineFlow } from './AssistantStoryOutlineFlow';
 
 interface AssistantPanelProps {
   assistantOpen: boolean;
@@ -61,6 +66,7 @@ interface AssistantPanelProps {
   activeAssistantTaskId: string;
   assistantMessages: AssistantMessage[];
   assistantMessagesRef: MutableRefObject<HTMLDivElement | null>;
+  handleAssistantStoryOutlineChange: (messageId: string, outline: AssistantStoryOutline) => void;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   setAssistantInput: Dispatch<SetStateAction<string>>;
   setAssistantInputContexts: Dispatch<SetStateAction<AssistantInputContext[]>>;
@@ -565,6 +571,7 @@ export function AssistantPanel({
   activeAssistantTaskId,
   assistantMessages,
   assistantMessagesRef,
+  handleAssistantStoryOutlineChange,
   setAssistantOpen,
   setAssistantInput,
   setAssistantInputContexts,
@@ -594,9 +601,11 @@ export function AssistantPanel({
 }: AssistantPanelProps) {
   const ui = assistantPanelCopy(language);
   const reduceMotion = useReducedMotion();
-  const pendingPrompt = assistantMessages.at(-1)?.inputPrompt;
+  const latestAssistantMessage = assistantMessages.at(-1);
+  const pendingPrompt = latestAssistantMessage?.inputPrompt;
   const composerPlaceholder =
     pendingPrompt ||
+    latestAssistantMessage?.composerPlaceholder ||
     (assistantTasks.find((task) => task.id === activeAssistantTaskId)?.kind === 'creative-playtest'
       ? ui.creativeStory.inputPlaceholder
       : ui.inputPlaceholder);
@@ -692,7 +701,7 @@ export function AssistantPanel({
 
     const minimumHeight = 120;
     const panelHeight = assistantPanelRef.current?.clientHeight ?? window.innerHeight;
-    const maxHeight = Math.max(minimumHeight, Math.floor(panelHeight / 3));
+    const maxHeight = Math.max(minimumHeight, Math.min(220, Math.floor(panelHeight / 3)));
     input.style.height = 'auto';
     const nextHeight = Math.min(Math.max(input.scrollHeight, minimumHeight), maxHeight);
     input.style.height = `${nextHeight}px`;
@@ -879,6 +888,16 @@ export function AssistantPanel({
   const visibleAssistantMessages = assistantMessages.filter(
     (message) => !isLegacyAssistantWelcomeMessage(message) && !message.inputPrompt,
   );
+  const hasStoryOutline = visibleAssistantMessages.some((message) => message.storyOutline);
+
+  useEffect(() => {
+    if (!assistantInputExpanded || !hasStoryOutline) return;
+    const frame = window.requestAnimationFrame(() => {
+      const messageArea = assistantMessagesRef.current;
+      if (messageArea) messageArea.scrollTop = messageArea.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [assistantInputExpanded, assistantMessages, assistantMessagesRef, hasStoryOutline]);
   const showTransparentWelcomeGradient = welcomeGradientState !== 'hidden';
 
   useEffect(() => {
@@ -1255,7 +1274,9 @@ export function AssistantPanel({
 
       <div
         ref={assistantMessagesRef}
-        className={`assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4 ${
+        className={`assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 ${
+          hasStoryOutline ? 'pb-1 pt-4' : 'py-4'
+        } ${
           showTransparentWelcomeGradient && !showArticleUploadPage
             ? `assistant-message-transparent-gradient assistant-message-gradient-${welcomeGradientState}`
             : ''
@@ -1553,15 +1574,17 @@ export function AssistantPanel({
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`whitespace-pre-wrap text-sm leading-relaxed ${
-                      message.contextPreviews?.length
-                        ? 'assistant-message-context-stack flex w-full max-w-[94%] flex-col gap-2'
-                        : `assistant-message-bubble ${
-                            message.role === 'user'
-                              ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
-                              : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
-                          }`
-                    } ${message.contextPreviews?.length ? '' : 'max-w-[88%] rounded-2xl px-3.5 py-2.5'}`}
+                   className={`${message.storyOutline ? 'w-full max-w-full' : 'whitespace-pre-wrap text-sm leading-relaxed'} ${
+                      message.storyOutline
+                        ? 'w-full max-w-full'
+                        : message.contextPreviews?.length
+                       ? 'assistant-message-context-stack flex w-full max-w-[94%] flex-col gap-2'
+                       : `assistant-message-bubble ${
+                           message.role === 'user'
+                             ? 'assistant-message-user rounded-br-md bg-indigo-600 text-white'
+                             : 'assistant-message-ai rounded-bl-md border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                         }`
+                   } ${message.storyOutline || message.contextPreviews?.length ? '' : 'max-w-[88%] rounded-2xl px-3.5 py-2.5'}`}
                   >
                     {message.contextPreviews && message.contextPreviews.length > 0 && (
                       <div className="grid gap-2">
@@ -1576,6 +1599,45 @@ export function AssistantPanel({
                         ))}
                       </div>
                     )}
+                    {message.storyProfileQuestion && (
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold text-indigo-500 dark:text-indigo-300">
+                            {message.storyProfileQuestion.progress}
+                          </div>
+                          <div className="mt-1 text-sm font-black leading-relaxed text-slate-800 dark:text-slate-100">
+                            {message.storyProfileQuestion.title}
+                          </div>
+                          <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                            {message.storyProfileQuestion.hint}
+                          </div>
+                        </div>
+                        {message.options?.find((option) => option.value.startsWith('__profile_skip__:') ) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleAssistantOptionSelect(
+                                message.options!.find((option) => option.value.startsWith('__profile_skip__:'))!.value,
+                                message.id,
+                              )
+                            }
+                            disabled={assistantLoading}
+                            className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                          >
+                            {message.options.find((option) => option.value.startsWith('__profile_skip__:'))!.label}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {message.storyOutline && (
+                      <AssistantStoryOutlineFlow
+                        outline={message.storyOutline}
+                        language={language}
+                        onChange={(outline) =>
+                          handleAssistantStoryOutlineChange(message.id, outline)
+                        }
+                      />
+                    )}
                     {message.contextPreviews?.length && message.content ? (
                       <div
                         className={`w-fit max-w-[88%] px-3.5 py-2.5 ${
@@ -1586,7 +1648,7 @@ export function AssistantPanel({
                       >
                         {message.content}
                       </div>
-                    ) : !message.contextPreviews?.length ? (
+                    ) : !message.contextPreviews?.length && message.content ? (
                       message.content
                     ) : null}
                     {message.role === 'assistant' && message.articleRolePicker && (
@@ -1618,7 +1680,54 @@ export function AssistantPanel({
                     {message.role === 'assistant' &&
                       message.options &&
                       message.options.length > 0 && (
-                        <div className={`grid gap-2 ${isCardReviewTask ? 'mt-2' : 'mt-3'}`}>
+                        message.storyProfileQuestion ? (
+                          <div className="mt-3 grid gap-2">
+                            {message.options
+                              .filter(
+                                (option) =>
+                                  !option.value.startsWith('__profile_skip__:') &&
+                                  !option.value.startsWith('__profile_custom__:')
+                              )
+                              .map((option) => {
+                                const isConfirm = option.value.startsWith('__profile_confirm__:');
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() =>
+                                      void handleAssistantOptionSelect(option.value, message.id)
+                                    }
+                                    aria-pressed={Boolean(option.selected)}
+                                    disabled={assistantLoading}
+                                    className={`w-full rounded-xl border px-3.5 text-left transition-colors disabled:opacity-50 ${
+                                      isConfirm
+                                        ? 'mt-1 flex min-h-12 items-center justify-center gap-2 border-indigo-600 bg-indigo-600 py-3 text-sm font-black text-white shadow-md shadow-indigo-200 hover:border-indigo-700 hover:bg-indigo-700 dark:shadow-none'
+                                        : `min-h-11 py-2.5 text-xs font-black ${
+                                            option.selected
+                                              ? 'border-indigo-500 bg-indigo-100 text-indigo-800 ring-1 ring-indigo-400 dark:border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-100'
+                                              : 'border-indigo-200 bg-white text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-950 dark:text-indigo-200 dark:hover:bg-indigo-950/60'
+                                          }`
+                                    }`}
+                                  >
+                                    {isConfirm ? (
+                                      <span className="flex items-center gap-2">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        {option.label}
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-2">
+                                        {option.selected && <CheckCircle2 className="h-4 w-4 shrink-0" />}
+                                        {option.label}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        ) : (
+                        <div
+                          className={`${message.storyOutline ? 'mt-2 grid grid-cols-3 gap-2' : `grid gap-2 ${isCardReviewTask ? 'mt-2' : 'mt-3'}`}`}
+                        >
                           {message.options.map((option) => (
                             <button
                               key={option.id}
@@ -1627,18 +1736,32 @@ export function AssistantPanel({
                                 void handleAssistantOptionSelect(option.value, message.id)
                               }
                               aria-pressed={Boolean(option.selected)}
-                              disabled={assistantLoading}
-                              className={`rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60 ${
-                                option.selected
-                                  ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/70 dark:text-indigo-100'
-                                  : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'
+                              disabled={
+                                assistantLoading ||
+                                Boolean(
+                                  message.storyProfileSaved && option.value === '__profile_save__',
+                                )
+                              }
+                              className={`${
+                                message.storyOutline && option.value === '__profile_outline_confirm__'
+                                  ? 'min-w-0 rounded-lg border border-indigo-600 bg-indigo-600 px-2 py-2 text-center text-[11px] font-black leading-tight text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50'
+                                  : message.storyOutline
+                                    ? 'min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-center text-[11px] font-bold leading-tight text-slate-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                                    : `rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50 dark:border-indigo-800 dark:bg-slate-950 dark:hover:bg-indigo-950/60 ${
+                                        option.selected
+                                          ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/70 dark:text-indigo-100'
+                                          : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50'
+                                      }`
                               }`}
                             >
-                              <span className="flex items-center justify-between gap-2 text-xs font-black text-indigo-700 dark:text-indigo-200">
-                                <span className="flex items-center gap-1.5">
-                                  {option.selected && (
+                              <span className={`flex items-center justify-center gap-2 ${message.storyOutline ? 'text-center text-[11px] font-bold leading-tight' : 'text-xs font-black text-indigo-700 dark:text-indigo-200'}`}>
+                                <span className="flex min-w-0 items-center justify-center gap-1.5">
+                                  {message.storyProfileSaved &&
+                                  option.value === '__profile_save__' ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                  ) : option.selected ? (
                                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                                  )}
+                                  ) : null}
                                   {option.label}
                                 </span>
                                 {isCardReviewTask && (
@@ -1655,6 +1778,7 @@ export function AssistantPanel({
                             </button>
                           ))}
                         </div>
+                        )
                       )}
                     {message.role === 'assistant' &&
                       (message.cardPosition || (message.cardNodeIds?.length ?? 0) > 0) && (
@@ -1701,8 +1825,8 @@ export function AssistantPanel({
       </div>
 
       {!showArticleUploadPage && (
-        <div className="assistant-input-panel shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-          <div className="mb-2 flex items-center gap-2">
+        <div className={`assistant-input-panel shrink-0 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 ${hasStoryOutline ? 'pt-0' : ''}`}>
+          <div className={assistantDocuments.length > 0 ? 'mb-2 flex items-center gap-2' : 'hidden'}>
             <button
               type="button"
               onClick={() => documentInputRef.current?.click()}
@@ -1766,6 +1890,7 @@ export function AssistantPanel({
               </div>
             )}
           </div>
+          {visibleAssistantMessages.length === 0 && (
           <div className="assistant-quick-actions mb-2 flex gap-2 overflow-x-auto pb-1">
             <button
               type="button"
@@ -1803,6 +1928,7 @@ export function AssistantPanel({
               />
             </button>
           </div>
+          )}
           <div
             className={`assistant-input-box overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition-all duration-300 ease-out dark:border-slate-800 dark:bg-slate-900 ${
               assistantInputExpanded ? 'flex flex-col gap-2 p-3' : 'flex items-center gap-2 p-2'

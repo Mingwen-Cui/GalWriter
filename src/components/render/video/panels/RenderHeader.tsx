@@ -45,8 +45,6 @@ type RenderHeaderProps = {
   webFuture: unknown[];
   pptPast: unknown[];
   pptFuture: unknown[];
-  codePast: unknown[];
-  codeFuture: unknown[];
   webShowStartMenu: boolean;
   pptRibbonTab: 'insert' | 'animation' | 'transition';
   pptRibbonCollapsed: boolean;
@@ -68,8 +66,6 @@ type RenderHeaderProps = {
   redoWeb: () => void;
   undoPpt: () => void;
   redoPpt: () => void;
-  undoCode: () => void;
-  redoCode: () => void;
   setWebShowStartMenu: (enabled: boolean) => void;
   setPptRibbonTab: (tab: 'insert' | 'animation' | 'transition') => void;
   setPptRibbonCollapsed: (collapsed: boolean) => void;
@@ -93,8 +89,6 @@ export function RenderHeader({
   webFuture,
   pptPast,
   pptFuture,
-  codePast,
-  codeFuture,
   webShowStartMenu,
   pptRibbonTab,
   pptRibbonCollapsed,
@@ -116,8 +110,6 @@ export function RenderHeader({
   redoWeb,
   undoPpt,
   redoPpt,
-  undoCode,
-  redoCode,
   setWebShowStartMenu,
   setPptRibbonTab,
   setPptRibbonCollapsed,
@@ -485,8 +477,8 @@ export function RenderHeader({
           <div className="mr-1 flex items-center gap-1 border-r border-[var(--vr-border)] pr-2">
             <button
               type="button"
-              onClick={undoCode}
-              disabled={codePast.length === 0 || isRendering}
+              onClick={undoWeb}
+              disabled={webPast.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
               title={getCodeText(language, 'Undo')}
               aria-label={getCodeText(language, 'Undo')}
@@ -495,8 +487,8 @@ export function RenderHeader({
             </button>
             <button
               type="button"
-              onClick={redoCode}
-              disabled={codeFuture.length === 0 || isRendering}
+              onClick={redoWeb}
+              disabled={webFuture.length === 0 || isRendering}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--vr-text-muted)] transition-colors hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)] disabled:opacity-35"
               title={getCodeText(language, 'Redo')}
               aria-label={getCodeText(language, 'Redo')}
@@ -521,7 +513,7 @@ export function RenderHeader({
           ) : (
             <Download className="h-4 w-4" />
           )}
-          {workspaceMode === 'ppt' ? <span className="hidden sm:inline">导出 PPTX</span> : null}
+          {workspaceMode === 'ppt' ? <span className="hidden sm:inline">导出</span> : null}
           {workspaceMode !== 'ppt' && (
             <>
               <span className="hidden sm:inline">{isRendering ? '渲染中...' : '导出'}</span>

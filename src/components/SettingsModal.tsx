@@ -1246,9 +1246,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <button key={button} type="button" onClick={() => updateKeyboardMouseSettings({ selectionButton: button })} aria-pressed={keyboardMouse.selectionButton === button}
                           className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-colors ${keyboardMouse.selectionButton === button ? 'border-[var(--accent)] bg-[var(--accent)]/8 ring-1 ring-[var(--accent)]/30' : 'border-[var(--card-border)] hover:border-[var(--accent)]/40'}`}>
                           <svg viewBox="0 0 64 78" className="h-14 w-12 shrink-0" aria-hidden="true">
-                            <rect x="8" y="3" width="48" height="70" rx="22" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[var(--text-muted)]" />
-                            <path d="M32 4v27M8 31h48" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--text-muted)]" />
-                            <path d={button === 'left' ? 'M10 25V15a13 13 0 0 1 21-10v20Z' : 'M54 25V15A13 13 0 0 0 33 5v20Z'} fill="var(--accent)" opacity={keyboardMouse.selectionButton === button ? 0.9 : 0.22} />
+                            <path
+                              d={button === 'left' ? 'M32 5C20.4 5 11 14.4 11 26v5h21Z' : 'M32 5c11.6 0 21 9.4 21 21v5H32Z'}
+                              fill="var(--accent)"
+                              opacity={keyboardMouse.selectionButton === button ? 0.9 : 0.22}
+                            />
+                            <path d="M32 4C19.3 4 9 14.3 9 27v23c0 12.7 10.3 23 23 23s23-10.3 23-23V27C55 14.3 44.7 4 32 4Z" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[var(--text-muted)]" />
+                            <path d="M32 5v26M9 31h46" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--text-muted)]" />
                             <text x="32" y="49" textAnchor="middle" fontSize="7" fill="currentColor" className="text-[var(--text-muted)]">{button === 'left' ? 'LEFT' : 'RIGHT'}</text>
                           </svg>
                           <span className="min-w-0"><span className="block text-sm font-bold text-[var(--text-primary)]">{button === 'left' ? s.leftClickSelection : s.rightClickSelection}</span><span className="mt-1 block text-xs text-[var(--text-muted)]">{button === 'left' ? s.leftClickSelectionHint : s.rightClickSelectionHint}</span></span>

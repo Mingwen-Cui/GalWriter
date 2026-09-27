@@ -4,6 +4,7 @@ export type {
   AiProvider,
   AssistantMessage,
   AssistantMessageOption,
+  AssistantStoryOutline,
   CreativeStorySession,
   AssistantStoryProfile,
   AssistantTask,

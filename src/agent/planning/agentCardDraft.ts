@@ -85,6 +85,8 @@ export type AssistantCardPlacementOptions = {
   placeLibraryReferencesDirectly?: boolean;
   /** Keep setup cards immutable while a dependent assistant workflow runs. */
   lockPlacedNodes?: boolean;
+  /** Story profile stages already have their own background regions on canvas. */
+  disableAutomaticAssistantBackgrounds?: boolean;
   // Internal streaming flag: keep the seven-line placeholder height until
   // the final AI card content has arrived.
   keepAssistantHeightStreaming?: boolean;
