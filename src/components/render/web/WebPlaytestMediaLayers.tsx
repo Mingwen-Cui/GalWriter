@@ -20,9 +20,9 @@ import {
   getPresentationTransform,
 } from '../../../lib/presentation';
 import { getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
-import type { WebExportSettings } from '../video/shared/types';
 import { SceneLightOverlay } from '../shared/SceneLightOverlay';
 import { SceneSwitchFlash } from '../shared/SceneSwitchFlash';
+import type { WebExportSettings } from '../video/shared/types';
 
 type PresentedCharacter = {
   config: CharacterPresentation;
@@ -146,10 +146,14 @@ export function WebPlaytestMediaLayers({
               const waitingForEnterCue = Boolean(
                 hasEnterCue && !enterCueActive && !enterCueCompleted,
               );
-              const motion = presentationExiting || exitCueActive ? config.exit : config.enter;
+              const motion =
+                presentationExiting || exitCueActive || exitCueCompleted
+                  ? config.exit
+                  : config.enter;
               // Classic mode intentionally skips the card-level entrance, but a
               // Tag cue is an explicit timeline event and must still animate.
-              const timelineCueAnimation = exitCueActive || exitCueCompleted || waitingForEnterCue;
+              const timelineCueAnimation =
+                enterCueActive || exitCueActive || exitCueCompleted || waitingForEnterCue;
               const animationActive =
                 timelineCueAnimation ||
                 (settings.layoutMode === 'immersive' &&

@@ -9,17 +9,17 @@ import type {
   SceneNodeData,
   StoryPresentation,
 } from '../../../domain/project';
-import { CharacterAppearancePreview } from '../../CharacterAppearancePreview';
 import { translations } from '../../../lib/i18n';
 import {
   getInlineSwitchAction,
   isSwitchInlineAction,
-  resolveCharacterTemplateAppearance,
   resolveCharacterImageUrl,
+  resolveCharacterTemplateAppearance,
   resolveSceneMedia,
 } from '../../../lib/inlineAssetSwitch';
 import {
   buildInlinePlaybackSteps,
+  getImmediatelySettledInlineActions,
   getInlineActionDuration,
   inlineActionAnimation,
   inlineActionCssVars,
@@ -32,19 +32,20 @@ import {
   clampCharacterLayer,
   getCharacterEnterDelay,
   getCharacterStageBounds,
-  getPresentationExitDuration,
   getPresentationEnterDuration,
+  getPresentationExitDuration,
   getPresentationMotionDuration,
   getPresentationTransform,
   getSceneExitDelay,
   normalizeStoryPresentation,
 } from '../../../lib/presentation';
+import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { useSceneAmbientSound } from '../../../lib/useSceneAmbientSound';
-import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
-import { SceneLightOverlay } from '../shared/SceneLightOverlay';
+import { CharacterAppearancePreview } from '../../CharacterAppearancePreview';
 import { mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { selectConditionHandle } from '../code/codeExport/ir/graphSemantics';
+import { SceneLightOverlay } from '../shared/SceneLightOverlay';
 import { getRenderObjects } from '../video/shared/renderObjects';
 
 type PlayedAudio = {
@@ -882,11 +883,7 @@ export function usePlaytestRuntime(
       clearTimers();
       setActiveInlineAction(null);
       setCompletedSwitchActions(actions.filter(isSwitchInlineAction));
-      setCompletedInlineActions(
-        actions.filter(
-          (action) => isPersistentInlineAction(action) || Boolean(action.timelinePhase),
-        ),
-      );
+      setCompletedInlineActions(getImmediatelySettledInlineActions(actions));
       setDisplayedHtml(textHtml);
       setTimeLeft(0);
       setAnimationCompleted(true);
@@ -1888,9 +1885,14 @@ export function usePlaytestRuntime(
               action.sourceNodeId === config.sourceNodeId,
           );
           const waitingForEnterCue = Boolean(hasEnterCue && !enterCueActive && !enterCueCompleted);
-          const motion = presentationExiting || exitCueActive ? config.exit : config.enter;
+          const motion =
+            presentationExiting || exitCueActive || exitCueCompleted ? config.exit : config.enter;
           const animationActive =
-            presentationExiting || exitCueActive || waitingForEnterCue || exitCueCompleted;
+            presentationExiting ||
+            enterCueActive ||
+            exitCueActive ||
+            waitingForEnterCue ||
+            exitCueCompleted;
           const animationTransform =
             animationActive && motion
               ? getPresentationTransform(

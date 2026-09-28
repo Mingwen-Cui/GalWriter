@@ -5,7 +5,16 @@ import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import { themeRenderPatch } from '../experienceThemes';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
-import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import type { Language } from '../../../lib/i18n';
 import type { InlinePresentationActionType } from '../../../domain/project';
@@ -438,42 +447,25 @@ export function PptWorkspace({
     const entries: PptObjectAnimation[] = [];
     const hasSaved = (target: PptAnimationTarget) =>
       savedAnimations.some((item) => item.target === target);
-    if (
-      objects.title.visible &&
-      objects.title.animation.animation === 'typewriter' &&
-      !hasSaved('dialog-title')
-    ) {
+    const addTextAnimation = (target: 'dialog-title' | 'dialog-body', object: typeof objects.title) => {
+      const animation = object.animation.animation;
+      if (!object.visible || animation === 'none' || hasSaved(target)) return;
+      const typewriter = animation === 'typewriter';
       entries.push({
-        id: `style:${scene.id}:dialog-title:typewriter`,
+        id: `style:${scene.id}:${target}:${animation}`,
         source: 'tag',
-        target: 'dialog-title',
+        target,
         phase: 'enter',
-        effect: 'wipe',
+        effect: typewriter ? 'wipe' : animation === 'slideUp' ? 'fly' : 'fade',
         start: 'afterPrevious',
-        durationMs: Math.max(500, objects.title.animation.durationMs || 600),
+        durationMs: Math.max(500, object.animation.durationMs || 600),
         delayMs: 0,
-        direction: 'left',
-        textBuild: { mode: 'line-wipe', lineGapMs: 140 },
+        direction: animation === 'slideUp' ? 'down' : 'left',
+        ...(typewriter ? { textBuild: { mode: 'line-wipe' as const, lineGapMs: 160 } } : {}),
       });
-    }
-    if (
-      objects.body.visible &&
-      objects.body.animation.animation === 'typewriter' &&
-      !hasSaved('dialog-body')
-    ) {
-      entries.push({
-        id: `style:${scene.id}:dialog-body:typewriter`,
-        source: 'tag',
-        target: 'dialog-body',
-        phase: 'enter',
-        effect: 'wipe',
-        start: 'afterPrevious',
-        durationMs: Math.max(500, objects.body.animation.durationMs || 600),
-        delayMs: 0,
-        direction: 'left',
-        textBuild: { mode: 'line-wipe', lineGapMs: 160 },
-      });
-    }
+    };
+    addTextAnimation('dialog-title', objects.title);
+    addTextAnimation('dialog-body', objects.body);
     return entries;
   }, [renderStyle, savedAnimations, scene]);
 
@@ -516,6 +508,22 @@ export function PptWorkspace({
     },
     [],
   );
+
+  useLayoutEffect(() => {
+    if (timelinePlayheadMs === undefined || isPreviewing) return;
+    const stage = stageViewportRef.current;
+    if (!stage) return;
+    stage.querySelectorAll<HTMLElement>('[style]').forEach((element) => {
+      if (!element.style.animation || element.style.animation === 'none') return;
+      element.getAnimations().forEach((animation) => {
+        if (!('animationName' in animation)) return;
+        const cssAnimation = animation as CSSAnimation;
+        if (!cssAnimation.animationName.startsWith('ppt-')) return;
+        cssAnimation.pause();
+        cssAnimation.currentTime = timelinePlayheadMs;
+      });
+    });
+  }, [isPreviewing, previewRunId, selectedId, timelinePlayheadMs]);
 
   const selectSlide = useCallback((id: string) => {
     setSelectedId(id);

@@ -1,21 +1,18 @@
-import { resolveSettingsPageElements } from './webMenuPageElements';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   Eye,
   EyeOff,
-  House,
   History,
-  Play,
-  Pause,
-  Settings,
+  House,
   ListMusic,
   Maximize2,
   Minimize2,
+  Pause,
+  Play,
   RotateCcw,
+  Settings,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { appearanceStyle } from '../shared/paint/appearanceStyle';
-import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import type {
   CharacterNodeData,
@@ -25,7 +22,6 @@ import type {
   StoryPresentation,
 } from '../../../domain/project';
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
-import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
 import type { Language } from '../../../lib/i18n';
 import {
   getInlineSwitchAction,
@@ -34,12 +30,14 @@ import {
 } from '../../../lib/inlineAssetSwitch';
 import {
   buildInlinePlaybackSteps,
+  getImmediatelySettledInlineActions,
   inlineActionAnimation,
   inlineActionCssVars,
   inlineActionTransform,
   isPersistentInlineAction,
   latestPersistentInlineAction,
 } from '../../../lib/inlinePresentationPlayback';
+import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
 import {
   getPresentationExitDuration,
   getPresentationTransform,
@@ -51,6 +49,9 @@ import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic'
 import { useSceneAmbientSound } from '../../../lib/useSceneAmbientSound';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getSceneBackgroundStyle, mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
+import { appearanceStyle } from '../shared/paint/appearanceStyle';
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
+import { InteractiveSegmentMinimap } from '../video/interactive/InteractiveSegmentMinimap';
 import { getNameplateItems } from '../video/shared/nameplateRenderer';
 import { getRenderObjects, updateRenderObject } from '../video/shared/renderObjects';
 import {
@@ -66,6 +67,8 @@ import type {
   WebMenuElement,
 } from '../video/shared/types';
 import { formatWebText } from './i18n';
+import type { PlayerSettingsValues } from './playerSettingsPanel';
+import { playbackSettingButtonRoles } from './playerSettingsPanelConfig';
 import { getSurfaceBackground } from './StartMenuBackgroundInspector';
 import type { WebAlignmentGuideLine } from './webElementAlignmentGuides';
 import {
@@ -83,7 +86,10 @@ import {
   writeWebSaveCollection,
 } from './webExport/webSaveSlots';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
+import { resolveSettingsPageElements } from './webMenuPageElements';
 import { buildArchivePageElements } from './webMenuPageElements';
+import { WebDialogueHistory, WebPlaybackSettings,WebStoryEnding } from './WebPlaybackDialogs';
+import { WEB_PLAYBACK_UI_CSS, webStoryTitle, webToolbarButtonLabel } from './webPlaybackUi';
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
 import { WebPlaytestMediaLayers } from './WebPlaytestMediaLayers';
 import { WebPlaytestNameplates } from './WebPlaytestNameplates';
@@ -95,12 +101,6 @@ import {
   PreviewToolbar,
 } from './WebPlaytestPreviewControls';
 import { WebPlaytestStartMenuElement } from './WebPlaytestStartMenuElement';
-import {
-  WebStoryFlowGraph,
-  type WebStoryFlowGraphControls,
-  type WebStoryFlowGraphSnapshot,
-} from './WebStoryFlowGraph';
-import { InteractiveSegmentMinimap } from '../video/interactive/InteractiveSegmentMinimap';
 import type {
   StartMenuAction,
   StartMenuElement,
@@ -114,11 +114,11 @@ import {
 import { buildDialogueShellStyle } from './webPlaytestStyleTools';
 import { WebPreviewMenuPages } from './WebPreviewMenuPages';
 import { type SplitEditorSelection, WebSplitLayoutEditor } from './WebSplitLayoutEditor';
-
-import { WebDialogueHistory, WebStoryEnding, WebPlaybackSettings } from './WebPlaybackDialogs';
-import type { PlayerSettingsValues } from './playerSettingsPanel';
-import { playbackSettingButtonRoles } from './playerSettingsPanelConfig';
-import { WEB_PLAYBACK_UI_CSS, webStoryTitle, webToolbarButtonLabel } from './webPlaybackUi';
+import {
+  WebStoryFlowGraph,
+  type WebStoryFlowGraphControls,
+  type WebStoryFlowGraphSnapshot,
+} from './WebStoryFlowGraph';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 
 type WebPlaytestPreviewProps = {
@@ -877,17 +877,14 @@ export function WebPlaytestPreview({
         .map((step) => step.action)
         .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId));
       setCompletedInlineActions(
-        playbackSteps
-          .filter(
-            (step): step is { kind: 'action'; action: InlinePresentationAction } =>
-              step.kind === 'action',
-          )
-          .map((step) => step.action)
-          .filter(
-            (action) =>
-              (isPersistentInlineAction(action) && action.action !== 'switch') ||
-              Boolean(action.timelinePhase),
-          ),
+        getImmediatelySettledInlineActions(
+          playbackSteps
+            .filter(
+              (step): step is { kind: 'action'; action: InlinePresentationAction } =>
+                step.kind === 'action',
+            )
+            .map((step) => step.action),
+        ),
       );
       setDisplayedPreviewText(text);
       if (!switchActions.length) {

@@ -865,7 +865,7 @@ function AnimationTimeline({
                     {formatTime(playheadMs)}
                   </output>
                 </div>
-                <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] gap-2">
+                <div className="grid grid-cols-[108px_minmax(0,1fr)_42px] gap-2">
                   <div />
                   <div
                     className="relative h-10 cursor-ew-resize select-none border-y border-[var(--vr-border)] bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(25%_-_1px),var(--vr-border)_calc(25%_-_1px),var(--vr-border)_25%)]"
@@ -899,14 +899,14 @@ function AnimationTimeline({
                   <div />
                 </div>
                 <div className="relative space-y-1.5 pt-2">
-                  <span className="pointer-events-none absolute bottom-0 left-[92px] right-[50px] top-0 z-20">
+                  <span className="pointer-events-none absolute bottom-0 left-[116px] right-[50px] top-0 z-20">
                     <span
                       className="absolute inset-y-0 w-0.5 bg-[var(--vr-accent)]/90 shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
                       style={{ left: `${playheadPercent}%` }}
                     />
                   </span>
                   {videoTrack ? (
-                    <div className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2">
+                    <div className="grid grid-cols-[108px_minmax(0,1fr)_42px] items-center gap-2">
                       <button
                         type="button"
                         onClick={onSelectVideo}
@@ -959,22 +959,29 @@ function AnimationTimeline({
                   {animations.map((item, index) => (
                     <div
                       key={item.id}
-                      className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-2"
+                      className="grid grid-cols-[108px_minmax(0,1fr)_42px] items-center gap-2"
                     >
                       <button
                         type="button"
                         onClick={() => onSelect(item)}
                         className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
-                        title={effectLabel(copy, item.effect, item.action)}
-                        aria-label={`${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect, item.action)}`}
+                        title={`${targetLabel(copy, item)} · ${effectLabel(copy, item.effect, item.action)} · ${startLabel(copy, item.start)} · 开始于 ${(starts[index] / 1000).toFixed(1)}s`}
+                        aria-label={`${targetLabel(copy, item)} · ${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect, item.action)} · 开始于 ${(starts[index] / 1000).toFixed(1)} 秒`}
                       >
                         <span>{index + 1}.</span>
                         <span
                           aria-hidden="true"
                           className={`h-2.5 w-2.5 shrink-0 rounded-full ${phaseMarkerClass(item)}`}
                         />
-                        <span className="truncate">
-                          {effectLabel(copy, item.effect, item.action)}
+                        <span className="grid min-w-0 leading-tight">
+                          <span className="truncate">
+                            {item.target === 'dialog-body' || item.target === 'dialog-title'
+                              ? `${targetLabel(copy, item)} · ${effectLabel(copy, item.effect, item.action)}`
+                              : effectLabel(copy, item.effect, item.action)}
+                          </span>
+                          <span className="text-[9px] font-semibold text-[var(--vr-text-muted)]">
+                            开始 {(starts[index] / 1000).toFixed(1)}s
+                          </span>
                         </span>
                       </button>
                       <button
@@ -986,7 +993,7 @@ function AnimationTimeline({
                             ? phaseActiveClass(item)
                             : 'border-transparent bg-[var(--vr-border)]'
                         }`}
-                        title={`${startLabel(copy, item.start)} · ${(item.durationMs / 1000).toFixed(1)} ${copy.seconds}`}
+                        title={`${startLabel(copy, item.start)} · 开始于 ${(starts[index] / 1000).toFixed(1)}s · 持续 ${(item.durationMs / 1000).toFixed(1)} ${copy.seconds}`}
                       >
                         <span
                           className={`absolute inset-y-1 overflow-hidden rounded ${phaseMarkerClass(item)} text-white`}
@@ -1037,7 +1044,7 @@ function AnimationTimeline({
                 </div>
                 <div
                   ref={navigatorRef}
-                  className="relative ml-[94px] mr-[44px] mt-4 h-3 rounded-full bg-[var(--vr-border)]"
+                  className="relative ml-[118px] mr-[44px] mt-4 h-3 rounded-full bg-[var(--vr-border)]"
                   aria-label="时间轴缩放和滚动范围"
                 >
                   <div

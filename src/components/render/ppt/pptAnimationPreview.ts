@@ -78,7 +78,6 @@ export const previewStyle = (
     animation: animations
       .map((item) => {
         const start = (item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs;
-        const delay = previewAtMs === undefined || previewing ? start : start - previewAtMs;
         const repeats = item.phase === 'emphasis' ? Math.max(1, Math.round(item.repeats || 1)) : 1;
         const duration = Math.max(1, Math.round(item.durationMs / repeats));
         const strength = Math.max(0, Math.min(100, item.strength ?? 10));
@@ -97,7 +96,7 @@ export const previewStyle = (
           cssVariables['--ppt-action-opacity'] = String(strength / 100);
         if (item.action === 'brightness')
           cssVariables['--ppt-action-brightness'] = String(strength / 100);
-        return `${animationName(item)} ${duration}ms ease ${delay}ms ${repeats} both`;
+        return `${animationName(item)} ${duration}ms ease ${start}ms ${repeats} both`;
       })
       .join(', '),
     animationPlayState: previewAtMs === undefined || previewing ? undefined : 'paused',

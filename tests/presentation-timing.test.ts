@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getImmediatelySettledInlineActions,
+} from '../src/lib/inlinePresentationPlayback';
+import {
   createCharacterPresentation,
   createScenePresentation,
   getPresentationContentWindow,
@@ -31,6 +34,26 @@ test('legacy zero/invalid motion durations play, while none stays disabled', () 
   }
   assert.equal(getPresentationMotionDuration({ type: 'none', duration: 1000 }), 0);
   assert.equal(getPresentationMotionDuration(undefined), 0);
+});
+
+test('immediate playback does not pre-settle exit timeline cues', () => {
+  const enter = {
+    id: 'enter',
+    kind: 'character' as const,
+    sourceNodeId: 'actor',
+    action: 'none' as const,
+    duration: 500,
+    strength: 10,
+    offsetX: 0,
+    offsetY: 0,
+    scale: 1,
+    timelinePhase: 'enter' as const,
+  };
+  const exit = { ...enter, id: 'exit', timelinePhase: 'exit' as const };
+  assert.deepEqual(
+    getImmediatelySettledInlineActions([enter, exit]).map((action) => action.id),
+    ['enter'],
+  );
 });
 
 test('content waits for the scene and every character and ends before exits', () => {

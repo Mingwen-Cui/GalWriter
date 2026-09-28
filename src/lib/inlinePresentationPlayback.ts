@@ -206,6 +206,20 @@ export const isPersistentInlineAction = (action?: InlinePresentationAction | nul
   // Keep the selected material after the temporary transition overlay completes.
   action?.action === 'switch';
 
+/**
+ * Immediate playback has no text clock to consume timeline cues.  An enter
+ * cue can be settled up front because the card-level entrance still owns its
+ * visible transition; an exit cue must remain pending until the card leaves.
+ * Treating both as completed makes a newly mounted character render in its
+ * exit pose before its entrance starts.
+ */
+export const getImmediatelySettledInlineActions = (actions: InlinePresentationAction[]) =>
+  actions.filter(
+    (action) =>
+      (isPersistentInlineAction(action) && action.action !== 'switch') ||
+      action.timelinePhase === 'enter',
+  );
+
 export const latestPersistentInlineAction = (
   actions: InlinePresentationAction[],
   kind: 'character' | 'scene',

@@ -2348,9 +2348,14 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           }
           
           if (data.presentation && Array.isArray(data.presentation.characters)) {
-            const charImgs = stageEl.querySelectorAll('.character-img');
-            data.presentation.characters.forEach((char, idx) => {
-              const imgEl = charImgs[idx];
+            const charImgsBySourceId = new Map(
+              Array.from(stageEl.querySelectorAll('.character-img')).map((imgEl) => [
+                imgEl.getAttribute('data-source-id') || '',
+                imgEl,
+              ]),
+            );
+            data.presentation.characters.forEach((char) => {
+              const imgEl = charImgsBySourceId.get(char.sourceNodeId || '');
               if (imgEl && char.exit && char.exit.type !== 'none') {
                 const duration = (char.exit.duration || 0) / settings.animationSpeed;
                 imgEl.style.transition = 'opacity ' + duration + 'ms ease-out, transform ' + duration + 'ms ease-out';
@@ -2972,9 +2977,14 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         }
         
         if (data.presentation && Array.isArray(data.presentation.characters)) {
-          const charImgs = stageEl.querySelectorAll('.character-img');
-          data.presentation.characters.forEach((char, idx) => {
-            const imgEl = charImgs[idx];
+          const charImgsBySourceId = new Map(
+            Array.from(stageEl.querySelectorAll('.character-img')).map((imgEl) => [
+              imgEl.getAttribute('data-source-id') || '',
+              imgEl,
+            ]),
+          );
+          data.presentation.characters.forEach((char) => {
+            const imgEl = charImgsBySourceId.get(char.sourceNodeId || '');
             if (imgEl) {
               imgEl.style.opacity = '1';
               const flipScale = char.flipX ? -1 : 1;
