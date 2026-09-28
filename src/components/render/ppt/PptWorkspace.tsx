@@ -851,14 +851,18 @@ export function PptWorkspace({
       updatePptSettings({
         textBoxLayouts: { ...textBoxLayouts, cover: nextCoverLayouts },
       });
-    const nextRenderObjects = { ...renderObjects };
+    let nextRenderObjects = { ...renderObjects };
     let hasRenderObjectPosition = false;
     selectedItems.forEach((item) => {
       if (!item.key.startsWith('ppt:')) return;
       const target = item.key.slice('ppt:'.length).split(':')[0];
       const kind = objectKindByTarget[target];
       if (!kind) return;
-      nextRenderObjects[kind] = { ...nextRenderObjects[kind], [axis]: nextPosition(item) };
+      nextRenderObjects = updateRenderObject(
+        { ...renderStyle, renderObjects: nextRenderObjects },
+        kind,
+        { [axis]: nextPosition(item) },
+      );
       hasRenderObjectPosition = true;
     });
     if (hasRenderObjectPosition) updateRenderStyle('renderObjects', nextRenderObjects);
@@ -2441,7 +2445,7 @@ function ScenePreview({
             onSelect={onSelect}
             style={{
               ...getCharacterStageBounds(character),
-              transform: `translate(-50%, 0) scale(${character.scale || 1}) scaleX(${character.flipX ? -1 : 1})`,
+              translate: '-50% 0',
               transformOrigin: 'bottom center',
               zIndex: 10 + (character.layer || 1),
             }}
@@ -2450,6 +2454,10 @@ function ScenePreview({
               src={character.imageUrl}
               alt={character.name || ''}
               className="h-full max-w-full w-auto object-contain"
+              style={{
+                transform: `scale(${character.scale || 1}) scaleX(${character.flipX ? -1 : 1})`,
+                transformOrigin: 'bottom center',
+              }}
             />
           </Selectable>
         );
@@ -2479,7 +2487,8 @@ function ScenePreview({
                   2,
                   Math.min(
                     82,
-                    8 - character.offsetY / 10 + 2 + (renderStyle.nameplateOffsetY || 0) / 10.8,
+                    100 - 92 * (character.scale || 1) - character.offsetY / 10 + 2 +
+                      (renderStyle.nameplateOffsetY || 0) / 10.8,
                   ),
                 )
               : Math.max(
@@ -2498,7 +2507,7 @@ function ScenePreview({
                 : character.name?.trim();
             if (!label) return null;
             const nameplateFontSize = Math.max(16, renderStyle.nameplateFontSize || 18);
-            const nameplateHeight = Math.min(40, Math.max(32, nameplate.height || 40));
+            const nameplateHeight = Math.min(28, Math.max(24, nameplate.height * 0.56 || 28));
             return (
               <div
                 key={`nameplate:${character.sourceNodeId}`}
@@ -2511,8 +2520,8 @@ function ScenePreview({
                   height: `${nameplateHeight}px`,
                   minHeight: `${nameplateHeight}px`,
                   boxSizing: 'border-box',
-                  paddingTop: '5px',
-                  paddingBottom: '5px',
+                  paddingTop: '3px',
+                  paddingBottom: '3px',
                   borderRadius:
                     nameplate.corners?.map((radius) => `${radius}px`).join(' ') || nameplate.radius,
                   fontFamily:
@@ -2524,7 +2533,6 @@ function ScenePreview({
                   whiteSpace: 'nowrap',
                   textOverflow: 'ellipsis',
                   ...objectPaint(opaqueNameplate),
-                  ...textPaint(nameplate),
                   color: alphaColor(
                     renderStyle.nameplateTextColor,
                     renderStyle.nameplateTextColorAlpha ?? 100,
@@ -2647,34 +2655,6 @@ const objectPaint = (object: RenderEditableObject): React.CSSProperties => ({
   transformOrigin: 'center',
   boxSizing: 'border-box',
 });
-const textPaint = (object: RenderEditableObject): React.CSSProperties => {
-  const text = object as import('../video/shared/types').RenderEditableTextObject;
-  const gradient = text.fill.type === 'gradient' || text.fill.type === 'image';
-  return {
-    color: gradient ? 'transparent' : alphaColor(text.fill.color, text.fill.alpha),
-    backgroundImage: gradient ? fillPaint(text) : undefined,
-    backgroundClip: gradient ? 'text' : undefined,
-    WebkitBackgroundClip: gradient ? 'text' : undefined,
-    WebkitTextStroke: text.stroke.enabled
-      ? `${text.stroke.width}px ${text.stroke.color}`
-      : undefined,
-    fontFamily: text.fontFamily,
-    fontSize: text.fontSize,
-    fontWeight: text.fontWeight,
-    letterSpacing: text.letterSpacing,
-    lineHeight: text.lineHeight,
-    textAlign: text.textAlign,
-    textDecoration:
-      `${text.underline ? 'underline' : ''} ${text.strikethrough ? 'line-through' : ''}`.trim(),
-    overflow: 'visible',
-    overflowWrap: 'anywhere',
-    whiteSpace: 'pre-wrap',
-    boxSizing: 'border-box',
-    padding: 0,
-    transform: `rotate(${text.rotation}deg) scale(${text.flipX ? -1 : 1}, ${text.flipY ? -1 : 1})`,
-    transformOrigin: 'center',
-  };
-};
 function PptEditableObject({
   kind,
   target,

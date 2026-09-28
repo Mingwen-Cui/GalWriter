@@ -6,6 +6,7 @@ import {
   ArrowUp,
   ChevronRight,
   GitBranch,
+  LockKeyhole,
   Play,
   RotateCw,
   X,
@@ -61,6 +62,7 @@ type Props = {
   controlsRef?: MutableRefObject<WebStoryFlowGraphControls | null>;
   showDirectionControl?: boolean;
   showFitViewControl?: boolean;
+  watchedNodeIds?: ReadonlySet<string>;
 };
 
 export type WebStoryFlowGraphControls = {
@@ -142,6 +144,7 @@ export function WebStoryFlowGraph({
   controlsRef,
   showDirectionControl = true,
   showFitViewControl = true,
+  watchedNodeIds,
 }: Props) {
   const segments = useMemo(() => buildInteractiveSegments(nodes, edges), [edges, nodes]);
   const nodesById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
@@ -715,6 +718,11 @@ export function WebStoryFlowGraph({
               const imageUrl = segmentImage(segment, nodesById);
               const cardSize = cardSizeFor(segment.id);
               const selectedForEdit = editable && selectedCardId === segment.id;
+              const locked =
+                watchedNodeIds !== undefined &&
+                !segment.nodeIds.some((nodeId) => watchedNodeIds.has(nodeId));
+              const cardLabel =
+                getNodeDisplayTitle(nodesById.get(segment.nodeIds[0])) || segment.name;
               return (
                 <button
                   key={segment.id}
@@ -731,7 +739,9 @@ export function WebStoryFlowGraph({
                     }
                   }}
                   aria-label={
-                    getNodeDisplayTitle(nodesById.get(segment.nodeIds[0])) || segment.name
+                    locked
+                      ? `${cardLabel}（${textFor(language, '未解锁', '未解放', 'Locked')}）`
+                      : cardLabel
                   }
                   className={`absolute overflow-hidden rounded-xl border text-left shadow-lg transition ${inStoryChain ? 'border-indigo-400 shadow-indigo-200/70' : 'border-slate-200 hover:border-indigo-300 hover:shadow-indigo-100/70'} ${active ? 'ring-2 ring-indigo-300/70' : ''} ${selectedForEdit ? 'ring-4 ring-amber-300/80' : ''}`}
                   style={{
@@ -745,14 +755,24 @@ export function WebStoryFlowGraph({
                     <img
                       src={resolveKnownAppAssetUrl(imageUrl)}
                       alt=""
-                      className="h-full w-full object-cover"
+                      className={`h-full w-full object-cover ${locked ? 'brightness-75 saturate-75' : ''}`}
                     />
                   ) : (
                     <span className="block h-full w-full bg-gradient-to-br from-slate-100 via-white to-indigo-50" />
                   )}
+                  {locked && (
+                    <span className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-slate-950/15">
+                      <span
+                        className="grid h-10 w-10 place-items-center rounded-full bg-slate-950/70 text-white shadow-lg ring-2 ring-white/80"
+                        aria-hidden="true"
+                      >
+                        <LockKeyhole className="h-5 w-5" />
+                      </span>
+                    </span>
+                  )}
                   {selectedForEdit && onCardSizeChange && (
                     <span
-                      className="absolute bottom-1 right-1 z-10 h-4 w-4 cursor-se-resize rounded-sm bg-indigo-600/90 shadow ring-2 ring-white/80"
+                      className="absolute bottom-1 right-1 z-30 h-4 w-4 cursor-se-resize rounded-sm bg-indigo-600/90 shadow ring-2 ring-white/80"
                       onPointerDown={(event) => beginCardResize(event, segment.id)}
                       onPointerMove={resizeCard}
                       onPointerUp={endCardResize}

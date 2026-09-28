@@ -76,6 +76,7 @@ type VideoTimelinePanelProps = {
   timelineMetricById: Map<string, TimelineSegmentMetric>;
   linkedTimelineClipById?: Record<string, string>;
   selectedIds: Set<string>;
+  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   focusedPreviewId: string;
   keyShotIds: Set<string>;
   addVideoTrack: () => void;
@@ -158,6 +159,7 @@ export function VideoTimelinePanel({
   timelineMetricById,
   linkedTimelineClipById = {},
   selectedIds,
+  setSelectedIds,
   focusedPreviewId,
   keyShotIds,
   addVideoTrack,
@@ -325,7 +327,9 @@ export function VideoTimelinePanel({
   }) => {
     const rect = getSelectionRect(box);
     const ids = Array.from(
-      timelineViewportRef.current?.querySelectorAll<HTMLElement>('[data-timeline-clip-id]') || [],
+      timelineViewportRef.current?.querySelectorAll<HTMLElement>(
+        '[data-render-track-kind="video"] [data-timeline-clip-id]',
+      ) || [],
     )
       .filter((element) => {
         const clipRect = element.getBoundingClientRect();
@@ -396,7 +400,9 @@ export function VideoTimelinePanel({
     if (width < 5 && height < 5) return;
     const ids = selectClipsInBox(drag);
     suppressNextClickRef.current = true;
-    setDragSelectionIds(new Set(ids));
+    const nextSelectedIds = new Set(ids);
+    setDragSelectionIds(nextSelectedIds);
+    setSelectedIds(nextSelectedIds);
     if (drag.button === 2 && ids.length > 0) {
       openContextMenu(event as unknown as React.MouseEvent<HTMLElement>, {
         kind: 'empty',
@@ -581,7 +587,11 @@ export function VideoTimelinePanel({
       </div>
       <div
         ref={timelineViewportRef}
-        className={isCollapsed ? 'hidden' : 'min-h-0 overflow-y-auto overflow-x-hidden p-4'}
+        className={
+          isCollapsed
+            ? 'hidden'
+            : 'video-render-scroll min-h-0 overflow-y-auto overflow-x-hidden p-4'
+        }
         onScroll={syncTimelineScrollInfo}
         onDragOver={(event) => {
           event.preventDefault();

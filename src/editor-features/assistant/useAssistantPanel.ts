@@ -292,6 +292,7 @@ interface UseAssistantPanelResult {
   handleSelectAssistantTask: (taskId: string) => void;
   assistantMessages: AssistantMessage[];
   assistantMessagesRef: MutableRefObject<HTMLDivElement | null>;
+  handleAssistantStoryOutlineChange: (messageId: string, outline: AssistantStoryOutline) => void;
   handleNewAssistantTask: () => void;
   handleStartCardReview: (context: AssistantInputContext) => Promise<void>;
   handleRenameAssistantTask: (taskId: string, title: string) => void;

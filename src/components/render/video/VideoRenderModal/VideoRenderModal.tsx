@@ -1751,6 +1751,7 @@ export function VideoRenderModal({
     timelineMetricById,
     timelineMetrics,
     videoTrackIds,
+    videoTrackByNodeId,
     audioTrackIds,
     activePreviewId,
     activeTimelineTime,
@@ -2656,6 +2657,7 @@ export function VideoRenderModal({
                   timelineNodes={timelineNodes}
                   timelineMetricById={timelineMetricById}
                   selectedIds={selectedIds}
+                  setSelectedIds={setSelectedIds}
                   focusedPreviewId={focusedPreviewId}
                   keyShotIds={keyShotIds}
                   addVideoTrack={addVideoTrack}

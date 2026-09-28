@@ -135,8 +135,8 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     role: 'flowDirection',
     text: '',
     visible: true,
-    x: 8,
-    y: 14,
+    x: 84,
+    y: 4,
     width: 2.588,
     height: 4.6,
     scale: 1,
@@ -157,8 +157,8 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     role: 'flowFitView',
     text: '',
     visible: true,
-    x: 8,
-    y: 20,
+    x: 88,
+    y: 4,
     width: 2.588,
     height: 4.6,
     scale: 1,
@@ -180,7 +180,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     text: '开始',
     visible: true,
     x: 8,
-    y: 27,
+    y: 4,
     width: 30,
     height: 7,
     scale: 1,
@@ -361,8 +361,32 @@ const normalizeFlowMinimapControls = (settings: WebExportSettings): WebExportSet
   return changed ? { ...settings, flowOverviewElements: normalized } : settings;
 };
 
+const migrateFlowOverviewControlLayout = (settings: WebExportSettings): WebExportSettings => {
+  const legacyPositions: Record<string, { x: number; y: number }> = {
+    'flow-direction-control': { x: 8, y: 14 },
+    'flow-fit-view-control': { x: 8, y: 20 },
+    'flow-current-branch': { x: 8, y: 27 },
+  };
+  const nextPositions: Record<string, { x: number; y: number }> = {
+    'flow-direction-control': { x: 84, y: 4 },
+    'flow-fit-view-control': { x: 88, y: 4 },
+    'flow-current-branch': { x: 8, y: 4 },
+  };
+  let changed = false;
+  const normalized = (settings.flowOverviewElements || []).map((element) => {
+    const legacy = legacyPositions[element.id];
+    const next = nextPositions[element.id];
+    if (!legacy || !next || element.x !== legacy.x || element.y !== legacy.y) return element;
+    changed = true;
+    return { ...element, ...next };
+  });
+  return changed ? { ...settings, flowOverviewElements: normalized } : settings;
+};
+
 const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSettings => {
-  const normalizedSettings = normalizeFlowMinimapControls(normalizeFlowControlShapes(settings));
+  const normalizedSettings = migrateFlowOverviewControlLayout(
+    normalizeFlowMinimapControls(normalizeFlowControlShapes(settings)),
+  );
   const elements = normalizedSettings.flowOverviewElements || [];
   const controls = defaultFlowOverviewElements.filter(
     (defaultElement) => !elements.some((element) => element.role === defaultElement.role),

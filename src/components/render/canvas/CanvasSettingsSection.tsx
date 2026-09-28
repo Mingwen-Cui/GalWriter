@@ -66,76 +66,82 @@ export function CanvasSettingsSection({
           />
         </div>
       )}
-      <div className="mt-2 flex items-end gap-2">
-        <label className="min-w-0 flex-1">
-          <span className="property-field-label block">
-            {t('画布比例', 'Aspect ratio', '縦横比')}
-          </span>
-          <select
-            className="h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs"
-            aria-label={t('画布比例', 'Aspect ratio', '縦横比')}
-            value={presets.includes(preset) ? preset : 'custom'}
-            onChange={(event) => {
-              const [w, h] = event.target.value.split(':').map(Number);
-              if (w && h) applyRatio(w, h);
-            }}
-          >
-            {!presets.includes(preset) && (
-              <option value="custom">
-                {t('自定义', 'Custom', 'カスタム')} · {preset}
-              </option>
-            )}
-            {presets.map((ratio) => (
-              <option key={ratio} value={ratio}>
-                {ratio}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div
+        className={
+          variant !== 'ppt' ? 'mt-2 grid grid-cols-2 items-end gap-2' : 'mt-2'
+        }
+      >
+        <div className="flex min-w-0 items-end gap-2">
+          <label className="min-w-0 flex-1">
+            <span className="property-field-label block">
+              {t('画布比例', 'Aspect ratio', '縦横比')}
+            </span>
+            <select
+              className="h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs"
+              aria-label={t('画布比例', 'Aspect ratio', '縦横比')}
+              value={presets.includes(preset) ? preset : 'custom'}
+              onChange={(event) => {
+                const [w, h] = event.target.value.split(':').map(Number);
+                if (w && h) applyRatio(w, h);
+              }}
+            >
+              {!presets.includes(preset) && (
+                <option value="custom">
+                  {t('自定义', 'Custom', 'カスタム')} · {preset}
+                </option>
+              )}
+              {presets.map((ratio) => (
+                <option key={ratio} value={ratio}>
+                  {ratio}
+                </option>
+              ))}
+            </select>
+          </label>
+          {variant !== 'ppt' && (
+            <button
+              type="button"
+              className="property-enable mb-0.5"
+              aria-label={text.lockRatio}
+              title={text.lockRatio}
+              aria-pressed={value.canvasRatioLocked}
+              onClick={() =>
+                onChange({
+                  canvasRatioLocked: !value.canvasRatioLocked,
+                  ...canvasRatio(value.canvasWidth, value.canvasHeight),
+                })
+              }
+            >
+              {value.canvasRatioLocked ? (
+                <Link className="h-4 w-4" />
+              ) : (
+                <Link2Off className="h-4 w-4" />
+              )}
+            </button>
+          )}
+        </div>
         {variant !== 'ppt' && (
-          <button
-            type="button"
-            className="property-enable mb-0.5"
-            aria-label={text.lockRatio}
-            title={text.lockRatio}
-            aria-pressed={value.canvasRatioLocked}
-            onClick={() =>
-              onChange({
-                canvasRatioLocked: !value.canvasRatioLocked,
-                ...canvasRatio(value.canvasWidth, value.canvasHeight),
-              })
-            }
-          >
-            {value.canvasRatioLocked ? (
-              <Link className="h-4 w-4" />
-            ) : (
-              <Link2Off className="h-4 w-4" />
-            )}
-          </button>
+          <label className="min-w-0">
+            <span className="property-field-label block">
+              {t('布局模式', 'Layout', 'レイアウト')}
+            </span>
+            <select
+              value={value.layoutMode}
+              className="h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs"
+              onChange={(event) =>
+                onChange({
+                  layoutMode: event.target.value as 'classic' | 'immersive',
+                  ...(event.target.value === 'classic'
+                    ? { choicesPosition: 'aboveText' as const }
+                    : {}),
+                })
+              }
+            >
+              <option value="immersive">{text.merged}</option>
+              <option value="classic">{text.split}</option>
+            </select>
+          </label>
         )}
       </div>
-      {variant !== 'ppt' && (
-        <label className="mt-3 block">
-          <span className="property-field-label block">
-            {t('布局模式', 'Layout', 'レイアウト')}
-          </span>
-          <select
-            value={value.layoutMode}
-            className="h-8 w-full rounded-md border border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-2 text-xs"
-            onChange={(event) =>
-              onChange({
-                layoutMode: event.target.value as 'classic' | 'immersive',
-                ...(event.target.value === 'classic'
-                  ? { choicesPosition: 'aboveText' as const }
-                  : {}),
-              })
-            }
-          >
-            <option value="immersive">{text.merged}</option>
-            <option value="classic">{text.split}</option>
-          </select>
-        </label>
-      )}
       {variant === 'web' && (
         <div className="mt-3 space-y-2 border-t border-[var(--vr-border)] pt-3">
           <label className="flex items-center justify-between gap-2 text-xs">

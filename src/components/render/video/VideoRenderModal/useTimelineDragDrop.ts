@@ -18,6 +18,7 @@ export const useTimelineDragDrop = ({
   timelineMetricById,
   timelineMetrics,
   videoTrackIds,
+  videoTrackByNodeId,
   audioTrackIds,
   activePreviewId,
   activeTimelineTime,
@@ -54,6 +55,7 @@ export const useTimelineDragDrop = ({
   timelineMetricById: Map<string, TimelineSegmentMetric>;
   timelineMetrics: VideoTimelineMetrics;
   videoTrackIds: string[];
+  videoTrackByNodeId: Record<string, string>;
   audioTrackIds: string[];
   activePreviewId: string;
   activeTimelineTime: number;
@@ -241,7 +243,13 @@ export const useTimelineDragDrop = ({
           placeholderOverrides: getTimelinePlaceholderOverrides(sourceNode),
         });
       }
-      let cursor = dropTime;
+      const hasVideoTimeline = timelineIds.some((timelineId) =>
+        Boolean(videoTrackByNodeId[timelineId]),
+      );
+      // An empty video timeline should always establish its first sequence at frame 0.
+      // Users often release a multi-card drag a few frames into the ruler, but that
+      // release position should not become an accidental leading gap.
+      let cursor = hasVideoTimeline ? dropTime : 0;
       const startById: Record<string, number> = {};
       const durationById: Record<string, number> = {};
       newClips.forEach(({ timelineId, mediaDuration }) => {
@@ -374,15 +382,21 @@ export const useTimelineDragDrop = ({
       }
 
       const placementTrackId = droppedTrackId || audioTrackIds[0] || makeTrackId('audio');
-      const nextStart = draggingAudioOnly
-        ? snapToTimelineClipEdges(timelineId, droppedTime, duration)
-        : findNonOverlappingTrackStart(
-            timelineId,
-            droppedTime,
-            duration,
-            droppedTrackKind,
-            placementTrackId,
-          );
+      const hasVideoTimeline = timelineIds.some((timelineId) =>
+        Boolean(videoTrackByNodeId[timelineId]),
+      );
+      const nextStart =
+        !draggingAudioOnly && droppedTrackKind === 'video' && !hasVideoTimeline
+          ? 0
+          : draggingAudioOnly
+            ? snapToTimelineClipEdges(timelineId, droppedTime, duration)
+            : findNonOverlappingTrackStart(
+                timelineId,
+                droppedTime,
+                duration,
+                droppedTrackKind,
+                placementTrackId,
+              );
       droppedTrackId =
         droppedTrackKind === 'audio'
           ? getAudioDropTrackId(timelineId, nextStart, duration, droppedTrackId)

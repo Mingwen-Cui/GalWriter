@@ -132,10 +132,6 @@ ${WEB_PLAYBACK_UI_CSS}</style>
   <div class="flow-overview-backdrop" id="flowOverviewBackdrop" role="dialog" aria-modal="true" aria-label="Flow overview">
     <div class="flow-overview-panel" id="flowOverviewPanel">
       <div class="flow-overview-viewport" id="flowOverviewViewport">
-        <div class="flow-overview-brand">
-          <strong>${language === 'zh' ? '剧情流程' : language === 'ja' ? 'ストーリーフロー' : 'Story flow'}</strong>
-          <span>${language === 'zh' ? '探索已解锁的故事路径' : language === 'ja' ? '解放された物語の道筋をたどる' : 'Explore the story paths you have unlocked'}</span>
-        </div>
         <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
         <div class="flow-overview-canvas" id="flowOverviewCanvas"></div>
         <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
@@ -1960,6 +1956,10 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       return typeof data.imageUrl === "string" ? data.imageUrl : "";
     }
 
+    function flowNodeIsWatched(nodeId) {
+      return nodeId === currentId || history.includes(nodeId);
+    }
+
     let flowOverviewRootNodeId = "";
     let flowOverviewEdges = [];
     let flowOverviewLayoutDirection = settings.flowOverviewLayoutDirection || "right";
@@ -2250,7 +2250,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       allNodes.forEach((node) => {
         const position = positionById.get(node.id);
         const card = document.createElement("div");
-        card.className = "flow-overview-node" + (node.id === rootNode.id ? " root" : "");
+        const locked = !flowNodeIsWatched(node.id);
+        card.className = "flow-overview-node" + (node.id === rootNode.id ? " root" : "") + (locked ? " is-locked" : "");
         card.style.left = position.x + "px";
         card.style.top = position.y + "px";
         card.style.width = (position.width || 220) + "px";
@@ -2266,9 +2267,16 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         } else {
           card.classList.add("no-image");
         }
+        if (locked) {
+          const lock = document.createElement("span");
+          lock.className = "flow-overview-node-lock";
+          lock.setAttribute("aria-hidden", "true");
+          lock.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="12" x="4" y="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+          card.appendChild(lock);
+        }
         card.tabIndex = 0;
         card.setAttribute("role", "button");
-        card.setAttribute("aria-label", (content.language === "zh" ? "查看并从此处开始：" : "View and play from: ") + flowNodeTitle(node));
+        card.setAttribute("aria-label", (content.language === "zh" ? "查看并从此处开始：" : "View and play from: ") + flowNodeTitle(node) + (locked ? (content.language === "zh" ? "（未解锁）" : " (locked)") : ""));
         card.addEventListener("click", () => showFlowNodeDetail(node));
         card.addEventListener("keydown", (event) => {
           if (event.key === "Enter" || event.key === " ") {

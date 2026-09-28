@@ -764,7 +764,7 @@ export async function buildPptxBuffer({
     }
     if (shouldRenderNameplate) {
       const followCharacter = style.nameplateFollowCharacter !== false;
-      const height = Math.min(0.4, Math.max(0.32, nameplate.height / 100));
+      const height = Math.min(0.28, Math.max(0.24, nameplate.height / 180));
       const fontSize = Math.max(
         10 * page.scale,
         (style.nameplateFontSize || nameplate.fontSize) * 0.66 * page.scale,
@@ -783,7 +783,8 @@ export async function buildPptxBuffer({
           ? characterCenter + (style.nameplateOffsetX || 0) / 1920
           : 0.5 + (index - (nameplateCharacters.length - 1) / 2) * 0.18;
         const characterTop =
-          1 - CHARACTER_STAGE_MAX_HEIGHT_PERCENT / 100 - character.offsetY / 1000;
+          1 - (CHARACTER_STAGE_MAX_HEIGHT_PERCENT / 100) * (character.scale || 1) -
+          character.offsetY / 1000;
         const x = Math.max(0.02, Math.min(13.313 - width, centerX * 13.333 - width / 2));
         const y = followCharacter
           ? Math.max(

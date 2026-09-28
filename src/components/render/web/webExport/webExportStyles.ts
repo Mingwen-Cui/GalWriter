@@ -814,17 +814,6 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .flow-overview-title { font-size: 16px; font-weight: 950; }
     .flow-overview-hint { margin-top: 4px; color: #64748b; font-size: 12px; font-weight: 700; }
-    .flow-overview-brand {
-      position: absolute;
-      z-index: 12;
-      top: 3%;
-      left: 8%;
-      display: grid;
-      gap: 4px;
-      pointer-events: none;
-    }
-    .flow-overview-brand strong { color: #252a59; font-size: 24px; font-weight: 950; letter-spacing: -.03em; }
-    .flow-overview-brand span { color: #68719a; font-size: 12px; font-weight: 700; }
     .flow-overview-close {
       width: 34px;
       height: 34px;
@@ -882,6 +871,9 @@ export const WEB_EXPORT_STYLES = String.raw`
     .flow-overview-node:hover, .flow-overview-node:focus-visible { border-color: #625bf6; box-shadow: 0 0 0 3px rgba(98,91,246,0.18), 0 10px 24px rgba(15,23,42,0.12); outline: none; transform: translateY(-1px); }
     .flow-overview-node.root, .flow-overview-node.is-chain { border-color: #625bf6; box-shadow: 0 0 0 3px rgba(98,91,246,0.18), 0 10px 24px rgba(15,23,42,0.10); }
     .flow-overview-node-image { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .flow-overview-node.is-locked .flow-overview-node-image { filter: brightness(.72) saturate(.72); }
+    .flow-overview-node-lock { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; background: rgba(15,23,42,.12); pointer-events: none; }
+    .flow-overview-node-lock svg { width: 32px; height: 32px; padding: 8px; box-sizing: content-box; border-radius: 999px; background: rgba(15,23,42,.72); color: #fff; box-shadow: 0 4px 12px rgba(15,23,42,.32); }
     .flow-overview-node.no-image { background: linear-gradient(135deg, #e2e8f0, #ffffff 52%, #e0e7ff); }
     .flow-overview-edge { transition: stroke .16s ease, stroke-width .16s ease; }
     .flow-overview-edge.is-chain { stroke: #4f46e5 !important; stroke-width: 3.5 !important; }

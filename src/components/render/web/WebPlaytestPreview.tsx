@@ -253,6 +253,10 @@ export function WebPlaytestPreview({
   const [flowGraphSnapshot, setFlowGraphSnapshot] = useState<WebStoryFlowGraphSnapshot | null>(
     null,
   );
+  const flowWatchedNodeIds = useMemo(
+    () => new Set([...history, ...(currentNodeId ? [currentNodeId] : [])]),
+    [currentNodeId, history],
+  );
   // The editor's surface picker is controlled by the workspace. Do not let a
   // transient runtime page state hide that surface while applying a preset.
   const controlledEditSurface =
@@ -2314,18 +2318,6 @@ export function WebPlaytestPreview({
           />
         )}
         <SurfaceLayers muted={!settings.soundEnabled} value={settings.surfaceAppearances?.flow} />
-        <div className="pointer-events-none absolute left-[8%] top-[3%] z-20 grid gap-1">
-          <h2 className="m-0 text-[clamp(22px,2.1vw,34px)] font-black tracking-[-0.04em] text-[#252a59]">
-            {language === 'zh' ? '剧情流程' : language === 'ja' ? 'ストーリーフロー' : 'Story flow'}
-          </h2>
-          <p className="m-0 text-[clamp(11px,1vw,15px)] font-semibold text-[#68719a]">
-            {language === 'zh'
-              ? '探索已解锁的故事路径'
-              : language === 'ja'
-                ? '解放された物語の道筋をたどる'
-                : 'Explore the story paths you have unlocked'}
-          </p>
-        </div>
         {!settings.surfaceAppearances?.flow &&
           background.type === 'video' &&
           background.videoUrl && (
@@ -2372,6 +2364,7 @@ export function WebPlaytestPreview({
             showCurrentBranchIndicator={false}
             showMinimap={false}
             editable={previewMode === 'edit'}
+            watchedNodeIds={flowWatchedNodeIds}
             cardSizes={settings.flowOverviewCardSizes}
             onCardSizeChange={(segmentId, size) =>
               onUpdateSettings(
