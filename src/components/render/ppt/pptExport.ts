@@ -32,6 +32,7 @@ import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { syncNameplateAnimations } from './pptAnimationPreview';
 import {
   createPptStyleTextAnimations,
+  getPptDialogueLineTargetIds,
   orderPptSceneAnimations,
   resolvePptTagAnimations,
 } from './pptTagAnimations';
@@ -718,15 +719,7 @@ export async function buildPptxBuffer({
       const colorAlpha = /^#[0-9a-f]{8}$/i.test(textColor)
         ? parseInt(textColor.slice(7, 9), 16) / 255
         : 1;
-      // Native editable text: fixed line breaks and metrics, with no PowerPoint autofit/reflow.
-      slide.addText(block.lines.join('\n'), {
-        objectName,
-        ...page.frame(
-          (block.left / settings.canvasWidth) * 13.333,
-          (block.top / settings.canvasHeight) * 7.5,
-          ((block.right - block.left) / settings.canvasWidth) * 13.333,
-          (block.height / settings.canvasHeight) * 7.5,
-        ),
+      const textOptions = {
         fontFace: toPptFontFace(object.fontFamily),
         lang: language === 'zh' ? 'zh-CN' : language === 'ja' ? 'ja-JP' : 'en-US',
         fontSize: block.fontSize * pointScale,
@@ -745,11 +738,11 @@ export async function buildPptxBuffer({
         paraSpaceBefore: 0,
         paraSpaceAfter: 0,
         margin: 0,
-        valign: 'top',
+        valign: 'top' as const,
         align: object.textAlign,
-        fit: 'none',
+        fit: 'none' as const,
         wrap: false,
-        underline: object.underline ? { style: 'sng' } : undefined,
+        underline: object.underline ? { style: 'sng' as const } : undefined,
         strike: object.strikethrough,
         outline: outline
           ? { color: hex(outline.color), size: outline.width * pointScale }
@@ -757,8 +750,47 @@ export async function buildPptxBuffer({
         rotate: object.rotation,
         flipH: object.flipX,
         flipV: object.flipY,
-      });
-      addAnimationTargets(objectName, target);
+      };
+      const lineTargetIds =
+        kind === 'body'
+          ? getPptDialogueLineTargetIds(scene, sceneBody, block.starts)
+          : [];
+      const hasTurnTargets =
+        kind === 'body' &&
+        lineTargetIds.length === block.lines.length &&
+        lineTargetIds.every((targetId) => Boolean(targetId));
+      if (hasTurnTargets) {
+        // Each dialogue line is an independent editable shape so its speaker's
+        // reveal can start at the correct point in the native PPT timeline.
+        block.lines.forEach((line, index) => {
+          const lineObjectName = `${objectName}-line-${index + 1}`;
+          slide.addText(line, {
+            objectName: lineObjectName,
+            ...page.frame(
+              (block.left / settings.canvasWidth) * 13.333,
+              ((block.top + index * block.lineHeight) / settings.canvasHeight) * 7.5,
+              ((block.right - block.left) / settings.canvasWidth) * 13.333,
+              (block.lineHeight / settings.canvasHeight) * 7.5,
+            ),
+            ...textOptions,
+          });
+          addAnimationTargets(lineObjectName, target, undefined);
+          addAnimationTargets(lineObjectName, target, lineTargetIds[index]);
+        });
+      } else {
+        // Native editable text: fixed line breaks and metrics, with no PowerPoint autofit/reflow.
+        slide.addText(block.lines.join('\n'), {
+          objectName,
+          ...page.frame(
+            (block.left / settings.canvasWidth) * 13.333,
+            (block.top / settings.canvasHeight) * 7.5,
+            ((block.right - block.left) / settings.canvasWidth) * 13.333,
+            (block.height / settings.canvasHeight) * 7.5,
+          ),
+          ...textOptions,
+        });
+        addAnimationTargets(objectName, target);
+      }
       if (
         sceneSlideNumber &&
         !sceneAnimations.some((animation) => animation.target === target) &&

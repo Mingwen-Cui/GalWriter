@@ -14,6 +14,7 @@ import { stripHtml } from '../video/shared/storyNodes';
 import type { PptScene } from './pptSceneResolver';
 
 type Mention = { id: string; kind: 'character' | 'scene'; name: string; start: number; end: number };
+export type PptDialogueTurn = { id: string; characterId?: string; name: string; text: string };
 
 const attribute = (markup: string, name: string) =>
   markup.match(new RegExp(`${name}=(?:"([^"]*)"|'([^']*)')`, 'i'))?.[1] ||
@@ -43,6 +44,61 @@ const mentionsInDocumentOrder = (html: string): Mention[] =>
       };
     })
     .filter((mention): mention is Mention => Boolean(mention));
+
+/** Resolve each character mention to the dialogue text that follows it. */
+export const getPptDialogueTurns = (scene: PptScene): PptDialogueTurn[] => {
+  const mentions = mentionsInDocumentOrder(scene.rawText);
+  let dialogueIndex = 0;
+  return mentions.flatMap((mention, index) => {
+    if (mention.kind !== 'character') return [];
+    const text = stripHtml(
+      scene.rawText.slice(mention.end, mentions[index + 1]?.start ?? scene.rawText.length),
+    ).trim();
+    if (!text) return [];
+    const characterId =
+      scene.presentation.inlineActions?.find(
+        (action) => action.id === mention.id && action.kind === 'character',
+      )?.sourceNodeId ||
+      scene.characters.find((character) => character.name === mention.name)?.sourceNodeId;
+    const id = `dialogue:${mention.id || dialogueIndex}`;
+    dialogueIndex += 1;
+    return [{ id, characterId, name: mention.name, text }];
+  });
+};
+
+/** Map each laid-out visual line to the speaker turn that owns its text. */
+export const getPptDialogueLineTargetIds = (
+  scene: PptScene,
+  bodyText: string,
+  lineStarts: number[],
+): Array<string | undefined> => {
+  if (!lineStarts.length) return [];
+  const turns = getPptDialogueTurns(scene);
+  let searchFrom = 0;
+  const turnStartLines = turns.map((turn) => {
+    let matchIndex = bodyText.indexOf(turn.text, searchFrom);
+    if (matchIndex < 0) {
+      const speakerPrefix = turn.name ? `${turn.name}：` : '';
+      matchIndex = speakerPrefix ? bodyText.indexOf(speakerPrefix, searchFrom) : -1;
+    }
+    if (matchIndex < 0) return -1;
+    searchFrom = matchIndex + Math.max(1, turn.text.length);
+    const codepointIndex = Array.from(bodyText.slice(0, matchIndex)).length;
+    let lineIndex = 0;
+    for (let index = 1; index < lineStarts.length; index += 1) {
+      if (lineStarts[index] > codepointIndex) break;
+      lineIndex = index;
+    }
+    return lineIndex;
+  });
+  return lineStarts.map((_, lineIndex) => {
+    let activeTurn = -1;
+    turnStartLines.forEach((startLine, index) => {
+      if (startLine >= 0 && startLine <= lineIndex) activeTurn = index;
+    });
+    return activeTurn >= 0 ? turns[activeTurn].id : undefined;
+  });
+};
 
 export const createPptStyleTextAnimations = (
   scene: PptScene,
@@ -163,9 +219,11 @@ export const orderPptSceneAnimations = (
 
     if (mention.kind === 'character' && hasFollowingText && bodyTemplates.length) {
       const template = bodyTemplates[0];
+      const turn = getPptDialogueTurns(scene)[dialogueIndex];
       ordered.push({
         ...template,
-        id: `${template.id}:dialogue:${mention.id || dialogueIndex}`,
+        id: `${template.id}:${turn?.id || `dialogue:${mention.id || dialogueIndex}`}`,
+        targetId: turn?.id,
         mentionId: mention.id || undefined,
         start: 'afterPrevious',
       });

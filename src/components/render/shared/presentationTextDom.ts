@@ -88,6 +88,7 @@ export function mountPresentationText(
   host: HTMLElement,
   block: PresentedTextBlock,
   count = Infinity,
+  lineStyles: Array<object | undefined> = [],
 ) {
   host.replaceChildren();
   host.hidden = !block.visible;
@@ -109,7 +110,7 @@ export function mountPresentationText(
     fontKerning: 'normal',
     userSelect: 'text',
   });
-  for (const line of block.lines) {
+  for (const [index, line] of block.lines.entries()) {
     const span = document.createElement('span');
     span.textContent = Array.from(line.text)
       .slice(0, Math.max(0, count - line.start))
@@ -124,7 +125,7 @@ export function mountPresentationText(
       height: block.lineHeight + 'px',
       minWidth: line.width + 'px',
       whiteSpace: 'pre',
-    });
+    }, lineStyles[index] || {});
     host.appendChild(span);
   }
 }

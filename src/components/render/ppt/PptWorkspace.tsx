@@ -82,6 +82,7 @@ const isConfiguredSelectionButton = (button: number) =>
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import {
   createPptStyleTextAnimations,
+  getPptDialogueLineTargetIds,
   orderPptSceneAnimations,
   resolvePptTagAnimations,
 } from './pptTagAnimations';
@@ -262,7 +263,7 @@ const withTimelineStarts = (animations: PptObjectAnimation[]): TimedPptObjectAni
 };
 export const getTimelineDuration = (animations: PptObjectAnimation[], mediaDurationMs = 0) =>
   Math.max(
-    1000,
+    1,
     mediaDurationMs,
     ...withTimelineStarts(animations).map(
       (animation) => animation.timelineStartMs + animation.durationMs,
@@ -1142,16 +1143,6 @@ export function PptWorkspace({
     });
     if (nextTimeline) preview(nextTimeline);
   };
-  const moveAnimation = (id: string, direction: -1 | 1) => {
-    const index = currentAnimations.findIndex((item) => item.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= currentAnimations.length) return;
-    if (currentAnimations[index].source === 'tag' || currentAnimations[target].source === 'tag')
-      return;
-    const nextTimeline = [...currentAnimations];
-    [nextTimeline[index], nextTimeline[target]] = [nextTimeline[target], nextTimeline[index]];
-    replaceTimeline(nextTimeline);
-  };
   const preview = (timeline: PptObjectAnimation[] = currentAnimations) => {
     if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
     if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
@@ -1477,7 +1468,6 @@ export function PptWorkspace({
               onSelectVideo={() => {
                 setSelectedObject({ target: 'background', label: copy.background });
               }}
-              onMove={moveAnimation}
               onDelete={(id) => replaceTimeline(currentAnimations.filter((item) => item.id !== id))}
               onPreview={preview}
               previewing={isPreviewing}
@@ -2354,9 +2344,6 @@ function ScenePreview({
   const explicitNameplateAnimations = animations.filter(
     (animation) => animation.target === 'nameplate' && animation.source !== 'tag',
   );
-  const bodyAnimation = bodyAnimations.find(
-    (animation) => animation.textBuild?.mode === 'line-wipe',
-  );
   const hasTitle = title.visible && !scene.hideTitleInPlayback && Boolean(titleText.trim());
   const textLayout = useDialogueTextLayout(
     renderStyle,
@@ -2365,6 +2352,20 @@ function ScenePreview({
     titleText,
     bodyText,
     scene.hideTitleInPlayback,
+  );
+  const bodyLineTargetIds = getPptDialogueLineTargetIds(
+    scene,
+    bodyText,
+    textLayout.body.starts,
+  );
+  const bodyLineStyles = bodyLineTargetIds.map((targetId) =>
+    targetId
+      ? previewStyle(
+          findAnimation(animations, 'dialog-body', targetId),
+          previewing,
+          previewAtMs,
+        )
+      : {},
   );
   const panelStyle = objectPaint(panel);
   const panelLayout = resolvePresentationDialogueLayout(canvasWidth, canvasHeight, renderStyle);
@@ -2583,7 +2584,7 @@ function ScenePreview({
           label="对话正文"
           object={body}
           selected={selected}
-          animation={bodyAnimations}
+          animation={bodyAnimations.filter((animation) => !animation.targetId)}
           previewing={previewing}
           previewAtMs={previewAtMs}
           editable={editable}
@@ -2596,7 +2597,7 @@ function ScenePreview({
             ...textBlockCss(textLayout.body, panelLayout),
           }}
         >
-          <PresentationText block={textLayout.body} />
+          <PresentationText block={textLayout.body} lineStyles={bodyLineStyles} />
         </PptEditableObject>
       </PptEditableObject>
     </>

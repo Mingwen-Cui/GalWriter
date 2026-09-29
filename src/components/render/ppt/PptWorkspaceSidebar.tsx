@@ -1,7 +1,6 @@
 import {
   Clock3,
   Download,
-  Info,
   ListOrdered,
   Pause,
   Play,
@@ -83,7 +82,6 @@ export function PptSidebar({
   updatePptSettings,
   onSelectAnimation,
   onSelectVideo,
-  onMove,
   onDelete,
   onPreview,
   previewing,
@@ -124,7 +122,6 @@ export function PptSidebar({
   updatePptSettings: (patch: Partial<PptExportSettings>) => void;
   onSelectAnimation: (animation: PptObjectAnimation) => void;
   onSelectVideo: () => void;
-  onMove: (id: string, direction: -1 | 1) => void;
   onDelete: (id: string) => void;
   onPreview: () => void;
   previewing: boolean;
@@ -387,7 +384,6 @@ export function PptSidebar({
                   onPlayheadChange={onPlayheadChange}
                   onSelect={selectAnimation}
                   onSelectVideo={onSelectVideo}
-                  onMove={onMove}
                   onDelete={onDelete}
                   onPreview={onPreview}
                   previewing={previewing}
@@ -402,7 +398,6 @@ export function PptSidebar({
                   onPlayheadChange={onPlayheadChange}
                   onSelect={selectAnimation}
                   onSelectVideo={onSelectVideo}
-                  onMove={onMove}
                   onDelete={onDelete}
                   onPreview={onPreview}
                   previewing={previewing}
@@ -671,7 +666,6 @@ function AnimationTimeline({
   onPlayheadChange,
   onSelect,
   onSelectVideo,
-  onMove,
   onDelete,
   onPreview,
   previewing,
@@ -684,7 +678,6 @@ function AnimationTimeline({
   onPlayheadChange: (milliseconds: number) => void;
   onSelect: (animation: PptObjectAnimation) => void;
   onSelectVideo: () => void;
-  onMove: (id: string, direction: -1 | 1) => void;
   onDelete: (id: string) => void;
   onPreview: () => void;
   previewing: boolean;
@@ -702,12 +695,11 @@ function AnimationTimeline({
     return values;
   }, []);
   const totalMs = Math.max(
-    1000,
     videoTrack?.durationMs || 0,
     ...animations.map((item, index) => starts[index] + item.durationMs),
   );
   const hasTracks = Boolean(videoTrack) || animations.length > 0;
-  const timelineDurationMs = Math.max(3000, Math.ceil(totalMs / 1000) * 1000);
+  const timelineDurationMs = Math.max(1, totalMs);
   const [timelineViewport, setTimelineViewport] = useState({ start: 0, end: 1 });
   const navigatorRef = useRef<HTMLDivElement>(null);
   const navigatorDragRef = useRef<{
@@ -778,8 +770,15 @@ function AnimationTimeline({
       event.currentTarget.releasePointerCapture(event.pointerId);
   };
   const formatTime = (milliseconds: number) => {
-    const seconds = Math.max(0, Math.floor(milliseconds / 1000));
-    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    const safeMilliseconds = Math.max(0, milliseconds);
+    const totalSeconds = safeMilliseconds / 1000;
+    if (timelineDurationMs < 60_000) return `${totalSeconds.toFixed(1)}s`;
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = totalSeconds % 60;
+    const formattedSeconds = Number.isInteger(remainingSeconds)
+      ? String(remainingSeconds).padStart(2, '0')
+      : remainingSeconds.toFixed(1).padStart(4, '0');
+    return `${minutes}:${formattedSeconds}`;
   };
   const timelineTicks = Array.from({ length: 5 }, (_, index) =>
     Math.round(viewportStartMs + (viewportDurationMs / 4) * index),
@@ -865,7 +864,7 @@ function AnimationTimeline({
                     {formatTime(playheadMs)}
                   </output>
                 </div>
-                <div className="grid grid-cols-[108px_minmax(0,1fr)_42px] gap-2">
+                <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2">
                   <div />
                   <div
                     className="relative h-10 cursor-ew-resize select-none border-y border-[var(--vr-border)] bg-[repeating-linear-gradient(to_right,transparent_0,transparent_calc(25%_-_1px),var(--vr-border)_calc(25%_-_1px),var(--vr-border)_25%)]"
@@ -896,17 +895,16 @@ function AnimationTimeline({
                       </span>
                     </span>
                   </div>
-                  <div />
                 </div>
                 <div className="relative space-y-1.5 pt-2">
-                  <span className="pointer-events-none absolute bottom-0 left-[116px] right-[50px] top-0 z-20">
+                  <span className="pointer-events-none absolute bottom-0 left-[116px] right-0 top-0 z-20">
                     <span
                       className="absolute inset-y-0 w-0.5 bg-[var(--vr-accent)]/90 shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
                       style={{ left: `${playheadPercent}%` }}
                     />
                   </span>
                   {videoTrack ? (
-                    <div className="grid grid-cols-[108px_minmax(0,1fr)_42px] items-center gap-2">
+                    <div className="grid grid-cols-[108px_minmax(0,1fr)] items-center gap-2">
                       <button
                         type="button"
                         onClick={onSelectVideo}
@@ -953,13 +951,12 @@ function AnimationTimeline({
                           </strong>
                         </span>
                       </button>
-                      <div />
                     </div>
                   ) : null}
                   {animations.map((item, index) => (
                     <div
                       key={item.id}
-                      className="grid grid-cols-[108px_minmax(0,1fr)_42px] items-center gap-2"
+                      className="grid grid-cols-[108px_minmax(0,1fr)] items-center gap-2"
                     >
                       <button
                         type="button"
@@ -1013,38 +1010,12 @@ function AnimationTimeline({
                           </strong>
                         </span>
                       </button>
-                      <div className="flex gap-0.5">
-                        <button
-                          type="button"
-                          className="ppt-mini-button"
-                          onClick={() => onMove(item.id, -1)}
-                          disabled={
-                            item.source === 'tag' ||
-                            index === 0 ||
-                            animations[index - 1]?.source === 'tag'
-                          }
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="ppt-mini-button"
-                          onClick={() => onMove(item.id, 1)}
-                          disabled={
-                            item.source === 'tag' ||
-                            index === animations.length - 1 ||
-                            animations[index + 1]?.source === 'tag'
-                          }
-                        >
-                          ↓
-                        </button>
-                      </div>
                     </div>
                   ))}
                 </div>
                 <div
                   ref={navigatorRef}
-                  className="relative ml-[118px] mr-[44px] mt-4 h-3 rounded-full bg-[var(--vr-border)]"
+                  className="relative ml-[116px] mt-4 h-3 rounded-full bg-[var(--vr-border)]"
                   aria-label="时间轴缩放和滚动范围"
                 >
                   <div

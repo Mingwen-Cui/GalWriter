@@ -1,6 +1,7 @@
 import type { PptObjectAnimation } from '../video/shared/types';
 import type { PptCopy } from './i18n';
 import { resolvePptScenes } from './pptSceneResolver';
+import { getPptDialogueTurns } from './pptTagAnimations';
 
 type Scene = ReturnType<typeof resolvePptScenes>[number];
 
@@ -10,6 +11,12 @@ export function targetLabel(copy: PptCopy, animation: PptObjectAnimation, scene?
     return `${copy.character}：${name || copy.unnamed}`;
   }
   if (animation.target === 'choice') return `${copy.choice} ${Number(animation.targetId || 0) + 1}`;
+  if (animation.target === 'dialog-body' && animation.targetId?.startsWith('dialogue:')) {
+    const speaker = scene
+      ? getPptDialogueTurns(scene).find((turn) => turn.id === animation.targetId)?.name
+      : undefined;
+    if (speaker) return `${copy.dialogBody} · ${speaker}`;
+  }
   return (
     (
       {

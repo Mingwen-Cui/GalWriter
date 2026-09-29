@@ -58,17 +58,20 @@ export function PresentationText({
   block,
   visibleCharacters = Infinity,
   scale = 1,
+  lineStyles,
 }: {
   block: TextBlockLayout;
   visibleCharacters?: number;
   scale?: number;
+  lineStyles?: CSSProperties[];
 }) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const presentation = useMemo(() => presentTextBlock(block), [block]);
   useLayoutEffect(() => {
-    if (inner.current) mountPresentationText(inner.current, presentation, visibleCharacters);
-  }, [presentation, visibleCharacters]);
+    if (inner.current)
+      mountPresentationText(inner.current, presentation, visibleCharacters, lineStyles);
+  }, [presentation, visibleCharacters, lineStyles]);
   useLayoutEffect(() => {
     const container = outer.current,
       content = inner.current;
