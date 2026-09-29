@@ -27,6 +27,13 @@ const migrateLegacyRenderStyleDefaults = (
   style: ImportedProjectSettings['sharedRenderStyle'],
 ): ImportedProjectSettings['sharedRenderStyle'] => {
   if (!style) return style;
+  const nameplate = style.renderObjects?.nameplate;
+  const firstNameplateStop = nameplate?.fill?.gradientStops?.[0];
+  const lastNameplateStop = nameplate?.fill?.gradientStops?.[nameplate.fill.gradientStops.length - 1];
+  const hasLegacyNameplate =
+    nameplate?.fill?.color === '#172554' &&
+    firstNameplateStop?.color === '#1e3a8a' &&
+    lastNameplateStop?.color === '#0f172a';
   return {
     ...style,
     titleFontSize: style.titleFontSize === 56 ? 28 : style.titleFontSize,
@@ -39,6 +46,50 @@ const migrateLegacyRenderStyleDefaults = (
       style.bodyFontFamily === LEGACY_RENDER_STYLE_FONT
         ? NEXT_RENDER_STYLE_FONT
         : style.bodyFontFamily,
+    ...(hasLegacyNameplate
+      ? {
+          nameplateRadius: 12,
+          nameplateColor: '#202735',
+          nameplateColorAlpha: 96,
+          nameplateGradientStops: [
+            { id: 'start', color: '#3a4658', alpha: 98, position: 0 },
+            { id: 'end', color: '#1c2330', alpha: 98, position: 100 },
+          ],
+          renderObjects: {
+            ...style.renderObjects,
+            nameplate: {
+              ...nameplate,
+              width: 108,
+              height: 38,
+              radius: 12,
+              fill: {
+                ...nameplate.fill,
+                color: '#202735',
+                alpha: 98,
+                gradientStops: [
+                  { id: 'start', color: '#3a4658', alpha: 100, position: 0 },
+                  { id: 'end', color: '#1c2330', alpha: 100, position: 100 },
+                ],
+              },
+              stroke: {
+                ...nameplate.stroke,
+                enabled: true,
+                color: '#d6dee8',
+                alpha: 24,
+                width: 1,
+              },
+              shadow: {
+                ...nameplate.shadow,
+                enabled: true,
+                x: 0,
+                y: 8,
+                blur: 24,
+                alpha: 30,
+              },
+            },
+          },
+        }
+      : {}),
   };
 };
 

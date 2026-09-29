@@ -134,8 +134,10 @@ export function resolvePptScenes(
         const characterData = source.data as CharacterNodeData;
         const imageUrl = resolveCharacterImageUrl(characterData, config);
         if (!imageUrl) return null;
+        const scale = Number(config.scale);
         return {
           ...config,
+          scale: Number.isFinite(scale) && scale > 0 ? scale : 1,
           imageUrl,
           name: characterData.characterName,
           switchImageUrls: Object.fromEntries(

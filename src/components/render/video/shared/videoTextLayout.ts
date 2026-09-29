@@ -1,7 +1,10 @@
 import { resolveDialogueTextLayout, revealLayoutLines } from '../../shared/presentationTextLayout';
 import type { Node as FlowNode } from '@xyflow/react';
 import type { StoryPresentation } from '../../../../domain/project';
-import { presentationPlaybackStateAtTime } from '../../../../lib/inlinePresentationPlayback';
+import {
+  getInlineTimelineCueState,
+  presentationPlaybackStateAtTime,
+} from '../../../../lib/inlinePresentationPlayback';
 import {
   getPresentationContentWindow,
   normalizeStoryPresentation,
@@ -72,8 +75,23 @@ export function resolveVideoTextLayout({
     return { ...block, lines: state.lines, firstBaseline: block.firstBaseline + state.offsetY,
       top: block.top + state.offsetY, alpha: state.alpha };
   };
-  return { objects, inlineState, dialog: fixed.dialog,
-    nameplateItems: getNameplateItems(node, nodes), nameplateReservedHeight: 0,
-    title: animate('title'), body: animate('body') };
-
+  const nameplateItems = getNameplateItems(node, nodes).filter((item) => {
+    const cueState = getInlineTimelineCueState(
+      presentation.inlineActions || [],
+      inlineState.activeAction,
+      inlineState.completedInlineActions,
+      'character',
+      item.sourceNodeId,
+    );
+    return !cueState.waitingForEnterCue;
+  });
+  return {
+    objects,
+    inlineState,
+    dialog: fixed.dialog,
+    nameplateItems,
+    nameplateReservedHeight: 0,
+    title: animate('title'),
+    body: animate('body'),
+  };
 }

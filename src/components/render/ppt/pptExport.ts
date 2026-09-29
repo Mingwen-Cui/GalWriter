@@ -822,7 +822,7 @@ export async function buildPptxBuffer({
     }
     if (shouldRenderNameplate) {
       const followCharacter = style.nameplateFollowCharacter !== false;
-      const height = Math.min(0.28, Math.max(0.24, nameplate.height / 180));
+      const height = Math.min(0.4, Math.max(0.32, nameplate.height / 120));
       const fontSize = Math.max(
         10 * page.scale,
         (style.nameplateFontSize || nameplate.fontSize) * 0.66 * page.scale,
@@ -833,7 +833,10 @@ export async function buildPptxBuffer({
             ? (textOverrides[scene.id]?.nameplate ?? character.name?.trim() ?? '')
             : (character.name?.trim() ?? '');
         if (!label) continue;
-        const width = Math.max(1.1, Math.min(3.2, label.length * fontSize * 0.009 + 0.55));
+        const width = Math.max(
+          1.18,
+          Math.min(3.2, label.length * fontSize * 0.009 + 0.62),
+        );
         const baseX =
           character.position === 'left' ? 0.24 : character.position === 'right' ? 0.76 : 0.5;
         const characterCenter = baseX + character.offsetX / 1000;

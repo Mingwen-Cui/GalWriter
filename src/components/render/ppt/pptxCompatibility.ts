@@ -47,8 +47,8 @@ const nodeType = (animation: PptObjectAnimation) =>
     : animation.start === 'afterPrevious'
       ? 'afterEffect'
       : 'clickEffect';
-const startDelay = (animation: PptObjectAnimation) =>
-  animation.start === 'onClick' ? 'indefinite' : '0';
+const startDelay = (animation: PptObjectAnimation, sequenceStartMs: number) =>
+  animation.start === 'onClick' ? 'indefinite' : String(Math.max(0, Math.round(sequenceStartMs)));
 const phaseOf = (animation: PptObjectAnimation) => animation.phase || 'enter';
 
 const shapeTarget = (shapeId: string, text = false) =>
@@ -192,6 +192,7 @@ const animationXml = (
   animation: PptObjectAnimation,
   index: number,
   textLength?: number,
+  sequenceStartMs = 0,
 ) => {
   const baseId = 3 + index * 10;
   const phase = phaseOf(animation);
@@ -210,7 +211,10 @@ const animationXml = (
               : 0;
   const visibility = phase === 'enter' ? visibilitySet(baseId + 1, shapeId, true) : '';
   const hideAfter = phase === 'exit' ? visibilitySet(baseId + 2, shapeId, false) : '';
-  return `<p:par><p:cTn id="${baseId}" fill="hold"><p:stCondLst><p:cond delay="${startDelay(animation)}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 3}" fill="hold"><p:stCondLst><p:cond delay="${delay(
+  return `<p:par><p:cTn id="${baseId}" fill="hold"><p:stCondLst><p:cond delay="${startDelay(
+    animation,
+    sequenceStartMs,
+  )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 3}" fill="hold"><p:stCondLst><p:cond delay="${delay(
     animation,
   )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 4}" presetID="${presetId}" presetClass="${presetClass}" presetSubtype="0" fill="hold" grpId="0" nodeType="${nodeType(
     animation,
@@ -234,9 +238,42 @@ const animationTimelineXml = (
   videoTargets: Array<{ shapeId: string; loop: boolean }>,
 ) => {
   if (!targets.length && !videoTargets.length) return '';
+  // Each target is a child of the slide's main sequence. The nested delay is
+  // relative to that target, so the outer condition must carry the cumulative
+  // start time; nodeType only describes how PowerPoint groups the effect.
+  const sequenceStartByAnimationId = new Map<string, number>();
+  let previousGroupStartMs = 0;
+  let previousGroupEndMs = 0;
+  targets.forEach((target) => {
+    if (sequenceStartByAnimationId.has(target.animation.id)) return;
+    const animationDelayMs = delay(target.animation);
+    const groupStartMs =
+      sequenceStartByAnimationId.size === 0
+        ? 0
+        : target.animation.start === 'withPrevious'
+          ? previousGroupStartMs
+          : previousGroupEndMs;
+    const effectStartMs = groupStartMs + animationDelayMs;
+    sequenceStartByAnimationId.set(target.animation.id, groupStartMs);
+    if (target.animation.start === 'withPrevious') {
+      previousGroupEndMs = Math.max(
+        previousGroupEndMs,
+        effectStartMs + duration(target.animation),
+      );
+    } else {
+      previousGroupStartMs = effectStartMs;
+      previousGroupEndMs = effectStartMs + duration(target.animation);
+    }
+  });
   const entries = targets
     .map((target, index) =>
-      animationXml(target.shapeId, target.animation, index, target.textLength),
+      animationXml(
+        target.shapeId,
+        target.animation,
+        index,
+        target.textLength,
+        sequenceStartByAnimationId.get(target.animation.id) ?? 0,
+      ),
     )
     .join('');
   const buildList = targets

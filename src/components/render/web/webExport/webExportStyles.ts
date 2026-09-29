@@ -349,26 +349,28 @@ export const WEB_EXPORT_STYLES = String.raw`
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: var(--nameplate-width, auto);
-      height: var(--nameplate-height, auto);
+      width: var(--nameplate-width, 108px);
+      height: var(--nameplate-height, 38px);
       max-width: none;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       padding: var(--nameplate-padding-y, 8px) var(--nameplate-padding-x, 18px);
-      border-radius: var(--nameplate-radius, 14px);
+      border-radius: var(--nameplate-radius, 12px);
       background: var(--nameplate-background, rgba(79, 70, 229, 0.86));
       color: var(--nameplate-color, #fff);
       font-family: var(--nameplate-font-family, var(--title-font-family, sans-serif));
       font-size: var(--nameplate-font-size, 18px);
       font-weight: 800;
       line-height: 1;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.24);
+      border: var(--nameplate-border, 1px solid rgba(214,222,232,0.24));
+      box-shadow: var(--nameplate-shadow, 0 8px 24px rgba(5,7,12,0.30));
       text-shadow: 0 1px 8px rgba(0,0,0,0.32);
       transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-translate-y, -100%)) var(--nameplate-object-transform, rotate(0deg) scale(1, 1));
     }
     .nameplate-layer.inside .nameplate {
       background: transparent;
+      border: none;
       box-shadow: none;
       text-shadow: 0 1px 10px rgba(0,0,0,0.42);
       transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-offset-y, 0px));
@@ -848,14 +850,22 @@ export const WEB_EXPORT_STYLES = String.raw`
       width: var(--flow-overview-minimap-width, 220px);
       height: var(--flow-overview-minimap-height, 160px);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
       border: 1px solid rgba(15,23,42,0.28);
-      border-radius: 14px;
-      background: rgba(255,255,255,0.9);
+      border-radius: var(--flow-overview-minimap-radius, 12px);
+      background: #e8e9eb;
       box-shadow: 0 14px 32px rgba(15,23,42,0.16);
       backdrop-filter: blur(14px);
-      pointer-events: none;
+      pointer-events: auto;
     }
-    .flow-overview-minimap svg { display: block; width: 100%; height: 100%; }
+    .flow-overview-minimap-map { min-height: 0; flex: 1; overflow: hidden; background: transparent; }
+    .flow-overview-minimap-map svg { display: block; width: 100%; height: 100%; }
+    .flow-overview-minimap-controls { display: flex; gap: 0; align-items: center; justify-content: stretch; min-height: 42px; padding: 5px 6px; border-top: 1px solid #d8dce2; border-radius: 0 0 var(--flow-overview-minimap-bottom-right-radius, var(--flow-overview-minimap-radius, 12px)) var(--flow-overview-minimap-bottom-left-radius, var(--flow-overview-minimap-radius, 12px)); overflow: hidden; background: #ffffff; }
+    .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; min-height: 30px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: #111827; cursor: pointer; box-shadow: none; transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease; }
+    .flow-overview-minimap-control:hover:not(:disabled), .flow-overview-minimap-control:focus-visible { border-color: #c5cad1; background: #f3f4f6; color: #000000; outline: none; transform: translateY(-1px); }
+    .flow-overview-minimap-control:disabled { cursor: not-allowed; opacity: .38; }
+    .flow-overview-minimap-control svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
     .flow-overview-node {
       position: absolute;
       width: 220px;

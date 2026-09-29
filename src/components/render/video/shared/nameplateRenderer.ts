@@ -73,8 +73,8 @@ const getGradientStops = (style: RenderStyle) =>
   style.nameplateGradientStops?.length >= 2
     ? [...style.nameplateGradientStops].sort((a, b) => a.position - b.position)
     : [
-        { id: 'start', color: '#1e3a8a', alpha: 94, position: 0 },
-        { id: 'end', color: '#0f172a', alpha: 94, position: 100 },
+        { id: 'start', color: '#3a4658', alpha: 98, position: 0 },
+        { id: 'end', color: '#1c2330', alpha: 98, position: 100 },
       ];
 
 export const getNameplateCssBackground = (style: RenderStyle): CSSProperties => {
@@ -276,6 +276,28 @@ export const drawNameplates = async (
     const fontSize = Math.max(10, style.nameplateFontSize ?? 18);
     const nameplateObject = getRenderObjects(style).nameplate;
     if (!style.nameplateInside) {
+      const shadowLayers = nameplateObject.shadows?.length
+        ? nameplateObject.shadows
+        : [nameplateObject.shadow];
+      for (const shadow of shadowLayers) {
+        if (!shadow.enabled || shadow.type !== 'outer' || shadow.alpha <= 0) continue;
+        ctx.save();
+        roundedRect(
+          ctx,
+          animatedLayout.x,
+          animatedLayout.y,
+          animatedLayout.width,
+          animatedLayout.height,
+          nameplateObject.corners || nameplateObject.radius,
+        );
+        ctx.shadowColor = colorWithAlpha(shadow.color, shadow.alpha);
+        ctx.shadowBlur = shadow.blur;
+        ctx.shadowOffsetX = shadow.x;
+        ctx.shadowOffsetY = shadow.y;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.save();
       roundedRect(
         ctx,
@@ -289,6 +311,22 @@ export const drawNameplates = async (
       ctx.globalAlpha = animation.alpha;
       await fillNameplateBackground(ctx, animatedLayout, style);
       ctx.restore();
+      if (nameplateObject.stroke.enabled && nameplateObject.stroke.width > 0) {
+        ctx.save();
+        ctx.globalAlpha = animation.alpha;
+        roundedRect(
+          ctx,
+          animatedLayout.x,
+          animatedLayout.y,
+          animatedLayout.width,
+          animatedLayout.height,
+          nameplateObject.corners || nameplateObject.radius,
+        );
+        ctx.strokeStyle = colorWithAlpha(nameplateObject.stroke.color, nameplateObject.stroke.alpha);
+        ctx.lineWidth = nameplateObject.stroke.width;
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     ctx.font = `800 ${fontSize}px ${style.nameplateFontFamily || style.titleFontFamily}`;

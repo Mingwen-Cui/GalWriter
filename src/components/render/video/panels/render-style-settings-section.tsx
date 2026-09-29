@@ -219,8 +219,8 @@ export function RenderStyleSettingsSection({
     renderStyle.nameplateGradientStops?.length >= 2
       ? [...renderStyle.nameplateGradientStops].sort((a, b) => a.position - b.position)
       : [
-          { id: 'start', color: '#1e3a8a', alpha: 94, position: 0 },
-          { id: 'end', color: '#0f172a', alpha: 94, position: 100 },
+          { id: 'start', color: '#3a4658', alpha: 98, position: 0 },
+          { id: 'end', color: '#1c2330', alpha: 98, position: 100 },
         ];
   const nameplateGradientStart = nameplateGradientStops[0];
   const nameplateGradientEnd = nameplateGradientStops[nameplateGradientStops.length - 1];
@@ -363,7 +363,7 @@ export function RenderStyleSettingsSection({
       ...stops,
       {
         id: nextId,
-        color: nextStop?.color || previousStop?.color || '#1e3a8a',
+        color: nextStop?.color || previousStop?.color || '#3a4658',
         alpha: Math.round(((previousStop?.alpha ?? 94) + (nextStop?.alpha ?? 94)) / 2),
         position,
       },

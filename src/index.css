@@ -1488,6 +1488,75 @@ html.canvas-selection-dragging * {
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(238, 242, 255, 0.94));
 }
 
+.interactive-segment-minimap--icon-only {
+  border-radius: var(--interactive-minimap-shell-radius-top-left, 12px)
+    var(--interactive-minimap-shell-radius-top-right, 12px)
+    var(--interactive-minimap-shell-radius-bottom-right, 12px)
+    var(--interactive-minimap-shell-radius-bottom-left, 12px) !important;
+  overflow: hidden !important;
+  border-color: #d8dce2 !important;
+  background: #e8e9eb !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
+.interactive-segment-minimap--icon-only .minimap-clip {
+  border-radius: var(--interactive-minimap-shell-radius-top-left, 12px)
+    var(--interactive-minimap-shell-radius-top-right, 12px) 0 0 !important;
+  background: #e8e9eb;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__minimap-node {
+  fill: rgba(255, 255, 255, 0.56);
+  stroke: rgba(148, 163, 184, 0.38);
+  stroke-width: 0.75;
+  filter: none;
+}
+
+.interactive-segment-minimap--icon-only
+  .react-flow__minimap-node.interactive-segment-minimap-node-active {
+  fill: rgba(148, 163, 184, 0.54);
+  stroke: rgba(71, 85, 105, 0.48);
+  stroke-width: 1;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__minimap-mask {
+  fill: rgba(15, 23, 42, 0.06);
+  stroke: transparent;
+}
+
+.interactive-segment-minimap--icon-only .interactive-segment-minimap-link {
+  color: rgba(100, 116, 139, 0.48);
+}
+
+.interactive-segment-minimap--icon-only .minimap-controls {
+  gap: 0;
+  border-radius: 0 0 var(--interactive-minimap-shell-radius-bottom-right, 12px)
+    var(--interactive-minimap-shell-radius-bottom-left, 12px) !important;
+  overflow: hidden !important;
+  border-color: #d8dce2 !important;
+  background: #ffffff;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__controls-button {
+  min-height: 32px;
+  border-radius: 0 !important;
+  border-color: #d8dce2 !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: none;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) {
+  border-color: #c5cad1 !important;
+  background: #f3f4f6 !important;
+  color: #000000 !important;
+  box-shadow: none;
+}
+
+.interactive-segment-minimap--icon-only .interactive-minimap-control-label {
+  display: none;
+}
+
 .interactive-segment-minimap .react-flow__controls-button {
   flex: 1 1 0;
   display: inline-flex !important;
@@ -1547,6 +1616,38 @@ html.canvas-selection-dragging * {
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__controls-button {
+  border-right-color: #d8dce2 !important;
+  box-shadow: none !important;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__controls {
+  border-radius: 0 0 var(--interactive-minimap-shell-radius-bottom-right, 12px)
+    var(--interactive-minimap-shell-radius-bottom-left, 12px) !important;
+  overflow: hidden !important;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) {
+  border-color: #c5cad1 !important;
+  background: #f3f4f6 !important;
+  color: #000000 !important;
+  box-shadow: none !important;
+}
+
+.interactive-segment-minimap--icon-only .react-flow__controls-button svg,
+.interactive-segment-minimap--icon-only .react-flow__controls-button svg path {
+  fill: #111827 !important;
+  stroke: #111827 !important;
+}
+
+.interactive-segment-minimap--icon-only
+  .react-flow__controls-button:hover:not(:disabled) svg,
+.interactive-segment-minimap--icon-only
+  .react-flow__controls-button:hover:not(:disabled) svg path {
+  fill: #000000 !important;
+  stroke: #000000 !important;
 }
 
 .gw-flow-control {
@@ -5474,51 +5575,51 @@ button.web-segment-button:last-child {
 @keyframes ppt-fly-left {
   from {
     opacity: 0;
-    transform: translateX(-14%);
+    translate: -14% 0;
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    translate: 0 0;
   }
 }
 @keyframes ppt-fly-right {
   from {
     opacity: 0;
-    transform: translateX(14%);
+    translate: 14% 0;
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    translate: 0 0;
   }
 }
 @keyframes ppt-fly-up {
   from {
     opacity: 0;
-    transform: translateY(-14%);
+    translate: 0 -14%;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 @keyframes ppt-fly-down {
   from {
     opacity: 0;
-    transform: translateY(14%);
+    translate: 0 14%;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 @keyframes ppt-float {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    translate: 0 20px;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 @keyframes ppt-wipe-left {
@@ -5556,11 +5657,11 @@ button.web-segment-button:last-child {
 @keyframes ppt-zoom {
   from {
     opacity: 0;
-    transform: scale(0.82);
+    scale: 0.82;
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    scale: 1;
   }
 }
 /* PPT stage animations: enter and exit use only a straight path. */
@@ -5860,41 +5961,41 @@ button.web-segment-button:last-child {
 @keyframes ppt-fly-out-left {
   from {
     opacity: 1;
-    transform: translateX(0);
+    translate: 0 0;
   }
   to {
     opacity: 0;
-    transform: translateX(-14%);
+    translate: -14% 0;
   }
 }
 @keyframes ppt-fly-out-right {
   from {
     opacity: 1;
-    transform: translateX(0);
+    translate: 0 0;
   }
   to {
     opacity: 0;
-    transform: translateX(14%);
+    translate: 14% 0;
   }
 }
 @keyframes ppt-fly-out-up {
   from {
     opacity: 1;
-    transform: translateY(-14%);
+    translate: 0 -14%;
   }
   to {
     opacity: 0;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 @keyframes ppt-fly-out-down {
   from {
     opacity: 1;
-    transform: translateY(14%);
+    translate: 0 14%;
   }
   to {
     opacity: 0;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 @keyframes ppt-wipe-out-left {
@@ -5932,11 +6033,11 @@ button.web-segment-button:last-child {
 @keyframes ppt-zoom-out {
   from {
     opacity: 1;
-    transform: scale(1);
+    scale: 1;
   }
   to {
     opacity: 0;
-    transform: scale(0.82);
+    scale: 0.82;
   }
 }
 

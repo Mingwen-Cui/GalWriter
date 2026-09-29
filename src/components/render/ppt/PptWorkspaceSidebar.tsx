@@ -41,7 +41,10 @@ import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import { PptSlideBackgroundInspector } from './PptSlideBackgroundInspector';
 import type { Selection, VideoTimelineTrack } from './PptWorkspace';
 import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
-import type { PptWorkspaceSidebarTab } from './pptWorkspaceModel';
+import {
+  PPT_TIMELINE_MIN_DURATION_MS,
+  type PptWorkspaceSidebarTab,
+} from './pptWorkspaceModel';
 
 type SidebarTab = PptWorkspaceSidebarTab;
 
@@ -699,7 +702,7 @@ function AnimationTimeline({
     ...animations.map((item, index) => starts[index] + item.durationMs),
   );
   const hasTracks = Boolean(videoTrack) || animations.length > 0;
-  const timelineDurationMs = Math.max(1, totalMs);
+  const timelineDurationMs = Math.max(PPT_TIMELINE_MIN_DURATION_MS, totalMs);
   const [timelineViewport, setTimelineViewport] = useState({ start: 0, end: 1 });
   const navigatorRef = useRef<HTMLDivElement>(null);
   const navigatorDragRef = useRef<{

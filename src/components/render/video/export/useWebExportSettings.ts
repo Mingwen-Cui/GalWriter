@@ -199,34 +199,6 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     shadowEnabled: false,
   },
   {
-    id: 'flow-current-branch',
-    kind: 'button',
-    role: 'flowBranch',
-    text: '开始',
-    visible: true,
-    x: 8,
-    y: 4,
-    width: 30,
-    height: 7,
-    scale: 1,
-    rotation: 0,
-    textVisible: true,
-    textAlign: 'left',
-    backgroundColor: '#fffffff0',
-    borderColor: 'rgba(15,23,42,0.28)',
-    borderWidth: 1,
-    borderRadius: 16,
-    textColor: '#334155',
-    fontSize: 13,
-    fontWeight: 800,
-    fillEnabled: true,
-    strokeEnabled: true,
-    shadowEnabled: true,
-    shadowOpacity: 16,
-    shadowBlur: 12,
-    shadowOffsetY: 3,
-  },
-  {
     id: 'flow-minimap',
     kind: 'button',
     role: 'flowMinimap',
@@ -240,10 +212,10 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     rotation: 0,
     textVisible: false,
     backgroundColor: '#ffffff',
-    borderColor: '#4f46e5',
+    borderColor: '#d8dce2',
     borderWidth: 1,
     borderRadius: 10,
-    textColor: '#4338ca',
+    textColor: '#111827',
     fillEnabled: true,
     strokeEnabled: true,
     shadowEnabled: true,
@@ -366,15 +338,27 @@ const normalizeFlowMinimapControls = (settings: WebExportSettings): WebExportSet
       element.fillEnabled === false &&
       element.strokeEnabled === false &&
       element.shadowEnabled === false;
-    if (!isFormerDefault) return element;
+    const isPreviousBuiltIn =
+      element.backgroundColor === '#ffffff' &&
+      element.borderColor === '#4f46e5' &&
+      element.borderWidth === 1 &&
+      element.borderRadius === 10 &&
+      element.textColor === '#4338ca';
+    const isReferenceBuiltIn =
+      element.backgroundColor === '#ffffff' &&
+      element.borderColor === '#d8dce2' &&
+      element.borderWidth === 1 &&
+      element.borderRadius === 10 &&
+      element.textColor === '#111827';
+    if (!isFormerDefault && !isPreviousBuiltIn && !isReferenceBuiltIn) return element;
     changed = true;
     return {
       ...element,
       backgroundColor: '#ffffff',
-      borderColor: '#4f46e5',
+      borderColor: '#d8dce2',
       borderWidth: 1,
       borderRadius: 10,
-      textColor: '#4338ca',
+      textColor: '#111827',
       fillEnabled: true,
       strokeEnabled: true,
       shadowEnabled: true,
@@ -390,12 +374,10 @@ const migrateFlowOverviewControlLayout = (settings: WebExportSettings): WebExpor
   const legacyPositions: Record<string, { x: number; y: number }> = {
     'flow-direction-control': { x: 8, y: 14 },
     'flow-fit-view-control': { x: 8, y: 20 },
-    'flow-current-branch': { x: 8, y: 27 },
   };
   const nextPositions: Record<string, { x: number; y: number }> = {
     'flow-direction-control': { x: 84, y: 4 },
     'flow-fit-view-control': { x: 88, y: 4 },
-    'flow-current-branch': { x: 8, y: 4 },
   };
   let changed = false;
   const normalized = (settings.flowOverviewElements || []).map((element) => {
@@ -408,9 +390,19 @@ const migrateFlowOverviewControlLayout = (settings: WebExportSettings): WebExpor
   return changed ? { ...settings, flowOverviewElements: normalized } : settings;
 };
 
+const removeDefaultFlowBranchCard = (settings: WebExportSettings): WebExportSettings => {
+  const elements = settings.flowOverviewElements || [];
+  const normalized = elements.filter((element) => element.id !== 'flow-current-branch');
+  return normalized.length === elements.length
+    ? settings
+    : { ...settings, flowOverviewElements: normalized };
+};
+
 const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSettings => {
-  const normalizedSettings = migrateFlowOverviewControlLayout(
-    normalizeFlowMinimapControls(normalizeFlowControlShapes(settings)),
+  const normalizedSettings = removeDefaultFlowBranchCard(
+    migrateFlowOverviewControlLayout(
+      normalizeFlowMinimapControls(normalizeFlowControlShapes(settings)),
+    ),
   );
   const elements = normalizedSettings.flowOverviewElements || [];
   const controls = defaultFlowOverviewElements.filter(

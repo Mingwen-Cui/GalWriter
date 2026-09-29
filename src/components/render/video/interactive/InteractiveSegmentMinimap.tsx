@@ -42,6 +42,8 @@ type Props = {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   showFullscreenToggle?: boolean;
+  /** Keep the compact web flow navigator visual-only while preserving aria labels. */
+  showControlLabels?: boolean;
   width?: number;
   height?: number;
   embedded?: boolean;
@@ -58,6 +60,10 @@ type Props = {
     borderColor?: string;
     borderWidth?: number;
     borderRadius?: number;
+    borderTopLeftRadius?: number;
+    borderTopRightRadius?: number;
+    borderBottomRightRadius?: number;
+    borderBottomLeftRadius?: number;
     textColor?: string;
   };
 };
@@ -91,6 +97,7 @@ export function InteractiveSegmentMinimap({
   isFullscreen,
   onToggleFullscreen,
   showFullscreenToggle = true,
+  showControlLabels = true,
   width = DEFAULT_MINIMAP_WIDTH,
   height = DEFAULT_MINIMAP_HEIGHT,
   embedded = false,
@@ -153,6 +160,11 @@ export function InteractiveSegmentMinimap({
   };
 
   const maskPath = `M0,0h${minimapWidth}v${minimapHeight}h-${minimapWidth}z M${viewport.x},${viewport.y}h${viewport.width}v${viewport.height}h-${viewport.width}z`;
+  const shellRadius = controlAppearance?.borderRadius ?? 12;
+  const shellTopLeftRadius = controlAppearance?.borderTopLeftRadius ?? shellRadius;
+  const shellTopRightRadius = controlAppearance?.borderTopRightRadius ?? shellRadius;
+  const shellBottomRightRadius = controlAppearance?.borderBottomRightRadius ?? shellRadius;
+  const shellBottomLeftRadius = controlAppearance?.borderBottomLeftRadius ?? shellRadius;
   const controlStyle = {
     '--interactive-minimap-control-background':
       controlAppearance?.fillEnabled === false
@@ -161,21 +173,26 @@ export function InteractiveSegmentMinimap({
     '--interactive-minimap-control-border':
       controlAppearance?.strokeEnabled === false
         ? 'transparent'
-        : (controlAppearance?.borderColor ?? '#4f46e5'),
+        : (controlAppearance?.borderColor ?? (showControlLabels ? '#4f46e5' : '#d8dce2')),
     '--interactive-minimap-control-border-width': `${
       controlAppearance?.strokeEnabled === false ? 0 : (controlAppearance?.borderWidth ?? 1)
     }px`,
     '--interactive-minimap-control-radius': `${controlAppearance?.borderRadius ?? 10}px`,
-    '--interactive-minimap-control-color': controlAppearance?.textColor ?? '#4338ca',
+    '--interactive-minimap-control-color': controlAppearance?.textColor ?? (showControlLabels ? '#4338ca' : '#111827'),
   } as CSSProperties;
 
   return (
     <div
-      className={`${embedded ? '' : 'canvas-bottom-overlay'} toolbar-bubble-surface interactive-segment-minimap ${interactive ? 'pointer-events-auto' : 'pointer-events-none'} ${embedded ? 'relative h-full w-full' : 'absolute bottom-4 right-4 z-[50]'} flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md`}
+      className={`${embedded ? '' : 'canvas-bottom-overlay'} toolbar-bubble-surface interactive-segment-minimap ${showControlLabels ? '' : 'interactive-segment-minimap--icon-only'} ${interactive ? 'pointer-events-auto' : 'pointer-events-none'} ${embedded ? 'relative h-full w-full' : 'absolute bottom-4 right-4 z-[50]'} flex flex-col overflow-hidden rounded-xl border border-[var(--toolbar-border)] bg-[var(--toolbar-bg)] shadow-2xl backdrop-blur-md`}
       style={
         {
           '--interactive-minimap-width': `${minimapWidth}px`,
           '--interactive-minimap-height': `${minimapHeight}px`,
+          '--interactive-minimap-shell-radius': `${shellRadius}px`,
+          '--interactive-minimap-shell-radius-top-left': `${shellTopLeftRadius}px`,
+          '--interactive-minimap-shell-radius-top-right': `${shellTopRightRadius}px`,
+          '--interactive-minimap-shell-radius-bottom-right': `${shellBottomRightRadius}px`,
+          '--interactive-minimap-shell-radius-bottom-left': `${shellBottomLeftRadius}px`,
           ...controlStyle,
         } as CSSProperties
       }
@@ -280,9 +297,11 @@ export function InteractiveSegmentMinimap({
             >
               <path d="M32 18.133H18.133V32h-4.266V18.133H0v-4.266h13.867V0h4.266v13.867H32z" />
             </svg>
-            <span className="interactive-minimap-control-label">
-              {formatVideoText(language, 'interactiveMinimapZoomIn')}
-            </span>
+            {showControlLabels && (
+              <span className="interactive-minimap-control-label">
+                {formatVideoText(language, 'interactiveMinimapZoomIn')}
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -295,9 +314,11 @@ export function InteractiveSegmentMinimap({
             <svg className="interactive-minimap-control-icon" viewBox="0 0 32 5" aria-hidden="true">
               <path d="M0 0h32v4.2H0z" />
             </svg>
-            <span className="interactive-minimap-control-label">
-              {formatVideoText(language, 'interactiveMinimapZoomOut')}
-            </span>
+            {showControlLabels && (
+              <span className="interactive-minimap-control-label">
+                {formatVideoText(language, 'interactiveMinimapZoomOut')}
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -314,9 +335,11 @@ export function InteractiveSegmentMinimap({
             >
               <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
             </svg>
-            <span className="interactive-minimap-control-label">
-              {formatVideoText(language, 'interactiveMinimapFitView')}
-            </span>
+            {showControlLabels && (
+              <span className="interactive-minimap-control-label">
+                {formatVideoText(language, 'interactiveMinimapFitView')}
+              </span>
+            )}
           </button>
           {isDesktopViewport && showFullscreenToggle && (
             <button

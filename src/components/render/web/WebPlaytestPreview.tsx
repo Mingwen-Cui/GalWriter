@@ -2284,6 +2284,7 @@ export function WebPlaytestPreview({
           isFullscreen={false}
           onToggleFullscreen={() => undefined}
           showFullscreenToggle={false}
+          showControlLabels={false}
           width={settings.flowOverviewMinimapWidth}
           height={settings.flowOverviewMinimapHeight}
           embedded

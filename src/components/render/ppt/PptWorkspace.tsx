@@ -97,6 +97,7 @@ import {
   PPT_CONTENT_WIDTH,
   pptCanvasContentHeight,
   pptCanvasViewportClass,
+  PPT_TIMELINE_MIN_DURATION_MS,
   type PptSelection,
   type PptSlideItem,
   type PptWorkspaceSidebarTab,
@@ -267,7 +268,7 @@ const withTimelineStarts = (animations: PptObjectAnimation[]): TimedPptObjectAni
 };
 export const getTimelineDuration = (animations: PptObjectAnimation[], mediaDurationMs = 0) =>
   Math.max(
-    1,
+    PPT_TIMELINE_MIN_DURATION_MS,
     mediaDurationMs,
     ...withTimelineStarts(animations).map(
       (animation) => animation.timelineStartMs + animation.durationMs,
@@ -316,10 +317,10 @@ export function PptWorkspace({
   ribbonCollapsed,
 }: Props) {
   const copy: Copy = { ...getPptCopy(language), ...getPptWorkspaceCopy(language) };
-  const scenes = useMemo(
-    () => resolvePptScenes(nodes, edges, webSettings),
-    [nodes, edges, webSettings],
-  );
+  // Character presentation settings can change inside a node's data object.
+  // Resolve scenes on every workspace render so a changed character scale is
+  // not hidden behind a stale nodes-array memoization result.
+  const scenes = resolvePptScenes(nodes, edges, webSettings);
   const generatedSlides = useMemo<SlideItem[]>(
     () => [
       ...(pptSettings.includeCover
@@ -1160,17 +1161,23 @@ export function PptWorkspace({
     setPreviewRunId((value) => value + 1);
     const duration = getTimelineDuration(timeline, currentVideoTrack?.durationMs);
     const startedAt = performance.now();
+    let previousCycle = -1;
     const tick = (now: number) => {
-      const elapsed = Math.min(duration, Math.max(0, now - startedAt));
-      setTimelinePlayheadMs(elapsed);
-      if (elapsed < duration) previewFrameRef.current = window.requestAnimationFrame(tick);
-      else setIsPreviewing(false);
-    };
-    window.requestAnimationFrame(() => {
-      setTimelinePlayheadMs(0);
-      setIsPreviewing(true);
+      const elapsed = Math.max(0, now - startedAt);
+      const cycle = Math.floor(elapsed / duration);
+      const position = elapsed % duration;
+      if (cycle !== previousCycle) {
+        previousCycle = cycle;
+        // Remount the slide at each loop boundary so CSS preview animations
+        // restart together with the playhead instead of finishing once.
+        setPreviewRunId((value) => value + 1);
+      }
+      setTimelinePlayheadMs(position);
       previewFrameRef.current = window.requestAnimationFrame(tick);
-    });
+    };
+    setTimelinePlayheadMs(0);
+    setIsPreviewing(true);
+    previewFrameRef.current = window.requestAnimationFrame(tick);
   };
   const pausePreview = () => {
     if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
@@ -2512,7 +2519,7 @@ function ScenePreview({
                 : character.name?.trim();
             if (!label) return null;
             const nameplateFontSize = Math.max(16, renderStyle.nameplateFontSize || 18);
-            const nameplateHeight = Math.min(28, Math.max(24, nameplate.height * 0.56 || 28));
+            const nameplateHeight = Math.min(38, Math.max(32, nameplate.height || 38));
             return (
               <div
                 key={`nameplate:${character.sourceNodeId}`}
@@ -2521,7 +2528,8 @@ function ScenePreview({
                 style={{
                   left: `${Math.max(3, Math.min(97, labelLeft))}%`,
                   top: `${labelTop}%`,
-                  minWidth: '84px',
+                  width: `${Math.max(108, nameplate.width || 108)}px`,
+                  minWidth: `${Math.max(108, nameplate.width || 108)}px`,
                   height: `${nameplateHeight}px`,
                   minHeight: `${nameplateHeight}px`,
                   boxSizing: 'border-box',

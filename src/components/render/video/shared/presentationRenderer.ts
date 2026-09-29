@@ -23,7 +23,11 @@ import {
   resolveCharacterImageUrl,
   resolveSceneMedia,
 } from '../../../../lib/inlineAssetSwitch';
-import { latestPersistentInlineAction } from '../../../../lib/inlinePresentationPlayback';
+import {
+  getInlineActionDuration,
+  getInlineTimelineCueState,
+  latestPersistentInlineAction,
+} from '../../../../lib/inlinePresentationPlayback';
 import { clamp, loadCachedImage } from './mediaUtils';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import {
@@ -474,6 +478,15 @@ export const drawPresentationVisuals = async ({
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .sort((a, b) => clampCharacterLayer(a.config.layer) - clampCharacterLayer(b.config.layer))
     .forEach(({ config, image }) => {
+      const cueState = getInlineTimelineCueState(
+        presentation.inlineActions || [],
+        activeInlineAction,
+        completedInlineActions,
+        'character',
+        config.sourceNodeId,
+      );
+      if (cueState.waitingForEnterCue) return;
+
       const sourceWidth = image.naturalWidth || width;
       const sourceHeight = image.naturalHeight || height;
       const fit = Math.min(
@@ -485,16 +498,36 @@ export const drawPresentationVisuals = async ({
       const baseX = config.position === 'left' ? 0.24 : config.position === 'right' ? 0.76 : 0.5;
       const centerX = width * (baseX + config.offsetX / 1000);
       const bottom = height * (config.offsetY / 1000);
-      const state = activeMotionState(
-        config.enter,
-        config.exit,
-        elapsed,
-        duration,
-        width,
-        height,
-        characterEnterDelay,
-        presentationExitDuration - getPresentationMotionDuration(config.exit),
-      );
+      const state = cueState.enterCueActive
+        ? motionState(
+            config.enter,
+            activeInlineActionElapsed /
+              Math.max(0.001, getInlineActionDuration(activeInlineAction) / 1000),
+            false,
+            width,
+            height,
+          )
+        : cueState.exitCueActive || cueState.exitCueCompleted
+          ? motionState(
+              config.exit,
+              cueState.exitCueCompleted
+                ? 1
+                : activeInlineActionElapsed /
+                    Math.max(0.001, getInlineActionDuration(activeInlineAction) / 1000),
+              true,
+              width,
+              height,
+            )
+          : activeMotionState(
+              config.enter,
+              config.exit,
+              elapsed,
+              duration,
+              width,
+              height,
+              characterEnterDelay,
+              presentationExitDuration - getPresentationMotionDuration(config.exit),
+            );
       const completedCharacterAction = latestPersistentInlineAction(
         completedInlineActions,
         'character',

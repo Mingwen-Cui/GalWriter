@@ -2,6 +2,9 @@ import type { PptAnimationTarget, PptExportSettings, PptManualSlide, PptSlideTra
 
 export type PptWorkspaceViewMode = 'normal' | 'sorter' | 'reading';
 export type PptWorkspaceSidebarTab = 'timeline' | 'style';
+
+// Keep short animations visible against a predictable one-second timeline.
+export const PPT_TIMELINE_MIN_DURATION_MS = 1000;
 export type PptSlideItem = {
   id: string;
   title: string;

@@ -135,7 +135,20 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
         <div class="flow-overview-canvas" id="flowOverviewCanvas"></div>
         <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
-        <div class="flow-overview-minimap" id="flowOverviewMinimap" aria-hidden="true"></div>
+        <div class="flow-overview-minimap" id="flowOverviewMinimap" aria-label="Flow chart navigator">
+          <div class="flow-overview-minimap-map" id="flowOverviewMinimapMap" aria-hidden="true"></div>
+          <div class="flow-overview-minimap-controls" role="toolbar" aria-label="Flow chart zoom controls">
+            <button class="flow-overview-minimap-control" id="flowOverviewZoomIn" type="button" aria-label="Zoom in" title="Zoom in">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+            <button class="flow-overview-minimap-control" id="flowOverviewZoomOut" type="button" aria-label="Zoom out" title="Zoom out">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+            </button>
+            <button class="flow-overview-minimap-control" id="flowOverviewFitView" type="button" aria-label="Fit flow chart to screen" title="Fit flow chart to screen">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+            </button>
+          </div>
+        </div>
       </div>
       <aside class="flow-overview-detail" id="flowOverviewDetail" hidden></aside>
       <audio id="flowOverviewAudio" preload="auto" hidden></audio>
@@ -244,7 +257,11 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     settings.flowOverviewMusicFadeIn = clamp(settings.flowOverviewMusicFadeIn, 0, 10, 0);
     settings.flowOverviewMusicFadeOut = clamp(settings.flowOverviewMusicFadeOut, 0, 10, 0);
     settings.flowOverviewMusicLoop = settings.flowOverviewMusicLoop !== false;
-    settings.flowOverviewElements = Array.isArray(settings.flowOverviewElements) ? settings.flowOverviewElements.filter(Boolean) : [];
+    settings.flowOverviewElements = Array.isArray(settings.flowOverviewElements)
+      ? settings.flowOverviewElements.filter(function(element) {
+          return element && element.id !== "flow-current-branch";
+        })
+      : [];
     settings.flowOverviewLayoutDirection = ["right", "down", "left", "up"].includes(settings.flowOverviewLayoutDirection) ? settings.flowOverviewLayoutDirection : "right";
     settings.flowOverviewCardSizes = settings.flowOverviewCardSizes && typeof settings.flowOverviewCardSizes === "object" ? settings.flowOverviewCardSizes : {};
     settings.flowOverviewMinimapWidth = clamp(settings.flowOverviewMinimapWidth, 160, 440, 220);
@@ -573,13 +590,13 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         const stops = Array.isArray(style.nameplateGradientStops) && style.nameplateGradientStops.length >= 2
           ? style.nameplateGradientStops.slice().sort((a, b) => Number(a.position) - Number(b.position))
           : [
-              { color: "#1e3a8a", alpha: 94, position: 0 },
-              { color: "#0f172a", alpha: 94, position: 100 },
+              { color: "#3a4658", alpha: 98, position: 0 },
+              { color: "#1c2330", alpha: 98, position: 100 },
             ];
         const cssStops = stops.map((stop) => withAlpha(stop.color, Number(stop.alpha) / 100) + " " + clamp(stop.position, 0, 100, 0) + "%").join(", ");
         return "linear-gradient(" + clamp(style.nameplateGradientAngle, 0, 360, 90) + "deg, " + cssStops + ")";
       }
-      return withAlpha(style.nameplateColor || "#172554", (Number(style.nameplateColorAlpha ?? 94) || 94) / 100);
+      return withAlpha(style.nameplateColor || "#202735", (Number(style.nameplateColorAlpha ?? 96) || 96) / 100);
     }
     const renderObjects = style.renderObjects || {};
     const dialogObject = renderObjects.dialogBox || {};
@@ -661,15 +678,17 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     const nameplateScale = clamp(nameplateObject.width ?? style.nameplateScale, 55, 320, 100) / 100;
     document.documentElement.style.setProperty("--nameplate-font-size", nameplateFontSize + "px");
     document.documentElement.style.setProperty("--nameplate-font-family", nameplateObject.fontFamily || style.nameplateFontFamily || style.titleFontFamily || "inherit");
-    document.documentElement.style.setProperty("--nameplate-width", px(clamp(nameplateObject.width ?? style.nameplateScale, 55, 520, 100), 100));
-    document.documentElement.style.setProperty("--nameplate-height", px(clamp(nameplateObject.height, 8, 240, 50), 50));
+    document.documentElement.style.setProperty("--nameplate-width", px(clamp(nameplateObject.width ?? style.nameplateScale, 55, 520, 108), 108));
+    document.documentElement.style.setProperty("--nameplate-height", px(clamp(nameplateObject.height, 8, 240, 38), 38));
     document.documentElement.style.setProperty("--nameplate-padding-x", Math.round(nameplateFontSize * 1.15 * nameplateScale) + "px");
     document.documentElement.style.setProperty("--nameplate-padding-y", Math.round(nameplateFontSize * 0.42 * nameplateScale) + "px");
     document.documentElement.style.setProperty("--nameplate-row-height", Math.ceil(nameplateFontSize + Math.round(nameplateFontSize * 0.42 * nameplateScale) * 2 + Math.max(8, nameplateFontSize * 0.45)) + "px");
     document.documentElement.style.setProperty("--nameplate-text-gap", px(style.nameplateTextGap, 8));
-    document.documentElement.style.setProperty("--nameplate-radius", px(nameplateObject.radius ?? style.nameplateRadius, 14));
+    document.documentElement.style.setProperty("--nameplate-radius", px(nameplateObject.radius ?? style.nameplateRadius, 12));
     document.documentElement.style.setProperty("--nameplate-color", styleColor(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100, "#ffffff"));
     document.documentElement.style.setProperty("--nameplate-background", nameplateBackground());
+    document.documentElement.style.setProperty("--nameplate-border", nameplateObject.stroke && nameplateObject.stroke.enabled ? (Number(nameplateObject.stroke.width) || 0) + "px solid " + withAlpha(nameplateObject.stroke.color || "#d6dee8", clamp(nameplateObject.stroke.alpha, 0, 100, 24) / 100) : "none");
+    document.documentElement.style.setProperty("--nameplate-shadow", style.nameplateInside ? "none" : (objectShadow(nameplateObject) || "0 8px 24px rgba(5,7,12,0.30)"));
     document.documentElement.style.setProperty("--nameplate-offset-x", px(nameplateObject.x ?? style.nameplateOffsetX, 0));
     document.documentElement.style.setProperty("--nameplate-offset-y", px(nameplateObject.y ?? style.nameplateOffsetY, 0));
     document.documentElement.style.setProperty("--nameplate-top", style.nameplateInside ? "8px" : "0");
@@ -740,8 +759,24 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     const flowOverviewCanvas = document.getElementById("flowOverviewCanvas");
     const flowOverviewCustomLayer = document.getElementById("flowOverviewCustomLayer");
     const flowOverviewMinimap = document.getElementById("flowOverviewMinimap");
+    const flowOverviewMinimapMap = document.getElementById("flowOverviewMinimapMap");
+    const flowOverviewZoomIn = document.getElementById("flowOverviewZoomIn");
+    const flowOverviewZoomOut = document.getElementById("flowOverviewZoomOut");
+    const flowOverviewFitView = document.getElementById("flowOverviewFitView");
     const flowOverviewAudio = document.getElementById("flowOverviewAudio");
     const flowOverviewDetail = document.getElementById("flowOverviewDetail");
+    let flowOverviewZoom = 1;
+    const flowOverviewControlLabels = content.language === "zh"
+      ? { zoomIn: "放大", zoomOut: "缩小", fit: "适应屏幕" }
+      : content.language === "ja"
+        ? { zoomIn: "拡大", zoomOut: "縮小", fit: "画面に合わせる" }
+        : { zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit to screen" };
+    [[flowOverviewZoomIn, flowOverviewControlLabels.zoomIn], [flowOverviewZoomOut, flowOverviewControlLabels.zoomOut], [flowOverviewFitView, flowOverviewControlLabels.fit]].forEach(([button, label]) => {
+      if (button) {
+        button.setAttribute("aria-label", label);
+        button.setAttribute("title", label);
+      }
+    });
     const saveBackdrop = document.getElementById("saveBackdrop");
     const saveTitle = document.getElementById("saveTitle");
     const saveClose = document.getElementById("saveClose");
@@ -1188,6 +1223,17 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         wrapper.style.zIndex = String(20 + (Number(element.zIndex) || 0));
         if (layer === flowOverviewCustomLayer && element.role === "flowMinimap") {
           flowOverviewMinimap.classList.add("is-embedded");
+          applyElementRadius(flowOverviewMinimap, element, 12);
+          const minimapRadius = Number.isFinite(Number(element.borderRadius)) ? Number(element.borderRadius) : 12;
+          const minimapBottomRightRadius = Number.isFinite(Number(element.borderBottomRightRadius)) ? Number(element.borderBottomRightRadius) : minimapRadius;
+          const minimapBottomLeftRadius = Number.isFinite(Number(element.borderBottomLeftRadius)) ? Number(element.borderBottomLeftRadius) : minimapRadius;
+          flowOverviewMinimap.style.setProperty("--flow-overview-minimap-radius", minimapRadius + "px");
+          flowOverviewMinimap.style.setProperty("--flow-overview-minimap-bottom-right-radius", minimapBottomRightRadius + "px");
+          flowOverviewMinimap.style.setProperty("--flow-overview-minimap-bottom-left-radius", minimapBottomLeftRadius + "px");
+          flowOverviewMinimap.style.setProperty("--flow-overview-control-radius", Math.max(4, minimapRadius - 2) + "px");
+          if (element.appearance) {
+            gwAppearance(flowOverviewMinimap, element.appearance, [element.borderTopLeftRadius ?? element.borderRadius ?? 12, element.borderTopRightRadius ?? element.borderRadius ?? 12, element.borderBottomRightRadius ?? element.borderRadius ?? 12, element.borderBottomLeftRadius ?? element.borderRadius ?? 12].map((value) => value + "px").join(" "));
+          } else applyCustomBoxEffects(flowOverviewMinimap, element);
           wrapper.appendChild(flowOverviewMinimap);
           layer.appendChild(wrapper);
           return;
@@ -1972,8 +2018,20 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       if (flowOverviewBackdrop.classList.contains("open")) openFlowOverview();
     }
 
+    function setFlowOverviewZoom(value, scrollToOrigin) {
+      flowOverviewZoom = clamp(value, 0.55, 1.8, 1);
+      flowOverviewCanvas.style.zoom = String(flowOverviewZoom);
+      if (scrollToOrigin) flowOverviewViewport.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+      if (flowOverviewZoomIn) flowOverviewZoomIn.disabled = flowOverviewZoom >= 1.8;
+      if (flowOverviewZoomOut) flowOverviewZoomOut.disabled = flowOverviewZoom <= 0.55;
+    }
+
     function fitFlowOverview() {
-      flowOverviewViewport.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+      const availableWidth = Math.max(1, flowOverviewViewport.clientWidth - 48);
+      const availableHeight = Math.max(1, flowOverviewViewport.clientHeight - 48);
+      const canvasWidth = Math.max(1, flowOverviewCanvas.scrollWidth || flowOverviewCanvas.clientWidth);
+      const canvasHeight = Math.max(1, flowOverviewCanvas.scrollHeight || flowOverviewCanvas.clientHeight);
+      setFlowOverviewZoom(Math.min(1, availableWidth / canvasWidth, availableHeight / canvasHeight), true);
     }
 
     function flowPathNodeIds(targetId) {
@@ -2124,7 +2182,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     }
 
     function renderFlowOverviewMinimap(positionById, allEdges, canvasWidth, canvasHeight) {
-      flowOverviewMinimap.innerHTML = "";
+      if (!flowOverviewMinimapMap) return;
+      flowOverviewMinimapMap.innerHTML = "";
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 " + canvasWidth + " " + canvasHeight);
       svg.setAttribute("preserveAspectRatio", "none");
@@ -2135,7 +2194,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute("d", flowOverviewEdgePath(from, to));
         path.setAttribute("fill", "none");
-        path.setAttribute("stroke", "#94a3b8");
+        path.setAttribute("stroke", "#c5cad1");
         path.setAttribute("stroke-width", "5");
         path.setAttribute("vector-effect", "non-scaling-stroke");
         svg.appendChild(path);
@@ -2146,12 +2205,12 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         rect.setAttribute("y", String(position.y));
         rect.setAttribute("width", String(position.width || 220));
         rect.setAttribute("height", String(position.height || 132));
-        rect.setAttribute("rx", "12");
-        rect.setAttribute("fill", nodeId === flowOverviewRootNodeId ? "#818cf8" : "#cbd5e1");
+        rect.setAttribute("rx", "10");
+        rect.setAttribute("fill", nodeId === flowOverviewRootNodeId ? "#d0d3d7" : "#f4f5f6");
         rect.setAttribute("fill-opacity", "0.9");
         svg.appendChild(rect);
       });
-      flowOverviewMinimap.appendChild(svg);
+      flowOverviewMinimapMap.appendChild(svg);
     }
 
     function openFlowOverview() {
@@ -2159,6 +2218,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       const allEdges = Array.isArray(content.edges) ? content.edges.filter(Boolean) : [];
       applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
       applySurfaceBackground(flowOverviewViewport, "flowOverviewBackground");
+      setFlowOverviewZoom(1, false);
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-width", settings.flowOverviewMinimapWidth + "px");
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-height", settings.flowOverviewMinimapHeight + "px");
       if (startScreen.classList.contains("open")) stopStartMenuMusic();
@@ -3075,6 +3135,9 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     });
     continueGameButton.addEventListener("click", continueSavedGame);
     flowOverviewButton.addEventListener("click", openFlowOverview);
+    flowOverviewZoomIn?.addEventListener("click", () => setFlowOverviewZoom(flowOverviewZoom + 0.15, false));
+    flowOverviewZoomOut?.addEventListener("click", () => setFlowOverviewZoom(flowOverviewZoom - 0.15, false));
+    flowOverviewFitView?.addEventListener("click", fitFlowOverview);
     saveSlotButton.addEventListener("click", openSaveList);
     newGameButton.addEventListener("click", startNewGame);
     settingsButton.addEventListener("click", openSettingsPanel);

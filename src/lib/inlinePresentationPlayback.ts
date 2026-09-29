@@ -236,6 +236,31 @@ export const latestPersistentInlineAction = (
         action.action !== 'switch',
     ) || null;
 
+export const getInlineTimelineCueState = (
+  actions: InlinePresentationAction[],
+  activeAction: InlinePresentationAction | null | undefined,
+  completedActions: InlinePresentationAction[],
+  kind: 'character' | 'scene',
+  sourceNodeId: string,
+) => {
+  const matches = (action: InlinePresentationAction | null | undefined, phase: 'enter' | 'exit') =>
+    action?.kind === kind && action.sourceNodeId === sourceNodeId && action.timelinePhase === phase;
+  const hasEnterCue = actions.some((action) => matches(action, 'enter'));
+  const enterCueActive = matches(activeAction, 'enter');
+  const enterCueCompleted = completedActions.some((action) => matches(action, 'enter'));
+  const exitCueActive = matches(activeAction, 'exit');
+  const exitCueCompleted = completedActions.some((action) => matches(action, 'exit'));
+
+  return {
+    hasEnterCue,
+    enterCueActive,
+    enterCueCompleted,
+    exitCueActive,
+    exitCueCompleted,
+    waitingForEnterCue: hasEnterCue && !enterCueActive && !enterCueCompleted,
+  };
+};
+
 /** The visual effect and its playback timer must share the same duration. */
 export const getInlineActionDuration = (action?: InlinePresentationAction | null) => {
   if (!action) return 0;
@@ -381,7 +406,9 @@ export const inlinePlaybackStateAtTime = ({
         };
       }
       if (isSwitchInlineAction(step.action)) completedSwitchActions.push(step.action);
-      if (isPersistentInlineAction(step.action)) completedInlineActions.push(step.action);
+      if (isPersistentInlineAction(step.action) || step.action.timelinePhase) {
+        completedInlineActions.push(step.action);
+      }
       cursor -= actionDuration;
       continue;
     }
