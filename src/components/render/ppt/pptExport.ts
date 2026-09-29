@@ -30,7 +30,11 @@ import {
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { syncNameplateAnimations } from './pptAnimationPreview';
-import { resolvePptTagAnimations } from './pptTagAnimations';
+import {
+  createPptStyleTextAnimations,
+  orderPptSceneAnimations,
+  resolvePptTagAnimations,
+} from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { registerCustomRenderFonts } from '../video/shared/customFonts';
 import {
@@ -212,6 +216,7 @@ export async function buildPptxBuffer({
   const slideByNodeId = new Map<string, number>();
   const slideNumberById = new Map(orderedSlideIds.map((id, index) => [id, index + 1]));
   const animationTargets: PptAnimationExportTarget[] = [];
+  const sceneAnimationOrderBySlide = new Map<number, Map<string, number>>();
   const videoPlaybackTargets: PptVideoPlaybackTarget[] = [];
   scenes.forEach((scene) => {
     const slideNumber = slideNumberById.get(scene.id);
@@ -441,10 +446,23 @@ export async function buildPptxBuffer({
     slide.hidden = hiddenSlideIds.has(scene.id);
     const sceneSlideNumber = slideByNodeId.get(scene.id);
     const speakerCharacter = scene.characters.find((character) => character.name?.trim());
+    const savedSceneAnimations = pptSettings.animations?.[scene.id] || [];
+    const orderedSceneAnimations = orderPptSceneAnimations(
+      scene,
+      resolvePptTagAnimations(scene),
+      createPptStyleTextAnimations(scene, style, savedSceneAnimations),
+      savedSceneAnimations,
+    );
     const sceneAnimations = syncNameplateAnimations(
-      [...resolvePptTagAnimations(scene), ...(pptSettings.animations?.[scene.id] || [])],
+      orderedSceneAnimations,
       speakerCharacter?.sourceNodeId,
     );
+    if (sceneSlideNumber) {
+      sceneAnimationOrderBySlide.set(
+        sceneSlideNumber,
+        new Map(sceneAnimations.map((animation, index) => [animation.id, index])),
+      );
+    }
     const objects = getRenderObjects(style);
     const panel = objects.dialogBox;
     const title = objects.title;
@@ -980,5 +998,12 @@ export async function buildPptxBuffer({
     outputType: 'arraybuffer',
     compression: true,
   })) as ArrayBuffer;
+  animationTargets.sort((left, right) => {
+    const order = sceneAnimationOrderBySlide.get(left.slideNumber);
+    if (!order) return left.slideNumber - right.slideNumber;
+    const leftIndex = order.get(left.animation.id) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = order.get(right.animation.id) ?? Number.MAX_SAFE_INTEGER;
+    return left.slideNumber - right.slideNumber || leftIndex - rightIndex;
+  });
   return finalizePptxForPowerPoint(buffer, animationTargets, videoPlaybackTargets);
 }

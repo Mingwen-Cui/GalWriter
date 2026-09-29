@@ -110,6 +110,31 @@ type InitialWebExportState = {
   future?: WebHistoryState[];
 };
 
+const webLayoutModePreferenceKey = (workspaceKey: string) =>
+  `galwriter-web-layout-mode-choice:v1:${workspaceKey}`;
+
+const hasExplicitWebLayoutMode = (workspaceKey: string) => {
+  try {
+    return window.localStorage.getItem(webLayoutModePreferenceKey(workspaceKey)) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const getWebLayoutMode = (
+  workspaceKey: string,
+  value: WebExportSettings['layoutMode'],
+): WebExportSettings['layoutMode'] =>
+  hasExplicitWebLayoutMode(workspaceKey) ? value : 'immersive';
+
+const rememberWebLayoutModeChoice = (workspaceKey: string) => {
+  try {
+    window.localStorage.setItem(webLayoutModePreferenceKey(workspaceKey), 'true');
+  } catch {
+    // Storage is optional; the selected mode still applies in memory.
+  }
+};
+
 const isTransparentImageBaseColor = (color: string | undefined) => {
   const value = color?.trim().toLowerCase();
   if (!value || value === 'transparent') return true;
@@ -469,19 +494,27 @@ export const useWebExportSettings = (
           ...defaultPreset.settings,
           ...migratedInitialSettings,
           ...sharedCanvas.settings,
+          layoutMode: getWebLayoutMode(workspaceKey, sharedCanvas.settings.layoutMode),
         }),
       ),
     ),
   );
   useEffect(() => {
+    const sharedCanvasForWeb = {
+      ...sharedCanvas.settings,
+      layoutMode: getWebLayoutMode(workspaceKey, sharedCanvas.settings.layoutMode),
+    };
+    if (sharedCanvas.settings.layoutMode !== sharedCanvasForWeb.layoutMode) {
+      sharedCanvas.update({ layoutMode: sharedCanvasForWeb.layoutMode });
+    }
     setWebSettings((previous) =>
       ensureFlowOverviewControls(
         applyDefaultMainInterfaceBackground(
-          normalizeWebImageFillBaseColors({ ...previous, ...sharedCanvas.settings }),
+          normalizeWebImageFillBaseColors({ ...previous, ...sharedCanvasForWeb }),
         ),
       ),
     );
-  }, [sharedCanvas.settings]);
+  }, [sharedCanvas.settings, workspaceKey]);
   useEffect(() => {
     setWebSettings((previous) =>
       ensureFlowOverviewControls(
@@ -575,6 +608,7 @@ export const useWebExportSettings = (
     value: WebExportSettings[K],
   ) => {
     if (webSettings[key] === value) return;
+    if (key === 'layoutMode') rememberWebLayoutModeChoice(workspaceKey);
     pushWebHistory();
     setWebSettings((prev) => applySettingsPatch(prev, { [key]: value }));
     const sharedPatch = canvasPatchFromWebSettings({ [key]: value } as Partial<WebExportSettings>);
@@ -587,6 +621,7 @@ export const useWebExportSettings = (
     >;
     if (entries.length === 0) return;
     if (entries.every(([key, value]) => webSettings[key] === value)) return;
+    if ('layoutMode' in patch) rememberWebLayoutModeChoice(workspaceKey);
     pushWebHistory();
     setWebSettings((prev) => applySettingsPatch(prev, patch));
     const sharedPatch = canvasPatchFromWebSettings(patch);

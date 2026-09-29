@@ -80,7 +80,11 @@ import { getKeyboardMouseSettings, getWheelDelta } from '../../../lib/keyboardMo
 const isConfiguredSelectionButton = (button: number) =>
   button === (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2);
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
-import { resolvePptTagAnimations } from './pptTagAnimations';
+import {
+  createPptStyleTextAnimations,
+  orderPptSceneAnimations,
+  resolvePptTagAnimations,
+} from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import { AnimationRibbon, SlideList, SlideSorter } from './PptWorkspaceControls';
 import { PlayerOverlay, PptFooterBar } from './PptWorkspaceFooter';
@@ -443,42 +447,18 @@ export function PptWorkspace({
   const tagAnimations = scene ? resolvePptTagAnimations(scene) : [];
   const styleTextAnimations = useMemo(() => {
     if (!scene) return [] as PptObjectAnimation[];
-    const objects = getRenderObjects(renderStyle);
-    const entries: PptObjectAnimation[] = [];
-    const hasSaved = (target: PptAnimationTarget) =>
-      savedAnimations.some((item) => item.target === target);
-    const addTextAnimation = (target: 'dialog-title' | 'dialog-body', object: typeof objects.title) => {
-      const animation = object.animation.animation;
-      if (!object.visible || animation === 'none' || hasSaved(target)) return;
-      const typewriter = animation === 'typewriter';
-      entries.push({
-        id: `style:${scene.id}:${target}:${animation}`,
-        source: 'tag',
-        target,
-        phase: 'enter',
-        effect: typewriter ? 'wipe' : animation === 'slideUp' ? 'fly' : 'fade',
-        start: 'afterPrevious',
-        durationMs: Math.max(500, object.animation.durationMs || 600),
-        delayMs: 0,
-        direction: animation === 'slideUp' ? 'down' : 'left',
-        ...(typewriter ? { textBuild: { mode: 'line-wipe' as const, lineGapMs: 160 } } : {}),
-      });
-    };
-    addTextAnimation('dialog-title', objects.title);
-    addTextAnimation('dialog-body', objects.body);
-    return entries;
+    return createPptStyleTextAnimations(scene, renderStyle, savedAnimations);
   }, [renderStyle, savedAnimations, scene]);
 
   const speakerCharacterId = scene?.characters.find((character) => character.name)?.sourceNodeId;
   const currentAnimations = useMemo(
-    () =>
-      withTimelineStarts(
-        syncNameplateAnimations(
-          [...tagAnimations, ...styleTextAnimations, ...savedAnimations],
-          speakerCharacterId,
-        ),
-      ),
-    [savedAnimations, speakerCharacterId, styleTextAnimations, tagAnimations],
+    () => {
+      const ordered = scene
+        ? orderPptSceneAnimations(scene, tagAnimations, styleTextAnimations, savedAnimations)
+        : [...tagAnimations, ...styleTextAnimations, ...savedAnimations];
+      return withTimelineStarts(syncNameplateAnimations(ordered, speakerCharacterId));
+    },
+    [savedAnimations, scene, speakerCharacterId, styleTextAnimations, tagAnimations],
   );
   const currentTransition = transitions[selectedId] || DEFAULT_TRANSITION;
   const currentVideoLoop = scene ? (pptSettings.videoLoopByScene?.[scene.id] ?? false) : false;

@@ -48,6 +48,19 @@ export const previewStyle = (
   previewAtMs?: number,
 ): React.CSSProperties => {
   if (!animations.length || (!previewing && previewAtMs === undefined)) return {};
+  const dialogueBuilds = animations.filter(
+    (item) => item.target === 'dialog-body' && item.source === 'tag' && item.mentionId,
+  );
+  const activeDialogueBuild =
+    dialogueBuilds.length > 1 && previewAtMs !== undefined
+      ? [...dialogueBuilds]
+          .reverse()
+          .find((item) => ((item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs) <= previewAtMs) ||
+        dialogueBuilds[0]
+      : undefined;
+  const previewAnimations = activeDialogueBuild
+    ? animations.filter((item) => !dialogueBuilds.includes(item) || item === activeDialogueBuild)
+    : animations;
   const animationName = (item: PptObjectAnimation) => {
     const phase = item.phase || 'enter';
     if (phase === 'emphasis' && item.action) {
@@ -75,7 +88,7 @@ export const previewStyle = (
   };
   const cssVariables: Record<string, string> = {};
   return {
-    animation: animations
+    animation: previewAnimations
       .map((item) => {
         const start = (item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs;
         const repeats = item.phase === 'emphasis' ? Math.max(1, Math.round(item.repeats || 1)) : 1;
