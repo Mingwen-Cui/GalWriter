@@ -24,6 +24,8 @@ export const toPptFontFace = (fontFamily?: string) => {
 export type PptAnimationExportTarget = {
   slideNumber: number;
   objectName: string;
+  /** Number of Unicode code points in a text shape used for per-letter builds. */
+  textLength?: number;
   animation: PptObjectAnimation;
 };
 
@@ -49,13 +51,23 @@ const startDelay = (animation: PptObjectAnimation) =>
   animation.start === 'onClick' ? 'indefinite' : '0';
 const phaseOf = (animation: PptObjectAnimation) => animation.phase || 'enter';
 
-const shapeTarget = (shapeId: string) => `<p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl>`;
-const behavior = (id: number, shapeId: string, animation: PptObjectAnimation, extra = '') =>
+const shapeTarget = (shapeId: string, text = false) =>
+  text
+    ? `<p:tgtEl><p:spTgt spid="${shapeId}"><p:txEl><p:pRg st="0" end="0"/></p:txEl></p:spTgt></p:tgtEl>`
+    : `<p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl>`;
+const behavior = (
+  id: number,
+  shapeId: string,
+  animation: PptObjectAnimation,
+  extra = '',
+  text = false,
+  iterator = '',
+) =>
   `<p:cBhvr additive="base" accumulate="none"><p:cTn id="${id}" dur="${duration(animation)}" fill="hold"${
     animation.repeats && animation.repeats > 1
       ? ` repeatCount="${Math.round(animation.repeats)}"`
       : ''
-  }${extra}/>${shapeTarget(shapeId)}</p:cBhvr>`;
+  }${extra}>${iterator}</p:cTn>${shapeTarget(shapeId, text)}</p:cBhvr>`;
 
 const visibilitySet = (id: number, shapeId: string, visible: boolean) =>
   `<p:set><p:cBhvr><p:cTn id="${id}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>${shapeTarget(shapeId)}<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="${
@@ -144,8 +156,25 @@ const filterFor = (animation: PptObjectAnimation) => {
   return animation.effect;
 };
 
-const effectXml = (id: number, shapeId: string, animation: PptObjectAnimation) => {
+const effectXml = (
+  id: number,
+  shapeId: string,
+  animation: PptObjectAnimation,
+  textLength?: number,
+) => {
   const phase = phaseOf(animation);
+  if (animation.textBuild && textLength && textLength > 1) {
+    const letterGapPercent = Math.max(1, Math.min(100000, Math.round(100000 / textLength)));
+    const letterIteration = `<p:iterate type="lt"><p:tmPct val="${letterGapPercent}"/></p:iterate>`;
+    return `<p:animEffect transition="in" filter="fade">${behavior(
+      id,
+      shapeId,
+      animation,
+      '',
+      true,
+      letterIteration,
+    )}</p:animEffect>`;
+  }
   if (animation.effect === 'line' || animation.effect === 'fly')
     return motionPathXml(id, shapeId, animation);
   if (animation.effect === 'zoom' || animation.effect === 'growShrink')
@@ -158,7 +187,12 @@ const effectXml = (id: number, shapeId: string, animation: PptObjectAnimation) =
   )}</p:animEffect>`;
 };
 
-const animationXml = (shapeId: string, animation: PptObjectAnimation, index: number) => {
+const animationXml = (
+  shapeId: string,
+  animation: PptObjectAnimation,
+  index: number,
+  textLength?: number,
+) => {
   const baseId = 3 + index * 10;
   const phase = phaseOf(animation);
   const presetClass = phase === 'enter' ? 'entr' : phase === 'exit' ? 'exit' : 'emph';
@@ -171,9 +205,9 @@ const animationXml = (shapeId: string, animation: PptObjectAnimation, index: num
           ? 2
           : animation.effect === 'wipe'
             ? 22
-          : animation.effect === 'zoom'
-            ? 23
-            : 0;
+            : animation.effect === 'zoom'
+              ? 23
+              : 0;
   const visibility = phase === 'enter' ? visibilitySet(baseId + 1, shapeId, true) : '';
   const hideAfter = phase === 'exit' ? visibilitySet(baseId + 2, shapeId, false) : '';
   return `<p:par><p:cTn id="${baseId}" fill="hold"><p:stCondLst><p:cond delay="${startDelay(animation)}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 3}" fill="hold"><p:stCondLst><p:cond delay="${delay(
@@ -184,6 +218,7 @@ const animationXml = (shapeId: string, animation: PptObjectAnimation, index: num
     baseId + 5,
     shapeId,
     animation,
+    textLength,
   )}${hideAfter}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
 };
 
@@ -195,21 +230,26 @@ const videoPlaybackXml = (shapeId: string, id: number, loop: boolean) =>
   )}</p:cMediaNode></p:video>`;
 
 const animationTimelineXml = (
-  targets: Array<{ shapeId: string; animation: PptObjectAnimation }>,
+  targets: Array<{ shapeId: string; animation: PptObjectAnimation; textLength?: number }>,
   videoTargets: Array<{ shapeId: string; loop: boolean }>,
 ) => {
   if (!targets.length && !videoTargets.length) return '';
   const entries = targets
-    .map((target, index) => animationXml(target.shapeId, target.animation, index))
+    .map((target, index) =>
+      animationXml(target.shapeId, target.animation, index, target.textLength),
+    )
     .join('');
   const buildList = targets
-    .map((target) => `<p:bldP spid="${target.shapeId}" grpId="0" animBg="1"/>`)
+    .filter((target) => target.animation.textBuild && (target.textLength || 0) > 1)
+    .map((target) => `<p:bldP spid="${target.shapeId}" grpId="0" build="p"/>`)
     .join('');
   const mainSequence = entries
     ? `<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${entries}</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>`
     : '';
   const videos = videoTargets
-    .map((target, index) => videoPlaybackXml(target.shapeId, 3 + targets.length * 10 + index, target.loop))
+    .map((target, index) =>
+      videoPlaybackXml(target.shapeId, 3 + targets.length * 10 + index, target.loop),
+    )
     .join('');
   return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${mainSequence}${videos}</p:childTnLst></p:cTn></p:par></p:tnLst>${buildList ? `<p:bldLst>${buildList}</p:bldLst>` : ''}</p:timing>`;
 };
@@ -245,9 +285,17 @@ const addNativeAnimations = async (
       .map((target) => ({
         shapeId: findShapeId(slideXml, target.objectName),
         animation: target.animation,
+        textLength: target.textLength,
       }))
-      .filter((target): target is { shapeId: string; animation: PptObjectAnimation } =>
-        Boolean(target.shapeId),
+      .filter(
+        (
+          target,
+        ): target is {
+          shapeId: string;
+          animation: PptObjectAnimation;
+          textLength: number | undefined;
+        } =>
+          Boolean(target.shapeId),
       );
     const resolvedVideos = slideVideos
       .map((target) => ({ shapeId: findShapeId(slideXml, target.objectName), loop: target.loop }))

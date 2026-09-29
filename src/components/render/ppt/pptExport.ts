@@ -476,6 +476,7 @@ export async function buildPptxBuffer({
       objectName: string,
       target: PptAnimationExportTarget['animation']['target'],
       targetId?: string,
+      textLength?: number,
     ) => {
       if (!sceneSlideNumber) return;
       sceneAnimations
@@ -497,6 +498,7 @@ export async function buildPptxBuffer({
             slideNumber: sceneSlideNumber,
             objectName,
             animation: exportAnimation,
+            ...(exportAnimation.textBuild && textLength ? { textLength } : {}),
           });
         });
     };
@@ -752,9 +754,7 @@ export async function buildPptxBuffer({
         flipV: object.flipY,
       };
       const lineTargetIds =
-        kind === 'body'
-          ? getPptDialogueLineTargetIds(scene, sceneBody, block.starts)
-          : [];
+        kind === 'body' ? getPptDialogueLineTargetIds(scene, sceneBody, block.starts) : [];
       const hasTurnTargets =
         kind === 'body' &&
         lineTargetIds.length === block.lines.length &&
@@ -774,8 +774,9 @@ export async function buildPptxBuffer({
             ),
             ...textOptions,
           });
-          addAnimationTargets(lineObjectName, target, undefined);
-          addAnimationTargets(lineObjectName, target, lineTargetIds[index]);
+          const textLength = Array.from(line).length;
+          addAnimationTargets(lineObjectName, target, undefined, textLength);
+          addAnimationTargets(lineObjectName, target, lineTargetIds[index], textLength);
         });
       } else {
         // Native editable text: fixed line breaks and metrics, with no PowerPoint autofit/reflow.
@@ -789,7 +790,12 @@ export async function buildPptxBuffer({
           ),
           ...textOptions,
         });
-        addAnimationTargets(objectName, target);
+        addAnimationTargets(
+          objectName,
+          target,
+          undefined,
+          Array.from(block.lines.join('\n')).length,
+        );
       }
       if (
         sceneSlideNumber &&
@@ -808,7 +814,9 @@ export async function buildPptxBuffer({
             durationMs: Math.max(300, block.object.animation.durationMs),
             delayMs: 0,
             direction: 'left',
+            textBuild: { mode: 'line-wipe', lineGapMs: 160 },
           },
+          textLength: Array.from(block.lines.join('\n')).length,
         });
       }
     }
@@ -822,8 +830,8 @@ export async function buildPptxBuffer({
       for (const [index, character] of nameplateCharacters.entries()) {
         const label =
           nameplateCharacters.length === 1
-            ? textOverrides[scene.id]?.nameplate ?? character.name?.trim() ?? ''
-            : character.name?.trim() ?? '';
+            ? (textOverrides[scene.id]?.nameplate ?? character.name?.trim() ?? '')
+            : (character.name?.trim() ?? '');
         if (!label) continue;
         const width = Math.max(1.1, Math.min(3.2, label.length * fontSize * 0.009 + 0.55));
         const baseX =
@@ -832,24 +840,18 @@ export async function buildPptxBuffer({
         const centerX = followCharacter
           ? characterCenter + (style.nameplateOffsetX || 0) / 1920
           : 0.5 + (index - (nameplateCharacters.length - 1) / 2) * 0.18;
-        const characterTop =
-          1 - (CHARACTER_STAGE_MAX_HEIGHT_PERCENT / 100) * (character.scale || 1) -
-          character.offsetY / 1000;
         const x = Math.max(0.02, Math.min(13.313 - width, centerX * 13.333 - width / 2));
-        const y = followCharacter
-          ? Math.max(
-              0.04,
-              Math.min(6.9, (characterTop + 0.02) * 7.5 + (style.nameplateOffsetY || 0) / 144),
-            )
-          : Math.max(
-              0.04,
-              Math.min(
-                6.9,
-                (panel.y / 1080) * 7.5 -
-                  (style.nameplateInside ? -0.12 : height + 0.12) +
-                  (style.nameplateOffsetY || 0) / 144,
-              ),
-            );
+        // Keep the exported nameplates on the same row as the preview and
+        // anchor that row directly above/inside the dialogue panel.
+        const y = Math.max(
+          0.04,
+          Math.min(
+            6.9,
+            (panel.y / 1080) * 7.5 -
+              (style.nameplateInside ? -0.12 : height + 0.12) +
+              (style.nameplateOffsetY || 0) / 144,
+          ),
+        );
         const objectName = `ppt-nameplate-${scene.id}-${character.sourceNodeId}`;
         const textObjectName = `${objectName}-text`;
         const nameplateFrame = page.frame(x, y, width, height);

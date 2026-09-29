@@ -103,7 +103,11 @@ import {
   type PptWorkspaceViewMode,
 } from './pptWorkspaceModel';
 import { NotesPanel, PptSidebar } from './PptWorkspaceSidebar';
-import { PptBoxSelectionContext, pptBoxSelectionKey, pptManualBoxSelectionKey } from './PptBoxSelectionContext';
+import {
+  PptBoxSelectionContext,
+  pptBoxSelectionKey,
+  pptManualBoxSelectionKey,
+} from './PptBoxSelectionContext';
 
 type ViewMode = PptWorkspaceViewMode;
 type SidebarTab = PptWorkspaceSidebarTab;
@@ -452,15 +456,12 @@ export function PptWorkspace({
   }, [renderStyle, savedAnimations, scene]);
 
   const speakerCharacterId = scene?.characters.find((character) => character.name)?.sourceNodeId;
-  const currentAnimations = useMemo(
-    () => {
-      const ordered = scene
-        ? orderPptSceneAnimations(scene, tagAnimations, styleTextAnimations, savedAnimations)
-        : [...tagAnimations, ...styleTextAnimations, ...savedAnimations];
-      return withTimelineStarts(syncNameplateAnimations(ordered, speakerCharacterId));
-    },
-    [savedAnimations, scene, speakerCharacterId, styleTextAnimations, tagAnimations],
-  );
+  const currentAnimations = useMemo(() => {
+    const ordered = scene
+      ? orderPptSceneAnimations(scene, tagAnimations, styleTextAnimations, savedAnimations)
+      : [...tagAnimations, ...styleTextAnimations, ...savedAnimations];
+    return withTimelineStarts(syncNameplateAnimations(ordered, speakerCharacterId));
+  }, [savedAnimations, scene, speakerCharacterId, styleTextAnimations, tagAnimations]);
   const currentTransition = transitions[selectedId] || DEFAULT_TRANSITION;
   const currentVideoLoop = scene ? (pptSettings.videoLoopByScene?.[scene.id] ?? false) : false;
   const currentVideoTrack: VideoTimelineTrack | undefined = scene?.backgroundVideoUrl
@@ -770,7 +771,11 @@ export function PptWorkspace({
       if (!key.startsWith('ppt:')) return [];
       const [, target] = key.split(':');
       if (!target) return [];
-      if (target === 'cover-title' || target === 'cover-subtitle' || target === 'cover-description') {
+      if (
+        target === 'cover-title' ||
+        target === 'cover-subtitle' ||
+        target === 'cover-description'
+      ) {
         const layout = resolvePptTextBoxLayout(textBoxLayouts.cover?.[target], target);
         return [{ key, x: layout.x, y: layout.y, width: layout.width, height: layout.height }];
       }
@@ -806,7 +811,9 @@ export function PptWorkspace({
     );
     const nextElements = manualElements.map((element) => {
       if (!manualIds.has(element.id)) return element;
-      const item = selectedItems.find((selectedItem) => selectedItem.key === `manual:${element.id}`);
+      const item = selectedItems.find(
+        (selectedItem) => selectedItem.key === `manual:${element.id}`,
+      );
       if (!item) return element;
       return axis === 'x'
         ? { ...element, x: nextPosition(item) }
@@ -826,9 +833,11 @@ export function PptWorkspace({
     const nextCoverLayouts = { ...(textBoxLayouts.cover || {}) };
     selectedItems.forEach((item) => {
       if (!item.key.startsWith('ppt:cover-')) return;
-      const target = item.key
-        .slice('ppt:'.length)
-        .split(':')[0] as 'cover-title' | 'cover-subtitle' | 'cover-description' | undefined;
+      const target = item.key.slice('ppt:'.length).split(':')[0] as
+        | 'cover-title'
+        | 'cover-subtitle'
+        | 'cover-description'
+        | undefined;
       if (!target) return;
       const layout = resolvePptTextBoxLayout(textBoxLayouts.cover?.[target], target);
       nextCoverLayouts[target] = {
@@ -1704,8 +1713,7 @@ export function SlideCanvas({
       ({ element }) => element.dataset.pptSelectionTarget !== 'background',
     );
     const matches = (nonBackgroundMatches.length ? nonBackgroundMatches : allMatches).sort(
-      (left, right) =>
-        left.rect.width * left.rect.height - right.rect.width * right.rect.height,
+      (left, right) => left.rect.width * left.rect.height - right.rect.width * right.rect.height,
     );
     updateBoxSelection(
       new Set(
@@ -1730,7 +1738,10 @@ export function SlideCanvas({
       onSelect({
         target: selectedElement.dataset.pptSelectionTarget as Selection['target'],
         targetId: selectedElement.dataset.pptSelectionTargetId || undefined,
-        label: selectedElement.dataset.pptSelectionLabel || selectedElement.getAttribute('aria-label') || '',
+        label:
+          selectedElement.dataset.pptSelectionLabel ||
+          selectedElement.getAttribute('aria-label') ||
+          '',
       });
     } else {
       onSelectBackground?.();
@@ -1747,167 +1758,178 @@ export function SlideCanvas({
   const shouldFitContent = layout === 'LAYOUT_STANDARD' && layoutContentMode === 'fit';
   return (
     <PptBoxSelectionContext.Provider value={boxSelectedKeys}>
-    <div
-      data-presentation-width={webSettings.canvasWidth}
-      data-presentation-height={webSettings.canvasHeight}
-      className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
-      ref={slideCanvasRef}
-      style={{
-        backgroundColor: canvasBackgroundColor,
-        ...backgroundPaint,
-        ...transitionStyle,
-      }}
-      onClick={(event) => {
-        if (suppressMarqueeClickRef.current) {
+      <div
+        data-presentation-width={webSettings.canvasWidth}
+        data-presentation-height={webSettings.canvasHeight}
+        className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
+        ref={slideCanvasRef}
+        style={{
+          backgroundColor: canvasBackgroundColor,
+          ...backgroundPaint,
+          ...transitionStyle,
+        }}
+        onClick={(event) => {
+          if (suppressMarqueeClickRef.current) {
+            suppressMarqueeClickRef.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+          if (!editable || event.target !== event.currentTarget) return;
+          onSelectBackground?.();
+        }}
+        onClickCapture={(event) => {
+          if (!suppressMarqueeClickRef.current) return;
           suppressMarqueeClickRef.current = false;
           event.preventDefault();
           event.stopPropagation();
-          return;
-        }
-        if (!editable || event.target !== event.currentTarget) return;
-        onSelectBackground?.();
-      }}
-      onClickCapture={(event) => {
-        if (!suppressMarqueeClickRef.current) return;
-        suppressMarqueeClickRef.current = false;
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onPointerDownCapture={beginSlideMarquee}
-      onPointerMoveCapture={moveSlideMarquee}
-      onPointerUpCapture={finishSlideMarquee}
-      onPointerCancelCapture={finishSlideMarquee}
-      onContextMenu={(event) => {
-        if (!suppressMarqueeContextMenuRef.current) return;
-        suppressMarqueeContextMenuRef.current = false;
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{ backgroundColor: canvasBackgroundColor, ...backgroundPaint }}
-      />
-      <SurfaceLayers value={backgroundStyle?.appearance} />
-      {!backgroundStyle?.appearance &&
-      backgroundStyle?.type === 'video' &&
-      backgroundStyle.videoUrl ? (
-        <video
-          className="pointer-events-none absolute inset-0 h-full w-full"
-          src={backgroundStyle.videoUrl}
-          autoPlay
-          loop={backgroundStyle.videoLoop !== false}
-          muted={backgroundStyle.videoMuted !== false}
-          playsInline
-          style={{ objectFit: backgroundStyle.videoFit === 'fit' ? 'contain' : 'cover' }}
-        />
-      ) : null}
-      {manualSlide ? (
-        <PptManualSlideCanvas
-          slide={manualSlide}
-          editable={editable}
-          selectedElementId={selectedManualElementId}
-          onSelectElement={onSelectManualElement}
-          onUpdateElement={onUpdateManualElement}
-          onDeleteElement={onDeleteManualElement}
-          onNavigateSlide={onChoose}
-          onSelectBackground={onSelectBackground}
-        />
-      ) : (
+        }}
+        onPointerDownCapture={beginSlideMarquee}
+        onPointerMoveCapture={moveSlideMarquee}
+        onPointerUpCapture={finishSlideMarquee}
+        onPointerCancelCapture={finishSlideMarquee}
+        onContextMenu={(event) => {
+          if (!suppressMarqueeContextMenuRef.current) return;
+          suppressMarqueeContextMenuRef.current = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
         <div
-          className={
-            shouldFitContent
-              ? 'absolute inset-x-0 top-1/2 aspect-video -translate-y-1/2 overflow-hidden'
-              : 'absolute inset-0 overflow-hidden'
-          }
-        >
-          {selectedId === 'cover' ? (
-            <CoverPreview
-              projectName={projectName}
-              editable={editable}
-              textOverrides={textOverrides}
-              textBoxLayouts={textBoxLayouts}
-              selected={selected}
-              animations={animations}
-              previewing={previewing}
-              previewAtMs={previewAtMs}
-              onSelect={onSelect}
-              onSelectBackground={onSelectBackground}
-              onUpdateText={onUpdateText}
-              onUpdateTextBoxLayout={onUpdateTextBoxLayout}
-            />
-          ) : scene ? (
-            isChoiceSlide ? (
-              <ChoicePreview
-                scene={scene}
-                colors={colors}
-                renderStyle={renderStyle}
-                selected={selected}
-                animations={animations}
-                previewing={previewing}
-                previewAtMs={previewAtMs}
-                editable={editable}
-                onSelect={onSelect}
-                onUpdate={onUpdateObject}
-                onChoose={onChoose}
-              />
-            ) : (
-              <ScenePreview
-                canvasWidth={webSettings.canvasWidth}
-                canvasHeight={webSettings.canvasHeight}
-                scene={scene}
-                videoLoop={videoLoop}
-                renderStyle={renderStyle}
-                colors={colors}
-                selected={selected}
-                animations={animations}
-                previewing={previewing}
-                previewAtMs={previewAtMs}
-                onVideoDurationChange={onVideoDurationChange}
-                editable={editable}
-                onSelect={onSelect}
-                onUpdateObject={onUpdateObject}
-                textOverrides={textOverrides}
-                onUpdateText={onUpdateText}
-              />
-            )
-          ) : null}
-          {slideElements?.length ? (
-            <PptManualElementLayer
-              elements={slideElements}
-              editable={editable}
-              selectedElementId={selectedManualElementId}
-              onSelectElement={onSelectManualElement}
-              onUpdateElement={onUpdateManualElement}
-              onDeleteElement={onDeleteManualElement}
-              onNavigateSlide={onChoose}
-            />
-          ) : null}
-        </div>
-      )}
-      {marquee && slideCanvasRef.current && (() => {
-        const bounds = slideCanvasRef.current!.getBoundingClientRect();
-        const canvas = slideCanvasRef.current!;
-        const canvasStyle = window.getComputedStyle(canvas);
-        const scaleX = Math.max(0.01, canvas.offsetWidth ? bounds.width / canvas.offsetWidth : 1);
-        const scaleY = Math.max(0.01, canvas.offsetHeight ? bounds.height / canvas.offsetHeight : 1);
-        const borderLeft = Number.parseFloat(canvasStyle.borderLeftWidth) || 0;
-        const borderTop = Number.parseFloat(canvasStyle.borderTopWidth) || 0;
-        return (
-          <div
-            className="gw-marquee-selection pointer-events-none absolute z-[100]"
-            style={{
-              left: (Math.min(marquee.startX, marquee.currentX) - bounds.left) / scaleX - borderLeft,
-              top: (Math.min(marquee.startY, marquee.currentY) - bounds.top) / scaleY - borderTop,
-              width: Math.abs(marquee.currentX - marquee.startX) / scaleX,
-              height: Math.abs(marquee.currentY - marquee.startY) / scaleY,
-              borderWidth: `${2 / Math.min(scaleX, scaleY)}px`,
-            }}
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundColor: canvasBackgroundColor, ...backgroundPaint }}
+        />
+        <SurfaceLayers value={backgroundStyle?.appearance} />
+        {!backgroundStyle?.appearance &&
+        backgroundStyle?.type === 'video' &&
+        backgroundStyle.videoUrl ? (
+          <video
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            src={backgroundStyle.videoUrl}
+            autoPlay
+            loop={backgroundStyle.videoLoop !== false}
+            muted={backgroundStyle.videoMuted !== false}
+            playsInline
+            style={{ objectFit: backgroundStyle.videoFit === 'fit' ? 'contain' : 'cover' }}
           />
-        );
-      })()}
-    </div>
+        ) : null}
+        {manualSlide ? (
+          <PptManualSlideCanvas
+            slide={manualSlide}
+            editable={editable}
+            selectedElementId={selectedManualElementId}
+            onSelectElement={onSelectManualElement}
+            onUpdateElement={onUpdateManualElement}
+            onDeleteElement={onDeleteManualElement}
+            onNavigateSlide={onChoose}
+            onSelectBackground={onSelectBackground}
+          />
+        ) : (
+          <div
+            className={
+              shouldFitContent
+                ? 'absolute inset-x-0 top-1/2 aspect-video -translate-y-1/2 overflow-hidden'
+                : 'absolute inset-0 overflow-hidden'
+            }
+          >
+            {selectedId === 'cover' ? (
+              <CoverPreview
+                projectName={projectName}
+                editable={editable}
+                textOverrides={textOverrides}
+                textBoxLayouts={textBoxLayouts}
+                selected={selected}
+                animations={animations}
+                previewing={previewing}
+                previewAtMs={previewAtMs}
+                onSelect={onSelect}
+                onSelectBackground={onSelectBackground}
+                onUpdateText={onUpdateText}
+                onUpdateTextBoxLayout={onUpdateTextBoxLayout}
+              />
+            ) : scene ? (
+              isChoiceSlide ? (
+                <ChoicePreview
+                  scene={scene}
+                  colors={colors}
+                  renderStyle={renderStyle}
+                  selected={selected}
+                  animations={animations}
+                  previewing={previewing}
+                  previewAtMs={previewAtMs}
+                  editable={editable}
+                  onSelect={onSelect}
+                  onUpdate={onUpdateObject}
+                  onChoose={onChoose}
+                />
+              ) : (
+                <ScenePreview
+                  canvasWidth={webSettings.canvasWidth}
+                  canvasHeight={webSettings.canvasHeight}
+                  scene={scene}
+                  videoLoop={videoLoop}
+                  renderStyle={renderStyle}
+                  colors={colors}
+                  selected={selected}
+                  animations={animations}
+                  previewing={previewing}
+                  previewAtMs={previewAtMs}
+                  onVideoDurationChange={onVideoDurationChange}
+                  editable={editable}
+                  onSelect={onSelect}
+                  onUpdateObject={onUpdateObject}
+                  textOverrides={textOverrides}
+                  onUpdateText={onUpdateText}
+                />
+              )
+            ) : null}
+            {slideElements?.length ? (
+              <PptManualElementLayer
+                elements={slideElements}
+                editable={editable}
+                selectedElementId={selectedManualElementId}
+                onSelectElement={onSelectManualElement}
+                onUpdateElement={onUpdateManualElement}
+                onDeleteElement={onDeleteManualElement}
+                onNavigateSlide={onChoose}
+              />
+            ) : null}
+          </div>
+        )}
+        {marquee &&
+          slideCanvasRef.current &&
+          (() => {
+            const bounds = slideCanvasRef.current!.getBoundingClientRect();
+            const canvas = slideCanvasRef.current!;
+            const canvasStyle = window.getComputedStyle(canvas);
+            const scaleX = Math.max(
+              0.01,
+              canvas.offsetWidth ? bounds.width / canvas.offsetWidth : 1,
+            );
+            const scaleY = Math.max(
+              0.01,
+              canvas.offsetHeight ? bounds.height / canvas.offsetHeight : 1,
+            );
+            const borderLeft = Number.parseFloat(canvasStyle.borderLeftWidth) || 0;
+            const borderTop = Number.parseFloat(canvasStyle.borderTopWidth) || 0;
+            return (
+              <div
+                className="gw-marquee-selection pointer-events-none absolute z-[100]"
+                style={{
+                  left:
+                    (Math.min(marquee.startX, marquee.currentX) - bounds.left) / scaleX -
+                    borderLeft,
+                  top:
+                    (Math.min(marquee.startY, marquee.currentY) - bounds.top) / scaleY - borderTop,
+                  width: Math.abs(marquee.currentX - marquee.startX) / scaleX,
+                  height: Math.abs(marquee.currentY - marquee.startY) / scaleY,
+                  borderWidth: `${2 / Math.min(scaleX, scaleY)}px`,
+                }}
+              />
+            );
+          })()}
+      </div>
     </PptBoxSelectionContext.Provider>
   );
 }
@@ -2025,8 +2047,7 @@ function PptCoverTextBox({
 }) {
   const selection = { target, label };
   const boxSelection = useContext(PptBoxSelectionContext);
-  const isSelected =
-    selected?.target === target || boxSelection.has(pptBoxSelectionKey(target));
+  const isSelected = selected?.target === target || boxSelection.has(pptBoxSelectionKey(target));
   const [isEditingText, setIsEditingText] = useState(false);
   const [draftText, setDraftText] = useState('');
   const textEditorRef = useRef<HTMLDivElement>(null);
@@ -2110,7 +2131,8 @@ function PptCoverTextBox({
     setIsEditingText(true);
   };
   const beginMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!editable || !onUpdateLayout || !isConfiguredSelectionButton(event.button) || isEditingText) return;
+    if (!editable || !onUpdateLayout || !isConfiguredSelectionButton(event.button) || isEditingText)
+      return;
     event.preventDefault();
     event.stopPropagation();
     onSelect(selection);
@@ -2353,19 +2375,23 @@ function ScenePreview({
     bodyText,
     scene.hideTitleInPlayback,
   );
-  const bodyLineTargetIds = getPptDialogueLineTargetIds(
-    scene,
-    bodyText,
-    textLayout.body.starts,
+  const bodyLineTargetIds = useMemo(
+    () => getPptDialogueLineTargetIds(scene, bodyText, textLayout.body.starts),
+    [scene, bodyText, textLayout.body.starts],
   );
-  const bodyLineStyles = bodyLineTargetIds.map((targetId) =>
-    targetId
-      ? previewStyle(
-          findAnimation(animations, 'dialog-body', targetId),
-          previewing,
-          previewAtMs,
-        )
-      : {},
+  const bodyAnimationPreviewAtMs = previewing ? undefined : previewAtMs;
+  const bodyLineStyles = useMemo(
+    () =>
+      bodyLineTargetIds.map((targetId) =>
+        targetId
+          ? previewStyle(
+              findAnimation(animations, 'dialog-body', targetId),
+              previewing,
+              bodyAnimationPreviewAtMs,
+            )
+          : {},
+      ),
+    [bodyLineTargetIds, animations, previewing, bodyAnimationPreviewAtMs],
   );
   const panelStyle = objectPaint(panel);
   const panelLayout = resolvePresentationDialogueLayout(canvasWidth, canvasHeight, renderStyle);
@@ -2417,6 +2443,7 @@ function ScenePreview({
       </Selectable>
       <div className="pointer-events-none absolute inset-0 z-[1] bg-black/10" />
       {scene.characters.map((character) => {
+        const characterScale = character.scale > 0 ? character.scale : 1;
         const selection = {
           target: 'character' as const,
           targetId: character.sourceNodeId,
@@ -2425,30 +2452,24 @@ function ScenePreview({
         return (
           <Selectable
             key={character.sourceNodeId}
-            className="absolute"
+            className="absolute w-auto object-contain object-bottom"
             selection={selection}
             selected={selected}
             animation={findAnimation(animations, 'character', character.sourceNodeId)}
             previewing={previewing}
             previewAtMs={previewAtMs}
             onSelect={onSelect}
+            image={{ src: character.imageUrl, alt: character.name || '' }}
             style={{
               ...getCharacterStageBounds(character),
-              translate: '-50% 0',
+              // Match the Web renderer: the positioned image itself owns the
+              // authored scale, so changing a character's scale changes the
+              // actual photo instead of an unrelated wrapper.
+              transform: `translate(-50%, 0) scale(${characterScale}) scaleX(${character.flipX ? -1 : 1})`,
               transformOrigin: 'bottom center',
               zIndex: 10 + (character.layer || 1),
             }}
-          >
-            <img
-              src={character.imageUrl}
-              alt={character.name || ''}
-              className="h-full max-w-full w-auto object-contain"
-              style={{
-                transform: `scale(${character.scale || 1}) scaleX(${character.flipX ? -1 : 1})`,
-                transformOrigin: 'bottom center',
-              }}
-            />
-          </Selectable>
+          />
         );
       })}
       {scene.lightOverlayUrl ? (
@@ -2471,20 +2492,15 @@ function ScenePreview({
             const labelLeft = followCharacter
               ? characterCenter + (renderStyle.nameplateOffsetX || 0) / 19.2
               : 50 + (index - (nameplateCharacters.length - 1) / 2) * 18;
-            const labelTop = followCharacter
-              ? Math.max(
-                  2,
-                  Math.min(
-                    82,
-                    100 - 92 * (character.scale || 1) - character.offsetY / 10 + 2 +
-                      (renderStyle.nameplateOffsetY || 0) / 10.8,
-                  ),
-                )
-              : Math.max(
-                  2,
-                  (panelLayout.y - (renderStyle.nameplateInside ? -12 : nameplate.height + 14)) /
-                    10.8 + (renderStyle.nameplateOffsetY || 0) / 10.8,
-                );
+            // Keep every nameplate on one row anchored to the dialogue panel.
+            // Character-following controls the horizontal position only; using
+            // each character's height here makes labels drift vertically.
+            const labelTop = Math.max(
+              2,
+              (panelLayout.y - (renderStyle.nameplateInside ? -12 : nameplate.height + 14)) /
+                10.8 +
+                (renderStyle.nameplateOffsetY || 0) / 10.8,
+            );
             const characterAnimations = findAnimation(
               animations,
               'character',
@@ -2681,8 +2697,7 @@ function PptEditableObject({
 }) {
   const selection = { target, label };
   const boxSelection = useContext(PptBoxSelectionContext);
-  const isSelected =
-    selected?.target === target || boxSelection.has(pptBoxSelectionKey(target));
+  const isSelected = selected?.target === target || boxSelection.has(pptBoxSelectionKey(target));
   const [isEditingText, setIsEditingText] = useState(false);
   const [draftText, setDraftText] = useState('');
   const textEditorRef = useRef<HTMLDivElement>(null);
@@ -3050,6 +3065,7 @@ function Selectable({
   textEditorClassName,
   onTextChange,
   className = '',
+  image,
   style,
   children,
 }: {
@@ -3064,8 +3080,9 @@ function Selectable({
   textEditorClassName?: string;
   onTextChange?: (text: string) => void;
   className?: string;
+  image?: { src: string; alt: string; draggable?: boolean };
   style?: React.CSSProperties;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   const [isEditingText, setIsEditingText] = useState(false);
   const [draftText, setDraftText] = useState('');
@@ -3074,9 +3091,9 @@ function Selectable({
   const discardTextEditRef = useRef(false);
   const boxSelection = useContext(PptBoxSelectionContext);
   const active =
-    selected &&
-    animationKey(selected.target, selected.targetId) ===
-      animationKey(selection.target, selection.targetId) ||
+    (selected &&
+      animationKey(selected.target, selected.targetId) ===
+        animationKey(selection.target, selection.targetId)) ||
     boxSelection.has(pptBoxSelectionKey(selection.target, selection.targetId));
   useEffect(() => {
     if (!isEditingText) return;
@@ -3094,7 +3111,7 @@ function Selectable({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [isEditingText]);
-  const beginTextEdit = (event: React.MouseEvent<HTMLDivElement>) => {
+  const beginTextEdit = (event: React.MouseEvent<HTMLElement>) => {
     if (!editable || textValue === undefined || !onTextChange) return;
     event.preventDefault();
     event.stopPropagation();
@@ -3111,6 +3128,42 @@ function Selectable({
     setIsEditingText(false);
     if (shouldCommit && nextText !== textValue) onTextChange?.(nextText);
   };
+  const selectableStyle = { ...style, ...previewStyle(animation, previewing, previewAtMs) };
+  const selectableClassName = `ppt-selectable ${active ? 'is-selected' : ''} ${className}`;
+  if (image) {
+    return (
+      <img
+        role="button"
+        tabIndex={0}
+        aria-label={`选择${selection.label}`}
+        data-ppt-selection-target={selection.target}
+        data-ppt-selection-target-id={selection.targetId}
+        data-ppt-selection-label={selection.label}
+        data-ppt-selection-key={pptBoxSelectionKey(selection.target, selection.targetId)}
+        src={image.src}
+        alt={image.alt}
+        draggable={image.draggable ?? false}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(selection);
+        }}
+        onContextMenu={(event) => {
+          if (selection.target === 'background') return;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onDoubleClick={beginTextEdit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect(selection);
+          }
+        }}
+        className={selectableClassName}
+        style={selectableStyle}
+      />
+    );
+  }
   return (
     <div
       role="button"
@@ -3136,8 +3189,8 @@ function Selectable({
           onSelect(selection);
         }
       }}
-      className={`ppt-selectable ${active ? 'is-selected' : ''} ${className}`}
-      style={{ ...style, ...previewStyle(animation, previewing, previewAtMs) }}
+      className={selectableClassName}
+      style={selectableStyle}
     >
       {isEditingText ? (
         <div
