@@ -180,6 +180,7 @@ export function WebPlaytestMediaLayers({
                   key={config.sourceNodeId}
                   src={imageUrl}
                   alt={data.characterName}
+                  data-character-source-id={config.sourceNodeId}
                   draggable={false}
                   onDragStart={(event) => event.preventDefault()}
                   className="preview-media-safe absolute w-auto object-contain object-bottom"

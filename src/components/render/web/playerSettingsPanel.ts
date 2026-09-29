@@ -561,6 +561,15 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-widget .gw-ps-hint { color:inherit; opacity:.65; font-size:.8em; }
 .gw-ps-widget [data-setting-role=reset]>button { width:100%; min-height:var(--ps-height); padding:8px; border:0; background:transparent; color:inherit; }
 .gw-ps-widget .gw-ps-toggle-row { min-height:100%; }
+.gw-ps-panel.gw-ps-widget { overflow:hidden; padding:10px 16px; }
+.gw-ps-widget .gw-ps-row { padding:0; }
+.gw-ps-widget .gw-ps-label { line-height:1.2; }
+.gw-ps-widget .gw-ps-hint { margin-top:4px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gw-ps-widget .gw-ps-row input[type=range] { height:18px; margin:6px 0 2px; background-size:100% 4px; }
+.gw-ps-widget .gw-ps-scale { font-size:10px; line-height:1.15; }
+.gw-ps-widget .gw-ps-preview { margin:0; padding:0; border:0; background:transparent; }
+.gw-ps-widget .gw-ps-preview-head button { min-height:0; padding:0; }
+.gw-ps-widget .gw-ps-preview p { margin:7px 0; min-height:0; max-height:2.5em; overflow:hidden; line-height:1.25; }
 @container (max-width:700px) { .gw-ps-panel { padding:20px; border-radius:18px; } .gw-ps-columns { grid-template-columns:1fr; } .gw-ps-head h2 { font-size:24px; } .gw-ps-group { padding:16px; } .gw-ps-footer { flex-wrap:wrap; } }
 @media (prefers-reduced-motion:reduce) { .gw-ps-toggle i::after { transition:none; } }
 `;

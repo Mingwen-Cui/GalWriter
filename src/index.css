@@ -1655,7 +1655,6 @@ html.canvas-selection-dragging * {
   border-radius: 9999px !important;
   background: #f1f5f9 !important;
   color: #475569 !important;
-  box-shadow: none !important;
 }
 
 .gw-flow-control:hover {

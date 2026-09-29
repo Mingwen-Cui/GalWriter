@@ -24,8 +24,6 @@ export const toPptFontFace = (fontFamily?: string) => {
 export type PptAnimationExportTarget = {
   slideNumber: number;
   objectName: string;
-  /** Number of Unicode code points in a text shape used for per-letter builds. */
-  textLength?: number;
   animation: PptObjectAnimation;
 };
 
@@ -50,6 +48,8 @@ const nodeType = (animation: PptObjectAnimation) =>
 const startDelay = (animation: PptObjectAnimation, sequenceStartMs: number) =>
   animation.start === 'onClick' ? 'indefinite' : String(Math.max(0, Math.round(sequenceStartMs)));
 const phaseOf = (animation: PptObjectAnimation) => animation.phase || 'enter';
+const presetSubtypeFor = (animation: PptObjectAnimation) =>
+  animation.effect === 'wipe' && animation.direction === 'left' ? 1 : 0;
 
 const shapeTarget = (shapeId: string, text = false) =>
   text
@@ -153,6 +153,7 @@ const filterFor = (animation: PptObjectAnimation) => {
   if (animation.effect === 'wiggle') return 'teeter';
   if (animation.effect === 'fade') return 'fade';
   if (animation.effect === 'appear') return 'appear';
+  if (animation.effect === 'wipe') return `wipe(${animation.direction})`;
   return animation.effect;
 };
 
@@ -160,21 +161,10 @@ const effectXml = (
   id: number,
   shapeId: string,
   animation: PptObjectAnimation,
-  textLength?: number,
 ) => {
   const phase = phaseOf(animation);
-  if (animation.textBuild && textLength && textLength > 1) {
-    const letterGapPercent = Math.max(1, Math.min(100000, Math.round(100000 / textLength)));
-    const letterIteration = `<p:iterate type="lt"><p:tmPct val="${letterGapPercent}"/></p:iterate>`;
-    return `<p:animEffect transition="in" filter="fade">${behavior(
-      id,
-      shapeId,
-      animation,
-      '',
-      true,
-      letterIteration,
-    )}</p:animEffect>`;
-  }
+  // Keep line-aware timing in the workspace, but export the text as the
+  // native PowerPoint wipe effect instead of a per-character fade build.
   if (animation.effect === 'line' || animation.effect === 'fly')
     return motionPathXml(id, shapeId, animation);
   if (animation.effect === 'zoom' || animation.effect === 'growShrink')
@@ -191,7 +181,6 @@ const animationXml = (
   shapeId: string,
   animation: PptObjectAnimation,
   index: number,
-  textLength?: number,
   sequenceStartMs = 0,
 ) => {
   const baseId = 3 + index * 10;
@@ -216,13 +205,12 @@ const animationXml = (
     sequenceStartMs,
   )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 3}" fill="hold"><p:stCondLst><p:cond delay="${delay(
     animation,
-  )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 4}" presetID="${presetId}" presetClass="${presetClass}" presetSubtype="0" fill="hold" grpId="0" nodeType="${nodeType(
+  )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 4}" presetID="${presetId}" presetClass="${presetClass}" presetSubtype="${presetSubtypeFor(animation)}" fill="hold" grpId="0" nodeType="${nodeType(
     animation,
   )}"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${visibility}${effectXml(
     baseId + 5,
     shapeId,
     animation,
-    textLength,
   )}${hideAfter}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
 };
 
@@ -234,7 +222,7 @@ const videoPlaybackXml = (shapeId: string, id: number, loop: boolean) =>
   )}</p:cMediaNode></p:video>`;
 
 const animationTimelineXml = (
-  targets: Array<{ shapeId: string; animation: PptObjectAnimation; textLength?: number }>,
+  targets: Array<{ shapeId: string; animation: PptObjectAnimation }>,
   videoTargets: Array<{ shapeId: string; loop: boolean }>,
 ) => {
   if (!targets.length && !videoTargets.length) return '';
@@ -271,14 +259,9 @@ const animationTimelineXml = (
         target.shapeId,
         target.animation,
         index,
-        target.textLength,
         sequenceStartByAnimationId.get(target.animation.id) ?? 0,
       ),
     )
-    .join('');
-  const buildList = targets
-    .filter((target) => target.animation.textBuild && (target.textLength || 0) > 1)
-    .map((target) => `<p:bldP spid="${target.shapeId}" grpId="0" build="p"/>`)
     .join('');
   const mainSequence = entries
     ? `<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${entries}</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>`
@@ -288,7 +271,7 @@ const animationTimelineXml = (
       videoPlaybackXml(target.shapeId, 3 + targets.length * 10 + index, target.loop),
     )
     .join('');
-  return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${mainSequence}${videos}</p:childTnLst></p:cTn></p:par></p:tnLst>${buildList ? `<p:bldLst>${buildList}</p:bldLst>` : ''}</p:timing>`;
+  return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${mainSequence}${videos}</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
 };
 
 const addNativeAnimations = async (
@@ -322,16 +305,11 @@ const addNativeAnimations = async (
       .map((target) => ({
         shapeId: findShapeId(slideXml, target.objectName),
         animation: target.animation,
-        textLength: target.textLength,
       }))
       .filter(
         (
           target,
-        ): target is {
-          shapeId: string;
-          animation: PptObjectAnimation;
-          textLength: number | undefined;
-        } =>
+        ): target is { shapeId: string; animation: PptObjectAnimation } =>
           Boolean(target.shapeId),
       );
     const resolvedVideos = slideVideos

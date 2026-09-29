@@ -1,16 +1,19 @@
 import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
 import type { SurfaceAppearance } from './appearance';
 import { paintLayerBackground } from './appearanceStyle';
+import type { WebButtonShadowMode } from '../../video/shared/types';
 
 /** Absolute visual layers; the host owns positioning and content. No project state here. */
 export function SurfaceLayers({
   value,
   radius = 0,
   muted = false,
+  shadowMode = 'always',
 }: {
   value?: SurfaceAppearance;
   radius?: number | string;
   muted?: boolean;
+  shadowMode?: WebButtonShadowMode;
 }) {
   if (!value) return null;
   return (
@@ -26,7 +29,7 @@ export function SurfaceLayers({
       }}
     >
       {value.shadows
-        .filter((s) => s.enabled)
+        .filter((s) => s.enabled && shadowMode === 'always')
         .map((s) => (
           <span
             key={s.id}

@@ -13,6 +13,8 @@ export type ResolvedWebButtonMotion = Omit<Required<WebButtonMotion>, 'hover' | 
   pressed: ResolvedWebButtonMotionState;
 };
 
+export type WebButtonMotionPreset = 'none' | 'soft' | 'strong';
+
 export const DEFAULT_WEB_BUTTON_MOTION: ResolvedWebButtonMotion = {
   hover: {
     enabled: true,
@@ -35,6 +37,76 @@ export const DEFAULT_WEB_BUTTON_MOTION: ResolvedWebButtonMotion = {
     shadow: 'inset',
   },
   transformOrigin: 'center center',
+};
+
+export const buttonMotionForPreset = (preset: WebButtonMotionPreset): WebButtonMotion => {
+  if (preset === 'none') {
+    return {
+      hover: {
+        enabled: false,
+        scale: 1,
+        translateX: 0,
+        translateY: 0,
+        rotate: 0,
+        duration: 120,
+        easing: 'ease-out',
+        shadow: 'none',
+      },
+      pressed: {
+        enabled: false,
+        scale: 1,
+        translateX: 0,
+        translateY: 0,
+        rotate: 0,
+        duration: 80,
+        easing: 'ease-in',
+        shadow: 'none',
+      },
+      transformOrigin: 'center center',
+    };
+  }
+  if (preset === 'soft') {
+    return {
+      hover: {
+        enabled: true,
+        scale: 1.015,
+        translateX: 0,
+        translateY: -1,
+        rotate: 0,
+        duration: 140,
+        easing: 'ease-out',
+        shadow: 'lift',
+      },
+      pressed: {
+        enabled: true,
+        scale: 0.985,
+        translateX: 0,
+        translateY: 0,
+        rotate: 0,
+        duration: 90,
+        easing: 'ease-in',
+        shadow: 'inset',
+      },
+      transformOrigin: 'center center',
+    };
+  }
+  return {
+    hover: { ...DEFAULT_WEB_BUTTON_MOTION.hover },
+    pressed: { ...DEFAULT_WEB_BUTTON_MOTION.pressed },
+    transformOrigin: DEFAULT_WEB_BUTTON_MOTION.transformOrigin,
+  };
+};
+
+export const resolveWebButtonMotionPreset = (value?: WebButtonMotion): WebButtonMotionPreset => {
+  const motion = resolveWebButtonMotion(value);
+  if (!motion.hover.enabled && !motion.pressed.enabled) return 'none';
+  if (
+    motion.hover.scale <= 1.02 &&
+    Math.abs(motion.hover.translateY) <= 1 &&
+    motion.pressed.scale >= 0.98
+  )
+    return 'soft';
+  return 'strong';
 };
 
 const clamp = (value: number, min: number, max: number, fallback: number) =>
@@ -83,16 +155,23 @@ export const webButtonMotionStyle = (
   baseShadow: string,
 ): CSSProperties => {
   const motion = resolveWebButtonMotion(element.buttonMotion);
+  const shadowMode = element.buttonShadowMode || 'always';
+  const visibleBaseShadow = shadowMode === 'always' ? baseShadow : 'none';
+  const motionBaseShadow = shadowMode === 'none' ? 'none' : baseShadow;
   const identityTransform = 'translate(0px, 0px) rotate(0deg) scale(1)';
   const hoverTransform = motion.hover.enabled ? transformFor(motion.hover) : identityTransform;
   const pressedTransform = motion.pressed.enabled
     ? transformFor(motion.pressed)
     : identityTransform;
-  const hoverShadow = motion.hover.enabled
-    ? shadowFor(motion.hover, baseShadow, 'none')
+  const hoverShadow = shadowMode === 'none'
+    ? 'none'
+    : motion.hover.enabled
+    ? shadowFor(motion.hover, motionBaseShadow, 'none')
     : baseShadow || 'none';
-  const pressedShadow = motion.pressed.enabled
-    ? shadowFor(motion.pressed, baseShadow, 'none')
+  const pressedShadow = shadowMode === 'none'
+    ? 'none'
+    : motion.pressed.enabled
+    ? shadowFor(motion.pressed, motionBaseShadow, 'none')
     : baseShadow || 'none';
   const style = {
     '--gw-button-motion-origin': motion.transformOrigin,
@@ -102,7 +181,10 @@ export const webButtonMotionStyle = (
     '--gw-button-motion-pressed-duration': `${motion.pressed.duration}ms`,
     '--gw-button-motion-hover-easing': motion.hover.easing,
     '--gw-button-motion-pressed-easing': motion.pressed.easing,
-    '--gw-button-motion-base-shadow': baseShadow || 'none',
+    '--gw-button-motion-hover-filter': motion.hover.enabled
+      ? 'brightness(1.06) saturate(1.05)'
+      : 'none',
+    '--gw-button-motion-base-shadow': visibleBaseShadow || 'none',
     '--gw-button-motion-hover-shadow': hoverShadow,
     '--gw-button-motion-pressed-shadow': pressedShadow,
   } as CSSProperties;
@@ -118,6 +200,7 @@ export const WEB_BUTTON_MOTION_CSS = `
 }
 [data-gw-button-motion="true"]:hover {
   transform: var(--gw-button-layout-transform, translate(0px, 0px) rotate(0deg) scale(1)) var(--gw-button-motion-hover-transform, translate(0px, 0px) rotate(0deg) scale(1)) !important;
+  filter: var(--gw-button-motion-hover-filter, none) !important;
   box-shadow: var(--gw-button-motion-hover-shadow, var(--gw-button-motion-base-shadow, none)) !important;
 }
 [data-gw-button-motion="true"]:active {
@@ -129,6 +212,7 @@ export const WEB_BUTTON_MOTION_CSS = `
 [data-gw-button-motion-editing="true"]:hover,
 [data-gw-button-motion-editing="true"]:active {
   transform: var(--gw-button-layout-transform, translate(0px, 0px) rotate(0deg) scale(1)) !important;
+  filter: none !important;
   box-shadow: var(--gw-button-motion-base-shadow, none) !important;
 }
 @media (prefers-reduced-motion: reduce) {

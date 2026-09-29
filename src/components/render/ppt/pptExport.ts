@@ -476,7 +476,6 @@ export async function buildPptxBuffer({
       objectName: string,
       target: PptAnimationExportTarget['animation']['target'],
       targetId?: string,
-      textLength?: number,
     ) => {
       if (!sceneSlideNumber) return;
       sceneAnimations
@@ -498,7 +497,6 @@ export async function buildPptxBuffer({
             slideNumber: sceneSlideNumber,
             objectName,
             animation: exportAnimation,
-            ...(exportAnimation.textBuild && textLength ? { textLength } : {}),
           });
         });
     };
@@ -774,9 +772,8 @@ export async function buildPptxBuffer({
             ),
             ...textOptions,
           });
-          const textLength = Array.from(line).length;
-          addAnimationTargets(lineObjectName, target, undefined, textLength);
-          addAnimationTargets(lineObjectName, target, lineTargetIds[index], textLength);
+          addAnimationTargets(lineObjectName, target, undefined);
+          addAnimationTargets(lineObjectName, target, lineTargetIds[index]);
         });
       } else {
         // Native editable text: fixed line breaks and metrics, with no PowerPoint autofit/reflow.
@@ -790,12 +787,7 @@ export async function buildPptxBuffer({
           ),
           ...textOptions,
         });
-        addAnimationTargets(
-          objectName,
-          target,
-          undefined,
-          Array.from(block.lines.join('\n')).length,
-        );
+        addAnimationTargets(objectName, target, undefined);
       }
       if (
         sceneSlideNumber &&
@@ -816,7 +808,6 @@ export async function buildPptxBuffer({
             direction: 'left',
             textBuild: { mode: 'line-wipe', lineGapMs: 160 },
           },
-          textLength: Array.from(block.lines.join('\n')).length,
         });
       }
     }

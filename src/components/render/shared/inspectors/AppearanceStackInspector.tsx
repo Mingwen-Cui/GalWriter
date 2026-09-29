@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, Layers, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { Language } from '../../../../lib/i18n';
 import { renderObjectText } from '../../video/objectInspector/i18n';
+import type { WebButtonShadowMode } from '../../video/shared/types';
 import { BackgroundFillInspector } from '../paint/BackgroundFillInspector';
 import { SolidColorPopover } from '../paint/ColorPopovers';
 import { InlineColorControl } from '../paint/InlinePaintControls';
@@ -15,12 +16,16 @@ export function AppearanceStackInspector({
   onChange,
   groups = ['fills', 'strokes', 'shadows'],
   hideFillOpacityForSolidGradient = false,
+  buttonShadowMode,
+  onButtonShadowModeChange,
 }: {
   language: Language;
   value: SurfaceAppearance;
   onChange: (value: SurfaceAppearance) => void;
   groups?: Array<keyof SurfaceAppearance>;
   hideFillOpacityForSolidGradient?: boolean;
+  buttonShadowMode?: WebButtonShadowMode;
+  onButtonShadowModeChange?: (mode: WebButtonShadowMode) => void;
 }) {
   const t = (zh: string, en: string, ja = en) =>
     language === 'zh' ? zh : language === 'ja' ? ja : en;
@@ -90,6 +95,31 @@ export function AppearanceStackInspector({
           tone={group === 'fills' ? 'fill' : group === 'strokes' ? 'stroke' : 'shadow'}
           secondary={null}
         >
+          {group === 'shadows' && buttonShadowMode && onButtonShadowModeChange && (
+            <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-white/70 p-1">
+              {(
+                [
+                  ['always', t('常态', 'Always', '常時')],
+                  ['hover', t('悬停', 'Hover', 'ホバー')],
+                  ['none', t('关闭', 'Off', 'なし')],
+                ] as Array<[WebButtonShadowMode, string]>
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`h-8 rounded-md text-xs font-bold transition-colors ${
+                    buttonShadowMode === mode
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
+                  }`}
+                  aria-pressed={buttonShadowMode === mode}
+                  onClick={() => onButtonShadowModeChange(mode)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="effect-stack">
             {value[group].map((layer, index) => (
               <div className="effect-row" key={layer.id}>

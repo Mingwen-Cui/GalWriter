@@ -862,7 +862,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     .flow-overview-minimap-map { min-height: 0; flex: 1; overflow: hidden; background: transparent; }
     .flow-overview-minimap-map svg { display: block; width: 100%; height: 100%; }
     .flow-overview-minimap-controls { display: flex; gap: 0; align-items: center; justify-content: stretch; min-height: 42px; padding: 5px 6px; border-top: 1px solid #d8dce2; border-radius: 0 0 var(--flow-overview-minimap-bottom-right-radius, var(--flow-overview-minimap-radius, 12px)) var(--flow-overview-minimap-bottom-left-radius, var(--flow-overview-minimap-radius, 12px)); overflow: hidden; background: #ffffff; }
-    .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; min-height: 30px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: #111827; cursor: pointer; box-shadow: none; transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease; }
+    .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; min-height: 30px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: #111827; cursor: pointer; }
     .flow-overview-minimap-control:hover:not(:disabled), .flow-overview-minimap-control:focus-visible { border-color: #c5cad1; background: #f3f4f6; color: #000000; outline: none; transform: translateY(-1px); }
     .flow-overview-minimap-control:disabled { cursor: not-allowed; opacity: .38; }
     .flow-overview-minimap-control svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }

@@ -771,7 +771,12 @@ function MenuPageElementLayer({
             const control = renderControl?.(element, label);
             const ButtonShell = editable || control ? 'div' : 'button';
             const elementBoxStyle = webElementBoxStyle(element);
-            const { boxShadow: baseBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
+            const motionBoxStyle =
+              element.buttonShadowMode && element.buttonShadowMode !== 'always'
+                ? webElementBoxStyle({ ...element, buttonShadowMode: 'always' })
+                : elementBoxStyle;
+            const { boxShadow: baseBoxShadow } = motionBoxStyle;
+            const { boxShadow: _visibleBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
             const buttonMotionStyle = webButtonMotionStyle(
               element,
               typeof baseBoxShadow === 'string' ? baseBoxShadow : 'none',
@@ -849,7 +854,11 @@ function MenuPageElementLayer({
                   }}
                 >
                   {element.appearance && (
-                    <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
+                    <SurfaceLayers
+                      value={element.appearance}
+                      radius={element.borderRadius || 0}
+                      shadowMode={element.buttonShadowMode}
+                    />
                   )}
 
                   {!element.appearance &&

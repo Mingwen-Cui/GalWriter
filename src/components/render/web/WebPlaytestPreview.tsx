@@ -89,6 +89,7 @@ import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { resolveSettingsPageElements } from './webMenuPageElements';
 import { buildArchivePageElements } from './webMenuPageElements';
 import { WebDialogueHistory, WebPlaybackSettings,WebStoryEnding } from './WebPlaybackDialogs';
+import { WEB_BUTTON_MOTION_CSS } from './webButtonMotion';
 import { WEB_PLAYBACK_UI_CSS, webStoryTitle, webToolbarButtonLabel } from './webPlaybackUi';
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
 import { WebPlaytestMediaLayers } from './WebPlaytestMediaLayers';
@@ -732,6 +733,7 @@ export function WebPlaytestPreview({
       items={nameplateItems}
       renderStyle={renderStyle}
       dialogWidth={dialogWidth}
+      previewRootRef={previewRootRef}
       previewMode={previewMode}
       onSelectRenderObject={selectRenderObject}
       onMoveRenderObject={moveRenderObject}
@@ -2540,6 +2542,7 @@ export function WebPlaytestPreview({
     return (
       <>
         <style>{WEB_PLAYBACK_UI_CSS}</style>
+        <style>{WEB_BUTTON_MOTION_CSS}</style>
         {playbackSettingsButton && (
           <WebPlaybackSettings
             language={language}

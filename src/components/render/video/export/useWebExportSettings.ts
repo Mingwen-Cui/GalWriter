@@ -153,6 +153,35 @@ const normalizeImageFillBaseColor = (element: WebMenuElement) => {
   return { ...element, backgroundImageBackgroundColor: element.backgroundColor };
 };
 
+const flowControlShadow = (id: string): Pick<
+  WebMenuElement,
+  | 'shadowEnabled'
+  | 'shadowColor'
+  | 'shadowOpacity'
+  | 'shadowBlur'
+  | 'shadowOffsetX'
+  | 'shadowOffsetY'
+  | 'shadows'
+> => ({
+  shadowEnabled: true,
+  shadowColor: '#0f172a',
+  shadowOpacity: 14,
+  shadowBlur: 14,
+  shadowOffsetX: 0,
+  shadowOffsetY: 6,
+  shadows: [
+    {
+      id,
+      type: 'outer',
+      color: '#0f172a',
+      opacity: 14,
+      blur: 14,
+      offsetX: 0,
+      offsetY: 6,
+    },
+  ],
+});
+
 const defaultFlowOverviewElements: WebMenuElement[] = [
   {
     id: 'flow-direction-control',
@@ -174,7 +203,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     textColor: '#475569',
     fillEnabled: true,
     strokeEnabled: true,
-    shadowEnabled: false,
+    ...flowControlShadow('flow-direction-control-shadow'),
   },
   {
     id: 'flow-fit-view-control',
@@ -196,7 +225,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     textColor: '#475569',
     fillEnabled: true,
     strokeEnabled: true,
-    shadowEnabled: false,
+    ...flowControlShadow('flow-fit-view-control-shadow'),
   },
   {
     id: 'flow-minimap',
@@ -266,13 +295,89 @@ const legacySettingsLayout: LegacyPageElementPosition[] = [
   { id: 'settings-reset', x: 54, y: 10, width: 24, height: 7 },
 ];
 
+const legacyWideSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 42, height: 10 },
+  { id: 'settings-speed', x: 8, y: 55, width: 42, height: 12 },
+  { id: 'settings-textSize', x: 8, y: 70, width: 42, height: 12 },
+  { id: 'settings-auto', x: 50, y: 42, width: 42, height: 10 },
+  { id: 'settings-animationSpeed', x: 50, y: 55, width: 42, height: 12 },
+  { id: 'settings-sound', x: 50, y: 70, width: 42, height: 10 },
+  { id: 'settings-controls', x: 50, y: 85, width: 42, height: 10 },
+  { id: 'settings-preview', x: 8, y: 85, width: 42, height: 10 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyCompactSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 30, height: 10 },
+  { id: 'settings-speed', x: 8, y: 55, width: 30, height: 12 },
+  { id: 'settings-textSize', x: 8, y: 70, width: 30, height: 12 },
+  { id: 'settings-auto', x: 40, y: 42, width: 30, height: 10 },
+  { id: 'settings-animationSpeed', x: 40, y: 55, width: 30, height: 12 },
+  { id: 'settings-sound', x: 40, y: 70, width: 30, height: 10 },
+  { id: 'settings-controls', x: 40, y: 85, width: 30, height: 10 },
+  { id: 'settings-preview', x: 8, y: 85, width: 30, height: 10 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyCurrentWideSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 42, height: 11 },
+  { id: 'settings-speed', x: 8, y: 56, width: 42, height: 15 },
+  { id: 'settings-textSize', x: 8, y: 74, width: 42, height: 15 },
+  { id: 'settings-auto', x: 50, y: 42, width: 42, height: 11 },
+  { id: 'settings-animationSpeed', x: 50, y: 56, width: 42, height: 15 },
+  { id: 'settings-sound', x: 50, y: 74, width: 42, height: 11 },
+  { id: 'settings-controls', x: 50, y: 88, width: 42, height: 10 },
+  { id: 'settings-preview', x: 8, y: 91, width: 42, height: 8 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyCurrentNarrowSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 34, height: 11 },
+  { id: 'settings-speed', x: 8, y: 56, width: 34, height: 15 },
+  { id: 'settings-textSize', x: 8, y: 74, width: 34, height: 15 },
+  { id: 'settings-auto', x: 54, y: 42, width: 34, height: 11 },
+  { id: 'settings-animationSpeed', x: 54, y: 56, width: 34, height: 15 },
+  { id: 'settings-sound', x: 54, y: 74, width: 34, height: 11 },
+  { id: 'settings-controls', x: 54, y: 88, width: 34, height: 10 },
+  { id: 'settings-preview', x: 8, y: 91, width: 34, height: 8 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyPreviousResetLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 34, height: 11 },
+  { id: 'settings-speed', x: 8, y: 56, width: 34, height: 15 },
+  { id: 'settings-textSize', x: 8, y: 74, width: 34, height: 15 },
+  { id: 'settings-auto', x: 54, y: 42, width: 34, height: 11 },
+  { id: 'settings-animationSpeed', x: 54, y: 56, width: 34, height: 15 },
+  { id: 'settings-sound', x: 54, y: 74, width: 34, height: 11 },
+  { id: 'settings-controls', x: 54, y: 86, width: 20, height: 8 },
+  { id: 'settings-preview', x: 8, y: 91, width: 34, height: 8 },
+  { id: 'settings-reset', x: 76, y: 90, width: 12, height: 7 },
+];
+
 const migrateBuiltInGamePages = (
   settings: Partial<WebExportSettings> | undefined,
   defaults: Pick<WebExportSettings, 'archivePageElements' | 'settingsPageElements'>,
 ): Partial<WebExportSettings> => {
   if (!settings) return {};
   const archiveIsLegacy = hasLegacyPageLayout(settings.archivePageElements, legacyArchiveLayout);
-  const settingsIsLegacy = hasLegacyPageLayout(settings.settingsPageElements, legacySettingsLayout);
+  const settingsIsLegacy =
+    hasLegacyPageLayout(settings.settingsPageElements, legacySettingsLayout) ||
+    hasLegacyPageLayout(settings.settingsPageElements, legacyWideSettingsLayout) ||
+    hasLegacyPageLayout(settings.settingsPageElements, legacyCompactSettingsLayout) ||
+    hasLegacyPageLayout(settings.settingsPageElements, legacyCurrentWideSettingsLayout) ||
+    hasLegacyPageLayout(settings.settingsPageElements, legacyCurrentNarrowSettingsLayout) ||
+    hasLegacyPageLayout(settings.settingsPageElements, legacyPreviousResetLayout);
   if (!archiveIsLegacy && !settingsIsLegacy) return settings;
   return {
     ...settings,
@@ -298,6 +403,13 @@ const normalizeFlowControlShapes = (settings: WebExportSettings): WebExportSetti
     const height = Number(element.height);
     if (!Number.isFinite(height) || height <= 0) return element;
     const width = Math.round(height * aspectHeightToWidth * 1000) / 1000;
+    const hasShadowData =
+      element.shadowColor !== undefined ||
+      element.shadowOpacity !== undefined ||
+      element.shadowBlur !== undefined ||
+      element.shadowOffsetX !== undefined ||
+      element.shadowOffsetY !== undefined ||
+      Boolean(element.shadows?.length);
     if (
       element.borderRadius === 999 &&
       element.width === width &&
@@ -305,7 +417,7 @@ const normalizeFlowControlShapes = (settings: WebExportSettings): WebExportSetti
       element.borderColor === 'transparent' &&
       element.borderWidth === 0 &&
       element.textColor === '#475569' &&
-      element.shadowEnabled === false
+      hasShadowData
     )
       return element;
     changed = true;
@@ -317,7 +429,7 @@ const normalizeFlowControlShapes = (settings: WebExportSettings): WebExportSetti
       borderColor: 'transparent',
       borderWidth: 0,
       textColor: '#475569',
-      shadowEnabled: false,
+      ...(hasShadowData ? {} : flowControlShadow(`${element.id}-shadow`)),
     };
   });
   return changed ? { ...settings, flowOverviewElements: normalized } : settings;

@@ -54,7 +54,13 @@ export const webElementShadowStyle = (
       );
     return values.length ? { textShadow: values.join(', ') } : {};
   }
-  if (element.shadowEnabled === false) return {};
+  if (
+    element.shadowEnabled === false ||
+    (target === 'box' &&
+      element.kind === 'button' &&
+      (element.buttonShadowMode === 'hover' || element.buttonShadowMode === 'none'))
+  )
+    return {};
   const shadows = element.shadows?.length
     ? element.shadows
     : [
@@ -210,7 +216,20 @@ export const webElementBorderStyle = (element: WebMenuElement): CSSProperties =>
   webElementBorderParts(element).style;
 
 export const webElementBoxStyle = (element: WebMenuElement): CSSProperties => {
-  if (element.appearance) return appearanceStyle(element.appearance);
+  if (element.appearance) {
+    const appearance =
+      element.kind === 'button' &&
+      (element.buttonShadowMode === 'hover' || element.buttonShadowMode === 'none')
+        ? {
+            ...element.appearance,
+            shadows: element.appearance.shadows.map((shadow) => ({
+              ...shadow,
+              enabled: false,
+            })),
+          }
+        : element.appearance;
+    return appearanceStyle(appearance);
+  }
   const border = webElementBorderParts(element);
   const shadow = webElementShadowStyle(element, 'box');
   const shadows = [border.shadow, shadow.boxShadow].filter(Boolean).join(', ');

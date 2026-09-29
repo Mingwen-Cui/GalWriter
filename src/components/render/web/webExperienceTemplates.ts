@@ -201,15 +201,15 @@ export const buildRehearsalSettingsPageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const positions: Record<string, [number, number, number, number]> = {
-    mode: [8, 42, 30, 10],
-    speed: [8, 55, 30, 12],
-    textSize: [8, 70, 30, 12],
-    preview: [8, 85, 30, 10],
-    auto: [40, 42, 30, 10],
-    animationSpeed: [40, 55, 30, 12],
-    sound: [40, 70, 30, 10],
-    controls: [40, 85, 30, 10],
-    reset: [24, 29, 14, 7],
+    mode: [8, 42, 26, 11],
+    speed: [8, 56, 26, 15],
+    textSize: [8, 74, 26, 15],
+    preview: [8, 91, 26, 8],
+    auto: [38, 42, 26, 11],
+    animationSpeed: [38, 56, 26, 15],
+    sound: [38, 74, 26, 11],
+    controls: [38, 88, 26, 8],
+    reset: [72, 88, 16, 8],
   };
   return [
     text(
@@ -235,17 +235,17 @@ export const buildRehearsalSettingsPageElements = (
     ),
     ...playerControlCatalog(language).map(({ id, label, forms }) => ({
       ...button(`settings-${id}`, id, label, ...positions[id], choiceColor, choiceTextColor),
-      fontSize: id === 'reset' ? 14 : 15,
+      fontSize: id === 'reset' ? 13 : 15,
       textAlign: 'left' as const,
-      textColor: id === 'reset' ? '#ffffff' : '#334155',
-      backgroundColor: id === 'reset' ? '#625bf6' : '#ffffff',
-      borderColor: id === 'reset' ? '#4f46c5' : 'rgba(15,23,42,0.28)',
-      borderWidth: id === 'reset' ? 1.5 : 1,
-      borderRadius: id === 'reset' ? 999 : 14,
+      textColor: id === 'reset' ? '#4f46e5' : '#334155',
+      backgroundColor: id === 'reset' ? '#eef2ff' : '#ffffff',
+      borderColor: id === 'reset' ? '#c7d2fe' : 'rgba(15,23,42,0.28)',
+      borderWidth: 1,
+      borderRadius: id === 'reset' ? 12 : 14,
       shadowColor: '#0f172a',
-      shadowOpacity: id === 'reset' ? 18 : 12,
-      shadowBlur: id === 'reset' ? 24 : 16,
-      shadowOffsetY: id === 'reset' ? 8 : 6,
+      shadowOpacity: id === 'reset' ? 10 : 12,
+      shadowBlur: id === 'reset' ? 14 : 16,
+      shadowOffsetY: id === 'reset' ? 4 : 6,
       settingsControlForm: forms[0],
     })),
   ].map((element) =>
@@ -260,6 +260,25 @@ export const buildRehearsalToolbarElements = (
   canvasWidth = 1920,
   canvasHeight = 1080,
 ): WebMenuElement[] => {
+  const toolbarShadow = {
+    shadowEnabled: true,
+    shadowColor: '#0f172a',
+    shadowOpacity: 14,
+    shadowBlur: 14,
+    shadowOffsetX: 0,
+    shadowOffsetY: 6,
+    shadows: [
+      {
+        id: 'toolbar-control-shadow',
+        type: 'outer' as const,
+        color: '#0f172a',
+        opacity: 14,
+        blur: 14,
+        offsetX: 0,
+        offsetY: 6,
+      },
+    ],
+  };
   const toolbarButton = (
     id: string,
     role: WebMenuElement['role'],
@@ -271,6 +290,7 @@ export const buildRehearsalToolbarElements = (
     fontSize: 12,
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 9999,
+    ...toolbarShadow,
     textVisible: false,
     toolbarLayoutVersion: 2,
   });
@@ -341,6 +361,34 @@ export const resolveWebToolbarElements = (
   const defaults = buildRehearsalToolbarElements(language, canvasWidth, canvasHeight);
   if (!elements?.length) return defaults;
   const builtInIds = new Set(defaults.map((element) => element.id));
+  const withBuiltInShadow = (element: WebMenuElement, fallback: WebMenuElement) => {
+    const hasShadowData =
+      element.shadowColor !== undefined ||
+      element.shadowOpacity !== undefined ||
+      element.shadowBlur !== undefined ||
+      element.shadowOffsetX !== undefined ||
+      element.shadowOffsetY !== undefined ||
+      Boolean(element.shadows?.length);
+    return hasShadowData || element.shadowEnabled !== undefined
+      ? element
+      : {
+          ...element,
+          shadowEnabled: fallback.shadowEnabled,
+          shadowColor: fallback.shadowColor,
+          shadowOpacity: fallback.shadowOpacity,
+          shadowBlur: fallback.shadowBlur,
+          shadowOffsetX: fallback.shadowOffsetX,
+          shadowOffsetY: fallback.shadowOffsetY,
+          shadows: fallback.shadows,
+        };
+  };
+  const withBuiltInDefaults = (values: WebMenuElement[]) =>
+    values.map((element) => {
+      const fallback = defaults.find((candidate) => candidate.id === element.id);
+      return fallback && builtInIds.has(element.id)
+        ? withBuiltInShadow(element, fallback)
+        : element;
+    });
   const isLegacyRow =
     elements.some((element) => builtInIds.has(element.id)) &&
     (!elements.some((element) => element.id === 'toolbar-auto') ||
@@ -349,7 +397,7 @@ export const resolveWebToolbarElements = (
     const row = defaults.map((fallback) => {
       const previous = elements.find((element) => element.id === fallback.id);
       if (!previous) return fallback;
-      return {
+      return withBuiltInShadow({
         ...previous,
         x: fallback.x,
         y: fallback.y,
@@ -361,7 +409,7 @@ export const resolveWebToolbarElements = (
         text: ['mainMenu', 'return', 'controlsToggle'].includes(fallback.role || '')
           ? fallback.text
           : previous.text || fallback.text,
-      };
+      }, fallback);
     });
     return arrangeToolbarRow(
       [...row, ...elements.filter((element) => !builtInIds.has(element.id))],
@@ -369,7 +417,8 @@ export const resolveWebToolbarElements = (
       canvasHeight,
     );
   }
-  if (elements.some((element) => element.role === 'history')) return elements;
+  if (elements.some((element) => element.role === 'history'))
+    return withBuiltInDefaults(elements);
   const history = defaults.find((element) => element.role === 'history')!;
   let candidate = { ...history };
   for (let y = 2.4; y <= 18; y += 6) {
@@ -385,11 +434,11 @@ export const resolveWebToolbarElements = (
         )
       ) {
         candidate = { ...candidate, x, y };
-        return [...elements, candidate];
+        return withBuiltInDefaults([...elements, candidate]);
       }
     }
   }
-  return [...elements, candidate];
+  return withBuiltInDefaults([...elements, candidate]);
 };
 
 export const buildRehearsalStartMenuElements = (

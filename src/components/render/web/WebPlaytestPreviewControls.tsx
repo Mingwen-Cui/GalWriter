@@ -36,6 +36,7 @@ import {
 } from './webElementAlignmentGuides';
 import { webColorWithAlpha, webElementBoxStyle, webElementShadowStyle } from './webElementStyle';
 import { readStartMenuImageFile } from './webPlaytestStartMenuTools';
+import { webButtonMotionStyle } from './webButtonMotion';
 
 export type PlayedAudio = {
   nodeId: string;
@@ -751,6 +752,24 @@ function ToolbarElement({
       : element.textAlign === 'right'
         ? 'flex-end'
         : 'center';
+  const elementBoxStyle =
+    element.kind !== 'text' || element.textStrokeTarget === 'box'
+      ? webElementBoxStyle(element)
+      : {};
+  const motionBoxStyle =
+    toolbarControl &&
+    element.kind === 'button' &&
+    element.buttonShadowMode &&
+    element.buttonShadowMode !== 'always'
+      ? webElementBoxStyle({ ...element, buttonShadowMode: 'always' })
+      : elementBoxStyle;
+  const buttonMotionStyle =
+    toolbarControl && element.kind === 'button'
+      ? webButtonMotionStyle(
+          element,
+          typeof motionBoxStyle.boxShadow === 'string' ? motionBoxStyle.boxShadow : 'none',
+        )
+      : {};
   const beginDrag = (
     event: React.PointerEvent<HTMLElement>,
     type: 'move' | 'resize' | 'rotate',
@@ -914,6 +933,10 @@ function ToolbarElement({
       aria-label={displayLabel || element.text || toolbarRoleLabels[element.role!] || undefined}
       title={displayLabel || element.text || toolbarRoleLabels[element.role!] || undefined}
       aria-pressed={icon ? active : undefined}
+      data-gw-button-motion={toolbarControl && element.kind === 'button' ? 'true' : undefined}
+      data-gw-button-motion-editing={
+        toolbarControl && element.kind === 'button' && editable ? 'true' : undefined
+      }
       className={`${toolbarControl ? `gw-playback-control ${element.textVisible !== false ? 'gw-playback-control-with-label' : ''}` : ''} pointer-events-auto absolute text-xs font-black text-white ${
         element.kind === 'text'
           ? 'bg-transparent shadow-none'
@@ -937,9 +960,8 @@ function ToolbarElement({
             element.kind === 'button' && element.fillEnabled !== false && element.backgroundColor
               ? element.backgroundColor
               : undefined,
-          ...(element.kind !== 'text' || element.textStrokeTarget === 'box'
-            ? webElementBoxStyle(element)
-            : {}),
+          ...elementBoxStyle,
+          ...buttonMotionStyle,
           color: element.textColor || undefined,
           fontFamily: element.fontFamily || undefined,
           fontSize: element.fontSize || undefined,
@@ -956,7 +978,12 @@ function ToolbarElement({
           ...(element.kind === 'text' ? webElementShadowStyle(element, 'text') : {}),
           cursor: editable ? 'grab' : undefined,
           ...(element.appearance
-            ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
+            ? {
+                background: 'transparent',
+                ...(toolbarControl ? {} : { boxShadow: 'none' }),
+                border: 0,
+                outline: 0,
+              }
             : {}),
         } as React.CSSProperties
       }

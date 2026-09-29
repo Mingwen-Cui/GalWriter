@@ -1,4 +1,5 @@
-import type React from 'react';
+import React, { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import {
@@ -27,6 +28,7 @@ type WebPlaytestNameplatesProps = {
   items: NameplateItem[];
   renderStyle: RenderStyle;
   dialogWidth: number;
+  previewRootRef?: RefObject<HTMLElement | null>;
   previewMode?: 'edit' | 'test';
   onSelectRenderObject?: (kind: RenderEditableObjectKind) => void;
   onMoveRenderObject?: (kind: RenderEditableObjectKind, x: number, y: number) => void;
@@ -42,6 +44,7 @@ export function WebPlaytestNameplates({
   items,
   renderStyle,
   dialogWidth,
+  previewRootRef,
   previewMode = 'test',
   onSelectRenderObject,
   onMoveRenderObject,
@@ -49,6 +52,40 @@ export function WebPlaytestNameplates({
   onGuideLinesChange,
   selectedRenderObjectKinds,
 }: WebPlaytestNameplatesProps) {
+  const followLayerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!renderStyle.nameplateFollowCharacter) return;
+
+    let frame = 0;
+    const syncFollowPositions = () => {
+      const layer = followLayerRef.current;
+      const dialogue = layer?.closest<HTMLElement>('[data-dialogue-box]');
+      const stage = previewRootRef?.current?.querySelector<HTMLElement>('[data-story-visual]');
+      if (layer && dialogue && stage) {
+        const dialogueRect = dialogue.getBoundingClientRect();
+        const logicalWidth = dialogue.offsetWidth || dialogueRect.width;
+        const scaleX = logicalWidth > 0 ? dialogueRect.width / logicalWidth : 1;
+        layer.querySelectorAll<HTMLElement>('[data-follow-source-id]').forEach((nameplate) => {
+          const sourceNodeId = nameplate.dataset.followSourceId;
+          if (!sourceNodeId) return;
+          const character = stage.querySelector<HTMLElement>(
+            `[data-character-source-id="${CSS.escape(sourceNodeId)}"]`,
+          );
+          const characterRect = character?.getBoundingClientRect();
+          if (!characterRect || characterRect.width <= 0) return;
+          const centerX =
+            (characterRect.left + characterRect.width / 2 - dialogueRect.left) /
+            Math.max(0.001, scaleX);
+          nameplate.style.left = `${centerX}px`;
+        });
+      }
+      frame = requestAnimationFrame(syncFollowPositions);
+    };
+
+    frame = requestAnimationFrame(syncFollowPositions);
+    return () => cancelAnimationFrame(frame);
+  }, [items, previewRootRef, renderStyle.nameplateFollowCharacter]);
+
   const objects = getRenderObjects(renderStyle);
   const nameplateObject = objects.nameplate;
   if (!nameplateObject.visible || !items.length) return null;
@@ -250,7 +287,12 @@ export function WebPlaytestNameplates({
         }}
         onResizePointerDown={startNameplateResize}
       />
-    ) : null;
+      ) : null;
+
+  const followNameplateProps = (sourceNodeId: string) =>
+    renderStyle.nameplateFollowCharacter
+      ? { 'data-follow-source-id': sourceNodeId }
+      : {};
 
   if (!renderStyle.nameplateFollowCharacter) {
     if (renderStyle.nameplateInside) {
@@ -321,6 +363,7 @@ export function WebPlaytestNameplates({
   if (renderStyle.nameplateInside) {
     return (
       <div
+        ref={followLayerRef}
         className="pointer-events-none relative z-10"
         style={{ minHeight: rowHeight, marginBottom: textGap }}
       >
@@ -335,6 +378,7 @@ export function WebPlaytestNameplates({
               key={item.sourceNodeId}
               className={`pointer-events-auto absolute top-0 cursor-grab font-black ${editClass}`}
               data-render-object="nameplate"
+              {...followNameplateProps(item.sourceNodeId)}
               style={{
                 ...baseStyle,
                 left: `${localLeft}%`,
@@ -358,7 +402,7 @@ export function WebPlaytestNameplates({
     );
   }
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10">
+    <div ref={followLayerRef} className="pointer-events-none absolute inset-x-0 top-0 z-10">
       {items.map((item) => {
         const characterPercent = getNameplateCharacterCenterX(item.config, 100);
         const localLeft = Math.max(
@@ -370,6 +414,7 @@ export function WebPlaytestNameplates({
             key={item.sourceNodeId}
             className={`pointer-events-auto absolute top-0 cursor-grab font-black ${editClass}`}
             data-render-object="nameplate"
+            {...followNameplateProps(item.sourceNodeId)}
             style={{
               ...baseStyle,
               left: `${localLeft}%`,

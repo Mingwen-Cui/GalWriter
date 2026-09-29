@@ -162,7 +162,12 @@ export function WebPlaytestStartMenuElement({
       : 0.34,
   };
   const elementBoxStyle = element.kind === 'button' ? webElementBoxStyle(element) : {};
-  const { boxShadow: _baseBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
+  const motionBoxStyle =
+    element.kind === 'button' && element.buttonShadowMode && element.buttonShadowMode !== 'always'
+      ? webElementBoxStyle({ ...element, buttonShadowMode: 'always' })
+      : elementBoxStyle;
+  const { boxShadow: _baseBoxShadow } = motionBoxStyle;
+  const { boxShadow: _visibleBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
   const buttonMotionStyle =
     element.kind === 'button'
       ? webButtonMotionStyle(element, typeof _baseBoxShadow === 'string' ? _baseBoxShadow : 'none')
@@ -506,7 +511,11 @@ export function WebPlaytestStartMenuElement({
           }}
         >
           {element.appearance && (
-            <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
+            <SurfaceLayers
+              value={element.appearance}
+              radius={element.borderRadius || 0}
+              shadowMode={element.kind === 'button' ? element.buttonShadowMode : undefined}
+            />
           )}
 
           {!element.appearance &&

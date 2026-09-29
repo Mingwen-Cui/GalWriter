@@ -65,12 +65,14 @@ import type {
   RenderCustomFont,
   RenderFillType,
   RenderFontFamilyOption,
-  WebButtonMotion,
-  WebButtonMotionState,
   WebMenuElement,
 } from '../video/shared/types';
 import { formatWebText, getWebShadowOrdinal, getWebStructuredText } from './i18n';
-import { resolveWebButtonMotion, type ResolvedWebButtonMotionState } from './webButtonMotion';
+import {
+  buttonMotionForPreset,
+  resolveWebButtonMotionPreset,
+  type WebButtonMotionPreset,
+} from './webButtonMotion';
 import { webImageFillBackgroundColor } from './webElementStyle';
 import { normalizeGradientStops } from './webGradientStops';
 
@@ -441,7 +443,8 @@ export function StartMenuElementInspector({
   const [radiusPopoverOpen, setRadiusPopoverOpen] = useState(false);
   const [fillBlendMenuOpen, setFillBlendMenuOpen] = useState(false);
   const [textBlendMenuOpen, setTextBlendMenuOpen] = useState(false);
-  const buttonMotion = resolveWebButtonMotion(element.buttonMotion);
+  const buttonMotionPreset = resolveWebButtonMotionPreset(element.buttonMotion);
+  const buttonShadowMode = element.buttonShadowMode || 'always';
   const layerEntries = (layerElements || [element]).map((item) => ({
     id: item.id,
     name: item.text || item.kind,
@@ -456,17 +459,6 @@ export function StartMenuElementInspector({
       changes.forEach((change) => onLayerUpdate(change.id, { zIndex: change.z }));
     else if (changes.length > 0) onUpdate({ zIndex: changes[0].z });
   };
-  const updateButtonMotionState = (
-    stateKey: ButtonMotionStateKey,
-    patch: Partial<WebButtonMotionState>,
-  ) =>
-    onUpdate({
-      buttonMotion: {
-        ...(element.buttonMotion || {}),
-        [stateKey]: { ...buttonMotion[stateKey], ...patch },
-      },
-    });
-
   useEffect(() => {
     if (!popover) return;
     const dismissPopover = (event: PointerEvent) => {
@@ -1317,79 +1309,11 @@ export function StartMenuElementInspector({
           secondary={null}
         >
           <div className="space-y-2">
-            <ButtonMotionStateEditor
+            <ButtonMotionPresetControl
               language={language}
-              stateKey="hover"
-              state={buttonMotion.hover}
-              onChange={(patch) => updateButtonMotionState('hover', patch)}
+              value={buttonMotionPreset}
+              onChange={(preset) => onUpdate({ buttonMotion: buttonMotionForPreset(preset) })}
             />
-            <ButtonMotionStateEditor
-              language={language}
-              stateKey="pressed"
-              state={buttonMotion.pressed}
-              onChange={(patch) => updateButtonMotionState('pressed', patch)}
-            />
-            <label className="block space-y-1">
-              <span className="property-field-label">
-                {formatWebText(
-                  language,
-                  'componentsrenderwebStartMenuElementInspectorButtonMotionOrigin',
-                )}
-              </span>
-              <select
-                className="h-8 w-full rounded-md bg-white px-2 text-xs text-slate-800"
-                value={buttonMotion.transformOrigin}
-                onChange={(event) =>
-                  onUpdate({
-                    buttonMotion: {
-                      ...(element.buttonMotion || {}),
-                      transformOrigin: event.target.value,
-                    } as WebButtonMotion,
-                  })
-                }
-              >
-                <option value="center center">
-                  {formatWebText(
-                    language,
-                    'componentsrenderwebStartMenuElementInspectorButtonMotionCenter',
-                  )}
-                </option>
-                <option value="left center">
-                  {formatWebText(
-                    language,
-                    'componentsrenderwebStartMenuElementInspectorButtonMotionLeft',
-                  )}
-                </option>
-                <option value="right center">
-                  {formatWebText(
-                    language,
-                    'componentsrenderwebStartMenuElementInspectorButtonMotionRight',
-                  )}
-                </option>
-                <option value="center top">
-                  {formatWebText(
-                    language,
-                    'componentsrenderwebStartMenuElementInspectorButtonMotionTop',
-                  )}
-                </option>
-                <option value="center bottom">
-                  {formatWebText(
-                    language,
-                    'componentsrenderwebStartMenuElementInspectorButtonMotionBottom',
-                  )}
-                </option>
-              </select>
-            </label>
-            <button
-              type="button"
-              className="h-8 w-full rounded-md bg-white text-xs font-bold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
-              onClick={() => onUpdate({ buttonMotion: undefined })}
-            >
-              {formatWebText(
-                language,
-                'componentsrenderwebStartMenuElementInspectorButtonMotionReset',
-              )}
-            </button>
           </div>
         </Group>
       )}
@@ -1407,6 +1331,12 @@ export function StartMenuElementInspector({
           onUpdate({
             appearance: element.kind === 'image' ? { ...appearance, fills: [] } : appearance,
           })
+        }
+        buttonShadowMode={showButtonMotion && element.kind === 'button' ? buttonShadowMode : undefined}
+        onButtonShadowModeChange={
+          showButtonMotion && element.kind === 'button'
+            ? (mode) => onUpdate({ buttonShadowMode: mode })
+            : undefined
         }
       />
 
@@ -1548,132 +1478,51 @@ function SettingDescription({
   );
 }
 
-type ButtonMotionStateKey = 'hover' | 'pressed';
-
-function ButtonMotionStateEditor({
+function ButtonMotionPresetControl({
   language,
-  stateKey,
-  state,
+  value,
   onChange,
 }: {
   language: Language;
-  stateKey: ButtonMotionStateKey;
-  state: ResolvedWebButtonMotionState;
-  onChange: (patch: Partial<WebButtonMotionState>) => void;
+  value: WebButtonMotionPreset;
+  onChange: (value: WebButtonMotionPreset) => void;
 }) {
   const prefix = 'componentsrenderwebStartMenuElementInspectorButtonMotion';
-  const title = formatWebText(
-    language,
-    `${prefix}${stateKey === 'hover' ? 'Hover' : 'Pressed'}` as Parameters<typeof formatWebText>[1],
-  );
-  const enabledLabel = formatWebText(
-    language,
-    `${prefix}Enabled` as Parameters<typeof formatWebText>[1],
-  );
-  const labels = {
-    scale: formatWebText(language, `${prefix}Scale` as Parameters<typeof formatWebText>[1]),
-    translateX: formatWebText(
-      language,
-      `${prefix}TranslateX` as Parameters<typeof formatWebText>[1],
-    ),
-    translateY: formatWebText(
-      language,
-      `${prefix}TranslateY` as Parameters<typeof formatWebText>[1],
-    ),
-    rotate: formatWebText(language, `${prefix}Rotate` as Parameters<typeof formatWebText>[1]),
-    duration: formatWebText(language, `${prefix}Duration` as Parameters<typeof formatWebText>[1]),
-    easing: formatWebText(language, `${prefix}Easing` as Parameters<typeof formatWebText>[1]),
-    shadow: formatWebText(language, `${prefix}Shadow` as Parameters<typeof formatWebText>[1]),
-  };
-  const motionText = (suffix: string) =>
-    formatWebText(language, `${prefix}${suffix}` as Parameters<typeof formatWebText>[1]);
+  const options: Array<{ value: WebButtonMotionPreset; label: string; hint: string }> = [
+    {
+      value: 'none',
+      label: formatWebText(language, `${prefix}PresetNone` as Parameters<typeof formatWebText>[1]),
+      hint: formatWebText(language, `${prefix}PresetNoneHint` as Parameters<typeof formatWebText>[1]),
+    },
+    {
+      value: 'soft',
+      label: formatWebText(language, `${prefix}PresetSoft` as Parameters<typeof formatWebText>[1]),
+      hint: formatWebText(language, `${prefix}PresetSoftHint` as Parameters<typeof formatWebText>[1]),
+    },
+    {
+      value: 'strong',
+      label: formatWebText(language, `${prefix}PresetStrong` as Parameters<typeof formatWebText>[1]),
+      hint: formatWebText(language, `${prefix}PresetStrongHint` as Parameters<typeof formatWebText>[1]),
+    },
+  ];
   return (
-    <div className="space-y-2 rounded-lg bg-white/60 p-2">
-      <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-700">
-        <span>{title}</span>
-        <label className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
-          <input
-            type="checkbox"
-            checked={state.enabled}
-            onChange={(event) => onChange({ enabled: event.target.checked })}
-            className="accent-indigo-600"
-          />
-          {enabledLabel}
-        </label>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <NumberField
-          label={labels.scale}
-          value={state.scale}
-          min={0.85}
-          max={1.2}
-          step={0.01}
-          onChange={(scale) => onChange({ scale })}
-        />
-        <NumberField
-          label={labels.rotate}
-          value={state.rotate}
-          min={-12}
-          max={12}
-          step={1}
-          onChange={(rotate) => onChange({ rotate })}
-        />
-        <NumberField
-          label={labels.translateX}
-          value={state.translateX}
-          min={-24}
-          max={24}
-          step={1}
-          onChange={(translateX) => onChange({ translateX })}
-        />
-        <NumberField
-          label={labels.translateY}
-          value={state.translateY}
-          min={-24}
-          max={24}
-          step={1}
-          onChange={(translateY) => onChange({ translateY })}
-        />
-        <NumberField
-          label={labels.duration}
-          value={state.duration}
-          min={0}
-          max={1200}
-          step={10}
-          onChange={(duration) => onChange({ duration })}
-        />
-        <label className="min-w-0 space-y-1">
-          <span className="property-field-label">{labels.easing}</span>
-          <select
-            className="h-8 w-full rounded-md bg-white px-2 text-xs text-slate-800"
-            value={state.easing}
-            onChange={(event) =>
-              onChange({ easing: event.target.value as WebButtonMotionState['easing'] })
-            }
-          >
-            <option value="ease">{motionText('Ease')}</option>
-            <option value="linear">{motionText('Linear')}</option>
-            <option value="ease-in">{motionText('EaseIn')}</option>
-            <option value="ease-out">{motionText('EaseOut')}</option>
-            <option value="ease-in-out">{motionText('EaseInOut')}</option>
-          </select>
-        </label>
-      </div>
-      <label className="block space-y-1">
-        <span className="property-field-label">{labels.shadow}</span>
-        <select
-          className="h-8 w-full rounded-md bg-white px-2 text-xs text-slate-800"
-          value={state.shadow}
-          onChange={(event) =>
-            onChange({ shadow: event.target.value as WebButtonMotionState['shadow'] })
-          }
+    <div className="grid grid-cols-3 gap-2">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={`min-h-14 rounded-xl border px-2 py-2 text-left transition-colors ${
+            value === option.value
+              ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
+              : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50'
+          }`}
+          aria-pressed={value === option.value}
         >
-          <option value="same">{motionText('Same')}</option>
-          <option value="lift">{motionText('Lift')}</option>
-          <option value="inset">{motionText('Inset')}</option>
-          <option value="none">{motionText('None')}</option>
-        </select>
-      </label>
+          <span className="block text-xs font-bold">{option.label}</span>
+          <span className="mt-1 block text-[10px] leading-4 text-slate-400">{option.hint}</span>
+        </button>
+      ))}
     </div>
   );
 }

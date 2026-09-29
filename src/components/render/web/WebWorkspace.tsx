@@ -107,6 +107,76 @@ const legacySettingsLayout: LegacyPageElementPosition[] = [
   { id: 'settings-reset', x: 54, y: 10, width: 24, height: 7 },
 ];
 
+const legacyWideSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 42, height: 10 },
+  { id: 'settings-speed', x: 8, y: 55, width: 42, height: 12 },
+  { id: 'settings-textSize', x: 8, y: 70, width: 42, height: 12 },
+  { id: 'settings-auto', x: 50, y: 42, width: 42, height: 10 },
+  { id: 'settings-animationSpeed', x: 50, y: 55, width: 42, height: 12 },
+  { id: 'settings-sound', x: 50, y: 70, width: 42, height: 10 },
+  { id: 'settings-controls', x: 50, y: 85, width: 42, height: 10 },
+  { id: 'settings-preview', x: 8, y: 85, width: 42, height: 10 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyCompactSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 30, height: 10 },
+  { id: 'settings-speed', x: 8, y: 55, width: 30, height: 12 },
+  { id: 'settings-textSize', x: 8, y: 70, width: 30, height: 12 },
+  { id: 'settings-auto', x: 40, y: 42, width: 30, height: 10 },
+  { id: 'settings-animationSpeed', x: 40, y: 55, width: 30, height: 12 },
+  { id: 'settings-sound', x: 40, y: 70, width: 30, height: 10 },
+  { id: 'settings-controls', x: 40, y: 85, width: 30, height: 10 },
+  { id: 'settings-preview', x: 8, y: 85, width: 30, height: 10 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyCurrentWideSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 42, height: 11 },
+  { id: 'settings-speed', x: 8, y: 56, width: 42, height: 15 },
+  { id: 'settings-textSize', x: 8, y: 74, width: 42, height: 15 },
+  { id: 'settings-auto', x: 50, y: 42, width: 42, height: 11 },
+  { id: 'settings-animationSpeed', x: 50, y: 56, width: 42, height: 15 },
+  { id: 'settings-sound', x: 50, y: 74, width: 42, height: 11 },
+  { id: 'settings-controls', x: 50, y: 88, width: 42, height: 10 },
+  { id: 'settings-preview', x: 8, y: 91, width: 42, height: 8 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyCurrentNarrowSettingsLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 34, height: 11 },
+  { id: 'settings-speed', x: 8, y: 56, width: 34, height: 15 },
+  { id: 'settings-textSize', x: 8, y: 74, width: 34, height: 15 },
+  { id: 'settings-auto', x: 54, y: 42, width: 34, height: 11 },
+  { id: 'settings-animationSpeed', x: 54, y: 56, width: 34, height: 15 },
+  { id: 'settings-sound', x: 54, y: 74, width: 34, height: 11 },
+  { id: 'settings-controls', x: 54, y: 88, width: 34, height: 10 },
+  { id: 'settings-preview', x: 8, y: 91, width: 34, height: 8 },
+  { id: 'settings-reset', x: 24, y: 29, width: 14, height: 7 },
+];
+
+const legacyPreviousResetLayout: LegacyPageElementPosition[] = [
+  { id: 'settings-title', x: 8, y: 16, width: 48, height: 10 },
+  { id: 'settings-back', x: 8, y: 29, width: 14, height: 7 },
+  { id: 'settings-mode', x: 8, y: 42, width: 34, height: 11 },
+  { id: 'settings-speed', x: 8, y: 56, width: 34, height: 15 },
+  { id: 'settings-textSize', x: 8, y: 74, width: 34, height: 15 },
+  { id: 'settings-auto', x: 54, y: 42, width: 34, height: 11 },
+  { id: 'settings-animationSpeed', x: 54, y: 56, width: 34, height: 15 },
+  { id: 'settings-sound', x: 54, y: 74, width: 34, height: 11 },
+  { id: 'settings-controls', x: 54, y: 86, width: 20, height: 8 },
+  { id: 'settings-preview', x: 8, y: 91, width: 34, height: 8 },
+  { id: 'settings-reset', x: 76, y: 90, width: 12, height: 7 },
+];
+
 const resolveHomepageTemplateAssetUrl = (template: HomepageCoverTemplate, value: string) => {
   if (!value.trim()) return value;
   const knownAssetUrl = resolveKnownAppAssetUrl(value);
@@ -828,10 +898,13 @@ export function WebWorkspace({
       ? defaultArchivePageElements
       : webSettings.archivePageElements
     : defaultArchivePageElements;
-  const settingsPageElements = hasLegacyPageLayout(
-    webSettings.settingsPageElements,
-    legacySettingsLayout,
-  )
+  const settingsPageElements =
+    hasLegacyPageLayout(webSettings.settingsPageElements, legacySettingsLayout) ||
+    hasLegacyPageLayout(webSettings.settingsPageElements, legacyWideSettingsLayout) ||
+    hasLegacyPageLayout(webSettings.settingsPageElements, legacyCompactSettingsLayout) ||
+    hasLegacyPageLayout(webSettings.settingsPageElements, legacyCurrentWideSettingsLayout) ||
+    hasLegacyPageLayout(webSettings.settingsPageElements, legacyCurrentNarrowSettingsLayout) ||
+    hasLegacyPageLayout(webSettings.settingsPageElements, legacyPreviousResetLayout)
     ? defaultSettingsPageElements
     : resolveSettingsPageElements(webSettings, language, webChoiceColor, webChoiceTextColor);
   const resolvedToolbarElements = resolveWebToolbarElements(

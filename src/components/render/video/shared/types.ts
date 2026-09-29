@@ -294,6 +294,8 @@ export type WebButtonMotionState = {
   shadow?: 'same' | 'lift' | 'inset' | 'none';
 };
 
+export type WebButtonShadowMode = 'always' | 'hover' | 'none';
+
 export type WebButtonMotion = {
   hover?: WebButtonMotionState;
   pressed?: WebButtonMotionState;
@@ -368,6 +370,8 @@ export type WebMenuElement = {
   fillEnabled?: boolean;
   strokeEnabled?: boolean;
   shadowEnabled?: boolean;
+  /** Web-only button shadow behavior: always visible, hover only, or disabled. */
+  buttonShadowMode?: WebButtonShadowMode;
   textAlign?: TextAlign;
   letterSpacing?: number;
   lineHeight?: number;

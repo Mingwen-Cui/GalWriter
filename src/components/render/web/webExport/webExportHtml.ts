@@ -393,7 +393,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       }).join(", ");
     }
     function customBoxShadow(element) {
-      if (element.shadowEnabled === false) return "";
+      if (element.shadowEnabled === false || (element.kind === "button" && element.buttonShadowMode && element.buttonShadowMode !== "always")) return "";
       const shadows = Array.isArray(element.shadows) && element.shadows.length
         ? element.shadows.slice(0, 6)
         : [{ type: element.shadowType, color: element.shadowColor, opacity: element.shadowOpacity, blur: element.shadowBlur, offsetX: element.shadowOffsetX, offsetY: element.shadowOffsetY }];
@@ -413,7 +413,12 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     }
     ${appearanceRuntimeScript}
     function applyCustomBoxEffects(target, element) {
-      if(element.appearance){gwAppearance(target,element.appearance);return;}
+      if(element.appearance){
+        const appearance = element.kind === "button" && element.buttonShadowMode && element.buttonShadowMode !== "always"
+          ? Object.assign({}, element.appearance, { shadows: (element.appearance.shadows || []).map(function(shadow) { return Object.assign({}, shadow, { enabled: false }); }) })
+          : element.appearance;
+        gwAppearance(target,appearance);return;
+      }
       const width = element.strokeEnabled === false ? 0 : Math.max(0, Number(element.borderWidth) || 0);
       const shadows = [];
       target.style.border = "";
@@ -562,9 +567,13 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       target.style.setProperty("--gw-button-motion-pressed-duration", number(pressed.duration, 0, 1200, 80) + "ms");
       target.style.setProperty("--gw-button-motion-hover-easing", motionEasing(hover.easing, "ease-out"));
       target.style.setProperty("--gw-button-motion-pressed-easing", motionEasing(pressed.easing, "ease-in"));
-      target.style.setProperty("--gw-button-motion-base-shadow", baseShadow);
-      target.style.setProperty("--gw-button-motion-hover-shadow", hover.enabled === false ? baseShadow : motionShadow(hover.shadow, baseShadow, "none"));
-      target.style.setProperty("--gw-button-motion-pressed-shadow", pressed.enabled === false ? baseShadow : motionShadow(pressed.shadow, baseShadow, "none"));
+      const shadowMode = element.buttonShadowMode || "always";
+      const visibleBaseShadow = shadowMode === "always" ? baseShadow : "none";
+      const hoverShadow = shadowMode === "none" ? "none" : hover.enabled === false ? baseShadow : motionShadow(hover.shadow, baseShadow, "none");
+      const pressedShadow = shadowMode === "none" ? "none" : pressed.enabled === false ? baseShadow : motionShadow(pressed.shadow, baseShadow, "none");
+      target.style.setProperty("--gw-button-motion-base-shadow", visibleBaseShadow);
+      target.style.setProperty("--gw-button-motion-hover-shadow", hoverShadow);
+      target.style.setProperty("--gw-button-motion-pressed-shadow", pressedShadow);
     }
     function dialogueBackground() {
       if (style.dialogBackgroundType === "image" && style.dialogImageUrl) {

@@ -227,7 +227,7 @@ export function mountWebEnding(
 }
 
 export const WEB_PLAYBACK_UI_CSS = `
-.gw-playback-control { min-height:0; max-height:none; min-width:0; box-sizing:border-box; aspect-ratio:1; padding:0!important; display:inline-flex; align-items:center; justify-content:center; border-radius:9999px!important; border:0!important; background:#f1f5f9!important; color:#475569!important; box-shadow:none!important; font-weight:700; line-height:1; transition:background .15s,transform .15s; }
+.gw-playback-control { min-height:0; max-height:none; min-width:0; box-sizing:border-box; aspect-ratio:1; padding:0!important; display:inline-flex; align-items:center; justify-content:center; border-radius:9999px!important; border:0!important; background:#f1f5f9!important; color:#475569!important; font-weight:700; line-height:1; transition:background .15s,transform .15s; }
 .gw-playback-control > .gw-playback-control-content { min-width:0; padding:0!important; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
 [data-virtual-presentation-host]:fullscreen { width:100vw!important; height:100vh!important; max-width:none!important; max-height:none!important; background:#020617; }
 .gw-playback-control-with-label { aspect-ratio:auto; }
