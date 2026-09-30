@@ -398,6 +398,10 @@ export function PptWorkspace({
   const slideElements = pptSettings.slideElements || {};
   const slideBackgroundColors: PptSlideBackgroundColors = pptSettings.slideBackgroundColors || {};
   const slideBackgroundStyles: PptSlideBackgroundStyles = pptSettings.slideBackgroundStyles || {};
+  const slideBackgroundStylesForPreview: PptSlideBackgroundStyles = {
+    ...slideBackgroundStyles,
+    cover: slideBackgroundStyles.cover || toPptBackgroundStyle(webSettings),
+  };
   const activeSlideElements = slideElements[selectedId] || [];
   const selectedManualElement = (manualSlide?.elements || activeSlideElements).find(
     (element) => element.id === selectedManualElementId,
@@ -1328,6 +1332,7 @@ export function PptWorkspace({
               textBoxLayouts={textBoxLayouts}
               slideElements={slideElements}
               slideBackgroundColors={slideBackgroundColors}
+              slideBackgroundStyles={slideBackgroundStylesForPreview}
               hiddenSlideIds={hiddenSlideIds}
               layout={pptSettings.layout}
               layoutContentMode={pptSettings.layoutContentMode}
@@ -1361,6 +1366,7 @@ export function PptWorkspace({
                 textBoxLayouts={textBoxLayouts}
                 slideElements={slideElements}
                 slideBackgroundColors={slideBackgroundColors}
+                slideBackgroundStyles={slideBackgroundStylesForPreview}
                 layout={pptSettings.layout}
                 layoutContentMode={pptSettings.layoutContentMode}
                 manualSlides={manualSlides}

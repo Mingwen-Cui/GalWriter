@@ -512,7 +512,10 @@ export async function buildPptxBuffer({
                       : ('afterPrevious' as const),
                 }
               : scheduledAnimation;
-          const finalAnimation = startOverride && automaticAnimation.phase === 'enter'
+          // Nameplate targets explicitly request PowerPoint's "With Previous"
+          // trigger. Do not let the source phase or legacy start value undo
+          // that export-only override.
+          const finalAnimation = startOverride
             ? { ...automaticAnimation, start: startOverride }
             : automaticAnimation;
           animationTargets.push({
@@ -906,8 +909,8 @@ export async function buildPptxBuffer({
             animation.effect !== 'none' &&
             !(animation.action === 'switch' && animation.switchImageUrl),
         );
-        // When the character has a timeline, both nameplate parts share it.
-        // Otherwise retain an explicitly authored nameplate timeline.
+        // Bind both nameplate parts to their own character's timeline so the
+        // label follows that character's entrance and exit motion.
         const nameplateAnimationTarget = hasCharacterTimeline ? 'character' : 'nameplate';
         const nameplateAnimationTargetId = hasCharacterTimeline
           ? character.sourceNodeId

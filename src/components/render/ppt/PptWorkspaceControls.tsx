@@ -23,6 +23,7 @@ import type {
   PptManualSlide,
   PptObjectAnimation,
   PptSlideBackgroundColors,
+  PptSlideBackgroundStyles,
   PptSlideElements,
   PptSlideTransition,
   PptTextBoxLayouts,
@@ -414,6 +415,7 @@ type ThumbnailProps = {
   textBoxLayouts: PptTextBoxLayouts;
   slideElements: PptSlideElements;
   slideBackgroundColors: PptSlideBackgroundColors;
+  slideBackgroundStyles: PptSlideBackgroundStyles;
   animations: PptObjectAnimation[];
   transition: PptSlideTransition;
   layout: PptCanvasLayout;
@@ -431,6 +433,7 @@ function SlideThumbnail({
   textBoxLayouts,
   slideElements,
   slideBackgroundColors,
+  slideBackgroundStyles,
   animations,
   transition,
   layout,
@@ -464,6 +467,7 @@ function SlideThumbnail({
           textBoxLayouts={textBoxLayouts[slide.id]}
           slideElements={slideElements[slide.id]}
           backgroundColor={slideBackgroundColors[slide.id]}
+          backgroundStyle={slideBackgroundStyles[slide.id]}
           animations={animations}
           transition={transition}
           layout={layout}
@@ -490,6 +494,7 @@ export function SlideList({
   textBoxLayouts,
   slideElements,
   slideBackgroundColors,
+  slideBackgroundStyles,
   hiddenSlideIds,
   onSelect,
   onPlayCurrent,
@@ -516,6 +521,7 @@ export function SlideList({
   textBoxLayouts: PptTextBoxLayouts;
   slideElements: PptSlideElements;
   slideBackgroundColors: PptSlideBackgroundColors;
+  slideBackgroundStyles: PptSlideBackgroundStyles;
   hiddenSlideIds: string[];
   onSelect: (id: string) => void;
   onPlayCurrent: (id: string) => void;
@@ -597,6 +603,7 @@ export function SlideList({
                 textBoxLayouts={textBoxLayouts}
                 slideElements={slideElements}
                 slideBackgroundColors={slideBackgroundColors}
+                slideBackgroundStyles={slideBackgroundStyles}
                 animations={timelines[slide.id] || []}
                 transition={transitions[slide.id] || DEFAULT_TRANSITION}
                 layout={layout}
@@ -713,6 +720,7 @@ export function SlideSorter({
   textBoxLayouts,
   slideElements,
   slideBackgroundColors,
+  slideBackgroundStyles,
   onSelect,
   layout,
   layoutContentMode,
@@ -731,6 +739,7 @@ export function SlideSorter({
   textBoxLayouts: PptTextBoxLayouts;
   slideElements: PptSlideElements;
   slideBackgroundColors: PptSlideBackgroundColors;
+  slideBackgroundStyles: PptSlideBackgroundStyles;
   onSelect: (id: string) => void;
   layout: PptCanvasLayout;
   layoutContentMode?: 'maximize' | 'fit';
@@ -766,6 +775,7 @@ export function SlideSorter({
               textBoxLayouts={textBoxLayouts}
               slideElements={slideElements}
               slideBackgroundColors={slideBackgroundColors}
+              slideBackgroundStyles={slideBackgroundStyles}
               animations={timelines[slide.id] || []}
               transition={transitions[slide.id] || DEFAULT_TRANSITION}
               layout={layout}

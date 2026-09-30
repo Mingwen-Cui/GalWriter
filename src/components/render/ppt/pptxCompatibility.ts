@@ -204,7 +204,6 @@ const animationXml = (
   shapeId: string,
   animation: PptObjectAnimation,
   index: number,
-  parallelChildren = '',
 ) => {
   const baseId = 3 + index * 10;
   const phase = phaseOf(animation);
@@ -233,7 +232,7 @@ const animationXml = (
     baseId + 5,
     shapeId,
     animation,
-  )}${hideAfter}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>${parallelChildren}</p:childTnLst></p:cTn></p:par>`;
+  )}${hideAfter}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
 };
 
 const videoPlaybackXml = (shapeId: string, id: number, loop: boolean) =>
@@ -248,46 +247,8 @@ const animationTimelineXml = (
   videoTargets: Array<{ shapeId: string; loop: boolean }>,
 ) => {
   if (!targets.length && !videoTargets.length) return '';
-  // A `withPrevious` item must live inside the previous top-level group's
-  // child list. Keeping it as a sibling can still make the Animation Pane
-  // display the correct label while PowerPoint plays the two groups one by
-  // one. Group the exported timing tree by the actual start relationship.
-  const groups: Array<{
-    anchor: { shapeId: string; animation: PptObjectAnimation; index: number };
-    parallel: Array<{ shapeId: string; animation: PptObjectAnimation; index: number }>;
-  }> = [];
-  const groupByAnimationId = new Map<
-    string,
-    (typeof groups)[number]
-  >();
-  targets.forEach((target, index) => {
-    const existing = groupByAnimationId.get(target.animation.id);
-    if (existing) {
-      existing.parallel.push({ ...target, index });
-      return;
-    }
-    const previous = groups[groups.length - 1];
-    if (target.animation.start === 'withPrevious' && previous) {
-      const group = previous;
-      group.parallel.push({ ...target, index });
-      groupByAnimationId.set(target.animation.id, group);
-      return;
-    }
-    const group = { anchor: { ...target, index }, parallel: [] };
-    groups.push(group);
-    groupByAnimationId.set(target.animation.id, group);
-  });
-  const entries = groups
-    .map((group) =>
-      animationXml(
-        group.anchor.shapeId,
-        group.anchor.animation,
-        group.anchor.index,
-        group.parallel
-          .map((target) => animationXml(target.shapeId, target.animation, target.index))
-          .join(''),
-      ),
-    )
+  const entries = targets
+    .map((target, index) => animationXml(target.shapeId, target.animation, index))
     .join('');
   const mainSequence = entries
     ? `<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${entries}</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>`
