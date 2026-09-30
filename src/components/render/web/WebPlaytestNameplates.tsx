@@ -169,7 +169,7 @@ export function WebPlaytestNameplates({
     event.stopPropagation();
     onSelectRenderObject?.('nameplate');
   };
-  const startNameplateDrag = (event: React.PointerEvent) => {
+  const startNameplateDrag = (event: React.PointerEvent<HTMLElement>) => {
     if (
       previewMode !== 'edit' ||
       (!renderStyle.nameplateFollowCharacter && !onMoveNameplate) ||

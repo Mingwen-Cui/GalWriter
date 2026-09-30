@@ -290,7 +290,7 @@ export function VideoPreviewPanel({
     const move = (moveEvent: PointerEvent) => {
       const rawDx = ((moveEvent.clientX - startX) * resolution.width) / hostRect.width;
       const rawDy = ((moveEvent.clientY - startY) * resolution.height) / hostRect.height;
-      const otherFrames = Object.entries(editableFrames)
+      const otherFrames = Object.entries(editableObjectFrames)
         .filter(
           ([otherKind, otherFrame]) =>
             otherKind !== kind && otherFrame.width > 0 && otherFrame.height > 0,

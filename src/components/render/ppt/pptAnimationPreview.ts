@@ -55,8 +55,10 @@ export const previewStyle = (
     dialogueBuilds.length > 1 && previewAtMs !== undefined
       ? [...dialogueBuilds]
           .reverse()
-          .find((item) => ((item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs) <= previewAtMs) ||
-        dialogueBuilds[0]
+          .find(
+            (item) =>
+              ((item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs) <= previewAtMs,
+          ) || dialogueBuilds[0]
       : undefined;
   const previewAnimations = activeDialogueBuild
     ? animations.filter((item) => !dialogueBuilds.includes(item) || item === activeDialogueBuild)
@@ -87,38 +89,34 @@ export const previewStyle = (
     return `ppt-${item.effect}${suffix}`;
   };
   const cssVariables: Record<string, string> = {};
+  const animationValues = previewAnimations.map((item) => {
+    const start = (item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs;
+    const repeats = item.phase === 'emphasis' ? Math.max(1, Math.round(item.repeats || 1)) : 1;
+    const duration = Math.max(1, Math.round(item.durationMs / repeats));
+    const strength = Math.max(0, Math.min(100, item.strength ?? 10));
+    cssVariables['--inline-action-strength'] = `${Math.max(0, item.strength ?? 10)}px`;
+    cssVariables['--inline-action-opacity'] = String(strength / 100);
+    cssVariables['--inline-action-brightness'] = String(strength / 100);
+    if (item.action === 'translate') {
+      cssVariables['--ppt-action-x'] = `${item.offsetX || item.strength || 12}px`;
+      cssVariables['--ppt-action-y'] = `${item.offsetY || 8}px`;
+    }
+    if (item.action === 'scale') cssVariables['--ppt-action-scale'] = String(item.scale || 1.08);
+    if (item.action === 'rotate')
+      cssVariables['--ppt-action-rotation'] = `${item.strength || 15}deg`;
+    if (item.action === 'opacity') cssVariables['--ppt-action-opacity'] = String(strength / 100);
+    if (item.action === 'brightness')
+      cssVariables['--ppt-action-brightness'] = String(strength / 100);
+    // During timeline scrubbing, express the animation delay relative to
+    // the current playhead. This lets the browser resolve the animation
+    // deterministically on mount, including the per-line dialogue spans.
+    // Live preview keeps the authored timeline delay unchanged.
+    const timelineDelay = !previewing && previewAtMs !== undefined ? start - previewAtMs : start;
+    const playState = previewAtMs !== undefined && !previewing ? ' paused' : '';
+    return `${animationName(item)} ${duration}ms ease ${timelineDelay}ms ${repeats} both${playState}`;
+  });
   return {
-    animation: previewAnimations
-      .map((item) => {
-        const start = (item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs;
-        const repeats = item.phase === 'emphasis' ? Math.max(1, Math.round(item.repeats || 1)) : 1;
-        const duration = Math.max(1, Math.round(item.durationMs / repeats));
-        const strength = Math.max(0, Math.min(100, item.strength ?? 10));
-        cssVariables['--inline-action-strength'] = `${Math.max(0, item.strength ?? 10)}px`;
-        cssVariables['--inline-action-opacity'] = String(strength / 100);
-        cssVariables['--inline-action-brightness'] = String(strength / 100);
-        if (item.action === 'translate') {
-          cssVariables['--ppt-action-x'] = `${item.offsetX || item.strength || 12}px`;
-          cssVariables['--ppt-action-y'] = `${item.offsetY || 8}px`;
-        }
-        if (item.action === 'scale')
-          cssVariables['--ppt-action-scale'] = String(item.scale || 1.08);
-        if (item.action === 'rotate')
-          cssVariables['--ppt-action-rotation'] = `${item.strength || 15}deg`;
-        if (item.action === 'opacity')
-          cssVariables['--ppt-action-opacity'] = String(strength / 100);
-        if (item.action === 'brightness')
-          cssVariables['--ppt-action-brightness'] = String(strength / 100);
-        // During timeline scrubbing, express the animation delay relative to
-        // the current playhead. This lets the browser resolve the animation
-        // deterministically on mount, including the per-line dialogue spans.
-        // Live preview keeps the authored timeline delay unchanged.
-        const timelineDelay =
-          !previewing && previewAtMs !== undefined ? start - previewAtMs : start;
-        return `${animationName(item)} ${duration}ms ease ${timelineDelay}ms ${repeats} both`;
-      })
-      .join(', '),
-    animationPlayState: previewAtMs === undefined || previewing ? undefined : 'paused',
+    animation: animationValues.join(', '),
     ...cssVariables,
   };
 };
