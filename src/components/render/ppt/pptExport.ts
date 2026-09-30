@@ -34,6 +34,7 @@ import {
   createPptStyleTextAnimations,
   getPptDialogueLineTargetIds,
   orderPptSceneAnimations,
+  PPT_TEXT_WIPE_DURATION_MS,
   resolvePptTagAnimations,
 } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
@@ -476,6 +477,7 @@ export async function buildPptxBuffer({
       objectName: string,
       target: PptAnimationExportTarget['animation']['target'],
       targetId?: string,
+      startOverride?: PptAnimationExportTarget['animation']['start'],
     ) => {
       if (!sceneSlideNumber) return;
       sceneAnimations
@@ -490,13 +492,28 @@ export async function buildPptxBuffer({
           // click-triggered entries as automatic even when they were created
           // before the automatic PPT defaults were introduced.
           const exportAnimation =
-            target === 'character' && animation.phase === 'enter' && animation.start === 'onClick'
-              ? { ...animation, start: 'withPrevious' as const }
+            (target === 'dialog-title' || target === 'dialog-body') && animation.effect === 'wipe'
+              ? { ...animation, direction: 'left' as const }
               : animation;
+          const scheduledAnimation =
+            target === 'character' &&
+            exportAnimation.phase === 'enter' &&
+            exportAnimation.start === 'onClick'
+              ? { ...exportAnimation, start: 'withPrevious' as const }
+              : exportAnimation;
+          const automaticAnimation =
+            target === 'dialog-body' &&
+            scheduledAnimation.effect === 'wipe' &&
+            scheduledAnimation.start === 'onClick'
+              ? { ...scheduledAnimation, start: 'afterPrevious' as const }
+              : scheduledAnimation;
+          const finalAnimation = startOverride
+            ? { ...automaticAnimation, start: startOverride }
+            : automaticAnimation;
           animationTargets.push({
             slideNumber: sceneSlideNumber,
             objectName,
-            animation: exportAnimation,
+            animation: finalAnimation,
           });
         });
     };
@@ -803,7 +820,10 @@ export async function buildPptxBuffer({
             phase: 'enter',
             effect: 'wipe',
             start: 'withPrevious',
-            durationMs: Math.max(300, block.object.animation.durationMs),
+            durationMs: Math.max(
+              PPT_TEXT_WIPE_DURATION_MS,
+              block.object.animation.durationMs || 0,
+            ),
             delayMs: 0,
             direction: 'left',
             textBuild: { mode: 'line-wipe', lineGapMs: 160 },
@@ -841,7 +861,7 @@ export async function buildPptxBuffer({
           0.04,
           Math.min(
             6.9,
-            (panel.y / 1080) * 7.5 -
+            panelY -
               (style.nameplateInside ? -0.12 : height + 0.12) +
               (style.nameplateOffsetY || 0) / 144,
           ),
@@ -874,29 +894,26 @@ export async function buildPptxBuffer({
           margin: 0,
           rotate: nameplate.rotation,
         });
-        addAnimationTargets(
-          objectName,
-          followCharacter ? 'character' : 'nameplate',
-          followCharacter ? character.sourceNodeId : undefined,
+        const hasCharacterTimeline = sceneAnimations.some(
+          (animation) =>
+            animation.target === 'character' &&
+            animation.targetId === character.sourceNodeId &&
+            animation.effect !== 'none' &&
+            !(animation.action === 'switch' && animation.switchImageUrl),
         );
+        // When the character has a timeline, both nameplate parts share it.
+        // Otherwise retain an explicitly authored nameplate timeline.
+        const nameplateAnimationTarget = hasCharacterTimeline ? 'character' : 'nameplate';
+        const nameplateAnimationTargetId = hasCharacterTimeline
+          ? character.sourceNodeId
+          : undefined;
+        addAnimationTargets(objectName, nameplateAnimationTarget, nameplateAnimationTargetId);
         addAnimationTargets(
           textObjectName,
-          followCharacter ? 'character' : 'nameplate',
-          followCharacter ? character.sourceNodeId : undefined,
+          nameplateAnimationTarget,
+          nameplateAnimationTargetId,
+          'withPrevious',
         );
-        const explicitNameplateAnimations = sceneAnimations.filter(
-          (animation) => animation.target === 'nameplate' && animation.source !== 'tag',
-        );
-        if (followCharacter) {
-          explicitNameplateAnimations.forEach((animation) => {
-            animationTargets.push({ slideNumber: sceneSlideNumber!, objectName, animation });
-            animationTargets.push({
-              slideNumber: sceneSlideNumber!,
-              objectName: textObjectName,
-              animation,
-            });
-          });
-        }
       }
     }
     const sceneNotes =

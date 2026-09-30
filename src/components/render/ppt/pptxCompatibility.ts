@@ -48,8 +48,18 @@ const nodeType = (animation: PptObjectAnimation) =>
 const startDelay = (animation: PptObjectAnimation, sequenceStartMs: number) =>
   animation.start === 'onClick' ? 'indefinite' : String(Math.max(0, Math.round(sequenceStartMs)));
 const phaseOf = (animation: PptObjectAnimation) => animation.phase || 'enter';
-const presetSubtypeFor = (animation: PptObjectAnimation) =>
-  animation.effect === 'wipe' && animation.direction === 'left' ? 1 : 0;
+const presetSubtypeFor = (animation: PptObjectAnimation) => {
+  if (animation.effect === 'wipe' && animation.direction === 'left') return 1;
+  if (animation.effect !== 'fly') return 0;
+  // Fly In direction is the source edge, while the shared motion model stores
+  // the direction in which the object travels toward its final position.
+  return {
+    left: 2,
+    right: 8,
+    up: 4,
+    down: 1,
+  }[animation.direction];
+};
 
 const shapeTarget = (shapeId: string, text = false) =>
   text
@@ -153,6 +163,15 @@ const filterFor = (animation: PptObjectAnimation) => {
   if (animation.effect === 'wiggle') return 'teeter';
   if (animation.effect === 'fade') return 'fade';
   if (animation.effect === 'appear') return 'appear';
+  if (animation.effect === 'fly') {
+    const sourceEdge = {
+      left: 'fromRight',
+      right: 'fromLeft',
+      up: 'fromBottom',
+      down: 'fromTop',
+    }[animation.direction];
+    return `slide(${sourceEdge})`;
+  }
   if (animation.effect === 'wipe') return `wipe(${animation.direction})`;
   return animation.effect;
 };
@@ -165,7 +184,7 @@ const effectXml = (
   const phase = phaseOf(animation);
   // Keep line-aware timing in the workspace, but export the text as the
   // native PowerPoint wipe effect instead of a per-character fade build.
-  if (animation.effect === 'line' || animation.effect === 'fly')
+  if (animation.effect === 'line')
     return motionPathXml(id, shapeId, animation);
   if (animation.effect === 'zoom' || animation.effect === 'growShrink')
     return scaleXml(id, shapeId, animation);

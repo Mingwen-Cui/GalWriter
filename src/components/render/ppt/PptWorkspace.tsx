@@ -10,7 +10,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -491,22 +490,6 @@ export function PptWorkspace({
     },
     [],
   );
-
-  useLayoutEffect(() => {
-    if (timelinePlayheadMs === undefined || isPreviewing) return;
-    const stage = stageViewportRef.current;
-    if (!stage) return;
-    stage.querySelectorAll<HTMLElement>('[style]').forEach((element) => {
-      if (!element.style.animation || element.style.animation === 'none') return;
-      element.getAnimations().forEach((animation) => {
-        if (!('animationName' in animation)) return;
-        const cssAnimation = animation as CSSAnimation;
-        if (!cssAnimation.animationName.startsWith('ppt-')) return;
-        cssAnimation.pause();
-        cssAnimation.currentTime = timelinePlayheadMs;
-      });
-    });
-  }, [isPreviewing, previewRunId, selectedId, timelinePlayheadMs]);
 
   const selectSlide = useCallback((id: string) => {
     setSelectedId(id);

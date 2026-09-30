@@ -109,7 +109,13 @@ export const previewStyle = (
           cssVariables['--ppt-action-opacity'] = String(strength / 100);
         if (item.action === 'brightness')
           cssVariables['--ppt-action-brightness'] = String(strength / 100);
-        return `${animationName(item)} ${duration}ms ease ${start}ms ${repeats} both`;
+        // During timeline scrubbing, express the animation delay relative to
+        // the current playhead. This lets the browser resolve the animation
+        // deterministically on mount, including the per-line dialogue spans.
+        // Live preview keeps the authored timeline delay unchanged.
+        const timelineDelay =
+          !previewing && previewAtMs !== undefined ? start - previewAtMs : start;
+        return `${animationName(item)} ${duration}ms ease ${timelineDelay}ms ${repeats} both`;
       })
       .join(', '),
     animationPlayState: previewAtMs === undefined || previewing ? undefined : 'paused',

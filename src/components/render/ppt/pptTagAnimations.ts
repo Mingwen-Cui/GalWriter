@@ -16,6 +16,9 @@ import type { PptScene } from './pptSceneResolver';
 type Mention = { id: string; kind: 'character' | 'scene'; name: string; start: number; end: number };
 export type PptDialogueTurn = { id: string; characterId?: string; name: string; text: string };
 
+/** Keep exported typewriter text readable instead of finishing in a flash. */
+export const PPT_TEXT_WIPE_DURATION_MS = 1800;
+
 const attribute = (markup: string, name: string) =>
   markup.match(new RegExp(`${name}=(?:"([^"]*)"|'([^']*)')`, 'i'))?.[1] ||
   markup.match(new RegExp(`${name}=(?:"([^"]*)"|'([^']*)')`, 'i'))?.[2] ||
@@ -120,7 +123,9 @@ export const createPptStyleTextAnimations = (
       phase: 'enter',
       effect: typewriter ? 'wipe' : animation === 'slideUp' ? 'fly' : 'fade',
       start: 'afterPrevious',
-      durationMs: Math.max(500, object.animation.durationMs || 600),
+      durationMs: typewriter
+        ? Math.max(PPT_TEXT_WIPE_DURATION_MS, object.animation.durationMs || 0)
+        : Math.max(500, object.animation.durationMs || 600),
       delayMs: 0,
       direction: animation === 'slideUp' ? 'down' : 'left',
       ...(typewriter ? { textBuild: { mode: 'line-wipe' as const, lineGapMs: 160 } } : {}),
@@ -247,12 +252,13 @@ export const orderPptSceneAnimations = (
 
 const directionForMotion = (
   type: PresentationAnimation,
-  phase: 'enter' | 'exit',
 ): PptAnimationDirection => {
-  if (type === 'slide-left') return phase === 'enter' ? 'right' : 'left';
-  if (type === 'slide-right') return phase === 'enter' ? 'left' : 'right';
-  if (type === 'slide-up') return phase === 'enter' ? 'down' : 'up';
-  if (type === 'slide-down') return phase === 'enter' ? 'up' : 'down';
+  // Keep the direction as the authored movement direction. The native PPT
+  // Fly In exporter derives the opposite source edge for entrances.
+  if (type === 'slide-left') return 'left';
+  if (type === 'slide-right') return 'right';
+  if (type === 'slide-up') return 'up';
+  if (type === 'slide-down') return 'down';
   return 'left';
 };
 
@@ -290,7 +296,7 @@ const motionEntry = ({
     start,
     durationMs: Math.max(0, motion?.duration || 0),
     delayMs: 0,
-    direction: directionForMotion(motion?.type || 'none', phase),
+    direction: directionForMotion(motion?.type || 'none'),
   };
 };
 

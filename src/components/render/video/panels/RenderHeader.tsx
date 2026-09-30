@@ -509,14 +509,20 @@ export function RenderHeader({
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
         >
           {isRendering ? (
-            <LoadingAnimation className="h-4 w-4" />
+            <LoadingAnimation className="h-7 w-7 shrink-0" />
           ) : (
             <Download className="h-4 w-4" />
           )}
-          {workspaceMode === 'ppt' ? <span className="hidden sm:inline">导出</span> : null}
+          {workspaceMode === 'ppt' ? (
+            <span className="hidden whitespace-nowrap sm:inline">
+              {isRendering ? '加载中' : '导出'}
+            </span>
+          ) : null}
           {workspaceMode !== 'ppt' && (
             <>
-              <span className="hidden sm:inline">{isRendering ? '渲染中...' : '导出'}</span>
+              <span className="hidden whitespace-nowrap sm:inline">
+                {isRendering ? '加载中' : '导出'}
+              </span>
             </>
           )}
         </button>
