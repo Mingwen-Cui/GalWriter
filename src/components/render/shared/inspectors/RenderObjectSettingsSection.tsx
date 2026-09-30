@@ -71,7 +71,7 @@ export function RenderObjectSettingsSection({
           title: '标题',
           body: '正文',
           nameplate: '人名',
-          choice: '选择',
+          choice: '选项',
         }
       : language === 'ja'
         ? {

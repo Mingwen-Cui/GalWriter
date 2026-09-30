@@ -563,6 +563,11 @@ const applyDefaultMainInterfaceBackground = (settings: WebExportSettings): WebEx
     : settings;
 };
 
+const normalizeWebSettings = (settings: WebExportSettings): WebExportSettings =>
+  ensureFlowOverviewControls(
+    applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors(settings)),
+  );
+
 export const useWebExportSettings = (
   defaultProjectName: string,
   language: Language,
@@ -591,17 +596,13 @@ export const useWebExportSettings = (
     () => initial?.choiceTextColor || '#ffffff',
   );
   const [webSettings, setWebSettings] = useState<WebExportSettings>(() =>
-    ensureFlowOverviewControls(
-      applyDefaultMainInterfaceBackground(
-        normalizeWebImageFillBaseColors({
-          ...DEFAULT_WEB_SETTINGS,
-          ...defaultPreset.settings,
-          ...migratedInitialSettings,
-          ...sharedCanvas.settings,
-          layoutMode: getWebLayoutMode(workspaceKey, sharedCanvas.settings.layoutMode),
-        }),
-      ),
-    ),
+    normalizeWebSettings({
+      ...DEFAULT_WEB_SETTINGS,
+      ...defaultPreset.settings,
+      ...migratedInitialSettings,
+      ...sharedCanvas.settings,
+      layoutMode: getWebLayoutMode(workspaceKey, sharedCanvas.settings.layoutMode),
+    }),
   );
   useEffect(() => {
     const sharedCanvasForWeb = {
@@ -611,21 +612,8 @@ export const useWebExportSettings = (
     if (sharedCanvas.settings.layoutMode !== sharedCanvasForWeb.layoutMode) {
       sharedCanvas.update({ layoutMode: sharedCanvasForWeb.layoutMode });
     }
-    setWebSettings((previous) =>
-      ensureFlowOverviewControls(
-        applyDefaultMainInterfaceBackground(
-          normalizeWebImageFillBaseColors({ ...previous, ...sharedCanvasForWeb }),
-        ),
-      ),
-    );
+    setWebSettings((previous) => normalizeWebSettings({ ...previous, ...sharedCanvasForWeb }));
   }, [sharedCanvas.settings, workspaceKey]);
-  useEffect(() => {
-    setWebSettings((previous) =>
-      ensureFlowOverviewControls(
-        applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors(previous)),
-      ),
-    );
-  }, [webSettings]);
   const webRenderStyle = styleBinding.value;
   const applyRenderStyle = (style: RenderStyle) => {
     (Object.keys(style) as Array<keyof RenderStyle>).forEach((key) =>
@@ -643,7 +631,7 @@ export const useWebExportSettings = (
   });
 
   const restoreWebState = (snapshot: WebHistoryState) => {
-    setWebSettings(normalizeWebImageFillBaseColors(snapshot.settings));
+    setWebSettings(normalizeWebSettings(snapshot.settings));
     sharedCanvas.update(canvasPatchFromWebSettings(snapshot.settings));
     applyRenderStyle(snapshot.renderStyle);
     setWebChoiceColor(snapshot.choiceColor);
@@ -685,7 +673,7 @@ export const useWebExportSettings = (
 
   const applySettingsPatch = (previous: WebExportSettings, patch: Partial<WebExportSettings>) => {
     if (!('settingsPageElements' in patch))
-      return normalizeWebImageFillBaseColors({ ...previous, ...patch });
+      return normalizeWebSettings({ ...previous, ...patch });
     const next = patch.settingsPageElements || [];
     const removed = resolveSettingsPageElements(
       previous,
@@ -699,7 +687,7 @@ export const useWebExportSettings = (
       ),
       ...removed,
     ].filter((item) => !next.some((entry) => entry.id === item.id));
-    return normalizeWebImageFillBaseColors({
+    return normalizeWebSettings({
       ...previous,
       ...patch,
       settingsPageElementsInitialized: true,

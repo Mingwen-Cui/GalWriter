@@ -242,6 +242,8 @@ export type RenderObjectAnimationStyle = {
 
 export type RenderEditableObject = {
   appearance?: SurfaceAppearance;
+  /** Web hover and press feedback used by the dialogue panel. */
+  buttonMotion?: WebButtonMotion;
   zIndex?: number;
   corners?: [number, number, number, number];
   visible: boolean;

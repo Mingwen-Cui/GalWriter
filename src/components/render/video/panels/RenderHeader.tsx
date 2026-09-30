@@ -509,7 +509,7 @@ export function RenderHeader({
           className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
         >
           {isRendering ? (
-            <LoadingAnimation className="h-7 w-7 shrink-0" />
+            <LoadingAnimation className="h-8 w-8 shrink-0" />
           ) : (
             <Download className="h-4 w-4" />
           )}

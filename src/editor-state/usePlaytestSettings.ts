@@ -8,6 +8,7 @@ import type {
 } from './editorConfig';
 
 const PLAYTEST_SETTINGS_STORAGE_KEY = 'playtest-settings:v1';
+const PLAYTEST_LAYOUT_MODE_CHOICE_KEY = 'playtest-layout-mode-choice:v1';
 const LEGACY_PLAYTEST_SETTING_KEYS = [
   'playtest-dark-mode',
   'playtest-columns',
@@ -65,6 +66,22 @@ const getStoredString = <T extends string>(key: string, fallback: T, allowed?: r
   return saved as T;
 };
 
+const getStoredPlaytestLayoutMode = (): PlaytestLayoutMode => {
+  if (typeof window === 'undefined') return 'immersive';
+
+  try {
+    // Older versions persisted the default just like a user choice. Only keep
+    // that value when a deliberate layout choice has been recorded.
+    if (window.localStorage.getItem(PLAYTEST_LAYOUT_MODE_CHOICE_KEY) !== 'true') {
+      return 'immersive';
+    }
+  } catch {
+    return 'immersive';
+  }
+
+  return getStoredString('playtest-layout-mode', 'immersive', ['classic', 'immersive']);
+};
+
 const getStoredWindowSettings = (): PlaytestWindowSettings => {
   const fallback: PlaytestWindowSettings = {
     bounds: null,
@@ -120,8 +137,16 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
     getStoredBoolean('playtest-video-autoplay', true),
   );
   const [playTestLayoutMode, setPlayTestLayoutMode] = useState<PlaytestLayoutMode>(() =>
-    getStoredString('playtest-layout-mode', 'classic', ['classic', 'immersive']),
+    getStoredPlaytestLayoutMode(),
   );
+  const setPlayTestLayoutModeWithPreference: typeof setPlayTestLayoutMode = (value) => {
+    setPlayTestLayoutMode(value);
+    try {
+      window.localStorage.setItem(PLAYTEST_LAYOUT_MODE_CHOICE_KEY, 'true');
+    } catch {
+      // The selected layout remains active for this session if storage is unavailable.
+    }
+  };
   const [playTestInteractionMode, setPlayTestInteractionMode] = useState(() =>
     getStoredString('playtest-interaction-mode', 'immediate'),
   );
@@ -244,7 +269,7 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
     playTestVideoAutoPlay,
     setPlayTestVideoAutoPlay,
     playTestLayoutMode,
-    setPlayTestLayoutMode,
+    setPlayTestLayoutMode: setPlayTestLayoutModeWithPreference,
     playTestInteractionMode,
     setPlayTestInteractionMode,
     playTestTypewriterSpeed,

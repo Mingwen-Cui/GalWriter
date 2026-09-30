@@ -74,6 +74,11 @@ import type {
   TypewriterMode,
 } from '../shared/types';
 import { renderObjectText } from './i18n';
+import { ButtonMotionPresetControl } from '../../web/WebButtonMotionPresetControl';
+import {
+  buttonMotionForPreset,
+  resolveWebButtonMotionPreset,
+} from '../../web/webButtonMotion';
 
 type Surface = 'video' | 'web' | 'playtest';
 export type RenderObjectInspectorGroup =
@@ -132,6 +137,18 @@ export function RenderObjectInspector({
     surface === 'video' && renderStyle.selectedRenderObject === 'choice'
       ? 'dialogBox'
       : renderStyle.selectedRenderObject || 'dialogBox';
+  const motionTitle =
+    selectedKind === 'choice'
+      ? language === 'zh'
+        ? '选项动效'
+        : language === 'ja'
+          ? '選択肢の動き'
+          : 'Choice motion'
+      : language === 'zh'
+        ? '对话框动效'
+        : language === 'ja'
+          ? '会話ボックスの動き'
+          : 'Dialog motion';
   const selected = objects[selectedKind];
   const textObject = isTextRenderObject(selectedKind)
     ? (selected as RenderEditableTextObject)
@@ -378,7 +395,7 @@ export function RenderObjectInspector({
                         title: '名称',
                         body: '正文',
                         nameplate: '人名',
-                        choice: '选择',
+                        choice: '选项',
                       } as Record<string, string>
                     )[item.id] || item.name,
                 }))}
@@ -502,6 +519,24 @@ export function RenderObjectInspector({
           )}
         </InspectorGroup>
       )}
+
+      {surface === 'web' &&
+        (selectedKind === 'dialogBox' || selectedKind === 'choice') &&
+        showsGroup('animation') && (
+          <InspectorGroup
+            title={motionTitle}
+            icon={<Sparkles className="h-3.5 w-3.5" />}
+            tone="animation"
+            showDescriptions={showDescriptions}
+            secondary={null}
+          >
+            <ButtonMotionPresetControl
+              language={language}
+              value={resolveWebButtonMotionPreset(selected.buttonMotion)}
+              onChange={(preset) => setObject({ buttonMotion: buttonMotionForPreset(preset) })}
+            />
+          </InspectorGroup>
+        )}
 
       {showsGroup('text') && textObject && (
         <InspectorGroup

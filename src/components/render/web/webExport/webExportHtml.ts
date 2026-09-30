@@ -2835,7 +2835,14 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     }
 
     function bindChoices() {
-      stageEl.querySelectorAll("[data-target]").forEach((button) => {
+      stageEl.querySelectorAll(".choices [data-target]").forEach((button) => {
+        if (choiceObject.buttonMotion) {
+          button.style.setProperty(
+            "--gw-button-layout-transform",
+            button.style.transform || "translate(0px, 0px)",
+          );
+          applyCustomButtonMotion(button, choiceObject);
+        }
         button.onclick = (event) => {
           event.stopPropagation();
           autoAdvanceHoldId = null;
@@ -3115,6 +3122,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
       gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
+      if(exportedDialogue&&dialogObject.buttonMotion){exportedDialogue.style.setProperty('--gw-button-layout-transform','var(--dialog-object-transform, rotate(0deg) scale(1, 1))');applyCustomButtonMotion(exportedDialogue,dialogObject);}
       syncPlayerPresentation();
       const nodeAudio = document.getElementById("nodeAudio");
       if (nodeAudio) {

@@ -153,9 +153,18 @@ const shadowFor = (state: ResolvedWebButtonMotionState, baseShadow: string, fall
 export const webButtonMotionStyle = (
   element: WebMenuElement,
   baseShadow: string,
+): CSSProperties => webButtonMotionStyleForMotion(
+  element.buttonMotion,
+  baseShadow,
+  element.buttonShadowMode || 'always',
+);
+
+export const webButtonMotionStyleForMotion = (
+  value: WebButtonMotion | undefined,
+  baseShadow: string,
+  shadowMode: WebMenuElement['buttonShadowMode'] = 'always',
 ): CSSProperties => {
-  const motion = resolveWebButtonMotion(element.buttonMotion);
-  const shadowMode = element.buttonShadowMode || 'always';
+  const motion = resolveWebButtonMotion(value);
   const visibleBaseShadow = shadowMode === 'always' ? baseShadow : 'none';
   const motionBaseShadow = shadowMode === 'none' ? 'none' : baseShadow;
   const identityTransform = 'translate(0px, 0px) rotate(0deg) scale(1)';

@@ -19,6 +19,7 @@ import { useRef, useState } from 'react';
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import { useKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
 import type { Language } from '../../../lib/i18n';
+import { webButtonMotionStyleForMotion } from './webButtonMotion';
 import { AudioPlaylistModal, type AudioPlaylistItem } from '../../AudioPlaylistModal';
 import { getRenderObjects } from '../video/shared/renderObjects';
 import type {
@@ -95,17 +96,23 @@ export function ChoiceButton({
   choiceTextColor,
   onClick,
   style,
+  motionEnabled = false,
+  motionEditing = false,
 }: {
   label: string;
   choiceColor: string;
   choiceTextColor: string;
   onClick: () => void;
   style?: React.CSSProperties;
+  motionEnabled?: boolean;
+  motionEditing?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      data-gw-button-motion={motionEnabled ? 'true' : undefined}
+      data-gw-button-motion-editing={motionEditing ? 'true' : undefined}
       className="min-h-10 rounded-xl px-3.5 py-2.5 text-left text-xs font-black leading-snug shadow-lg shadow-black/15 transition-all hover:-translate-y-px hover:brightness-110 active:translate-y-0 active:scale-[0.99]"
       style={{
         backgroundColor: `${choiceColor}cc`,
@@ -190,7 +197,8 @@ export function ChoiceButtonsGroup({
           onClick={item.onClick}
           style={
             choice
-              ? {
+              ? (() => {
+                  const itemStyle: React.CSSProperties = {
                   minHeight: Math.max(24, choice.height),
                   borderRadius:
                     choice.corners?.map((radius) => `${radius}px`).join(' ') || choice.radius,
@@ -207,9 +215,19 @@ export function ChoiceButtonsGroup({
                   lineHeight: choice.lineHeight,
                   textAlign: choice.textAlign,
                   transform: `translate(${index * (renderStyle?.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle?.choiceItemOffsetY ?? 0)}px)`,
-                }
+                  };
+                  return choice.buttonMotion
+                    ? {
+                        ...itemStyle,
+                        ...webButtonMotionStyleForMotion(choice.buttonMotion, shadow || 'none'),
+                        '--gw-button-layout-transform': itemStyle.transform,
+                      }
+                    : itemStyle;
+                })()
               : undefined
           }
+          motionEnabled={Boolean(choice?.buttonMotion)}
+          motionEditing={editMode}
         />
       ))}
     </div>

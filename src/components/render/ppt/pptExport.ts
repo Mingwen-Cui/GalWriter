@@ -502,12 +502,17 @@ export async function buildPptxBuffer({
               ? { ...exportAnimation, start: 'withPrevious' as const }
               : exportAnimation;
           const automaticAnimation =
-            target === 'dialog-body' &&
-            scheduledAnimation.effect === 'wipe' &&
+            scheduledAnimation.phase === 'enter' &&
             scheduledAnimation.start === 'onClick'
-              ? { ...scheduledAnimation, start: 'afterPrevious' as const }
+              ? {
+                  ...scheduledAnimation,
+                  start:
+                    target === 'character' || target === 'nameplate'
+                      ? ('withPrevious' as const)
+                      : ('afterPrevious' as const),
+                }
               : scheduledAnimation;
-          const finalAnimation = startOverride
+          const finalAnimation = startOverride && automaticAnimation.phase === 'enter'
             ? { ...automaticAnimation, start: startOverride }
             : automaticAnimation;
           animationTargets.push({
@@ -907,7 +912,12 @@ export async function buildPptxBuffer({
         const nameplateAnimationTargetId = hasCharacterTimeline
           ? character.sourceNodeId
           : undefined;
-        addAnimationTargets(objectName, nameplateAnimationTarget, nameplateAnimationTargetId);
+        addAnimationTargets(
+          objectName,
+          nameplateAnimationTarget,
+          nameplateAnimationTargetId,
+          'withPrevious',
+        );
         addAnimationTargets(
           textObjectName,
           nameplateAnimationTarget,

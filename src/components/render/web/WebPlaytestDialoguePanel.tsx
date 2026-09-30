@@ -28,6 +28,7 @@ import {
 } from './webPixelAlignmentGuides';
 
 import { webStoryTitle } from './webPlaybackUi';
+import { webButtonMotionStyleForMotion } from './webButtonMotion';
 
 const resizeCursorByHandle: Record<WebEditableResizeHandle, string> = {
   n: 'ns-resize',
@@ -106,6 +107,7 @@ export function WebPlaytestDialoguePanel({
     hideCenteredTitle || currentNode?.data?.hideTitleInPlayback === true,
   );
   const editMode = previewMode === 'edit';
+  const dialogBoxObject = getRenderObjects(renderStyle).dialogBox;
   const [activeGuideLines, setActiveGuideLines] = useState<PixelGuideLine[]>([]);
   const [selectedRenderObjectKinds, setSelectedRenderObjectKinds] = useState<
     RenderEditableObjectKind[]
@@ -344,10 +346,25 @@ export function WebPlaytestDialoguePanel({
         style={{
           ...dialogueShellStyle,
           padding: 0,
-          ...(getRenderObjects(renderStyle).dialogBox.appearance
+          ...(dialogBoxObject.appearance
             ? { background: 'transparent', boxShadow: 'none', border: 0 }
             : {}),
+          ...(dialogBoxObject.buttonMotion
+            ? {
+                ...webButtonMotionStyleForMotion(
+                  dialogBoxObject.buttonMotion,
+                  typeof dialogueShellStyle.boxShadow === 'string'
+                    ? dialogueShellStyle.boxShadow
+                    : 'none',
+                ),
+                '--gw-button-layout-transform':
+                  dialogueShellStyle.transform?.toString() ||
+                  'translate(0px, 0px) rotate(0deg) scale(1)',
+              }
+            : {}),
         }}
+        data-gw-button-motion={dialogBoxObject.buttonMotion ? 'true' : undefined}
+        data-gw-button-motion-editing={editMode ? 'true' : undefined}
         data-dialogue-box="true"
         data-render-object="dialogBox"
         onClick={(event) => selectObject(event, 'dialogBox')}

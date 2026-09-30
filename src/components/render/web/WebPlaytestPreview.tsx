@@ -725,6 +725,8 @@ export function WebPlaytestPreview({
   const text = filterMentionTags(rawText, true, true);
   const shouldHideSingleChoice = settings.skipSingleChoicePopup && outEdges.length <= 1;
   const shouldShowChoices = !shouldHideSingleChoice && (animationDone || !settings.autoAdvance);
+  const showChoiceStyleSamples =
+    previewMode === 'edit' && renderStyle.selectedRenderObject === 'choice';
   const canClickContinue = outEdges.length <= 1;
   // A card title doubles as the label of a branch target, so playback visibility
   // must be separate from the stored title text.
@@ -3040,6 +3042,33 @@ export function WebPlaytestPreview({
           onRecordCurrentAudio={recordCurrentAudio}
           onCurrentAudioEnded={() => setCurrentAudioEnded(true)}
         />
+        {showChoiceStyleSamples && (
+          <div
+            className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2"
+            style={{ width: 'min(520px, calc(100% - 32px))' }}
+          >
+            <ChoiceButtonsGroup
+              items={
+                (language === 'zh'
+                  ? ['选项A', '选项B']
+                  : language === 'ja'
+                    ? ['選択肢 A', '選択肢 B']
+                    : ['Option A', 'Option B']
+                ).map((label, index) => ({
+                  id: `choice-style-sample-${index}`,
+                  label,
+                  onClick: () => undefined,
+                }))
+              }
+              extraClass="grid-cols-1"
+              choiceColor={choiceColor}
+              choiceTextColor={choiceTextColor}
+              renderStyle={renderStyle}
+              previewMode={previewMode}
+              onSelectRenderObject={selectRenderObject}
+            />
+          </div>
+        )}
       </div>
       {previewMode === 'edit' &&
         settings.layoutMode === 'classic' &&
