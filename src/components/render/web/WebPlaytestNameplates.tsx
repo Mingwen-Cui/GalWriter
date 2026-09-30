@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import {
+  getNameplateFixedPosition,
   getNameplateCharacterCenterX,
   getNameplateCssBackground,
 } from '../video/shared/nameplateRenderer';
@@ -32,6 +33,7 @@ type WebPlaytestNameplatesProps = {
   previewMode?: 'edit' | 'test';
   onSelectRenderObject?: (kind: RenderEditableObjectKind) => void;
   onMoveRenderObject?: (kind: RenderEditableObjectKind, x: number, y: number) => void;
+  onMoveNameplate?: (sourceNodeId: string, x: number, y: number) => void;
   onUpdateRenderObject?: (
     kind: RenderEditableObjectKind,
     patch: Partial<RenderEditableObject>,
@@ -48,6 +50,7 @@ export function WebPlaytestNameplates({
   previewMode = 'test',
   onSelectRenderObject,
   onMoveRenderObject,
+  onMoveNameplate,
   onUpdateRenderObject,
   onGuideLinesChange,
   selectedRenderObjectKinds,
@@ -167,7 +170,12 @@ export function WebPlaytestNameplates({
     onSelectRenderObject?.('nameplate');
   };
   const startNameplateDrag = (event: React.PointerEvent) => {
-    if (previewMode !== 'edit' || !onMoveRenderObject) return;
+    if (
+      previewMode !== 'edit' ||
+      (!renderStyle.nameplateFollowCharacter && !onMoveNameplate) ||
+      (renderStyle.nameplateFollowCharacter && !onMoveRenderObject)
+    )
+      return;
     event.stopPropagation();
     event.preventDefault();
     document.body.style.cursor = 'grabbing';
@@ -181,11 +189,19 @@ export function WebPlaytestNameplates({
     const guideBoxes = container ? collectPixelGuideBoxes(container, 'nameplate') : [];
     const startX = event.clientX;
     const startY = event.clientY;
-    const initialX = object.x;
-    const initialY = object.y;
+    const sourceNodeId = event.currentTarget.dataset.nameplateSourceId;
+    const fixedPosition = sourceNodeId
+      ? getNameplateFixedPosition(renderStyle, sourceNodeId)
+      : { x: 0, y: 0 };
+    const initialX = renderStyle.nameplateFollowCharacter ? object.x : fixedPosition.x;
+    const initialY = renderStyle.nameplateFollowCharacter ? object.y : fixedPosition.y;
     const move = (moveEvent: PointerEvent) => {
       let nextX = initialX + moveEvent.clientX - startX;
       let nextY = initialY + moveEvent.clientY - startY;
+      if (!renderStyle.nameplateFollowCharacter && sourceNodeId && onMoveNameplate) {
+        onMoveNameplate(sourceNodeId, nextX, nextY);
+        return;
+      }
       if (containerRect && guideBoxes.length > 0) {
         const snapped = snapPixelBoxToGuides({
           x: targetStartX + moveEvent.clientX - startX,
@@ -200,7 +216,7 @@ export function WebPlaytestNameplates({
       } else {
         onGuideLinesChange?.([]);
       }
-      onMoveRenderObject('nameplate', nextX, nextY);
+      onMoveRenderObject?.('nameplate', nextX, nextY);
     };
     const end = () => {
       document.body.style.cursor = '';
@@ -293,6 +309,14 @@ export function WebPlaytestNameplates({
     renderStyle.nameplateFollowCharacter
       ? { 'data-follow-source-id': sourceNodeId }
       : {};
+  const fixedNameplateStyle = (item: NameplateItem): React.CSSProperties => {
+    if (renderStyle.nameplateFollowCharacter) return baseStyle;
+    const position = getNameplateFixedPosition(renderStyle, item.sourceNodeId);
+    return {
+      ...baseStyle,
+      transform: `translate(${position.x}px, ${position.y}px)`,
+    };
+  };
 
   if (!renderStyle.nameplateFollowCharacter) {
     if (renderStyle.nameplateInside) {
@@ -310,7 +334,8 @@ export function WebPlaytestNameplates({
               key={item.sourceNodeId}
               className={`pointer-events-auto relative cursor-grab font-black ${editClass}`}
               data-render-object="nameplate"
-              style={baseStyle}
+              data-nameplate-source-id={item.sourceNodeId}
+              style={fixedNameplateStyle(item)}
               onClick={selectNameplate}
               onPointerDown={startNameplateDrag}
             >
@@ -340,7 +365,8 @@ export function WebPlaytestNameplates({
             key={item.sourceNodeId}
             className={`pointer-events-auto relative cursor-grab font-black ${editClass}`}
             data-render-object="nameplate"
-            style={baseStyle}
+            data-nameplate-source-id={item.sourceNodeId}
+            style={fixedNameplateStyle(item)}
             onClick={selectNameplate}
             onPointerDown={startNameplateDrag}
           >

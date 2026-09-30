@@ -366,14 +366,14 @@ export const WEB_EXPORT_STYLES = String.raw`
       border: var(--nameplate-border, 1px solid rgba(214,222,232,0.24));
       box-shadow: var(--nameplate-shadow, 0 8px 24px rgba(5,7,12,0.30));
       text-shadow: 0 1px 8px rgba(0,0,0,0.32);
-      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-translate-y, -100%)) var(--nameplate-object-transform, rotate(0deg) scale(1, 1));
+      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-translate-y, -100%) + var(--nameplate-fixed-y, 0px))) var(--nameplate-object-transform, rotate(0deg) scale(1, 1));
     }
     .nameplate-layer.inside .nameplate {
       background: transparent;
       border: none;
       box-shadow: none;
       text-shadow: 0 1px 10px rgba(0,0,0,0.42);
-      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px)), var(--nameplate-offset-y, 0px));
+      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-offset-y, 0px) + var(--nameplate-fixed-y, 0px)));
     }
     .dialogue {
       position: absolute;

@@ -24,6 +24,9 @@ export type NameplateLayout = {
   height: number;
 };
 
+export const getNameplateFixedPosition = (style: RenderStyle, sourceNodeId: string) =>
+  style.nameplateFixedPositions?.[sourceNodeId] || { x: 0, y: 0 };
+
 type DialogueLayout = {
   x: number;
   y: number;
@@ -143,23 +146,29 @@ export const getNameplateLayouts = (
       dialogueLayout.width / 2 -
       (measurements.reduce((sum, item) => sum + item.width, 0) + gap * (measurements.length - 1)) /
         2;
+    const fixedPosition = getNameplateFixedPosition(style, measurement.item.sourceNodeId);
     const centerX = style.nameplateFollowCharacter
       ? getNameplateCharacterCenterX(measurement.item.config, stageWidth) + offsetX
       : fixedStart +
         measurements.slice(0, index).reduce((sum, item) => sum + item.width + gap, 0) +
         measurement.width / 2 +
-        offsetX;
+        offsetX +
+        fixedPosition.x;
     const x = clampValue(centerX - measurement.width / 2, minX, maxX - measurement.width);
     return {
       item: measurement.item,
       x,
-      y: baseY,
+      y: baseY + (style.nameplateFollowCharacter ? 0 : fixedPosition.y),
       width: measurement.width,
       height: measurement.height,
     };
   });
 
   const layouts = [...rawLayouts].sort((a, b) => a.x - b.x);
+  const hasIndependentFixedPositions =
+    !style.nameplateFollowCharacter &&
+    items.some((item) => Boolean(style.nameplateFixedPositions?.[item.sourceNodeId]));
+  if (hasIndependentFixedPositions) return layouts;
   for (let index = 1; index < layouts.length; index += 1) {
     const previous = layouts[index - 1];
     const current = layouts[index];

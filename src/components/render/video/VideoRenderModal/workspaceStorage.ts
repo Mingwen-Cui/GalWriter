@@ -76,6 +76,7 @@ export const DEFAULT_RENDER_STYLE: RenderStyle = {
   nameplateTextColorAlpha: 100,
   nameplateOffsetX: 0,
   nameplateOffsetY: 0,
+  nameplateFixedPositions: {},
   nameplateTextGap: 8,
   nameplateBackgroundType: 'gradient',
   nameplateColor: '#202735',

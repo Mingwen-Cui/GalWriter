@@ -151,6 +151,8 @@ export type RenderStyle = {
   nameplateTextColorAlpha: number;
   nameplateOffsetX: number;
   nameplateOffsetY: number;
+  /** Per-character offsets used when nameplates are placed in a fixed row. */
+  nameplateFixedPositions?: Record<string, { x: number; y: number }>;
   nameplateTextGap: number;
   nameplateBackgroundType: 'solid' | 'gradient' | 'image';
   nameplateColor: string;

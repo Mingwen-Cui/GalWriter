@@ -104,6 +104,7 @@ export function VideoPreviewPanel({
   const [controlBarHeight, setControlBarHeight] = useState(0);
   const [previewObjectSelectionLocked, setPreviewObjectSelectionLocked] = useState(false);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
+  const [selectedNameplateId, setSelectedNameplateId] = useState<string | null>(null);
   const [activeAlignmentGuides, setActiveAlignmentGuides] = useState<{ x?: number; y?: number }>(
     {},
   );
@@ -171,12 +172,24 @@ export function VideoPreviewPanel({
     const emptyFrame = { x: 0, y: 0, width: 0, height: 0 };
     const currentNode = focusedPreviewNode || activePreviewNode;
     if (!currentNode)
-      return { dialogBox: emptyFrame, title: emptyFrame, body: emptyFrame, nameplate: emptyFrame };
+      return {
+        dialogBox: emptyFrame,
+        title: emptyFrame,
+        body: emptyFrame,
+        nameplate: emptyFrame,
+        nameplates: [],
+      };
     // Measuring on the visible canvas races asynchronous frame drawing and changes its font/baseline.
     textMeasureCanvasRef.current ||= document.createElement('canvas');
     const ctx = textMeasureCanvasRef.current.getContext('2d');
     if (!ctx)
-      return { dialogBox: emptyFrame, title: emptyFrame, body: emptyFrame, nameplate: emptyFrame };
+      return {
+        dialogBox: emptyFrame,
+        title: emptyFrame,
+        body: emptyFrame,
+        nameplate: emptyFrame,
+        nameplates: [],
+      };
     const duration = focusedPreviewNode
       ? previewDuration
       : (focusedTimelineMetric?.duration ?? 0) * speed;
@@ -236,7 +249,7 @@ export function VideoPreviewPanel({
         }
       : emptyFrame;
     const { x, y, width, height } = layout.dialog;
-    return { dialogBox: { x, y, width, height }, title, body, nameplate };
+    return { dialogBox: { x, y, width, height }, title, body, nameplate, nameplates };
   }, [
     activePreviewNode,
     focusedPreviewNode,
@@ -254,6 +267,14 @@ export function VideoPreviewPanel({
     timelinePreviewTime,
     videoRenderStyle,
   ]);
+
+  const editableNameplateFrames = editableFrames.nameplates;
+  const editableObjectFrames = {
+    dialogBox: editableFrames.dialogBox,
+    title: editableFrames.title,
+    body: editableFrames.body,
+    nameplate: editableFrames.nameplate,
+  };
 
   const startMove = (event: React.PointerEvent<HTMLDivElement>, kind: RenderEditableObjectKind) => {
     if (previewObjectSelectionLocked || event.button === 2) return;
@@ -322,6 +343,81 @@ export function VideoPreviewPanel({
           y: Math.round(object.y + (dy * 100) / Math.max(1, resolution.height - frame.height)),
         });
       else updateObject(kind, { x: Math.round(object.x + dx), y: Math.round(object.y + dy) });
+    };
+    const end = () => {
+      setActiveAlignmentGuides({});
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+  };
+
+  const startMoveNameplate = (
+    event: React.PointerEvent<HTMLDivElement>,
+    sourceNodeId: string,
+  ) => {
+    if (previewObjectSelectionLocked || event.button === 2) return;
+    const frame = editableNameplateFrames.find((item) => item.item.sourceNodeId === sourceNodeId);
+    if (!frame) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedNameplateId(sourceNodeId);
+    selectRenderObject('nameplate');
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const hostRect = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!hostRect) return;
+    const initial = renderStyle.nameplateFixedPositions?.[sourceNodeId] || { x: 0, y: 0 };
+    const otherFrames = [
+      ...Object.values(editableObjectFrames),
+      ...editableNameplateFrames
+        .filter((item) => item.item.sourceNodeId !== sourceNodeId)
+        .map(({ x, y, width, height }) => ({ x, y, width, height })),
+    ].filter((item) => item.width > 0 && item.height > 0);
+    const xCandidates = [
+      0,
+      resolution.width / 2,
+      resolution.width,
+      ...otherFrames.flatMap((item) => [item.x, item.x + item.width / 2, item.x + item.width]),
+    ];
+    const yCandidates = [
+      0,
+      resolution.height / 2,
+      resolution.height,
+      ...otherFrames.flatMap((item) => [item.y, item.y + item.height / 2, item.y + item.height]),
+    ];
+    const snapAxis = (origin: number, size: number, delta: number, candidates: number[]) => {
+      const movingPoints = [origin + delta, origin + delta + size / 2, origin + delta + size];
+      let closest: { adjustment: number; guide: number } | null = null;
+      movingPoints.forEach((point) =>
+        candidates.forEach((candidate) => {
+          const adjustment = candidate - point;
+          if (
+            Math.abs(adjustment) > 8 ||
+            (closest && Math.abs(adjustment) >= Math.abs(closest.adjustment))
+          )
+            return;
+          closest = { adjustment, guide: candidate };
+        }),
+      );
+      return closest;
+    };
+    const move = (moveEvent: PointerEvent) => {
+      const rawDx = ((moveEvent.clientX - startX) * resolution.width) / hostRect.width;
+      const rawDy = ((moveEvent.clientY - startY) * resolution.height) / hostRect.height;
+      const xSnap = snapAxis(frame.x, frame.width, rawDx, xCandidates);
+      const ySnap = snapAxis(frame.y, frame.height, rawDy, yCandidates);
+      const dx = rawDx + (xSnap?.adjustment || 0);
+      const dy = rawDy + (ySnap?.adjustment || 0);
+      setActiveAlignmentGuides({ x: xSnap?.guide, y: ySnap?.guide });
+      updateRenderStyle('nameplateFixedPositions', {
+        ...(renderStyle.nameplateFixedPositions || {}),
+        [sourceNodeId]: {
+          x: Math.round(initial.x + dx),
+          y: Math.round(initial.y + dy),
+        },
+      });
     };
     const end = () => {
       setActiveAlignmentGuides({});
@@ -612,11 +708,56 @@ export function VideoPreviewPanel({
               {!previewObjectSelectionLocked &&
                 !previewFullscreen &&
                 (
-                  Object.entries(editableFrames) as Array<
-                    [RenderEditableObjectKind, typeof editableFrames.dialogBox]
+                  editableNameplateFrames.length > 0 && !renderStyle.nameplateFollowCharacter
+                    ? editableNameplateFrames.map((frame) => {
+                        const sourceNodeId = frame.item.sourceNodeId;
+                        const selected =
+                          !canvasSelected &&
+                          renderStyle.selectedRenderObject === 'nameplate' &&
+                          (selectedNameplateId === null || selectedNameplateId === sourceNodeId);
+                        return (
+                          <div
+                            key={`nameplate-${sourceNodeId}`}
+                            className={`absolute z-20 touch-none ${selected ? 'cursor-grab' : 'cursor-pointer'}`}
+                            data-render-object="nameplate"
+                            data-nameplate-source-id={sourceNodeId}
+                            style={{
+                              left: `${(frame.x / resolution.width) * 100}%`,
+                              top: `${(frame.y / resolution.height) * 100}%`,
+                              width: `${(frame.width / resolution.width) * 100}%`,
+                              height: `${(frame.height / resolution.height) * 100}%`,
+                            }}
+                            onPointerDown={(event) => startMoveNameplate(event, sourceNodeId)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedNameplateId(sourceNodeId);
+                              selectRenderObject('nameplate');
+                            }}
+                          >
+                            {selected && (
+                              <WebEditableElementFrame
+                                visible
+                                showAuxiliaryControls={false}
+                                showResizeHandles={false}
+                                onToggleVisible={() => undefined}
+                                onRotatePointerDown={() => undefined}
+                                onResizePointerDown={() => undefined}
+                              />
+                            )}
+                          </div>
+                        );
+                      })
+                    : null
+                )}
+              {!previewObjectSelectionLocked &&
+                !previewFullscreen &&
+                (
+                  Object.entries(editableObjectFrames) as Array<
+                    [RenderEditableObjectKind, typeof editableObjectFrames.dialogBox]
                   >
                 ).map(([kind, frame]) => {
                   if (frame.width <= 0 || frame.height <= 0) return null;
+                  if (kind === 'nameplate' && !renderStyle.nameplateFollowCharacter) return null;
                   const selected = !canvasSelected && renderStyle.selectedRenderObject === kind;
                   return (
                     <div

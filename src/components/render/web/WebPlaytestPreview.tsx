@@ -359,6 +359,15 @@ export function WebPlaytestPreview({
     },
     [_onUpdateRenderStyle, renderStyle],
   );
+  const moveNameplate = React.useCallback(
+    (sourceNodeId: string, x: number, y: number) => {
+      _onUpdateRenderStyle('nameplateFixedPositions', {
+        ...(renderStyle.nameplateFixedPositions || {}),
+        [sourceNodeId]: { x: Math.round(x), y: Math.round(y) },
+      });
+    },
+    [_onUpdateRenderStyle, renderStyle.nameplateFixedPositions],
+  );
   const patchRenderObject = React.useCallback(
     (kind: RenderEditableObjectKind, patch: Parameters<typeof updateRenderObject>[2]) => {
       const nextObjects = updateRenderObject(renderStyle, kind, patch);
@@ -737,6 +746,7 @@ export function WebPlaytestPreview({
       previewMode={previewMode}
       onSelectRenderObject={selectRenderObject}
       onMoveRenderObject={moveRenderObject}
+      onMoveNameplate={moveNameplate}
       onUpdateRenderObject={patchRenderObject}
       onGuideLinesChange={onGuideLinesChange}
       selectedRenderObjectKinds={selectedRenderObjectKinds}

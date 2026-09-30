@@ -734,6 +734,45 @@ ${WEB_PLAYBACK_UI_CSS}</style>
 
     const titleEl = document.getElementById("projectTitle");
     const stageEl = document.getElementById("stage");
+    let nameplateSyncFrame = 0;
+    function syncNameplatePositions() {
+      if (style.nameplateFollowCharacter === false || !stageEl) return;
+      const dialogue = stageEl.querySelector(".dialogue");
+      if (!dialogue) return;
+      const dialogueRect = dialogue.getBoundingClientRect();
+      const logicalWidth = dialogue.offsetWidth || dialogueRect.width;
+      const scaleX = logicalWidth > 0 ? dialogueRect.width / logicalWidth : 1;
+      const charactersBySourceId = new Map(
+        Array.from(stageEl.querySelectorAll(".character-img")).map((character) => [
+          character.getAttribute("data-source-id") || "",
+          character,
+        ]),
+      );
+      stageEl.querySelectorAll(".nameplate[data-follow-source-id]").forEach((nameplate) => {
+        const sourceNodeId = nameplate.getAttribute("data-follow-source-id") || "";
+        const character = charactersBySourceId.get(sourceNodeId);
+        if (!character) return;
+        const characterRect = character.getBoundingClientRect();
+        if (characterRect.width <= 0) return;
+        const centerX =
+          (characterRect.left + characterRect.width / 2 - dialogueRect.left) /
+          Math.max(0.001, scaleX);
+        nameplate.style.left = centerX + "px";
+      });
+    }
+    function startNameplatePositionSync() {
+      if (nameplateSyncFrame) cancelAnimationFrame(nameplateSyncFrame);
+      if (style.nameplateFollowCharacter === false) return;
+      const tick = () => {
+        syncNameplatePositions();
+        if (stageEl.querySelector(".nameplate[data-follow-source-id]")) {
+          nameplateSyncFrame = requestAnimationFrame(tick);
+        } else {
+          nameplateSyncFrame = 0;
+        }
+      };
+      nameplateSyncFrame = requestAnimationFrame(tick);
+    }
     const backdropEl = document.getElementById("backdrop");
     const backButton = document.getElementById("backButton");
     const resetButton = document.getElementById("resetButton");
@@ -2968,10 +3007,17 @@ ${WEB_PLAYBACK_UI_CSS}</style>
             visibleNameplates.map((char, idx) => {
               const basePosition = char.position === "left" ? 24 : char.position === "right" ? 76 : 50;
               const characterCenter = basePosition + (Number(char.offsetX) || 0) / 10;
+              const fixedPosition = style.nameplateFixedPositions?.[char.sourceNodeId || ""] || { x: 0, y: 0 };
               const localLeft = style.nameplateFollowCharacter === false
                 ? 50 + (idx - (total - 1) / 2) * 18
                 : Math.max(4, Math.min(96, ((characterCenter - dialogLeft) / dialogWidth) * 100));
-              return '<div class="nameplate" style="left: ' + localLeft + '%">' + escapeHtml(char.name || "") + '</div>';
+              const followSource = style.nameplateFollowCharacter === false
+                ? ""
+                : ' data-follow-source-id="' + escapeAttr(char.sourceNodeId || "") + '"';
+              const fixedStyle = style.nameplateFollowCharacter === false
+                ? '; --nameplate-fixed-x: ' + (Number(fixedPosition.x) || 0) + 'px; --nameplate-fixed-y: ' + (Number(fixedPosition.y) || 0) + 'px'
+                : '';
+              return '<div class="nameplate"' + followSource + ' style="left: ' + localLeft + '%' + fixedStyle + '">' + escapeHtml(char.name || "") + '</div>';
             }).join("") +
             '</div>';
         }
@@ -3034,6 +3080,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         '</div>' +
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
       mountResolvedText(node);
+      startNameplatePositionSync();
       watchZenButtonPosition();
 
       // Start entrance transitions after the initial styles have been applied.
