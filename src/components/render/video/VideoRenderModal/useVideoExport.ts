@@ -4,13 +4,17 @@ import { useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
+import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
+import { formatExportAssetFailures } from '../../shared/exportAssetFailures';
 import { buildAudioBuffer } from '../audio/audioTrack';
 import { saveRenderedImage, saveRenderedVideo } from '../export/tauriRenderAdapter';
 import { renderVideoCoverPngBytes } from '../export/videoCover';
+import { preflightVideoExportImages } from '../export/videoExportPreflight';
 import { getVideoTextForChinesePreference } from '../i18n';
 import { formatVideoText } from '../i18n';
 import { DEFAULT_VIDEO_BITRATE } from '../shared/constants';
 import { loadVideo, seekVideo, validDuration } from '../shared/mediaUtils';
+import type { RenderStyle } from '../shared/types';
 import type {
   ExportFormat,
   RenderStatus,
@@ -45,6 +49,8 @@ export const useVideoExport = ({
   outputDir,
   speed,
   videoCover,
+  renderStyle,
+  canvasSettings,
   drawFrame,
   getNodeRenderDuration,
   getSegmentAudioSources,
@@ -68,6 +74,8 @@ export const useVideoExport = ({
   outputDir: string;
   speed: number;
   videoCover?: VideoCoverSettings | null;
+  renderStyle: RenderStyle;
+  canvasSettings?: SharedCanvasSettings;
   drawFrame: DrawFrame;
   getNodeRenderDuration: (node: FlowNode) => Promise<number>;
   getSegmentAudioSources: (node: FlowNode) => { kind: string; url: string }[];
@@ -121,6 +129,8 @@ export const useVideoExport = ({
     const throwIfCancelled = () => abortController.signal.throwIfAborted();
 
     try {
+      throwIfCancelled();
+      await preflightVideoExportImages(nodes, renderNodes, renderStyle, canvasSettings, language);
       throwIfCancelled();
       canvas.width = resolution.width;
       canvas.height = resolution.height;
@@ -191,7 +201,23 @@ export const useVideoExport = ({
         }
         regionCursor += duration;
       });
-      const audioBuffer = await buildAudioBuffer(audioSegments, resolvedSpeed, totalDuration);
+      const audioFailures: { kind: 'audio'; label: string; source: string; reason: string }[] = [];
+      const audioBuffer = await buildAudioBuffer(
+        audioSegments,
+        resolvedSpeed,
+        totalDuration,
+        (segment, error) => {
+          audioFailures.push({
+            kind: 'audio',
+            label: String(segment.node.data?.title || segment.node.id),
+            source: segment.audioUrl || segment.videoUrl || 'unknown audio source',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        },
+      );
+      if (audioFailures.length > 0) {
+        throw new Error(formatExportAssetFailures(language, '视频导出', audioFailures));
+      }
       throwIfCancelled();
 
       const videoCache = new Map<string, HTMLVideoElement>();
@@ -199,7 +225,20 @@ export const useVideoExport = ({
         throwIfCancelled();
         const videoUrl = node.data?.videoUrl as string | undefined;
         if (videoUrl && !videoCache.has(videoUrl)) {
-          videoCache.set(videoUrl, await loadVideo(videoUrl));
+          try {
+            videoCache.set(videoUrl, await loadVideo(videoUrl));
+          } catch (error) {
+            throw new Error(
+              formatExportAssetFailures(language, '视频导出', [
+                {
+                  kind: 'video',
+                  label: String(node.data?.title || node.id),
+                  source: videoUrl,
+                  reason: error instanceof Error ? error.message : String(error),
+                },
+              ]),
+            );
+          }
         }
       }
       const nodeStartTimes: number[] = [];

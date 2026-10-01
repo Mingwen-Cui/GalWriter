@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 
+import { validateExportAssetBlob } from '../../../shared/validateExportAsset';
 import { isFetchableAssetSource } from '../assets';
 import type { TargetAssetCopy } from '../targets/targetTypes';
 import type { AssetEntry } from '../types';
@@ -22,7 +23,9 @@ export const materializeAssets = async (
       try {
         const response = await fetch(asset.source);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        bytes.set(assetPath, await response.arrayBuffer());
+        const blob = await response.blob();
+        await validateExportAssetBlob(blob, asset.kind, asset.source);
+        bytes.set(assetPath, await blob.arrayBuffer());
       } catch (error) {
         failures.push(`${assetPath}: ${error instanceof Error ? error.message : 'unknown error'}`);
       }

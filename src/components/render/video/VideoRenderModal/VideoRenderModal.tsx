@@ -1,14 +1,13 @@
-import type { RenderStyle } from '../shared/types';
 import type { Node as FlowNode } from '@xyflow/react';
 import React, { Suspense, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+
 import { canvasRatio, migrateVideoCanvasSettings } from '../../canvas/canvasDimensions';
 import {
   normalizeSharedCanvasSettings,
-  useSharedCanvasSettings,
   type SharedCanvasSettings,
+  useSharedCanvasSettings,
 } from '../../canvas/canvasSettings';
-
 import { normalizeRenpyExportSettings } from '../../code/codeExport/model';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import type { RenpyExportSettings } from '../../code/codeExport/types';
@@ -61,6 +60,7 @@ import {
 import { clamp, isTauriRuntime } from '../shared/mediaUtils';
 import { getVideoRenderObjects } from '../shared/renderObjects';
 import { getNodeDisplayTitle, getOrderedStoryNodes, stripHtml } from '../shared/storyNodes';
+import type { RenderStyle } from '../shared/types';
 import type {
   AssetCardLayout,
   ExportFormat,
@@ -98,13 +98,13 @@ import {
   segmentText as getSegmentText,
   segmentTitle as getSegmentTitle,
 } from './segmentHelpers';
-import { getSpeechTextForNode as buildSpeechTextForNode, getSpeechTagNames } from './speechText';
+import { getSpeechTagNames, getSpeechTextForNode as buildSpeechTextForNode } from './speechText';
 import { calculateTimelineMetrics } from './timelineMetrics';
 import {
   findNonOverlappingTrackStart as calculateNonOverlappingTrackStart,
+  hasTrackSpace,
   snapTimelineTime as calculateSnappedTimelineTime,
   snapToTimelineClipEdges as calculateTimelineClipEdgeSnap,
-  hasTrackSpace,
 } from './timelinePlacement';
 import {
   calculateVideoTrackLayout,
@@ -1979,6 +1979,8 @@ export function VideoRenderModal({
     outputDir,
     speed,
     videoCover,
+    renderStyle,
+    canvasSettings: videoCanvasSettings,
     drawFrame,
     getNodeRenderDuration,
     getSegmentAudioSources,

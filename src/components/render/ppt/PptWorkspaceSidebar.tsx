@@ -17,6 +17,7 @@ import { isRapidAssetEdition } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import type { HomepageCoverTemplate } from '../homepageCoverTemplates';
 import { RapidEditionTemplateNotice } from '../RapidEditionTemplateNotice';
+import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import { downloadTemplateArchive } from '../templateArchive';
 import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
 import { registerCustomRenderFonts, renderFontOptions } from '../video/shared/customFonts';
@@ -37,14 +38,10 @@ import { targetLabel } from './pptAnimationLabels';
 import { usePptCopy } from './pptCopyContext';
 import { PptCoverTextInspector } from './PptCoverTextInspector';
 import { PptManualInspector } from './PptManualInspector';
-import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 import { PptSlideBackgroundInspector } from './PptSlideBackgroundInspector';
 import type { Selection, VideoTimelineTrack } from './PptWorkspace';
 import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
-import {
-  PPT_TIMELINE_MIN_DURATION_MS,
-  type PptWorkspaceSidebarTab,
-} from './pptWorkspaceModel';
+import { PPT_TIMELINE_MIN_DURATION_MS, type PptWorkspaceSidebarTab } from './pptWorkspaceModel';
 
 type SidebarTab = PptWorkspaceSidebarTab;
 
@@ -150,10 +147,7 @@ export function PptSidebar({
   onUpdateManualElement: (elementId: string, patch: Partial<PptManualElement>) => void;
   onUpdateManualElements?: (changes: LayerChange[]) => void;
   selectedCanvasSelectionKeys: string[];
-  onAlignSelectedCanvasElements: (
-    axis: 'x' | 'y',
-    value: 'start' | 'center' | 'end',
-  ) => void;
+  onAlignSelectedCanvasElements: (axis: 'x' | 'y', value: 'start' | 'center' | 'end') => void;
   onDeleteManualElement: (elementId: string) => void;
   onUpdateCoverText: (
     target: Extract<PptTextOverrideTarget, 'cover-title' | 'cover-subtitle' | 'cover-description'>,
@@ -188,6 +182,7 @@ export function PptSidebar({
   const coverDesignTriggerRef = useRef<HTMLButtonElement>(null);
   const coverDesignPopoverRef = useRef<HTMLDivElement>(null);
   const showParameterDescriptions = false;
+  // Template presets are temporarily hidden while PPT export is being stabilized.
   const [coverDesignMode, setCoverDesignMode] = useState<'background' | 'preset'>('background');
   const [savedPptCoverTemplates, setSavedPptCoverTemplates] = useState(readPptCoverTemplateLibrary);
   const [selectedPptCoverTemplateId, setSelectedPptCoverTemplateId] = useState<string | null>(null);
@@ -427,13 +422,6 @@ export function PptSidebar({
                         className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                       >
                         {coverDesignCopy.background}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCoverDesignMode('preset')}
-                        className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
-                      >
-                        {coverDesignCopy.preset}
                       </button>
                     </div>
                   </div>

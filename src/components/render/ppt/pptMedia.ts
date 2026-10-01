@@ -56,7 +56,7 @@ const fetchImageData = async (source: string) => {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const blob = await response.blob();
   const mime = await mimeFromImageBytes(blob);
-  if (!mime) return undefined;
+  if (!mime) throw new Error('Unsupported image format or unreadable image bytes');
   if (!PPT_IMAGE_MIME_TYPES.has(mime)) return rasterizeBlobAsPng(blob);
   const data = await readBlobAsDataUrl(blob);
   return isImageDataUrl(data) ? data.replace(/^data:[^;,]+/i, `data:${mime}`) : undefined;
@@ -66,8 +66,7 @@ const isPptSafeImageDataUrl = (value: string) =>
   isImageDataUrl(value) &&
   isBase64DataUrl(value) &&
   /^data:image\/(png|jpeg|gif|svg\+xml);base64,/i.test(value);
-const isPptSafeVideoDataUrl = (value: string) =>
-  /^data:video\/[a-z0-9.+-]+;base64,/i.test(value);
+const isPptSafeVideoDataUrl = (value: string) => /^data:video\/[a-z0-9.+-]+;base64,/i.test(value);
 const videoLastFrameCache = new Map<string, Promise<string | undefined>>();
 
 const readVideoBlobWithXhr = (source: string) =>
@@ -77,7 +76,10 @@ const readVideoBlobWithXhr = (source: string) =>
     request.responseType = 'blob';
     request.onload = () => {
       // Blob URLs report a status of 0 in some WebViews even when the read worked.
-      if ((request.status >= 200 && request.status < 300) || (request.status === 0 && request.response)) {
+      if (
+        (request.status >= 200 && request.status < 300) ||
+        (request.status === 0 && request.response)
+      ) {
         resolve(request.response);
         return;
       }
@@ -121,7 +123,9 @@ const pptVideoMimeFromBlob = async (blob: Blob) => {
 const toPowerPointMp4Blob = async (blob: Blob) => {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   if (!isTauriRuntime()) {
-    throw new Error('PPT video export in the browser supports MP4 (H.264/AAC) only. Use the desktop app to convert this video automatically.');
+    throw new Error(
+      'PPT video export in the browser supports MP4 (H.264/AAC) only. Use the desktop app to convert this video automatically.',
+    );
   }
   const transcoded = await transcodePptVideo(bytes);
   if (!transcoded.length) throw new Error('The video conversion returned no data.');
@@ -135,8 +139,7 @@ export const getPptImageDimensions = async (data: string) => {
     image.onerror = () => reject(new Error('Could not read image dimensions'));
     image.src = data;
   });
-  if (!image.naturalWidth || !image.naturalHeight)
-    throw new Error('Image has no dimensions');
+  if (!image.naturalWidth || !image.naturalHeight) throw new Error('Image has no dimensions');
   return { width: image.naturalWidth, height: image.naturalHeight };
 };
 
@@ -157,8 +160,9 @@ export async function toPptImageData(url?: string): Promise<string | undefined> 
     try {
       return await fetchImageData(source);
     } catch (fetchError) {
-      console.warn('Could not embed image in PPTX:', { imageError, fetchError });
-      return undefined;
+      throw new Error(
+        `Could not embed image (${imageError instanceof Error ? imageError.message : 'decode failed'}; ${fetchError instanceof Error ? fetchError.message : 'fetch failed'})`,
+      );
     }
   }
 }
@@ -188,7 +192,8 @@ export async function toPptVideoData(url?: string): Promise<string | undefined> 
   // We have either identified an MP4 container above or just produced one with
   // FFmpeg, so normalise only the data-URL header while keeping its bytes.
   const mp4Data = data.replace(/^data:[^;,]+/i, 'data:video/mp4');
-  if (!isPptSafeVideoDataUrl(mp4Data)) throw new Error('Could not encode the video for PPT export.');
+  if (!isPptSafeVideoDataUrl(mp4Data))
+    throw new Error('Could not encode the video for PPT export.');
   return mp4Data;
 }
 

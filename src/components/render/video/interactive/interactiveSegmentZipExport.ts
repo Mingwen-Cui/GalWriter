@@ -11,6 +11,7 @@ import type { RenderStatus, VideoCoverSettings } from '../shared/types';
 import {
   buildInteractiveSegmentExportOrder,
   createInteractiveSegmentStructurePngBytes,
+  selectExportedInteractiveSegmentStructure,
   sortSegmentsByExportOrder,
 } from './InteractiveSegmentExportOrder';
 import {
@@ -111,6 +112,7 @@ export const exportInteractiveSegmentZip = async ({
 
   try {
     let renderedVideoCount = 0;
+    const renderedSegments: InteractiveSegmentDraft[] = [];
     for (let index = 0; index < enabledSegments.length; index += 1) {
       const segment = enabledSegments[index];
       const segmentNodes = segment.nodeIds
@@ -139,10 +141,11 @@ export const exportInteractiveSegmentZip = async ({
       if (!bytes || bytes.length === 0) continue;
 
       zip.file(
-        `${String(index + 1).padStart(2, '0')}-${makeInteractiveSegmentFileName(segment, index)}.mp4`,
+        `${String(renderedVideoCount + 1).padStart(2, '0')}-${makeInteractiveSegmentFileName(segment, renderedVideoCount)}.mp4`,
         bytes,
       );
       renderedVideoCount += 1;
+      renderedSegments.push(segment);
       setProgressValue(Math.round(((index + 1) / enabledSegments.length) * 82));
     }
 
@@ -159,7 +162,17 @@ export const exportInteractiveSegmentZip = async ({
     const cardHeight = 222;
     const graphPadding = 120;
     const layoutDirection: LayoutDirection = 'right';
-    const positions = buildSegmentLayout(segments, layoutDirection, cardWidth, cardHeight);
+    const exportStructure = selectExportedInteractiveSegmentStructure(
+      segments,
+      orderIds,
+      renderedSegments.map((segment) => segment.id),
+    );
+    const positions = buildSegmentLayout(
+      exportStructure.segments,
+      layoutDirection,
+      cardWidth,
+      cardHeight,
+    );
     const graphBounds = graphBoundsFromPositions(positions, cardWidth, cardHeight);
     const renderPositions = new Map<string, { x: number; y: number }>();
     positions.forEach((position, id) => {
@@ -169,19 +182,11 @@ export const exportInteractiveSegmentZip = async ({
       });
     });
 
-    const graphLinks = segments.flatMap((segment) =>
-      segment.choices.map((choice) => ({
-        id: choice.id,
-        fromSegmentId: segment.id,
-        toSegmentId: choice.targetSegmentId,
-        label: choice.label,
-      })),
-    );
     const structureBytes = await createInteractiveSegmentStructurePngBytes({
-      segments,
-      graphLinks,
+      segments: exportStructure.segments,
+      graphLinks: exportStructure.graphLinks,
       renderPositions,
-      exportOrderIds: orderIds,
+      exportOrderIds: exportStructure.exportOrderIds,
       cardWidth,
       cardHeight,
       graphWidth: Math.max(1040, graphBounds.maxX - graphBounds.minX + graphPadding * 2),

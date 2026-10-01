@@ -5,6 +5,7 @@ export const buildAudioBuffer = async (
   segments: SegmentRenderInfo[],
   speed: number,
   targetDuration?: number,
+  onAssetFailure?: (segment: SegmentRenderInfo, error: unknown) => void,
 ): Promise<AudioBuffer | undefined> => {
   const hasExplicitStart = segments.some((segment) => segment.startSecs !== undefined);
   const contentDuration = hasExplicitStart
@@ -53,7 +54,8 @@ export const buildAudioBuffer = async (
         source.start(startAt, 0, sourceDuration);
         hasAudio = true;
       } catch (error) {
-        console.warn('Could not decode render audio track:', error);
+        if (onAssetFailure) onAssetFailure(segment, error);
+        else console.warn('Could not decode render audio track:', error);
       }
     }
     cursor += segment.durationSecs;

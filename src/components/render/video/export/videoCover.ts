@@ -32,12 +32,20 @@ const drawCoverImage = (
   cropY = 50,
   cropScale = 1,
 ) => {
-  const scale = Math.max(width / Math.max(1, sourceWidth), height / Math.max(1, sourceHeight)) * Math.max(1, cropScale);
+  const scale =
+    Math.max(width / Math.max(1, sourceWidth), height / Math.max(1, sourceHeight)) *
+    Math.max(1, cropScale);
   const drawWidth = sourceWidth * scale;
   const drawHeight = sourceHeight * scale;
   const safeX = Math.max(0, Math.min(100, cropX)) / 100;
   const safeY = Math.max(0, Math.min(100, cropY)) / 100;
-  ctx.drawImage(image, (width - drawWidth) * safeX, (height - drawHeight) * safeY, drawWidth, drawHeight);
+  ctx.drawImage(
+    image,
+    (width - drawWidth) * safeX,
+    (height - drawHeight) * safeY,
+    drawWidth,
+    drawHeight,
+  );
 };
 
 const wrapLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
@@ -71,15 +79,19 @@ const getTextShadows = (element: VideoCoverElement) => {
   if (element.shadowEnabled === false) return [];
   const shadows = element.shadows?.length
     ? element.shadows
-    : [{
-        type: element.shadowType || 'outer',
-        color: element.shadowColor || '#000000',
-        opacity: element.shadowOpacity ?? 0,
-        blur: element.shadowBlur ?? 18,
-        offsetX: element.shadowOffsetX ?? 0,
-        offsetY: element.shadowOffsetY ?? 2,
-      }];
-  return shadows.filter((shadow) => shadow.enabled !== false && shadow.type === 'outer' && shadow.opacity > 0);
+    : [
+        {
+          type: element.shadowType || 'outer',
+          color: element.shadowColor || '#000000',
+          opacity: element.shadowOpacity ?? 0,
+          blur: element.shadowBlur ?? 18,
+          offsetX: element.shadowOffsetX ?? 0,
+          offsetY: element.shadowOffsetY ?? 2,
+        },
+      ];
+  return shadows.filter(
+    (shadow) => shadow.enabled !== false && shadow.type === 'outer' && shadow.opacity > 0,
+  );
 };
 
 const drawText = (
@@ -136,7 +148,10 @@ const drawCoverElement = async (
     try {
       const image = await loadCachedImage(element.imageUrl);
       if (element.objectFit === 'contain') {
-        const scale = Math.min(elementWidth / image.naturalWidth, elementHeight / image.naturalHeight);
+        const scale = Math.min(
+          elementWidth / image.naturalWidth,
+          elementHeight / image.naturalHeight,
+        );
         const drawWidth = image.naturalWidth * scale;
         const drawHeight = image.naturalHeight * scale;
         ctx.drawImage(
@@ -164,32 +179,38 @@ const drawCoverElement = async (
         );
         ctx.restore();
       }
-    } catch {
-      // A missing asset should not stop the rest of the cover from exporting.
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`Cover element image could not be loaded (${element.imageUrl}): ${reason}`);
     }
+  } else if (element.kind === 'image') {
+    throw new Error('Cover element image is missing its source file.');
   }
   if (element.kind === 'text' && element.textVisible !== false && element.text?.trim()) {
     const fontSize = Math.max(14, ((element.fontSize || 54) / 1080) * height);
     const textAlign = element.textAlign || 'center';
-    const textX = textAlign === 'left' ? 0 : textAlign === 'right' ? elementWidth : elementWidth / 2;
+    const textX =
+      textAlign === 'left' ? 0 : textAlign === 'right' ? elementWidth : elementWidth / 2;
     ctx.font = `${element.fontWeight || 800} ${fontSize}px ${element.fontFamily || '"Noto Sans SC", "Microsoft YaHei", sans-serif'}`;
     ctx.textAlign = textAlign;
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
-    const strokeWidth = element.strokeEnabled === false
-      ? 0
-      : Math.max(0, ((element.textStrokeWidth || 0) / 1080) * height);
+    const strokeWidth =
+      element.strokeEnabled === false
+        ? 0
+        : Math.max(0, ((element.textStrokeWidth || 0) / 1080) * height);
     ctx.lineWidth = strokeWidth;
     ctx.strokeStyle = element.textStrokeColor || '#000000';
     ctx.fillStyle = colorWithAlpha(element.textColor, element.textColorAlpha);
     const lineHeight = fontSize * (element.lineHeight || 1.28);
     const lines = wrapLines(ctx, element.text, elementWidth).slice(0, 5);
     const firstY = elementHeight / 2 - ((lines.length - 1) * lineHeight) / 2;
-    const drawLines = () => lines.forEach((line, index) => {
-      const lineY = firstY + index * lineHeight;
-      if (strokeWidth > 0) ctx.strokeText(line, textX, lineY);
-      ctx.fillText(line, textX, lineY);
-    });
+    const drawLines = () =>
+      lines.forEach((line, index) => {
+        const lineY = firstY + index * lineHeight;
+        if (strokeWidth > 0) ctx.strokeText(line, textX, lineY);
+        ctx.fillText(line, textX, lineY);
+      });
     getTextShadows(element).forEach((shadow) => {
       ctx.save();
       ctx.shadowColor = colorWithAlpha(shadow.color, shadow.opacity);
@@ -230,25 +251,36 @@ export const renderVideoCoverCanvas = async ({
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  try {
-    if (settings.sourceType === 'image' && settings.imageUrl) {
+  if (settings.sourceType === 'image') {
+    if (!settings.imageUrl) throw new Error('Selected cover image is missing its source file.');
+    try {
       const image = await loadCachedImage(settings.imageUrl);
       drawCoverImage(ctx, image, image.naturalWidth, image.naturalHeight, width, height);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`Selected cover image could not be loaded (${settings.imageUrl}): ${reason}`);
     }
-    if (settings.sourceType === 'videoFrame' && settings.videoNodeId) {
-      const node = nodes.find((candidate) => candidate.id === settings.videoNodeId);
-      const source = typeof node?.data?.videoUrl === 'string' ? node.data.videoUrl : undefined;
-      if (source) {
-        const video = await loadVideo(source);
-        await seekVideo(video, settings.frameTime || 0);
-        drawCoverImage(ctx, video, video.videoWidth, video.videoHeight, width, height);
+  }
+  if (settings.sourceType === 'videoFrame') {
+    const node = nodes.find((candidate) => candidate.id === settings.videoNodeId);
+    const source = typeof node?.data?.videoUrl === 'string' ? node.data.videoUrl : undefined;
+    if (!source)
+      throw new Error('Selected cover video frame is unavailable; the source video is missing.');
+    let video: HTMLVideoElement | undefined;
+    try {
+      video = await loadVideo(source);
+      await seekVideo(video, settings.frameTime || 0);
+      drawCoverImage(ctx, video, video.videoWidth, video.videoHeight, width, height);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`Selected cover video frame could not be rendered (${source}): ${reason}`);
+    } finally {
+      if (video) {
         video.pause();
         video.removeAttribute('src');
         video.load();
       }
     }
-  } catch {
-    // Keep the selected gradient visible if a local/remote media asset fails to load.
   }
 
   const shade = ctx.createLinearGradient(0, height * 0.35, 0, height);
@@ -281,7 +313,10 @@ export const renderVideoCoverCanvas = async ({
   if (includeElements) {
     const orderedElements = (settings.elements || [])
       .map((element, index) => ({ element, index }))
-      .sort((left, right) => (left.element.zIndex ?? left.index) - (right.element.zIndex ?? right.index));
+      .sort(
+        (left, right) =>
+          (left.element.zIndex ?? left.index) - (right.element.zIndex ?? right.index),
+      );
     for (const { element } of orderedElements) {
       await drawCoverElement(ctx, element, width, height);
     }

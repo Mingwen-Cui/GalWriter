@@ -33,6 +33,41 @@ export type PptVideoPlaybackTarget = {
   loop: boolean;
 };
 
+/**
+ * PowerPoint's "With Previous" effects only synchronize with the adjacent
+ * effect in the sequence. Keep character/nameplate copies together so the
+ * latter cannot accidentally follow a dialogue or panel animation instead.
+ */
+export const orderPptAnimationTargets = (
+  targets: PptAnimationExportTarget[],
+  animationOrderBySlide: Map<number, Map<string, number>>,
+) =>
+  targets
+    .map((target, index) => ({ target, index }))
+    .sort((left, right) => {
+      const slideOrder = left.target.slideNumber - right.target.slideNumber;
+      if (slideOrder) return slideOrder;
+      const animationOrder = animationOrderBySlide.get(left.target.slideNumber);
+      if (!animationOrder) return left.index - right.index;
+      const animationIndex =
+        (animationOrder.get(left.target.animation.id) ?? Number.MAX_SAFE_INTEGER) -
+        (animationOrder.get(right.target.animation.id) ?? Number.MAX_SAFE_INTEGER);
+      if (animationIndex) return animationIndex;
+      const targetRank = (objectName: string) =>
+        objectName.startsWith('ppt-character-')
+          ? 0
+          : objectName.endsWith('-text') && objectName.startsWith('ppt-nameplate-')
+            ? 2
+            : objectName.startsWith('ppt-nameplate-')
+              ? 1
+              : 0;
+      return (
+        targetRank(left.target.objectName) - targetRank(right.target.objectName) ||
+        left.index - right.index
+      );
+    })
+    .map(({ target }) => target);
+
 const xmlEscape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const findShapeId = (slideXml: string, objectName: string) =>
   slideXml.match(new RegExp(`<p:cNvPr id="(\\d+)" name="${xmlEscape(objectName)}"`))?.[1];
@@ -180,16 +215,11 @@ const filterFor = (animation: PptObjectAnimation) => {
   return animation.effect;
 };
 
-const effectXml = (
-  id: number,
-  shapeId: string,
-  animation: PptObjectAnimation,
-) => {
+const effectXml = (id: number, shapeId: string, animation: PptObjectAnimation) => {
   const phase = phaseOf(animation);
   // Keep line-aware timing in the workspace, but export the text as the
   // native PowerPoint wipe effect instead of a per-character fade build.
-  if (animation.effect === 'line')
-    return motionPathXml(id, shapeId, animation);
+  if (animation.effect === 'line') return motionPathXml(id, shapeId, animation);
   if (animation.effect === 'zoom' || animation.effect === 'growShrink')
     return scaleXml(id, shapeId, animation);
   if (animation.effect === 'spin') return rotationXml(id, shapeId, animation);
@@ -200,11 +230,7 @@ const effectXml = (
   )}</p:animEffect>`;
 };
 
-const animationXml = (
-  shapeId: string,
-  animation: PptObjectAnimation,
-  index: number,
-) => {
+const animationXml = (shapeId: string, animation: PptObjectAnimation, index: number) => {
   const baseId = 3 + index * 10;
   const phase = phaseOf(animation);
   const presetClass = phase === 'enter' ? 'entr' : phase === 'exit' ? 'exit' : 'emph';
@@ -293,11 +319,8 @@ const addNativeAnimations = async (
         shapeId: findShapeId(slideXml, target.objectName),
         animation: target.animation,
       }))
-      .filter(
-        (
-          target,
-        ): target is { shapeId: string; animation: PptObjectAnimation } =>
-          Boolean(target.shapeId),
+      .filter((target): target is { shapeId: string; animation: PptObjectAnimation } =>
+        Boolean(target.shapeId),
       );
     const resolvedVideos = slideVideos
       .map((target) => ({ shapeId: findShapeId(slideXml, target.objectName), loop: target.loop }))

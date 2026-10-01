@@ -82,8 +82,39 @@ export const sortSegmentsByExportOrder = (
 ) => {
   const rank = new Map(exportOrderIds.map((id, index) => [id, index]));
   return [...segments].sort(
-    (a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+    (a, b) =>
+      (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
   );
+};
+
+export const selectExportedInteractiveSegmentStructure = (
+  segments: InteractiveSegmentDraft[],
+  exportOrderIds: string[],
+  exportedSegmentIds: string[] = segments
+    .filter((segment) => segment.enabled)
+    .map((segment) => segment.id),
+) => {
+  const exportedIds = new Set(exportedSegmentIds);
+  const exportedSegments = sortSegmentsByExportOrder(
+    segments.filter((segment) => segment.enabled && exportedIds.has(segment.id)),
+    exportOrderIds,
+  );
+  const includedIds = new Set(exportedSegments.map((segment) => segment.id));
+  const graphLinks = exportedSegments.flatMap((segment) =>
+    segment.choices
+      .filter((choice) => includedIds.has(choice.targetSegmentId))
+      .map((choice) => ({
+        id: choice.id,
+        fromSegmentId: segment.id,
+        toSegmentId: choice.targetSegmentId,
+        label: choice.label,
+      })),
+  );
+  return {
+    segments: exportedSegments,
+    graphLinks,
+    exportOrderIds: exportedSegments.map((segment) => segment.id),
+  };
 };
 
 const createStructureCanvas = ({
@@ -178,9 +209,14 @@ const createStructureCanvas = ({
     ctx.fillText(`${segment.nodeIds.length} cards`, x + 70, y + 58);
 
     const targets = segment.choices
-      .map((choice) => byId.get(choice.targetSegmentId)?.name || choice.targetSegmentId)
+      .filter((choice) => byId.has(choice.targetSegmentId))
+      .map((choice) => byId.get(choice.targetSegmentId)!.name)
       .join(' / ');
-    ctx.fillText(targets ? `Next: ${targets.slice(0, 46)}` : 'End segment', x + 16, y + cardHeight - 24);
+    ctx.fillText(
+      targets ? `Next: ${targets.slice(0, 46)}` : 'End segment',
+      x + 16,
+      y + cardHeight - 24,
+    );
   });
 
   return canvas;

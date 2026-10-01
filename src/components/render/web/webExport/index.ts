@@ -1,22 +1,27 @@
-import { packDialogueText } from '../../shared/packedText';
-import { htmlToSpeechText } from '../../../../lib/tts';
-import { DEFAULT_RENDER_STYLE } from '../../video/VideoRenderModal/workspaceStorage';
-import { resolveSettingsPageElements } from '../webMenuPageElements';
-import { resolveWebToolbarElements } from '../webExperienceTemplates';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
-import type { SurfaceAppearance } from '../../shared/paint/appearance';
 
 import { resolveKnownAppAssetUrl } from '../../../../lib/appAssets';
 import { resolveCharacterImageUrl } from '../../../../lib/inlineAssetSwitch';
 import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { resolveSceneAmbientPresetUrl } from '../../../../lib/sceneTemplates';
 import { resolveSceneLightOverlayUrl } from '../../../../lib/sceneVisualStyle';
+import { htmlToSpeechText } from '../../../../lib/tts';
+import {
+  type ExportAssetFailure,
+  formatExportAssetFailures,
+} from '../../shared/exportAssetFailures';
+import { packDialogueText } from '../../shared/packedText';
+import type { SurfaceAppearance } from '../../shared/paint/appearance';
+import { validateExportAssetBlob } from '../../shared/validateExportAsset';
 import { buildDefaultRenderObjects } from '../../video/shared/renderObjects';
 import { filterMentionTags } from '../../video/shared/storyNodes';
 import type { RenderStyle } from '../../video/shared/types';
-import { makeIndexHtml } from './webExportHtml';
+import { DEFAULT_RENDER_STYLE } from '../../video/VideoRenderModal/workspaceStorage';
+import { resolveWebToolbarElements } from '../webExperienceTemplates';
+import { resolveSettingsPageElements } from '../webMenuPageElements';
 import { LOCAL_PREVIEW_CMD, LOCAL_PREVIEW_SERVER } from './localPreviewLauncher';
+import { makeIndexHtml } from './webExportHtml';
 import type {
   WebExportEdge,
   WebExportNode,
@@ -73,6 +78,7 @@ const addVideoAsset = async (
   url: string | undefined,
   hint: string,
   assetMap: Map<string, string>,
+  failures: Map<string, ExportAssetFailure>,
 ) => {
   if (typeof url !== 'string' || !url.trim()) return url;
   const resolvedUrl = resolveKnownAppAssetUrl(url);
@@ -83,13 +89,20 @@ const addVideoAsset = async (
     !/^https?:\/\//i.test(resolvedUrl) &&
     !/^\.?\//.test(resolvedUrl)
   ) {
-    return url;
+    failures.set(`video:${resolvedUrl}`, {
+      kind: 'video',
+      label: hint,
+      source: resolvedUrl,
+      reason: 'unsupported or local-only source URL',
+    });
+    return resolvedUrl;
   }
 
   try {
     const response = await fetch(resolvedUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
+    await validateExportAssetBlob(blob, 'video', resolvedUrl);
     const extension = getImageExtension(resolvedUrl, VIDEO_EXTENSION_BY_MIME[blob.type] || 'mp4');
     const fileName = `videos/${safeFilePart(hint)}-${assetMap.size + 1}.${extension}`;
     zip.file(fileName, blob);
@@ -97,7 +110,12 @@ const addVideoAsset = async (
     assetMap.set(resolvedUrl, relativePath);
     return relativePath;
   } catch (error) {
-    console.warn('Could not pack web export video:', error);
+    failures.set(`video:${resolvedUrl}`, {
+      kind: 'video',
+      label: hint,
+      source: resolvedUrl,
+      reason: error instanceof Error ? error.message : String(error),
+    });
     return resolvedUrl;
   }
 };
@@ -107,6 +125,7 @@ const addAudioAsset = async (
   url: string | undefined,
   hint: string,
   assetMap: Map<string, string>,
+  failures: Map<string, ExportAssetFailure>,
 ) => {
   if (typeof url !== 'string' || !url.trim()) return url;
   const resolvedUrl = resolveKnownAppAssetUrl(url);
@@ -115,6 +134,7 @@ const addAudioAsset = async (
     const response = await fetch(resolvedUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
+    await validateExportAssetBlob(blob, 'audio', resolvedUrl);
     const extension =
       blob.type === 'audio/mpeg'
         ? 'mp3'
@@ -125,7 +145,12 @@ const addAudioAsset = async (
     assetMap.set(resolvedUrl, relativePath);
     return relativePath;
   } catch (error) {
-    console.warn('Could not pack web export audio:', error);
+    failures.set(`audio:${resolvedUrl}`, {
+      kind: 'audio',
+      label: hint,
+      source: resolvedUrl,
+      reason: error instanceof Error ? error.message : String(error),
+    });
     return resolvedUrl;
   }
 };
@@ -135,15 +160,26 @@ const addImageAsset = async (
   url: string | undefined,
   hint: string,
   assetMap: Map<string, string>,
+  failures: Map<string, ExportAssetFailure>,
 ) => {
+  if (typeof url !== 'string' || !url.trim()) return url;
   const resolvedUrl = typeof url === 'string' ? resolveKnownAppAssetUrl(url) : url;
-  if (!isPackableImage(resolvedUrl)) return url;
+  if (!isPackableImage(resolvedUrl)) {
+    failures.set(`image:${String(resolvedUrl)}`, {
+      kind: 'image',
+      label: hint,
+      source: String(resolvedUrl),
+      reason: 'unsupported or local-only source URL',
+    });
+    return resolvedUrl;
+  }
   if (assetMap.has(resolvedUrl)) return assetMap.get(resolvedUrl);
 
   try {
     const response = await fetch(resolvedUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
+    await validateExportAssetBlob(blob, 'image', resolvedUrl);
     const extension = getImageExtension(resolvedUrl, IMAGE_EXTENSION_BY_MIME[blob.type] || 'png');
     const fileName = `images/${safeFilePart(hint)}-${assetMap.size + 1}.${extension}`;
     zip.file(fileName, blob);
@@ -151,7 +187,12 @@ const addImageAsset = async (
     assetMap.set(resolvedUrl, relativePath);
     return relativePath;
   } catch (error) {
-    console.warn('Could not pack web export image:', error);
+    failures.set(`image:${resolvedUrl}`, {
+      kind: 'image',
+      label: hint,
+      source: resolvedUrl,
+      reason: error instanceof Error ? error.message : String(error),
+    });
     return resolvedUrl;
   }
 };
@@ -222,6 +263,7 @@ export async function buildInteractiveWebZipBlob(
 ) {
   const zip = new JSZip();
   const assetMap = new Map<string, string>();
+  const assetFailures = new Map<string, ExportAssetFailure>();
   const title = options.projectName?.trim() || 'galwriter-web';
   const style: WebExportStyle = {
     ...DEFAULT_RENDER_STYLE,
@@ -234,12 +276,14 @@ export async function buildInteractiveWebZipBlob(
     style.dialogImageUrl,
     `${title}-dialog-background`,
     assetMap,
+    assetFailures,
   );
   style.nameplateImageUrl = await addImageAsset(
     zip,
     style.nameplateImageUrl,
     `${title}-nameplate-background`,
     assetMap,
+    assetFailures,
   );
   const settings: WebExportSettings = {
     canvasWidth: options.settings?.canvasWidth ?? 1920,
@@ -407,6 +451,7 @@ export async function buildInteractiveWebZipBlob(
                       stroke.paint.imageUrl,
                       `${label}-stroke-${i}`,
                       assetMap,
+                      assetFailures,
                     ),
                   }
                 : undefined,
@@ -415,8 +460,20 @@ export async function buildInteractiveWebZipBlob(
           fills: await Promise.all(
             appearance.fills.map(async (fill, i) => ({
               ...fill,
-              imageUrl: await addImageAsset(zip, fill.imageUrl, `${label}-fill-${i}`, assetMap),
-              videoUrl: await addVideoAsset(zip, fill.videoUrl, `${label}-video-${i}`, assetMap),
+              imageUrl: await addImageAsset(
+                zip,
+                fill.imageUrl,
+                `${label}-fill-${i}`,
+                assetMap,
+                assetFailures,
+              ),
+              videoUrl: await addVideoAsset(
+                zip,
+                fill.videoUrl,
+                `${label}-video-${i}`,
+                assetMap,
+                assetFailures,
+              ),
             })),
           ),
         }
@@ -439,48 +496,56 @@ export async function buildInteractiveWebZipBlob(
     settings.startMenuBackgroundImageUrl,
     `${title}-start-background`,
     assetMap,
+    assetFailures,
   );
   settings.sceneBackgroundImageUrl = await addImageAsset(
     zip,
     settings.sceneBackgroundImageUrl,
     `${title}-scene-background`,
     assetMap,
+    assetFailures,
   );
   settings.archiveBackgroundImageUrl = await addImageAsset(
     zip,
     settings.archiveBackgroundImageUrl,
     `${title}-archive-background`,
     assetMap,
+    assetFailures,
   );
   settings.settingsBackgroundImageUrl = await addImageAsset(
     zip,
     settings.settingsBackgroundImageUrl,
     `${title}-settings-background`,
     assetMap,
+    assetFailures,
   );
   settings.dialogueBackgroundImageUrl = await addImageAsset(
     zip,
     settings.dialogueBackgroundImageUrl,
     `${title}-dialogue-background`,
     assetMap,
+    assetFailures,
   );
   settings.flowOverviewBackgroundImageUrl = await addImageAsset(
     zip,
     settings.flowOverviewBackgroundImageUrl,
     `${title}-flow-overview-background`,
     assetMap,
+    assetFailures,
   );
   settings.flowOverviewBackgroundMusicUrl = await addAudioAsset(
     zip,
     settings.flowOverviewBackgroundMusicUrl,
     `${title}-flow-overview-music`,
     assetMap,
+    assetFailures,
   );
   settings.startMenuBackgroundMusicUrl = await addAudioAsset(
     zip,
     settings.startMenuBackgroundMusicUrl,
     `${title}-start-menu-music`,
     assetMap,
+    assetFailures,
   );
   const packMenuElements = (elements: WebExportSettings['startMenuElements'], pageName: string) =>
     Promise.all(
@@ -492,12 +557,14 @@ export async function buildInteractiveWebZipBlob(
           element.imageUrl,
           `${title}-${pageName}-${element.id || 'element'}`,
           assetMap,
+          assetFailures,
         ),
         backgroundImageUrl: await addImageAsset(
           zip,
           element.backgroundImageUrl,
           `${title}-${pageName}-${element.id || 'button'}-background`,
           assetMap,
+          assetFailures,
         ),
       })),
     );
@@ -560,18 +627,21 @@ export async function buildInteractiveWebZipBlob(
       typeof node.data?.imageUrl === 'string' ? node.data.imageUrl : undefined,
       `${titleText}-image`,
       assetMap,
+      assetFailures,
     );
     const videoUrl = await addVideoAsset(
       zip,
       typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,
       `${titleText}-video`,
       assetMap,
+      assetFailures,
     );
     const audioUrl = await addAudioAsset(
       zip,
       typeof node.data?.audioUrl === 'string' ? node.data.audioUrl : undefined,
       `${titleText}-audio`,
       assetMap,
+      assetFailures,
     );
     const regionMusicMatch = resolveRegionBackgroundMusic(nodes, node);
     const backgroundMusicUrl = await addAudioAsset(
@@ -579,6 +649,7 @@ export async function buildInteractiveWebZipBlob(
       regionMusicMatch?.music.url,
       `${titleText}-background-music`,
       assetMap,
+      assetFailures,
     );
 
     let webPresentation: any = undefined;
@@ -604,13 +675,20 @@ export async function buildInteractiveWebZipBlob(
         resolvedAmbientUrl,
         `${titleText}-scene-ambience`,
         assetMap,
+        assetFailures,
       );
       const lightOverlaySourceUrl = resolveSceneLightOverlayUrl(
         sceneData?.visualStyle as any,
         sceneData?.scenePresetEnabled === true,
       );
       const lightOverlayUrl = lightOverlaySourceUrl
-        ? await addImageAsset(zip, lightOverlaySourceUrl, `${titleText}-scene-light`, assetMap)
+        ? await addImageAsset(
+            zip,
+            lightOverlaySourceUrl,
+            `${titleText}-scene-light`,
+            assetMap,
+            assetFailures,
+          )
         : undefined;
       const packedChars = [];
       for (const charConfig of rawPresentation.characters) {
@@ -626,6 +704,7 @@ export async function buildInteractiveWebZipBlob(
               rawCharImgUrl,
               `${charName || 'character'}-avatar`,
               assetMap,
+              assetFailures,
             );
             packedChars.push({
               sourceNodeId: charConfig.sourceNodeId,
@@ -704,6 +783,11 @@ export async function buildInteractiveWebZipBlob(
       },
     });
   }
+
+  if (assetFailures.size > 0)
+    throw new Error(
+      formatExportAssetFailures(options.language, '网页导出', [...assetFailures.values()]),
+    );
 
   const webEdges: WebExportEdge[] = edges.map((edge) => ({
     id: edge.id,

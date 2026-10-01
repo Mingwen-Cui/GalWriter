@@ -1,9 +1,3 @@
-import {
-  preparePresentationFonts,
-  resolveDialogueTextLayout,
-} from '../shared/presentationTextLayout';
-import { drawDialogueBox } from '../video/shared/dialogueBoxRenderer';
-import { renderAppearancePng } from '../shared/paint/appearanceCanvas';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import PptxGenJS from 'pptxgenjs';
 
@@ -12,6 +6,14 @@ import {
   CHARACTER_STAGE_MAX_HEIGHT_PERCENT,
   CHARACTER_STAGE_MAX_WIDTH_PERCENT,
 } from '../../../lib/presentation';
+import { type ExportAssetFailure, formatExportAssetFailures } from '../shared/exportAssetFailures';
+import { renderAppearancePng } from '../shared/paint/appearanceCanvas';
+import {
+  preparePresentationFonts,
+  resolveDialogueTextLayout,
+} from '../shared/presentationTextLayout';
+import { registerCustomRenderFonts } from '../video/shared/customFonts';
+import { drawDialogueBox } from '../video/shared/dialogueBoxRenderer';
 import { resolvePresentationDialogueLayout } from '../video/shared/presentationLayout';
 import { getRenderObjects } from '../video/shared/renderObjects';
 import type {
@@ -21,7 +23,9 @@ import type {
   RenderStyle,
   WebExportSettings,
 } from '../video/shared/types';
+import { syncNameplateAnimations } from './pptAnimationPreview';
 import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
+import { renderPptGradientPng } from './pptGradient';
 import {
   getPptImageDimensions,
   toPptImageData,
@@ -29,7 +33,7 @@ import {
   toPptVideoLastFrameData,
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
-import { syncNameplateAnimations } from './pptAnimationPreview';
+import { reorderPptSlides } from './pptSlideOrder';
 import {
   createPptStyleTextAnimations,
   getPptDialogueLineTargetIds,
@@ -38,9 +42,9 @@ import {
   resolvePptTagAnimations,
 } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
-import { registerCustomRenderFonts } from '../video/shared/customFonts';
 import {
   finalizePptxForPowerPoint,
+  orderPptAnimationTargets,
   type PptAnimationExportTarget,
   type PptVideoPlaybackTarget,
   toPptFontFace,
@@ -149,19 +153,36 @@ export async function buildPptxBuffer({
   const slideBackgroundStyles = pptSettings.slideBackgroundStyles || {};
   const imageCache = new Map<string, Promise<string | undefined>>();
   const videoCache = new Map<string, Promise<string | undefined>>();
-  const resolveImage = (url?: string) => {
+  const assetFailures = new Map<string, ExportAssetFailure>();
+  const resolveImage = (url: string | undefined, label = 'PPT image') => {
     if (!url) return Promise.resolve(undefined);
     const cached = imageCache.get(url);
     if (cached) return cached;
-    const image = toPptImageData(url);
+    const image = toPptImageData(url).catch((error: unknown) => {
+      assetFailures.set(`image:${url}`, {
+        kind: 'image',
+        label,
+        source: url,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    });
     imageCache.set(url, image);
     return image;
   };
-  const resolveVideo = (url?: string) => {
+  const resolveVideo = (url: string | undefined, label = 'PPT video') => {
     if (!url) return Promise.resolve(undefined);
     const cached = videoCache.get(url);
     if (cached) return cached;
-    const video = toPptVideoData(url);
+    const video = toPptVideoData(url).catch((error: unknown) => {
+      assetFailures.set(`video:${url}`, {
+        kind: 'video',
+        label,
+        source: url,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    });
     videoCache.set(url, video);
     return video;
   };
@@ -174,14 +195,22 @@ export async function buildPptxBuffer({
   const addBackgroundImage = async (
     slide: PptxGenJS.Slide,
     background: (typeof slideBackgroundStyles)[string] | undefined,
+    label = 'slide background',
   ) => {
     if (background?.appearance) {
       const image = await renderAppearancePng(background.appearance, 1920, 1080);
       slide.addImage({ data: image.data, ...fullContentFrame });
       return;
     }
+    if (background?.type === 'gradient') {
+      slide.addImage({
+        data: renderPptGradientPng(background, 1920, 1080),
+        ...fullContentFrame,
+      });
+      return;
+    }
     if (background?.type !== 'image' || !background.imageUrl) return;
-    const image = await resolveImage(background.imageUrl);
+    const image = await resolveImage(background.imageUrl, `${label} background`);
     if (image)
       slide.addImage({
         data: image,
@@ -217,6 +246,7 @@ export async function buildPptxBuffer({
   ];
   const slideByNodeId = new Map<string, number>();
   const slideNumberById = new Map(orderedSlideIds.map((id, index) => [id, index + 1]));
+  const slideObjectsById = new Map<string, PptxGenJS.Slide>();
   const animationTargets: PptAnimationExportTarget[] = [];
   const sceneAnimationOrderBySlide = new Map<number, Map<string, number>>();
   const videoPlaybackTargets: PptVideoPlaybackTarget[] = [];
@@ -265,7 +295,7 @@ export async function buildPptxBuffer({
         });
       }
       if (element.kind === 'image') {
-        const image = await resolveImage(element.src);
+        const image = await resolveImage(element.src, `manual slide image ${element.src}`);
         if (image)
           slide.addImage({
             data: image,
@@ -341,9 +371,10 @@ export async function buildPptxBuffer({
   };
   const addManualSlide = async (manual: PptManualSlide) => {
     const slide = pptx.addSlide();
+    slideObjectsById.set(manual.id, slide);
     slide.background = { color: hex(backgroundColorFor(manual.id, manual.backgroundColor)) };
     slide.hidden = hiddenSlideIds.has(manual.id);
-    await addBackgroundImage(slide, manual.backgroundStyle);
+    await addBackgroundImage(slide, manual.backgroundStyle, manual.title || manual.id);
     await addSlideElements(slide, manual.elements);
   };
   const appendManualSlides = async (anchorId: string) => {
@@ -376,16 +407,23 @@ export async function buildPptxBuffer({
     const coverDescriptionStyle = coverDescriptionLayout.webStyle || {};
     const coverBackground = slideBackgroundStyles.cover;
     const slide = pptx.addSlide();
+    slideObjectsById.set('cover', slide);
     slide.background = {
       color: hex(
         backgroundColorFor('cover', settings.startMenuBackgroundColor || colors.background),
       ),
     };
     slide.hidden = hiddenSlideIds.has('cover');
+    if (coverBackground?.appearance || coverBackground?.type === 'gradient') {
+      await addBackgroundImage(slide, coverBackground, 'cover');
+    }
     const coverImage = await resolveImage(
-      coverBackground?.type === 'image'
-        ? coverBackground.imageUrl
+      coverBackground
+        ? coverBackground.type === 'image'
+          ? coverBackground.imageUrl
+          : undefined
         : settings.startMenuBackgroundImageUrl,
+      'cover background',
     );
     if (coverImage) {
       slide.addImage({ data: coverImage, ...fullContentFrame });
@@ -445,6 +483,7 @@ export async function buildPptxBuffer({
     const sceneBody = sceneTextOverrides['dialog-body'] ?? scene.text;
     const nameplateCharacters = scene.characters.filter((character) => character.name?.trim());
     const slide = pptx.addSlide();
+    slideObjectsById.set(scene.id, slide);
     slide.hidden = hiddenSlideIds.has(scene.id);
     const sceneSlideNumber = slideByNodeId.get(scene.id);
     const speakerCharacter = scene.characters.find((character) => character.name?.trim());
@@ -467,8 +506,6 @@ export async function buildPptxBuffer({
     }
     const objects = getRenderObjects(style);
     const panel = objects.dialogBox;
-    const title = objects.title;
-    const body = objects.body;
     const nameplate = objects.nameplate;
     const choiceObject = objects.choice;
     const shouldRenderNameplate =
@@ -502,8 +539,7 @@ export async function buildPptxBuffer({
               ? { ...exportAnimation, start: 'withPrevious' as const }
               : exportAnimation;
           const automaticAnimation =
-            scheduledAnimation.phase === 'enter' &&
-            scheduledAnimation.start === 'onClick'
+            scheduledAnimation.phase === 'enter' && scheduledAnimation.start === 'onClick'
               ? {
                   ...scheduledAnimation,
                   start:
@@ -516,7 +552,11 @@ export async function buildPptxBuffer({
           // trigger. Do not let the source phase or legacy start value undo
           // that export-only override.
           const finalAnimation = startOverride
-            ? { ...automaticAnimation, start: startOverride }
+            ? {
+                ...automaticAnimation,
+                start:
+                  automaticAnimation.phase === 'enter' ? startOverride : automaticAnimation.start,
+              }
             : automaticAnimation;
           animationTargets.push({
             slideNumber: sceneSlideNumber,
@@ -547,8 +587,27 @@ export async function buildPptxBuffer({
       });
     };
     slide.background = { color: hex(backgroundColorFor(scene.id, colors.background)) };
-    const backgroundImage = await resolveImage(scene.backgroundUrl);
-    const backgroundVideo = await resolveVideo(scene.backgroundVideoUrl);
+    const sceneBackgroundStyle = slideBackgroundStyles[scene.id];
+    if (
+      sceneBackgroundStyle?.appearance ||
+      sceneBackgroundStyle?.type === 'gradient' ||
+      sceneBackgroundStyle?.type === 'image'
+    ) {
+      await addBackgroundImage(slide, sceneBackgroundStyle, `${scene.title || scene.id}`);
+    }
+    const usesSlideBackgroundStyle = Boolean(
+      sceneBackgroundStyle?.appearance ||
+      sceneBackgroundStyle?.type === 'gradient' ||
+      sceneBackgroundStyle?.type === 'image',
+    );
+    const backgroundImage = await resolveImage(
+      usesSlideBackgroundStyle ? undefined : scene.backgroundUrl,
+      `${scene.title || scene.id} background`,
+    );
+    const backgroundVideo = await resolveVideo(
+      usesSlideBackgroundStyle ? undefined : scene.backgroundVideoUrl,
+      `${scene.title || scene.id} background video`,
+    );
     if (backgroundVideo) {
       const objectName = `ppt-scene-video-${scene.id}`;
       slide.addMedia({
@@ -585,7 +644,10 @@ export async function buildPptxBuffer({
           (item) => item.target === 'background' && item.action === 'switch' && item.switchImageUrl,
         )
         .entries()) {
-        const switchImage = await resolveImage(animation.switchImageUrl);
+        const switchImage = await resolveImage(
+          animation.switchImageUrl,
+          `${scene.title || scene.id} background switch`,
+        );
         if (!switchImage) continue;
         const nextObjectName = `${objectName}-switch-${index}`;
         slide.addImage({
@@ -612,7 +674,10 @@ export async function buildPptxBuffer({
           (item) => item.target === 'background' && item.action === 'switch' && item.switchImageUrl,
         )
         .entries()) {
-        const switchImage = await resolveImage(animation.switchImageUrl);
+        const switchImage = await resolveImage(
+          animation.switchImageUrl,
+          `${scene.title || scene.id} scene switch`,
+        );
         if (!switchImage) continue;
         const nextObjectName = `${objectName}-switch-${index}`;
         slide.addImage({
@@ -627,7 +692,10 @@ export async function buildPptxBuffer({
     }
 
     for (const character of scene.characters) {
-      const characterImage = await resolveImage(character.imageUrl);
+      const characterImage = await resolveImage(
+        character.imageUrl,
+        `${character.name || character.sourceNodeId} portrait`,
+      );
       if (!characterImage) continue;
       const scale = character.scale || 1;
       const width = 13.333 * (CHARACTER_STAGE_MAX_WIDTH_PERCENT / 100) * scale;
@@ -666,7 +734,10 @@ export async function buildPptxBuffer({
             item.switchImageUrl,
         )
         .entries()) {
-        const switchImage = await resolveImage(animation.switchImageUrl);
+        const switchImage = await resolveImage(
+          animation.switchImageUrl,
+          `${character.name || character.sourceNodeId} appearance switch`,
+        );
         if (!switchImage) continue;
         const nextObjectName = `${objectName}-switch-${index}`;
         slide.addImage({
@@ -682,7 +753,10 @@ export async function buildPptxBuffer({
     }
 
     if (scene.lightOverlayUrl) {
-      const lightImage = await resolveImage(scene.lightOverlayUrl);
+      const lightImage = await resolveImage(
+        scene.lightOverlayUrl,
+        `${scene.title || scene.id} light overlay`,
+      );
       if (lightImage) {
         slide.addImage({
           data: lightImage,
@@ -700,10 +774,7 @@ export async function buildPptxBuffer({
       settings.canvasHeight,
       style,
     );
-    const panelX = (layout.x / settings.canvasWidth) * 13.333;
     const panelY = (layout.y / settings.canvasHeight) * 7.5;
-    const panelW = (layout.width / settings.canvasWidth) * 13.333;
-    const panelH = (layout.height / settings.canvasHeight) * 7.5;
     await preparePresentationFonts(style, sceneTitle + sceneBody);
     const measuringCanvas = document.createElement('canvas');
     measuringCanvas.width = settings.canvasWidth;
@@ -828,10 +899,7 @@ export async function buildPptxBuffer({
             phase: 'enter',
             effect: 'wipe',
             start: 'withPrevious',
-            durationMs: Math.max(
-              PPT_TEXT_WIPE_DURATION_MS,
-              block.object.animation.durationMs || 0,
-            ),
+            durationMs: Math.max(PPT_TEXT_WIPE_DURATION_MS, block.object.animation.durationMs || 0),
             delayMs: 0,
             direction: 'left',
             textBuild: { mode: 'line-wipe', lineGapMs: 160 },
@@ -852,10 +920,7 @@ export async function buildPptxBuffer({
             ? (textOverrides[scene.id]?.nameplate ?? character.name?.trim() ?? '')
             : (character.name?.trim() ?? '');
         if (!label) continue;
-        const width = Math.max(
-          1.18,
-          Math.min(3.2, label.length * fontSize * 0.009 + 0.62),
-        );
+        const width = Math.max(1.18, Math.min(3.2, label.length * fontSize * 0.009 + 0.62));
         const baseX =
           character.position === 'left' ? 0.24 : character.position === 'right' ? 0.76 : 0.5;
         const characterCenter = baseX + character.offsetX / 1000;
@@ -948,13 +1013,42 @@ export async function buildPptxBuffer({
       continue;
 
     const choiceSlide = pptx.addSlide();
+    slideObjectsById.set(`choice:${scene.id}`, choiceSlide);
     choiceSlide.background = {
       color: hex(backgroundColorFor(`choice:${scene.id}`, colors.background)),
     };
     choiceSlide.hidden = hiddenSlideIds.has(`choice:${scene.id}`);
-    const choiceBackgroundImage = backgroundVideo
-      ? (await toPptVideoLastFrameData(scene.backgroundVideoUrl)) || backgroundImage
-      : backgroundImage;
+    const choiceSlideBackgroundStyle = slideBackgroundStyles[`choice:${scene.id}`];
+    const usesChoiceSlideBackgroundStyle = Boolean(
+      choiceSlideBackgroundStyle?.appearance ||
+      choiceSlideBackgroundStyle?.type === 'gradient' ||
+      choiceSlideBackgroundStyle?.type === 'image',
+    );
+    if (usesChoiceSlideBackgroundStyle) {
+      await addBackgroundImage(
+        choiceSlide,
+        choiceSlideBackgroundStyle,
+        `${scene.title || scene.id} choices`,
+      );
+    }
+    const choiceVideoFrame =
+      !usesChoiceSlideBackgroundStyle && backgroundVideo
+        ? await toPptVideoLastFrameData(scene.backgroundVideoUrl)
+        : undefined;
+    if (!usesChoiceSlideBackgroundStyle && backgroundVideo && !choiceVideoFrame) {
+      const source = scene.backgroundVideoUrl || '';
+      assetFailures.set(`video-frame:${source}`, {
+        kind: 'video',
+        label: `${scene.title || scene.id} choice slide still frame`,
+        source,
+        reason: 'Could not capture a still frame for the choice slide.',
+      });
+    }
+    const choiceBackgroundImage = usesChoiceSlideBackgroundStyle
+      ? undefined
+      : backgroundVideo
+        ? choiceVideoFrame || backgroundImage
+        : backgroundImage;
     if (choiceBackgroundImage) {
       choiceSlide.addImage({
         data: choiceBackgroundImage,
@@ -998,10 +1092,43 @@ export async function buildPptxBuffer({
         2.32 +
         index * (0.62 + (style.choiceGap ?? 8) / 72) +
         index * ((style.choiceItemOffsetY ?? 0) / 100);
+      const choiceFrame = page.frame(
+        choiceX,
+        y,
+        choiceWidth,
+        Math.max(0.42, choiceObject.height / 100),
+      );
+      if (choiceObject.fill.type === 'gradient') {
+        choiceSlide.addImage({
+          data: renderPptGradientPng(
+            {
+              gradientAngle: choiceObject.fill.gradientAngle,
+              gradientStart: choiceFill,
+              gradientEnd: choiceFill,
+              gradientShape:
+                choiceObject.fill.gradientType === 'radial'
+                  ? 'radial'
+                  : choiceObject.fill.gradientType === 'diamond' ||
+                      choiceObject.fill.gradientType === 'angular'
+                    ? 'diamond'
+                    : 'linear',
+              gradientStops: choiceObject.fill.gradientStops,
+            },
+            1200,
+            180,
+            26,
+          ),
+          ...choiceFrame,
+          objectName: `ppt-choice-gradient-${scene.id}-${index}`,
+        });
+      }
       choiceSlide.addShape(pptx.ShapeType.roundRect, {
-        ...page.frame(choiceX, y, choiceWidth, Math.max(0.42, choiceObject.height / 100)),
+        ...choiceFrame,
         rectRadius: Math.max(0.02, choiceObject.radius / 180),
-        fill: { color: hex(choiceFill), transparency: 100 - choiceObject.fill.alpha },
+        fill:
+          choiceObject.fill.type === 'gradient'
+            ? { color: 'FFFFFF', transparency: 100 }
+            : { color: hex(choiceFill), transparency: 100 - choiceObject.fill.alpha },
         line: choiceObject.stroke.enabled
           ? {
               color: hex(choiceObject.stroke.color),
@@ -1052,16 +1179,25 @@ export async function buildPptxBuffer({
       );
     await appendManualSlides(`choice:${scene.id}`);
   }
+  if (assetFailures.size > 0)
+    throw new Error(formatExportAssetFailures(language, 'PPT 导出', [...assetFailures.values()]));
+  // Slides are authored in graph order for convenient scene rendering, then
+  // reordered to the user's saved workspace order before PptxGenJS serializes
+  // slide numbers and the hyperlinks that target them.
+  const pptxSlides = (pptx as unknown as { slides: Array<PptxGenJS.Slide & { _slideNum: number }> })
+    .slides;
+  reorderPptSlides(
+    pptxSlides,
+    slideObjectsById as Map<string, PptxGenJS.Slide & { _slideNum: number }>,
+    orderedSlideIds,
+  );
   const buffer = (await pptx.write({
     outputType: 'arraybuffer',
     compression: true,
   })) as ArrayBuffer;
-  animationTargets.sort((left, right) => {
-    const order = sceneAnimationOrderBySlide.get(left.slideNumber);
-    if (!order) return left.slideNumber - right.slideNumber;
-    const leftIndex = order.get(left.animation.id) ?? Number.MAX_SAFE_INTEGER;
-    const rightIndex = order.get(right.animation.id) ?? Number.MAX_SAFE_INTEGER;
-    return left.slideNumber - right.slideNumber || leftIndex - rightIndex;
-  });
-  return finalizePptxForPowerPoint(buffer, animationTargets, videoPlaybackTargets);
+  return finalizePptxForPowerPoint(
+    buffer,
+    orderPptAnimationTargets(animationTargets, sceneAnimationOrderBySlide),
+    videoPlaybackTargets,
+  );
 }
