@@ -127,7 +127,7 @@ export const useProjectSerialization = ({
   const applyProjectData = useCallback(
     async (
       projectData: ProjectSnapshotData,
-      options?: { zip?: JSZip | null; markSaved?: boolean },
+      options?: { zip?: JSZip | null; markSaved?: boolean; shouldApply?: () => boolean },
     ) => {
       const restoredProject = await projectSerializer.applyImportedProject(
         {
@@ -138,6 +138,8 @@ export const useProjectSerialization = ({
         },
         options?.zip ?? null,
       );
+
+      if (options?.shouldApply && !options.shouldApply()) return;
 
       setNodes(restoredProject.nodes as Node[]);
       setEdges(restoredProject.edges as Edge[]);

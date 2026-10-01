@@ -1166,6 +1166,9 @@ export function PptWorkspace({
     setIsPreviewing(true);
     previewFrameRef.current = window.requestAnimationFrame(tick);
   };
+  // React onClick handlers receive a MouseEvent. Keep that argument away from
+  // preview(timeline), whose optional parameter is reserved for animation data.
+  const previewCurrentSlide = () => preview(currentAnimations);
   const pausePreview = () => {
     if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
     setIsPreviewing(false);
@@ -1302,7 +1305,7 @@ export function PptWorkspace({
                 });
                 if (nextTimeline) preview(nextTimeline);
               }}
-              onPreview={preview}
+              onPreview={previewCurrentSlide}
               onUpdate={updateSelectedAnimation}
               transition={currentTransition}
               onUpdateTransition={updateTransition}
@@ -1474,7 +1477,7 @@ export function PptWorkspace({
                 setSelectedObject({ target: 'background', label: copy.background });
               }}
               onDelete={(id) => replaceTimeline(currentAnimations.filter((item) => item.id !== id))}
-              onPreview={preview}
+              onPreview={previewCurrentSlide}
               previewing={isPreviewing}
               onPausePreview={pausePreview}
               onUpdate={updateSelectedAnimation}

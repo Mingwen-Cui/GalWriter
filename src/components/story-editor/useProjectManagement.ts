@@ -228,6 +228,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
   // =========================================================================
   const isSavingProjectRef = useRef(false);
   const languageRef = useRef(language);
+  const projectLoadRequestRef = useRef<{ projectId: string } | null>(null);
   React.useLayoutEffect(() => {
     languageRef.current = language;
   }, [language]);
@@ -399,10 +400,12 @@ export function useProjectManagement(params: UseProjectManagementParams) {
       projectId: string,
       projectData: ProjectSnapshotData,
       projectName: string,
-      options?: { fromHome?: boolean; updatedAt?: number },
+      options?: { fromHome?: boolean; updatedAt?: number; isCurrent?: () => boolean },
     ) => {
-      await applyProjectData(projectData, { markSaved: true });
+      await applyProjectData(projectData, { markSaved: true, shouldApply: options?.isCurrent });
+      if (options?.isCurrent && !options.isCurrent()) return;
       const projectFilePath = await localPersistenceService.getProjectFilePath(projectId);
+      if (options?.isCurrent && !options.isCurrent()) return;
 
       pendingInitialSnapshotSyncProjectIdRef.current = projectId;
       pendingInitialSnapshotCandidateRef.current = '';
@@ -1237,38 +1240,79 @@ export function useProjectManagement(params: UseProjectManagementParams) {
   // =========================================================================
   // Project loading effect
   // =========================================================================
+  const projectLoadContextRef = useRef({
+    projectIdToLoad,
+    pendingHomeProjectId,
+    restoreProjectSession,
+    setPendingHomeProjectId,
+    setProjectIdToLoad,
+    refreshProjectSummaries,
+  });
+  projectLoadContextRef.current = {
+    projectIdToLoad,
+    pendingHomeProjectId,
+    restoreProjectSession,
+    setPendingHomeProjectId,
+    setProjectIdToLoad,
+    refreshProjectSummaries,
+  };
+
   React.useEffect(() => {
     if (!didHydrateLocalState || !projectIdToLoad) return;
 
-    let cancelled = false;
+    // Restoring a project updates many pieces of editor state. Callback identities
+    // can change during that process, so the effect must not restart the same load
+    // and apply the same project repeatedly.
+    if (projectLoadRequestRef.current?.projectId === projectIdToLoad) return;
+    const request = { projectId: projectIdToLoad };
+    projectLoadRequestRef.current = request;
 
     const loadSelectedProject = async () => {
-      const project = await localPersistenceService.loadProject(projectIdToLoad);
-      if (!project || cancelled) return;
+      try {
+        const project = await localPersistenceService.loadProject(request.projectId);
+        if (projectLoadRequestRef.current !== request) return;
+        if (!project) {
+          const context = projectLoadContextRef.current;
+          if (context.projectIdToLoad === request.projectId) {
+            context.setProjectIdToLoad(null);
+            context.setPendingHomeProjectId(null);
+          }
+          return;
+        }
 
-      await restoreProjectSession(project.id, project.projectData, project.projectName, {
-        fromHome: pendingHomeProjectId === project.id,
-        updatedAt: project.updatedAt,
-      });
-      if (!cancelled) {
-        setPendingHomeProjectId(null);
-        setProjectIdToLoad(null);
-        await refreshProjectSummaries();
+        const context = projectLoadContextRef.current;
+        await context.restoreProjectSession(project.id, project.projectData, project.projectName, {
+          fromHome: context.pendingHomeProjectId === project.id,
+          updatedAt: project.updatedAt,
+          isCurrent: () => projectLoadRequestRef.current === request,
+        });
+        if (projectLoadRequestRef.current !== request) return;
+
+        const latestContext = projectLoadContextRef.current;
+        if (latestContext.projectIdToLoad === request.projectId) {
+          latestContext.setPendingHomeProjectId(null);
+          latestContext.setProjectIdToLoad(null);
+          await latestContext.refreshProjectSummaries();
+        }
+      } catch (error) {
+        console.error('Failed to load selected project', error);
+        const context = projectLoadContextRef.current;
+        if (
+          projectLoadRequestRef.current === request &&
+          context.projectIdToLoad === request.projectId
+        ) {
+          context.setProjectIdToLoad(null);
+          context.setPendingHomeProjectId(null);
+        }
+      } finally {
+        if (projectLoadRequestRef.current === request) {
+          projectLoadRequestRef.current = null;
+        }
       }
     };
 
     void loadSelectedProject();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    didHydrateLocalState,
-    pendingHomeProjectId,
-    projectIdToLoad,
-    refreshProjectSummaries,
-    restoreProjectSession,
-  ]);
+  }, [didHydrateLocalState, projectIdToLoad]);
 
   // =========================================================================
   // Snapshot sync effect
