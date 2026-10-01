@@ -1,4 +1,19 @@
 export const videoEn = {
+  exportPreflightTitle: 'Export check',
+  exportPreflightContinue: 'Export anyway',
+  exportPreflightCancel: 'Review',
+  codeExportWarningsPreflight:
+    'This code export has {0} compatibility notices. Review items that may need manual adjustment before exporting.',
+  pptFontEmbeddingWarning:
+    'TTF/OTF fonts whose licenses permit editable embedding will be included in the PPTX. WOFF/WOFF2, restricted, and preview/print-only fonts will not be embedded.',
+  pptFontEmbeddingSupported: 'Format and license allow embedding',
+  pptFontEmbeddingFormat: 'Unsupported embedding format (TTF/OTF only)',
+  pptFontEmbeddingLicense: 'The font file prohibits embedding',
+  pptFontEmbeddingReadOnly: 'Preview/print only; skipped to keep the presentation editable',
+  pptFontEmbeddingBitmapOnly: 'Bitmap-only embedding is not supported',
+  pptFontEmbeddingInvalid: 'Font data could not be read and was not embedded',
+  pptFontEmbeddingDuplicateFace:
+    'A font with the same family and style is already uploaded; this duplicate was skipped',
   interactiveMinimapZoomIn: 'Zoom in',
   interactiveMinimapZoomOut: 'Zoom out',
   interactiveMinimapFitView: 'Fit view',

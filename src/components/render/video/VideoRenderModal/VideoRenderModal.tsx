@@ -2042,7 +2042,7 @@ export function VideoRenderModal({
     setProgress,
     setProgressValue,
   });
-  const exportCodeProject = async () => {
+  const performCodeProjectExport = async () => {
     if (status === 'rendering') return;
     const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter';
     setStatus('rendering');
@@ -2097,7 +2097,54 @@ export function VideoRenderModal({
       );
     }
   };
-  const exportPptProject = async (requestedTitle?: string) => {
+  const exportCodeProject = async () => {
+    if (status === 'rendering') return;
+    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter';
+    try {
+      const { buildCodeProjectPreview } = await import('../../code/codeExport/exportProject');
+      const preview = buildCodeProjectPreview(
+        nodes,
+        edges,
+        exportTitle,
+        {
+          ...codeSettings,
+          webInterface: {
+            settings: webSettings,
+            renderStyle: projectRenderStyle,
+            choiceColor: webChoiceColor,
+            choiceTextColor: webChoiceTextColor,
+          },
+        },
+        codeTarget,
+      );
+      const warnings = preview.diagnostics.filter((item) => item.level === 'warning');
+      if (warnings.length) {
+        setNoticeModal({
+          title: formatVideoText(language, 'exportPreflightTitle'),
+          description: formatVideoText(language, 'codeExportWarningsPreflight', warnings.length),
+          details: warnings.map((item) =>
+            item.nodeId ? `${item.message} (${item.nodeId})` : item.message,
+          ),
+          primaryLabel: formatVideoText(language, 'exportPreflightContinue'),
+          secondaryLabel: formatVideoText(language, 'exportPreflightCancel'),
+          onPrimary: () => {
+            setNoticeModal(null);
+            void performCodeProjectExport();
+          },
+        });
+        return;
+      }
+      await performCodeProjectExport();
+    } catch (exportError) {
+      setStatus('error');
+      setError(
+        exportError instanceof Error
+          ? exportError.message
+          : getCodeText(language, 'Code project export failed'),
+      );
+    }
+  };
+  const exportPptProject = async (requestedTitle?: string, skipFontPreflight = false) => {
     if (status === 'rendering') return;
     if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
       setStatus('error');
@@ -2107,6 +2154,37 @@ export function VideoRenderModal({
           'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1960',
         ),
       );
+      return;
+    }
+    const customFonts = renderStyle.customFonts || [];
+    if (!skipFontPreflight && customFonts.length) {
+      const { inspectPptFontEmbedding } = await import('../../ppt/pptFontEmbedding');
+      const embeddingReasonText = {
+        format: 'pptFontEmbeddingFormat',
+        license: 'pptFontEmbeddingLicense',
+        readOnly: 'pptFontEmbeddingReadOnly',
+        bitmapOnly: 'pptFontEmbeddingBitmapOnly',
+        invalid: 'pptFontEmbeddingInvalid',
+        duplicateFace: 'pptFontEmbeddingDuplicateFace',
+      } as const;
+      const fontResults = inspectPptFontEmbedding(customFonts);
+      setNoticeModal({
+        title: formatVideoText(language, 'exportPreflightTitle'),
+        description: formatVideoText(language, 'pptFontEmbeddingWarning'),
+        details: fontResults.map(
+          (result) =>
+            `${result.font.label} — ${formatVideoText(
+              language,
+              result.reason ? embeddingReasonText[result.reason] : 'pptFontEmbeddingSupported',
+            )}`,
+        ),
+        primaryLabel: formatVideoText(language, 'exportPreflightContinue'),
+        secondaryLabel: formatVideoText(language, 'exportPreflightCancel'),
+        onPrimary: () => {
+          setNoticeModal(null);
+          void exportPptProject(requestedTitle, true);
+        },
+      });
       return;
     }
     const exportTitle =

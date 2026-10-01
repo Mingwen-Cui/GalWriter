@@ -1199,5 +1199,6 @@ export async function buildPptxBuffer({
     buffer,
     orderPptAnimationTargets(animationTargets, sceneAnimationOrderBySlide),
     videoPlaybackTargets,
+    style.customFonts,
   );
 }

@@ -1,4 +1,17 @@
 export const videoZh = {
+  exportPreflightTitle: '导出前检查',
+  exportPreflightContinue: '仍然导出',
+  exportPreflightCancel: '返回检查',
+  codeExportWarningsPreflight: '此代码导出包含 {0} 项兼容性提示。请先查看可能需要手动调整的内容。',
+  pptFontEmbeddingWarning:
+    '符合授权条件的 TTF/OTF 字体会嵌入 PPTX。WOFF/WOFF2、禁止嵌入或仅允许预览打印的字体不会嵌入。',
+  pptFontEmbeddingSupported: '格式与授权允许嵌入',
+  pptFontEmbeddingFormat: '格式暂不支持嵌入（仅支持 TTF/OTF）',
+  pptFontEmbeddingLicense: '字体文件禁止嵌入',
+  pptFontEmbeddingReadOnly: '仅允许预览和打印；为保持演示文稿可编辑，此字体未嵌入',
+  pptFontEmbeddingBitmapOnly: '字体仅允许位图嵌入，当前不支持',
+  pptFontEmbeddingInvalid: '无法读取字体数据，未嵌入',
+  pptFontEmbeddingDuplicateFace: '存在相同字体家族和字重的上传字体，重复项未嵌入',
   interactiveMinimapZoomIn: '放大',
   interactiveMinimapZoomOut: '缩小',
   interactiveMinimapFitView: '适应视图',

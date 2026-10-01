@@ -3,6 +3,7 @@ import { Download, X } from 'lucide-react';
 export type RenderNoticeModalState = {
   title: string;
   description: string;
+  details?: string[];
   primaryLabel: string;
   secondaryLabel: string;
   onPrimary: () => void;
@@ -42,6 +43,16 @@ export function VideoNoticeModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {notice.details?.length ? (
+          <ul className="mt-5 max-h-56 space-y-2 overflow-y-auto rounded-2xl bg-[var(--vr-surface-soft)] p-4 text-sm leading-5 text-[var(--vr-text-soft)]">
+            {notice.details.map((detail, index) => (
+              <li key={`${index}-${detail}`} className="list-inside list-disc break-words">
+                {detail}
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         <div className="mt-7 flex gap-3">
           <button

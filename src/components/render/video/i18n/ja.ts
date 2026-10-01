@@ -1,4 +1,20 @@
 export const videoJa = {
+  exportPreflightTitle: 'エクスポート前の確認',
+  exportPreflightContinue: '続けてエクスポート',
+  exportPreflightCancel: '確認に戻る',
+  codeExportWarningsPreflight:
+    'このコードのエクスポートには互換性に関する注意が {0} 件あります。手動調整が必要な項目を確認してください。',
+  pptFontEmbeddingWarning:
+    'ライセンスが編集可能な埋め込みを許可する TTF/OTF は PPTX に埋め込まれます。WOFF/WOFF2、埋め込み禁止、プレビュー/印刷専用のフォントは埋め込まれません。',
+  pptFontEmbeddingSupported: '形式とライセンスが埋め込みを許可',
+  pptFontEmbeddingFormat: '未対応の形式です（TTF/OTF のみ対応）',
+  pptFontEmbeddingLicense: 'フォントファイルで埋め込みが禁止されています',
+  pptFontEmbeddingReadOnly:
+    'プレビュー/印刷専用のため、編集可能なプレゼンテーションを保つ目的で埋め込みません',
+  pptFontEmbeddingBitmapOnly: 'ビットマップのみの埋め込みには対応していません',
+  pptFontEmbeddingInvalid: 'フォントデータを読み取れず、埋め込みませんでした',
+  pptFontEmbeddingDuplicateFace:
+    '同じファミリーとスタイルのフォントが既にあるため、重複分は埋め込みません',
   interactiveMinimapZoomIn: '拡大',
   interactiveMinimapZoomOut: '縮小',
   interactiveMinimapFitView: '全体表示',
