@@ -2,6 +2,7 @@ import type { Edge, Node } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { createCharacterPresentation, createScenePresentation } from '../../lib/presentation';
+import { layoutMcpGeneratedCards } from './mcpGeneratedCardLayout';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
 import { getStoryConnectionHandles } from './storyConnectionHandles';
 
@@ -323,6 +324,7 @@ export const applyMcpOperations = (
   edges: Edge[],
   operations: McpOperation[],
   defaultEdge: Partial<Edge> = { type: 'customEdge' },
+  layoutOptions: { direction?: unknown; language?: string } = {},
 ) => {
   if (!Array.isArray(operations) || operations.length < 1 || operations.length > 100) throw new Error('operations must contain between 1 and 100 supported edits.');
   let nextNodes = [...nodes];
@@ -618,10 +620,46 @@ export const applyMcpOperations = (
       : node);
   }
 
+  const requestedDirection = layoutOptions.direction ?? operations.find(
+    (operation) => operation.layout_direction !== undefined,
+  )?.layout_direction;
+  const generatedLayout = layoutMcpGeneratedCards(
+    nextNodes,
+    nextEdges,
+    created,
+    requestedDirection,
+    layoutOptions.language || 'zh',
+    operations
+      .filter((operation) => operation.type === 'move_node' && typeof operation.node_id === 'string')
+      .map((operation) => operation.node_id as string)
+      .filter((id) => created.includes(id)),
+  );
+  nextNodes = [...generatedLayout.nodes, ...generatedLayout.backgrounds];
+  const generatedIds = new Set(created);
+  if (generatedIds.size > 0) {
+    const nodesById = new Map(nextNodes.map((node) => [node.id, node]));
+    nextEdges = nextEdges.map((edge) => {
+      if (!generatedIds.has(edge.source) && !generatedIds.has(edge.target)) return edge;
+      const source = nodesById.get(edge.source);
+      const target = nodesById.get(edge.target);
+      if (source?.type !== 'storyNode' || target?.type !== 'storyNode') return edge;
+      return { ...edge, ...getStoryConnectionHandles(source, target) };
+    });
+  }
+
   return {
     nodes: nextNodes,
     edges: nextEdges,
     changed: JSON.stringify(nodes) !== JSON.stringify(nextNodes) || JSON.stringify(edges) !== JSON.stringify(nextEdges),
-    summary: { operationCount: operations.length, changedCount, changes, createdNodeIds: created, deletedNodeIds: deleted, nodeCount: nextNodes.length, edgeCount: nextEdges.length },
+    summary: {
+      operationCount: operations.length,
+      changedCount,
+      changes,
+      createdNodeIds: created,
+      layoutBackgroundIds: generatedLayout.backgrounds.map((node) => node.id),
+      deletedNodeIds: deleted,
+      nodeCount: nextNodes.length,
+      edgeCount: nextEdges.length,
+    },
   };
 };

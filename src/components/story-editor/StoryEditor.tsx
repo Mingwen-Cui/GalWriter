@@ -1407,6 +1407,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             mcpEdgesRef.current,
             operations,
             { type: defaultEdgeOptions.type, markerEnd: defaultEdgeOptions.markerEnd, style: defaultEdgeOptions.style },
+            { direction: payload.input.layout_direction, language },
           );
           const isPreview = payload.operation === 'preview_story_changes';
           const result = { ...(isPreview ? { previewOnly: true } : { applied: true }), ...change.summary };

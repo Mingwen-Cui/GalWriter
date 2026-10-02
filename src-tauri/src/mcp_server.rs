@@ -393,7 +393,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Create a story card at a canvas position. The editor assigns the card ID and default visual properties.")]
+  #[tool(description = "Create a story card at a rough canvas anchor. Optional layout_direction ('up', 'down', 'left', 'right') sets the story-flow direction. In a multi-card apply_story_changes batch, the editor positions story, character, and scene cards into type groups, adds fitting background cards, and computes connection handles from final geometry. Use capture_editor_canvas to inspect the user's viewport and move_story_node to refine placement.")]
   async fn create_story_node(&self, Parameters(input): Parameters<CreateStoryNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("create_story_node", input).await?;
@@ -477,14 +477,14 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Create a character card at a canvas position.")]
+  #[tool(description = "Create a character card at a rough canvas anchor. Optional layout_direction applies when this is part of a multi-card apply_story_changes batch. Use capture_editor_canvas to inspect the user's viewport and move_story_node to refine placement.")]
   async fn create_character_node(&self, Parameters(input): Parameters<CreateCharacterNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("create_character_node", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Create a scene card at a canvas position.")]
+  #[tool(description = "Create a scene card at a rough canvas anchor. Optional layout_direction applies when this is part of a multi-card apply_story_changes batch. Use capture_editor_canvas to inspect the user's viewport and move_story_node to refine placement.")]
   async fn create_scene_node(&self, Parameters(input): Parameters<CreateSceneNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("create_scene_node", input).await?;
@@ -519,7 +519,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Apply a validated list of supported story and setting-card edits as one undoable change. Use preview_story_changes first for a dry run.")]
+  #[tool(description = "Apply a validated list of supported story and setting-card edits as one undoable change. Optional layout_direction ('up', 'down', 'left', 'right') controls the story-flow layout for newly created cards. Multi-card creation groups story, character, and scene cards and creates fitting background regions. Use preview_story_changes first for a dry run.")]
   async fn apply_story_changes(&self, Parameters(input): Parameters<StoryChangesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("apply_story_changes", input).await?;
@@ -539,7 +539,7 @@ impl GalWriterMcpServer {
   }
 }
 
-#[tool_handler(name = "galwriter", version = "1.5.0", instructions = "Read the current GalWriter desktop project before editing. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation. For multi-step story edits, preview_story_changes first, then apply_story_changes. Changes are applied through the open editor as undoable edits; call save_current_project when persistence is requested.")]
+#[tool_handler(name = "galwriter", version = "1.5.0", instructions = "Read the current GalWriter desktop project before editing. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation. For multi-step story edits, preview_story_changes first, then apply_story_changes. Changes are applied through the open editor as undoable edits; call save_current_project when persistence is requested.")]
 impl ServerHandler for GalWriterMcpServer {}
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -553,12 +553,22 @@ struct CreateStoryNodeInput {
   title: String,
   text: String,
   position: StoryNodePosition,
+  layout_direction: Option<StoryLayoutDirection>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct StoryNodePosition {
   x: f64,
   y: f64,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum StoryLayoutDirection {
+  Up,
+  Down,
+  Left,
+  Right,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -607,12 +617,14 @@ struct UpdatePlotStructureNodeInput {
 struct CreateCharacterNodeInput {
   character_name: String,
   position: StoryNodePosition,
+  layout_direction: Option<StoryLayoutDirection>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct CreateSceneNodeInput {
   scene_name: String,
   position: StoryNodePosition,
+  layout_direction: Option<StoryLayoutDirection>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -658,6 +670,7 @@ struct SetStoryPresentationInput {
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct StoryChangesInput {
   operations: Vec<StoryChangeOperation>,
+  layout_direction: Option<StoryLayoutDirection>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
