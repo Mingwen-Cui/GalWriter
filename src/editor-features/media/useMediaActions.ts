@@ -12,12 +12,10 @@ import {
   buildImageGenerationRequest,
   buildReferencePrompt,
   ensureImageAspectRatio,
-  ensureTransparentImageBackground,
   getConnectedImageReferences,
   type ImageReference,
   isHostedImageProxyProvider,
   isLocalStableDiffusionProvider,
-  requestSubjectSegmentation,
   toApiImageReference,
 } from './imageGeneration';
 
@@ -39,11 +37,6 @@ interface UseMediaActionsParams {
   imageEnableHr?: boolean;
   imageHrScale?: number;
   imageDenoisingStrength?: number;
-  imageRemoveBackground?: boolean;
-  backgroundRemovalApiUrl?: string;
-  backgroundRemovalApiKey?: string;
-  backgroundRemovalModel?: string;
-  backgroundRemovalProvider?: string;
   sceneImageMode: SceneImageMode;
   characterAssetTypes: CharacterAssetType[];
   showTitles: boolean;
@@ -51,7 +44,6 @@ interface UseMediaActionsParams {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   showToast: (message: string) => void;
   onMissingImageApiKeyRequest?: () => void;
-  onMissingBackgroundRemovalApiRequest?: () => void;
 }
 
 const stripHtml = (html: string) => {
@@ -146,11 +138,6 @@ export const useMediaActions = ({
   imageEnableHr,
   imageHrScale,
   imageDenoisingStrength,
-  imageRemoveBackground,
-  backgroundRemovalApiUrl,
-  backgroundRemovalApiKey,
-  backgroundRemovalModel,
-  backgroundRemovalProvider,
   sceneImageMode,
   characterAssetTypes,
   showTitles,
@@ -158,7 +145,6 @@ export const useMediaActions = ({
   setNodes,
   showToast,
   onMissingImageApiKeyRequest,
-  onMissingBackgroundRemovalApiRequest,
 }: UseMediaActionsParams) => {
   const { alert: showDialogAlert } = useDialog();
   const stableDiffusionOptions = useMemo(
@@ -187,22 +173,6 @@ export const useMediaActions = ({
   );
   const isLocalStableDiffusion = isLocalStableDiffusionProvider(imageProvider);
   const isHostedImageProxy = isHostedImageProxyProvider(imageProvider);
-  const isHostedBackgroundRemovalProxy = false;
-  const missingBackgroundRemovalConfig =
-    backgroundRemovalProvider !== 'local-rembg' &&
-    (!backgroundRemovalApiUrl?.trim() ||
-      !backgroundRemovalApiKey?.trim() ||
-      (backgroundRemovalProvider !== 'custom' && !backgroundRemovalModel?.trim()));
-  const notifyMissingBackgroundRemovalConfig = useCallback(() => {
-    onMissingBackgroundRemovalApiRequest?.();
-    showToast(
-      language === 'zh'
-        ? '请先在设置 > AI 配置 > 去背景 AI 中连接可用接口'
-        : language === 'ja'
-          ? 'Settings > AI Settings > Background Removal AI でAPIを接続してください'
-          : 'Connect a Background Removal AI API in Settings > AI Settings first',
-    );
-  }, [language, onMissingBackgroundRemovalApiRequest, showToast]);
 
   const handleAddTextToImage = useCallback(
     (id: string) => {
@@ -304,11 +274,6 @@ export const useMediaActions = ({
         return null;
       }
 
-      const wantsTransparentBackground = transparentBackground || Boolean(imageRemoveBackground);
-      const shouldRemoveBackground = wantsTransparentBackground && !missingBackgroundRemovalConfig;
-      const finalPrompt = wantsTransparentBackground
-        ? `${prompt}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
-        : prompt;
       let apiReferenceImages: string[] = [];
       if (referenceImages.length > 0) {
         try {
@@ -319,7 +284,7 @@ export const useMediaActions = ({
           console.warn('Character reference image could not be attached:', error);
         }
       }
-      const promptWithReferences = `${finalPrompt}${buildReferencePrompt(referenceImages)}`;
+      const promptWithReferences = `${prompt}${buildReferencePrompt(referenceImages)}`;
       const imageRequest = buildImageGenerationRequest(
         imageApiUrl,
         imageModel,
@@ -329,7 +294,7 @@ export const useMediaActions = ({
         imageProvider,
         requestStableDiffusionOptions,
         apiReferenceImages,
-        shouldRemoveBackground,
+        transparentBackground,
       );
       const imageRequestBody = JSON.stringify(imageRequest.body);
       const imageRequestHeaders = {
@@ -405,7 +370,7 @@ export const useMediaActions = ({
             imageProvider,
             requestStableDiffusionOptions,
             apiReferenceImages,
-            shouldRemoveBackground,
+            transparentBackground,
           );
           response = await fetch(fallbackRequest.url, {
             method: 'POST',
@@ -442,28 +407,6 @@ export const useMediaActions = ({
 
       let processedImageSrc = imageSrc as string;
 
-      if (shouldRemoveBackground) {
-        try {
-          processedImageSrc = await requestSubjectSegmentation(processedImageSrc, {
-            apiUrl: backgroundRemovalApiUrl,
-            apiKey: backgroundRemovalApiKey,
-            reqKey: backgroundRemovalModel,
-            provider: backgroundRemovalProvider,
-            useHostedProxy: isHostedBackgroundRemovalProxy,
-            bundledWithImageGeneration: true,
-          });
-        } catch (error) {
-          console.error('Transparent background processing failed:', error);
-          showToast(
-            language === 'zh'
-              ? '图片已生成，透明背景转换失败，已使用原图。'
-              : language === 'ja'
-                ? '画像は生成されましたが、透明背景への変換に失敗したため元画像を使用しました。'
-                : 'The image was generated, but transparent background conversion failed. Using the original image.',
-          );
-        }
-      }
-
       if (aspectRatio) {
         try {
           processedImageSrc = await ensureImageAspectRatio(processedImageSrc, aspectRatio);
@@ -490,14 +433,7 @@ export const useMediaActions = ({
       stableDiffusionOptions,
       isLocalStableDiffusion,
       isHostedImageProxy,
-      imageRemoveBackground,
-      backgroundRemovalApiKey,
-      backgroundRemovalApiUrl,
-      backgroundRemovalModel,
-      backgroundRemovalProvider,
       language,
-      missingBackgroundRemovalConfig,
-      notifyMissingBackgroundRemovalConfig,
       onMissingImageApiKeyRequest,
       setImageSize,
       showToast,
@@ -787,16 +723,11 @@ export const useMediaActions = ({
           .map((result) => result.value);
         const apiReferenceImages = convertedReferences.map((reference) => reference.apiImage);
         const promptBase = `${basePrompt}${buildReferencePrompt(convertedReferences)}`;
-        const shouldRemoveBackground =
-          Boolean(imageRemoveBackground) && !missingBackgroundRemovalConfig;
-        const prompt = shouldRemoveBackground
-          ? `${promptBase}\n\nBackground requirement: use a perfectly uniform pure white (#FFFFFF) background with no scenery, no floor, no cast shadow, no texture, and no gradient, so the subject can be cleanly segmented into a transparent PNG.`
-          : promptBase;
         const imageRequest = buildImageGenerationRequest(
           imageApiUrl,
           imageModel,
           imageSize,
-          prompt,
+          promptBase,
           imageApiKey,
           imageProvider,
           stableDiffusionOptions,
@@ -886,28 +817,6 @@ export const useMediaActions = ({
           );
         }
 
-        if (shouldRemoveBackground) {
-          try {
-            imageSrc = await requestSubjectSegmentation(imageSrc as string, {
-              apiUrl: backgroundRemovalApiUrl,
-              apiKey: backgroundRemovalApiKey,
-              reqKey: backgroundRemovalModel,
-              provider: backgroundRemovalProvider,
-              useHostedProxy: isHostedBackgroundRemovalProxy,
-              bundledWithImageGeneration: true,
-            });
-          } catch (error) {
-            console.error('Transparent background processing failed:', error);
-            showToast(
-              language === 'zh'
-                ? '图片已生成，透明背景转换失败，已使用原图。'
-                : language === 'ja'
-                  ? '画像は生成されましたが、透明背景への変換に失敗したため元画像を使用しました。'
-                  : 'The image was generated, but transparent background conversion failed. Using the original image.',
-            );
-          }
-        }
-
         const currentWidth = (node.style?.width as number) || 280;
         const previousImageUrl = node.data.imageUrl as string | undefined;
         const nextHeight = MIN_STORY_CARD_HEIGHT;
@@ -991,132 +900,12 @@ export const useMediaActions = ({
       stableDiffusionOptions,
       isLocalStableDiffusion,
       isHostedImageProxy,
-      imageRemoveBackground,
-      backgroundRemovalApiKey,
-      backgroundRemovalApiUrl,
-      backgroundRemovalModel,
-      backgroundRemovalProvider,
       language,
-      missingBackgroundRemovalConfig,
       nodes,
-      notifyMissingBackgroundRemovalConfig,
       onMissingImageApiKeyRequest,
       setImageSize,
       setNodes,
       showTitles,
-      showToast,
-    ],
-  );
-
-  const handleRemoveCharacterImageBackground = useCallback(
-    async (id: string, outfitId?: string) => {
-      const node = nodes.find((item) => item.id === id);
-      const outfits = Array.isArray(node?.data.outfits) ? (node?.data.outfits as any[]) : [];
-      const outfit = outfitId ? outfits.find((item) => item.id === outfitId) : undefined;
-      const sourceImageUrl = outfitId ? outfit?.imageUrl : node?.data.avatarUrl;
-      if (!node || typeof sourceImageUrl !== 'string' || !sourceImageUrl.trim()) return;
-      if (missingBackgroundRemovalConfig) {
-        notifyMissingBackgroundRemovalConfig();
-        return;
-      }
-
-      try {
-        const transparentImageSrc = await requestSubjectSegmentation(sourceImageUrl, {
-          apiUrl: backgroundRemovalApiUrl,
-          apiKey: backgroundRemovalApiKey,
-          reqKey: backgroundRemovalModel,
-          provider: backgroundRemovalProvider,
-          useHostedProxy: isHostedBackgroundRemovalProxy,
-          bundledWithImageGeneration: false,
-        });
-
-        setNodes((nds) =>
-          nds.map((current) => {
-            if (current.id !== id) return current;
-            const currentOutfits = (current.data.outfits as any[]) || [];
-            if (outfitId) {
-              return {
-                ...current,
-                data: {
-                  ...current.data,
-                  outfits: currentOutfits.map((item) =>
-                    item.id === outfitId ? { ...item, imageUrl: transparentImageSrc } : item,
-                  ),
-                },
-              };
-            }
-
-            const hasArchivedAvatar = currentOutfits.some(
-              (outfit) => outfit.imageUrl === sourceImageUrl,
-            );
-            const archivedAvatarName =
-              language === 'zh'
-                ? '透明处理前人物图片'
-                : language === 'ja'
-                  ? '透明処理前のキャラクター画像'
-                  : 'Before Transparent Background';
-            const nextOutfits = hasArchivedAvatar
-              ? currentOutfits
-              : [
-                  {
-                    id: uuidv4(),
-                    name: archivedAvatarName,
-                    imageUrl: sourceImageUrl,
-                  },
-                  ...currentOutfits,
-                ];
-
-            return {
-              ...current,
-              data: {
-                ...current.data,
-                avatarUrl: transparentImageSrc,
-                outfits: nextOutfits,
-              },
-            };
-          }),
-        );
-
-        showToast(
-          language === 'zh'
-            ? outfitId
-              ? '穿着图片已处理为透明背景'
-              : '人物图片已处理为透明背景'
-            : language === 'ja'
-              ? outfitId
-                ? '衣装画像を透明背景に処理しました'
-                : 'キャラクター画像を透明背景に処理しました'
-              : outfitId
-                ? 'Outfit image converted to transparent background'
-                : 'Character image converted to transparent background',
-        );
-      } catch (error: any) {
-        console.error('Character background removal failed:', error);
-        await showDialogAlert({
-          title:
-            language === 'zh'
-              ? '透明背景处理失败'
-              : language === 'ja'
-                ? '透明背景の処理に失敗しました'
-                : 'Transparent background processing failed',
-          description: error.message || 'Unknown error',
-          tone: 'warning',
-        });
-      }
-    },
-    [
-      imageApiUrl,
-      backgroundRemovalApiKey,
-      backgroundRemovalApiUrl,
-      backgroundRemovalModel,
-      backgroundRemovalProvider,
-      isHostedImageProxy,
-      language,
-      missingBackgroundRemovalConfig,
-      nodes,
-      notifyMissingBackgroundRemovalConfig,
-      setNodes,
-      showDialogAlert,
       showToast,
     ],
   );
@@ -1223,7 +1012,6 @@ export const useMediaActions = ({
     requestGeneratedImage,
     handleGenerateSettingNodeImage,
     handleGenerateStoryNodeImage,
-    handleRemoveCharacterImageBackground,
     handleExtractMedia,
   };
 };

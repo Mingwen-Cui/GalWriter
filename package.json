@@ -25,7 +25,6 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,md,html,ts,js}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{json,md,html,ts,js}\"",
     "tauri": "tauri",
-    "rembg:prepare": "powershell -ExecutionPolicy Bypass -File .\\src-tauri\\rembg-sidecar\\prepare-release.ps1",
     "tauri:android:init": "tauri android init --ci",
     "tauri:build:windows": "tauri build",
     "tauri:build:windows:full": "node build-scripts/build-tauri-edition.mjs windows full",

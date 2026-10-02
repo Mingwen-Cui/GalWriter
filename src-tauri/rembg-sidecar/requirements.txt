@@ -1,2 +1,0 @@
-rembg[cpu]==2.0.75
-pyinstaller==6.17.0

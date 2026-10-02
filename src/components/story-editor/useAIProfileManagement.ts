@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 
 import type {
-  BackgroundRemovalAIProfile,
   ImageAIProfile,
   ProjectAIProfilesExport,
   SavedAIProfile,
@@ -31,7 +30,6 @@ import {
   DEFAULT_TTS_VOICE,
 } from './constants';
 import {
-  buildDefaultBackgroundRemovalProfile,
   buildDefaultImageProfile,
   buildDefaultTextProfile,
   buildDefaultVoiceProfile,
@@ -49,8 +47,6 @@ interface UseAIProfileManagementParams {
   setActiveTextProfileId: React.Dispatch<React.SetStateAction<string | null>>;
   activeImageProfileId: string | null;
   setActiveImageProfileId: React.Dispatch<React.SetStateAction<string | null>>;
-  activeBackgroundRemovalProfileId: string | null;
-  setActiveBackgroundRemovalProfileId: React.Dispatch<React.SetStateAction<string | null>>;
   activeVoiceProfileId: string | null;
   setActiveVoiceProfileId: React.Dispatch<React.SetStateAction<string | null>>;
 }
@@ -65,8 +61,6 @@ export function useAIProfileManagement({
   setActiveTextProfileId,
   activeImageProfileId,
   setActiveImageProfileId,
-  activeBackgroundRemovalProfileId,
-  setActiveBackgroundRemovalProfileId,
   activeVoiceProfileId,
   setActiveVoiceProfileId,
 }: UseAIProfileManagementParams) {
@@ -97,15 +91,6 @@ export function useAIProfileManagement({
       ) ?? null
     );
   }, [activeImageProfileId, savedAIProfiles]);
-
-  const activeBackgroundRemovalProfile = useMemo(() => {
-    return (
-      savedAIProfiles.find(
-        (profile): profile is BackgroundRemovalAIProfile =>
-          profile.kind === 'background-removal' && profile.id === activeBackgroundRemovalProfileId,
-      ) ?? null
-    );
-  }, [activeBackgroundRemovalProfileId, savedAIProfiles]);
 
   const activeVoiceProfile = useMemo(() => {
     if (!isTauriRuntime() && activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID) {
@@ -139,11 +124,6 @@ export function useAIProfileManagement({
   const imageEnableHr = activeImageProfile?.enableHr ?? false;
   const imageHrScale = activeImageProfile?.hrScale ?? 2;
   const imageDenoisingStrength = activeImageProfile?.denoisingStrength ?? 0.7;
-  const imageRemoveBackground = activeImageProfile?.removeBackground ?? false;
-  const backgroundRemovalApiUrl = activeBackgroundRemovalProfile?.apiUrl ?? '';
-  const backgroundRemovalApiKey = activeBackgroundRemovalProfile?.apiKey ?? '';
-  const backgroundRemovalModel = activeBackgroundRemovalProfile?.model ?? '';
-  const backgroundRemovalProvider = activeBackgroundRemovalProfile?.provider ?? 'custom';
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
   const ttsAppKey = activeVoiceProfile?.appKey ?? activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
@@ -161,7 +141,6 @@ export function useAIProfileManagement({
     const profiles = [
       activeTextProfile,
       activeImageProfile,
-      activeBackgroundRemovalProfile,
       activeVoiceProfile,
     ].filter(
       (profile): profile is SavedAIProfile =>
@@ -184,10 +163,6 @@ export function useAIProfileManagement({
         activeImageProfileId && exportedProfileIds.has(activeImageProfileId)
           ? activeImageProfileId
           : null,
-      activeBackgroundRemovalProfileId:
-        activeBackgroundRemovalProfileId && exportedProfileIds.has(activeBackgroundRemovalProfileId)
-          ? activeBackgroundRemovalProfileId
-          : null,
       activeVoiceProfileId:
         activeVoiceProfileId && exportedProfileIds.has(activeVoiceProfileId)
           ? activeVoiceProfileId
@@ -195,8 +170,6 @@ export function useAIProfileManagement({
       exportedAt: new Date().toISOString(),
     };
   }, [
-    activeBackgroundRemovalProfile,
-    activeBackgroundRemovalProfileId,
     activeImageProfile,
     activeImageProfileId,
     activeTextProfile,
@@ -209,7 +182,7 @@ export function useAIProfileManagement({
 
   const handleCreateAIProfile = useCallback(
     async (
-      kind: 'text' | 'image' | 'background-removal' | 'voice',
+      kind: 'text' | 'image' | 'voice',
       initialProfile: AIProfileSeed = {},
     ) => {
       const baseProfile =
@@ -217,9 +190,7 @@ export function useAIProfileManagement({
           ? buildDefaultTextProfile()
           : kind === 'image'
             ? buildDefaultImageProfile()
-            : kind === 'background-removal'
-              ? buildDefaultBackgroundRemovalProfile()
-              : buildDefaultVoiceProfile();
+            : buildDefaultVoiceProfile();
       const profile = Object.assign({}, baseProfile, initialProfile, {
         id: baseProfile.id,
         kind,
@@ -227,7 +198,6 @@ export function useAIProfileManagement({
       setSavedAIProfiles((current) => [...current, profile]);
       if (kind === 'text') setActiveTextProfileId(profile.id);
       if (kind === 'image') setActiveImageProfileId(profile.id);
-      if (kind === 'background-removal') setActiveBackgroundRemovalProfileId(profile.id);
       if (kind === 'voice') setActiveVoiceProfileId(profile.id);
       return profile.id;
     },
@@ -250,10 +220,9 @@ export function useAIProfileManagement({
   );
 
   const handleSelectAIProfile = useCallback(
-    async (kind: 'text' | 'image' | 'background-removal' | 'voice', profileId: string) => {
+    async (kind: 'text' | 'image' | 'voice', profileId: string) => {
       if (kind === 'text') setActiveTextProfileId(profileId);
       if (kind === 'image') setActiveImageProfileId(profileId);
-      if (kind === 'background-removal') setActiveBackgroundRemovalProfileId(profileId);
       if (kind === 'voice') setActiveVoiceProfileId(profileId);
     },
     [],
@@ -279,11 +248,6 @@ export function useAIProfileManagement({
             nextProfiles.find((profile) => profile.kind === 'image')?.id ?? null,
           );
         }
-        if (activeBackgroundRemovalProfileId === profileId) {
-          setActiveBackgroundRemovalProfileId(
-            nextProfiles.find((profile) => profile.kind === 'background-removal')?.id ?? null,
-          );
-        }
         if (activeVoiceProfileId === profileId) {
           setActiveVoiceProfileId(
             nextProfiles.find((profile) => profile.kind === 'voice')?.id ?? null,
@@ -293,7 +257,6 @@ export function useAIProfileManagement({
       });
     },
     [
-      activeBackgroundRemovalProfileId,
       activeImageProfileId,
       activeTextProfileId,
       activeVoiceProfileId,
@@ -327,7 +290,6 @@ export function useAIProfileManagement({
     // Active profiles
     activeTextProfile,
     activeImageProfile,
-    activeBackgroundRemovalProfile,
     activeVoiceProfile,
     // Derived values
     aiProvider,
@@ -347,11 +309,6 @@ export function useAIProfileManagement({
     imageEnableHr,
     imageHrScale,
     imageDenoisingStrength,
-    imageRemoveBackground,
-    backgroundRemovalApiUrl,
-    backgroundRemovalApiKey,
-    backgroundRemovalModel,
-    backgroundRemovalProvider,
     ttsApiKey,
     ttsApiUrl,
     ttsAppKey,

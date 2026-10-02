@@ -2315,6 +2315,150 @@ html.canvas-selection-dragging * {
   transform: none;
 }
 
+.assistant-welcome-option--agent .assistant-welcome-option-title {
+  color: #4f46e5;
+}
+
+.assistant-agent-connect-dialog {
+  position: relative;
+  width: min(100%, 440px);
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.assistant-agent-connect-heading {
+  position: relative;
+  padding-right: 36px;
+}
+
+.assistant-agent-connect-mark {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.assistant-agent-connect-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  color: #64748b;
+}
+
+.assistant-agent-connect-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.assistant-agent-connect-heading h2 {
+  margin: 14px 0 5px;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.assistant-agent-connect-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.assistant-agent-connect-options {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.assistant-agent-connect-option {
+  display: flex;
+  width: 100%;
+  min-height: 62px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.assistant-agent-provider-mark {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.assistant-agent-provider-openai {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.assistant-agent-provider-deepseek {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.assistant-agent-connect-option strong,
+.assistant-agent-connect-option small {
+  display: block;
+}
+
+.assistant-agent-connect-option strong {
+  font-size: 12px;
+}
+
+.assistant-agent-connect-option small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.assistant-agent-connect-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.assistant-agent-connect-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
 .assistant-welcome-option-icon {
   display: flex;
   position: absolute;
@@ -2383,6 +2527,10 @@ html.canvas-selection-dragging * {
   transform: translateY(-50%) rotate(-3deg) scale(0.75);
 }
 
+.assistant-welcome-option--agent .assistant-welcome-option-icon {
+  transform: translateY(-50%) scale(0.75);
+}
+
 .assistant-welcome-option--profile .assistant-welcome-option-title {
   color: #ea580c;
 }
@@ -2405,6 +2553,10 @@ html.canvas-selection-dragging * {
 
 .assistant-welcome-option--article:hover .assistant-welcome-option-icon {
   transform: translateY(calc(-50% + 4px)) scale(0.95) rotate(-7deg);
+}
+
+.assistant-welcome-option--agent:hover .assistant-welcome-option-icon {
+  transform: translateY(calc(-50% + 4px)) scale(0.95);
 }
 
 .assistant-article-upload-page {
@@ -2783,6 +2935,32 @@ html.canvas-selection-dragging * {
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(15, 23, 42, 0.66);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='dark'] .assistant-agent-connect-dialog {
+  border-color: #334155;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .assistant-agent-connect-heading p,
+[data-theme='dark'] .assistant-agent-connect-option small {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .assistant-agent-connect-close:hover {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .assistant-agent-connect-option {
+  border-color: #334155;
+  background: #111c30;
+}
+
+[data-theme='dark'] .assistant-agent-connect-status {
+  background: #1e293b;
+  color: #cbd5e1;
 }
 
 [data-theme='dark'] .assistant-welcome-option:hover {

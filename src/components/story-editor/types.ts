@@ -1,5 +1,4 @@
 import type {
-  BackgroundRemovalAIProfile,
   ImageAIProfile,
   TextAIProfile,
   VoiceAIProfile,
@@ -22,11 +21,9 @@ export interface StoryEditorProps {
 export type AIProfileSeed =
   | Partial<TextAIProfile>
   | Partial<ImageAIProfile>
-  | Partial<BackgroundRemovalAIProfile>
   | Partial<VoiceAIProfile>;
 export type AIProfileUpdates =
   | Partial<TextAIProfile>
   | Partial<ImageAIProfile>
-  | Partial<BackgroundRemovalAIProfile>
   | Partial<VoiceAIProfile>;
 export type ThemePreference = 'light' | 'dark' | 'system';

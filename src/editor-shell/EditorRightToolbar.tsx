@@ -27,7 +27,7 @@ interface EditorRightToolbarProps {
   historyFutureLength: number;
   missingTextApiKey: boolean;
   settingsAttention: boolean;
-  settingsAttentionTarget?: 'text' | 'image' | 'background-removal' | 'voice' | null;
+  settingsAttentionTarget?: 'text' | 'image' | 'voice' | null;
   setAssistantOpen: Dispatch<SetStateAction<boolean>>;
   setRightToolbarCollapsed: Dispatch<SetStateAction<boolean>>;
   setShowSettings: Dispatch<SetStateAction<boolean>>;

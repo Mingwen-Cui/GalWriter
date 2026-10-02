@@ -37,7 +37,6 @@ export const HOSTED_IMAGE_PROXY_PROFILE: ImageAIProfile = {
   model: DEFAULT_IMAGE_MODEL,
   size: DEFAULT_IMAGE_SIZE,
   negativePrompt: '',
-  removeBackground: false,
 };
 
 export const HOSTED_VOICE_PROXY_PROFILE: VoiceAIProfile = {

@@ -17,7 +17,6 @@ import {
   Copy,
   Dices,
   Download,
-  Eraser,
   Globe,
   Image as ImageIcon,
   Loader2,
@@ -535,8 +534,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     'faceId' | 'hairId' | 'outfitId' | 'calibration' | null
   >(null);
   const [appearanceAssetUrls, setAppearanceAssetUrls] = useState<Record<string, string>>({});
-  const [isRemovingAvatarBackground, setIsRemovingAvatarBackground] = useState(false);
-  const [removingOutfitBackgroundId, setRemovingOutfitBackgroundId] = useState<string | null>(null);
   const contentFrameRef = useRef<HTMLDivElement>(null);
   const [measuredMinHeight, setMeasuredMinHeight] = useState(
     getCalculatedCharacterNodeMinHeight(0),
@@ -1355,33 +1352,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
     await downloadImageUrl(avatarUrl, `${safeName}.${getImageExtension(avatarUrl)}`);
   };
 
-  const handleRemoveAvatarBackground = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    if (!avatarUrl || !data.onRemoveCharacterImageBackground || isRemovingAvatarBackground) return;
-
-    setIsRemovingAvatarBackground(true);
-    try {
-      await data.onRemoveCharacterImageBackground(id);
-    } finally {
-      setIsRemovingAvatarBackground(false);
-    }
-  };
-
-  const handleRemoveOutfitBackground = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-    outfitId: string,
-  ) => {
-    event.stopPropagation();
-    if (!data.onRemoveCharacterImageBackground || removingOutfitBackgroundId) return;
-
-    setRemovingOutfitBackgroundId(outfitId);
-    try {
-      await data.onRemoveCharacterImageBackground(id, outfitId);
-    } finally {
-      setRemovingOutfitBackgroundId(null);
-    }
-  };
-
   const handleDownloadOutfitImage = async (
     event: React.MouseEvent<HTMLButtonElement>,
     outfit: { id: string; name: string; imageUrl?: string },
@@ -1547,13 +1517,13 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       className="relative h-full w-full"
                       style={{
                         background:
-                          'conic-gradient(from -30deg, rgba(255,255,255,0.10) 0deg 119deg, rgba(255,255,255,0.18) 119deg 121deg, rgba(255,255,255,0.10) 121deg 239deg, rgba(255,255,255,0.18) 239deg 241deg, rgba(255,255,255,0.10) 241deg 359deg, rgba(255,255,255,0.18) 359deg 360deg)',
+                          'linear-gradient(to bottom, rgba(255,255,255,0.10) 0 49%, rgba(255,255,255,0.18) 49% 51%, rgba(255,255,255,0.10) 51% 100%)',
                       }}
                     >
                       <label
                         className="absolute inset-0 cursor-pointer text-white transition-colors hover:bg-white/15"
                         style={{
-                          clipPath: 'polygon(50% 50%, 6.7% 25%, 50% 0%, 93.3% 25%)',
+                          clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)',
                         }}
                         title={lang === 'zh' ? '上传人物图片' : 'Upload character image'}
                       >
@@ -1567,32 +1537,14 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       </label>
                       <button
                         type="button"
-                        onClick={handleRemoveAvatarBackground}
-                        disabled={
-                          !data.onRemoveCharacterImageBackground || isRemovingAvatarBackground
-                        }
-                        className="absolute inset-0 text-white transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-35"
-                        style={{
-                          clipPath: 'polygon(50% 50%, 93.3% 25%, 93.3% 75%, 50% 100%)',
-                        }}
-                        title={lang === 'zh' ? '处理为透明背景' : 'Make background transparent'}
-                      >
-                        {isRemovingAvatarBackground ? (
-                          <Loader2 className="absolute bottom-2 right-2 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Eraser className="absolute bottom-2 right-2 h-3.5 w-3.5" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
                         onClick={handleDownloadAvatarImage}
                         className="absolute inset-0 text-white transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-35"
                         style={{
-                          clipPath: 'polygon(50% 50%, 50% 100%, 6.7% 75%, 6.7% 25%)',
+                          clipPath: 'polygon(0 50%, 100% 50%, 100% 100%, 0 100%)',
                         }}
                         title={lang === 'zh' ? '下载人物图片' : 'Download character image'}
                       >
-                        <Download className="absolute bottom-2 left-2 h-3.5 w-3.5" />
+                        <Download className="absolute bottom-1.5 left-1/2 h-3.5 w-3.5 -translate-x-1/2" />
                       </button>
                     </div>
                   )}
@@ -2268,21 +2220,6 @@ export function CharacterNode({ id, data, selected }: NodeProps<CharacterFlowNod
                       </label>
                       {outfit.imageUrl && (
                         <>
-                          <button
-                            onClick={(event) => handleRemoveOutfitBackground(event, outfit.id)}
-                            disabled={
-                              !data.onRemoveCharacterImageBackground ||
-                              removingOutfitBackgroundId === outfit.id
-                            }
-                            className="rounded p-1 text-fuchsia-500 opacity-0 transition-opacity hover:bg-fuchsia-500/10 hover:text-fuchsia-600 disabled:cursor-not-allowed disabled:opacity-40 group-hover/outfit:opacity-100"
-                            title={lang === 'zh' ? '处理为透明背景' : 'Make background transparent'}
-                          >
-                            {removingOutfitBackgroundId === outfit.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Eraser className="h-3 w-3" />
-                            )}
-                          </button>
                           <button
                             onClick={(event) => handleDownloadOutfitImage(event, outfit)}
                             className="opacity-0 group-hover/outfit:opacity-100 p-1 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded transition-opacity"

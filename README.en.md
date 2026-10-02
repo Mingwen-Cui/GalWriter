@@ -27,9 +27,9 @@ The current source version is **1.3.0**, built with React 19, TypeScript, React 
 
 - **Story canvas**: story, character, scene, AI generation, background, group, numeric condition, batch replacement, plot structure, note, and summary nodes; branching connections, character and scene tags, rich text, and Zen editing.
 - **Projects and asset libraries**: a local project home, recent projects, autosave and recovery, and project ZIP import/export; reusable character and scene settings, preset assets available for download on demand, and a music library with import, preview, and regional BGM.
-- **AI authoring**: multiple profiles managed separately for text, images, background removal, and voice; continuation, rewriting, story insertion, structure analysis, character and scene generation, and custom prompts.
+- **AI authoring**: multiple profiles managed separately for text, images, and voice; continuation, rewriting, story insertion, structure analysis, character and scene generation, and custom prompts.
 - **Assistant / Agent**: streaming chat, canvas card and document context, memory notes, task conversations, planning, and revision; the Agent can generate, fill, connect, and arrange cards. Creative Play continues stories based on characters, genres, player choices, or free-form input while retaining chapter summaries and branches.
-- **Media and staging**: character artwork with multiple forms, scene images and panorama previews, background removal, speech synthesis, recording, ambient sound, regional music, character entrances, and inline actions.
+- **Media and staging**: character artwork with multiple forms, scene images and panorama previews, speech synthesis, recording, ambient sound, regional music, character entrances, and inline actions.
 - **Playtest**: classic or immersive layouts, typewriter effects, auto-advance, choices, and branches based on numeric conditions; check story paths, character and scene changes, and audiovisual pacing.
 - **Export workspace**: Web, video, PPT, and code modes, each with previews, appearance editing, and its own export settings; inherit a shared appearance or save a separate appearance for each mode.
 
@@ -64,10 +64,9 @@ The table below lists provider options and integration paths implemented in the 
 | ------------------ | ---------------------------------------------------------------------------------------------------------- |
 | Text               | DeepSeek, Gemini, OpenAI, Claude, Kimi, Qwen, Copilot, GLM, Ollama, custom API                             |
 | Images             | Doubao, Gemini, OpenAI, Qwen, GLM, local Stable Diffusion WebUI, custom API                                |
-| Background removal | Local rembg on Windows, custom API / managed proxy, Alibaba Cloud Visual Intelligence, Volcengine veImageX |
 | Voice              | System speech, Youdao, OpenAI, Doubao, Gemini, custom API                                                  |
 
-Web deployments can also connect to managed proxies for text, images, and voice. These proxies require a separately deployed server; the repository does not include a ready-to-use `api/proxy.php`, and a static build does not provide these services. Direct browser API requests are also subject to CORS, and some signed cloud background-removal requests require a native bridge.
+Web deployments can also connect to managed proxies for text, images, and voice. These proxies require a separately deployed server; the repository does not include a ready-to-use `api/proxy.php`, and a static build does not provide these services. Direct browser API requests are also subject to CORS.
 
 Assistant can extract text from documents including `PDF`, `DOCX`, `XLSX`, `PPTX`, `TXT`, `MD`, `CSV`, `TSV`, `JSON`, `XML`, `HTML`, and `RTF`. It currently retains up to approximately 24,000 characters per document, reads at most the first 80 pages of a PDF, and limits plain-text files to 2 MiB. Scanned PDFs have no built-in OCR support. Documents provide conversation context; their original layout is not fully preserved.
 
@@ -75,7 +74,7 @@ Assistant can extract text from documents including `PDF`, `DOCX`, `XLSX`, `PPTX
 
 | Platform | Intended use                                        | Runtime differences                                                                                                                                            |
 | -------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows  | Full editing, media production, and export          | System file dialogs, output directories, system TTS, native proxies for some APIs, and optional local rembg; some media conversions require FFmpeg             |
+| Windows  | Full editing, media production, and export          | System file dialogs, output directories, system TTS, native proxies for some APIs; some media conversions require FFmpeg             |
 | Web      | Browser-based use, editing, playtesting, and export | Data is saved in browser storage for the current site; APIs depend on CORS / server proxy configuration, and media export depends on browser capabilities      |
 | Android  | Mobile viewing, editing, and playtesting            | Uses a Tauri Android project; file saving and media capabilities are limited by the mobile WebView and operating system. Windows-only commands are unavailable |
 
@@ -84,18 +83,7 @@ The app offers two asset editions that share the same feature code:
 - **Full**: the default build, including presets, covers, Web templates, and Assistant assets from `public/`.
 - **Lite**: omits the four large asset groups `assistant/`, `presets/`, `cover-templates/`, and `web-homepage/`, and loads them from online sources at runtime. Presets can be downloaded and cached on demand; the initial download still requires a network connection.
 
-Lite's preset, cover, and Web asset URL can be set with the build environment variable `VITE_ASSET_BASE_URL`; the default uses a versioned asset path. Assistant assets use a separate online URL. See [appAssets.ts](src/lib/appAssets.ts) for details. Full does not include cloud AI services or the rembg runtime either.
-
-### Local Background Removal on Windows
-
-Local rembg does not require an API key, but you must separately install `rembg-sidecar.exe` and the model files using the paths and links shown in AI settings. The default `u2netp` setup uses these locations:
-
-```text
-%APPDATA%\com.galwriter.ai\rembg\rembg-sidecar.exe
-%APPDATA%\com.galwriter.ai\rembg-models\u2netp.onnx
-```
-
-The runtime and models are not bundled with the Windows installer. Other models may need to be downloaded on first use; once prepared, image processing can run locally. Developers can find runtime build instructions in the [rembg-sidecar README](src-tauri/rembg-sidecar/README.md).
+Lite's preset, cover, and Web asset URL can be set with the build environment variable `VITE_ASSET_BASE_URL`; the default uses a versioned asset path. Assistant assets use a separate online URL. See [appAssets.ts](src/lib/appAssets.ts) for details. Full does not include cloud AI services either.
 
 ## Saving and Privacy
 
@@ -193,7 +181,7 @@ See the [Build and Release Guide](docs/build/BUILD_GUIDE.en.md) for Android setu
 │   │   └── render/            # Playtest, Web, video, PPT, code, and shared styles
 │   ├── agent/                 # Agent types, planning, runtime, and animation
 │   └── lib/                   # DB, document parsing, media, asset caching, and native adapters
-├── src-tauri/                  # Native commands, Tauri configuration, optional rembg runtime source
+├── src-tauri/                  # Native commands and Tauri configuration
 ├── tests/                      # Existing export settings regression tests
 ├── package.json
 └── vite.config.ts

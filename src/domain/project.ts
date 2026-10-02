@@ -369,7 +369,7 @@ export interface ApiKeySettings {
   ttsApiKey: string;
 }
 
-export type AIProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
+export type AIProfileKind = 'text' | 'image' | 'voice';
 export type CharacterImageMode = 'three-view' | 'transparent-sprite';
 export type CharacterAssetType = 'portrait' | 'three-view' | 'tag-sprite';
 export type SceneImageMode = 'storyboard-16:9' | 'follow-api';
@@ -403,18 +403,6 @@ export interface ImageAIProfile {
   enableHr?: boolean;
   hrScale?: number;
   denoisingStrength?: number;
-  removeBackground?: boolean;
-}
-
-export interface BackgroundRemovalAIProfile {
-  id: string;
-  name: string;
-  kind: 'background-removal';
-  provider: string;
-  apiKey: string;
-  apiUrl: string;
-  /** rembg session name when the desktop-local provider is selected. */
-  model: string;
 }
 
 export interface VoiceAIProfile {
@@ -433,14 +421,12 @@ export interface VoiceAIProfile {
 export type SavedAIProfile =
   | TextAIProfile
   | ImageAIProfile
-  | BackgroundRemovalAIProfile
   | VoiceAIProfile;
 
 export interface ProjectAIProfilesExport {
   profiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
-  activeBackgroundRemovalProfileId?: string | null;
   activeVoiceProfileId: string | null;
   exportedAt: string;
 }
@@ -742,7 +728,6 @@ export interface EditorNodeCallbacks {
     voiceProfileId?: string,
     voiceId?: string,
   ) => Promise<void> | void;
-  onRemoveCharacterImageBackground?: (id: string, outfitId?: string) => Promise<void> | void;
   onAddTextToImage?: (id: string) => void;
   onRemoveTextFromImage?: (id: string) => void;
   onExtractMedia?: (id: string) => void;

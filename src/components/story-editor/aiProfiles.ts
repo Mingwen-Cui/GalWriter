@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
-  BackgroundRemovalAIProfile,
   ImageAIProfile,
   SavedAIProfile,
   TextAIProfile,
@@ -15,7 +14,6 @@ import {
   DEFAULT_STABLE_DIFFUSION_SAMPLER,
   DEFAULT_STABLE_DIFFUSION_STEPS,
 } from '../../editor-features/media/imageGeneration';
-import { isTauriRuntime } from '../../lib/tauriRuntime';
 import { DEFAULT_TTS_API_URL, DEFAULT_TTS_MODEL, DEFAULT_TTS_VOICE } from './constants';
 
 export const buildProfileId = () => uuidv4();
@@ -52,16 +50,6 @@ export const buildDefaultImageProfile = (): ImageAIProfile => ({
   enableHr: false,
   hrScale: 2,
   denoisingStrength: 0.7,
-});
-
-export const buildDefaultBackgroundRemovalProfile = (): BackgroundRemovalAIProfile => ({
-  id: buildProfileId(),
-  name: '去背景 AI',
-  kind: 'background-removal',
-  provider: isTauriRuntime() ? 'local-rembg' : 'custom',
-  apiKey: '',
-  apiUrl: isTauriRuntime() ? '' : 'api/proxy.php',
-  model: isTauriRuntime() ? 'u2netp' : '',
 });
 
 export const buildDefaultVoiceProfile = (): VoiceAIProfile => ({

@@ -3,10 +3,8 @@ import {
   BrainCircuit,
   Check,
   Copy,
-  Eraser,
   ExternalLink,
   Feather,
-  FolderOpen,
   ImageIcon,
   Lightbulb,
   Lock,
@@ -22,7 +20,6 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 
 import type {
-  BackgroundRemovalAIProfile,
   CharacterAssetType,
   ImageAIProfile,
   SavedAIProfile,
@@ -57,20 +54,18 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../lib/hostedProxy';
 import { Language, translations } from '../lib/i18n';
-import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
+import { isTauriRuntime } from '../lib/tauriRuntime';
 import { aiSettingsCopy } from './i18n/ai-settings';
 
-type ProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
-type ProfileDraft = TextAIProfile | ImageAIProfile | BackgroundRemovalAIProfile | VoiceAIProfile;
+type ProfileKind = 'text' | 'image' | 'voice';
+type ProfileDraft = TextAIProfile | ImageAIProfile | VoiceAIProfile;
 type ProfileUpdates =
   | Partial<TextAIProfile>
   | Partial<ImageAIProfile>
-  | Partial<BackgroundRemovalAIProfile>
   | Partial<VoiceAIProfile>;
 type ProfileSeed =
   | Partial<TextAIProfile>
   | Partial<ImageAIProfile>
-  | Partial<BackgroundRemovalAIProfile>
   | Partial<VoiceAIProfile>;
 type ProviderOption = {
   value: string;
@@ -105,31 +100,16 @@ type DeleteState =
       profileId: string;
       name: string;
     };
-type HostedQuotaType = 'chat' | 'image' | 'background-removal' | 'voice';
+type HostedQuotaType = 'chat' | 'image' | 'voice';
 type HostedQuotaInfo = {
   used: number;
   limit: number;
   remaining: number | null;
 };
 type HostedProxyUsage = Partial<Record<HostedQuotaType, HostedQuotaInfo>>;
-type LocalRembgSetup = {
-  appDataDir: string;
-  runtimeDir: string;
-  runtimePath: string;
-  modelsDir: string;
-  defaultModelPath: string;
-  runtimeDownloadUrl: string;
-  modelDownloadUrl: string;
-};
-
-const LOCAL_REMBG_RUNTIME_RELEASE_URL = 'https://github.com/Mingwen-Cui/GalWriter/releases';
-const U2NETP_MODEL_DOWNLOAD_URL =
-  'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx';
-
 const DEFAULT_HOSTED_PROXY_USAGE: Record<HostedQuotaType, HostedQuotaInfo> = {
   chat: { used: 0, limit: 30, remaining: 30 },
   image: { used: 0, limit: 10, remaining: 10 },
-  'background-removal': { used: 0, limit: 10, remaining: 10 },
   voice: { used: 0, limit: 30, remaining: 30 },
 };
 
@@ -197,18 +177,6 @@ const DEFAULT_TTS_API_URL = 'https://openapi.youdao.com/ttsapi';
 const DEFAULT_TTS_MODEL = '';
 const DEFAULT_TTS_VOICE = 'youxiaoqin';
 const VOLCENGINE_TTS_API_URL = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
-const ALIYUN_IMAGESEG_API_URL = 'https://imageseg.cn-shanghai.aliyuncs.com';
-const ALIYUN_IMAGESEG_MODEL = 'SegmentBody';
-const ALIYUN_IMAGESEG_HELP_URL = 'https://vision.aliyun.com/imageseg';
-const ALIYUN_IMAGESEG_OPEN_URL =
-  'https://common-buy.aliyun.com/?commodityCode=viapi_imageseg_public_cn#/open';
-const ALIYUN_ACCESS_KEY_URL = 'https://ram.console.aliyun.com/manage/ak';
-const VOLCENGINE_IMAGEX_API_URL =
-  'https://imagex.volcengineapi.com/?Action=AIProcess&Version=2023-05-01';
-const VOLCENGINE_IMAGEX_MODEL = 'humanv2|ServiceId|https://your-imagex-domain.example.com';
-const VOLCENGINE_IMAGEX_HELP_URL = 'https://www.volcengine.com/docs/508/124671?lang=zh';
-const VOLCENGINE_IMAGEX_SERVICE_URL = 'https://console.volcengine.com/imagex/service_manage';
-const VOLCENGINE_ACCESS_KEY_URL = 'https://console.volcengine.com/iam/keymanage/';
 const VOLCENGINE_TTS_HELP_URL = 'https://www.volcengine.com/docs/6561/2528925?lang=zh';
 const VOLCENGINE_TTS_API_KEY_URL =
   'https://console.volcengine.com/speech/new/setting/apikeys?projectName=default.&_vtm_=a106466.b106468.0_0.0_0.0.75_7655251731625985572';
@@ -346,45 +314,6 @@ const IMAGE_PROVIDER_OPTIONS: ProviderOption[] = [
     apiUrl: '',
     model: '',
     size: '1024x1024',
-  },
-];
-
-const BACKGROUND_REMOVAL_PROVIDER_OPTIONS: ProviderOption[] = [
-  {
-    value: 'local-rembg',
-    label: '本机 rembg（无需 API Key）',
-    apiUrl: '',
-    model: 'u2netp',
-  },
-  {
-    value: 'custom',
-    label: '自定义接口',
-    apiUrl: '',
-    model: '',
-  },
-  {
-    value: 'aliyun',
-    label: '阿里云视觉智能',
-    apiUrl: ALIYUN_IMAGESEG_API_URL,
-    model: ALIYUN_IMAGESEG_MODEL,
-  },
-  {
-    value: 'volcengine',
-    label: '火山 veImageX',
-    apiUrl: VOLCENGINE_IMAGEX_API_URL,
-    model: VOLCENGINE_IMAGEX_MODEL,
-  },
-];
-
-const LOCAL_REMBG_MODEL_OPTIONS: ModelOption[] = [
-  { value: 'u2netp', label: 'u2netp — 内置快速模式（约 4.7 MB）' },
-  { value: 'silueta', label: 'silueta — 下载后使用（约 43 MB）' },
-  { value: 'u2net', label: 'u2net — 通用高质量（约 176 MB）' },
-  { value: 'isnet-general-use', label: 'ISNet — 通用高质量（约 178 MB）' },
-  { value: 'isnet-anime', label: 'ISNet Anime — 二次元角色（需自行选择下载）' },
-  {
-    value: 'birefnet-general-lite',
-    label: 'BiRefNet General Lite — 高级模式（约 200 MB，需自行选择下载）',
   },
 ];
 
@@ -654,13 +583,6 @@ const IMAGE_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
   ],
 };
 
-const BACKGROUND_REMOVAL_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
-  'local-rembg': [],
-  custom: [{ value: '', label: 'Custom endpoint' }],
-  aliyun: [{ value: ALIYUN_IMAGESEG_API_URL, label: ALIYUN_IMAGESEG_API_URL }],
-  volcengine: [{ value: VOLCENGINE_IMAGEX_API_URL, label: VOLCENGINE_IMAGEX_API_URL }],
-};
-
 const VOICE_API_URL_OPTIONS: Record<string, ApiUrlOption[]> = {
   youdao: [{ value: DEFAULT_TTS_API_URL, label: 'Youdao TTS endpoint' }],
   openai: [
@@ -762,19 +684,13 @@ const buildFallbackProfileName = (kind: ProfileKind, language: Language) => {
 };
 
 const getHostedQuotaType = (kind: ProfileKind): HostedQuotaType =>
-  kind === 'image'
-    ? 'image'
-    : kind === 'background-removal'
-      ? 'background-removal'
-      : kind === 'voice'
-        ? 'voice'
-        : 'chat';
+  kind === 'image' ? 'image' : kind === 'voice' ? 'voice' : 'chat';
 
 const normalizeHostedUsage = (data: unknown): HostedProxyUsage => {
   const source = (data as { usage?: unknown })?.usage;
   if (!source || typeof source !== 'object') return {};
   return (
-    ['chat', 'image', 'background-removal', 'voice'] as HostedQuotaType[]
+    ['chat', 'image', 'voice'] as HostedQuotaType[]
   ).reduce<HostedProxyUsage>((result, type) => {
     const item = (source as Record<string, unknown>)[type];
     if (!item || typeof item !== 'object') return result;
@@ -828,16 +744,6 @@ const buildDefaultImageDraft = (): ImageAIProfile => ({
   denoisingStrength: 0.7,
 });
 
-const buildDefaultBackgroundRemovalDraft = (): BackgroundRemovalAIProfile => ({
-  id: 'draft-background-removal',
-  name: '',
-  kind: 'background-removal',
-  provider: isTauriRuntime() ? 'local-rembg' : 'aliyun',
-  apiKey: '',
-  apiUrl: isTauriRuntime() ? '' : ALIYUN_IMAGESEG_API_URL,
-  model: isTauriRuntime() ? 'u2netp' : ALIYUN_IMAGESEG_MODEL,
-});
-
 const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
   id: 'draft-voice',
   name: '',
@@ -854,14 +760,10 @@ const buildDefaultVoiceDraft = (): VoiceAIProfile => ({
 const getProviderOptions = (kind: ProfileKind) => {
   if (kind === 'text') return TEXT_PROVIDER_OPTIONS;
   if (kind === 'image') return IMAGE_PROVIDER_OPTIONS;
-  if (kind === 'background-removal') return BACKGROUND_REMOVAL_PROVIDER_OPTIONS;
   return VOICE_PROVIDER_OPTIONS;
 };
 
 const getModelOptions = (kind: ProfileKind, provider: string): ModelOption[] => {
-  if (kind === 'background-removal') {
-    return provider === 'local-rembg' ? LOCAL_REMBG_MODEL_OPTIONS : [];
-  }
   const map =
     kind === 'text'
       ? TEXT_MODEL_OPTIONS
@@ -879,9 +781,7 @@ const getApiUrlOptions = (kind: ProfileKind, provider: string): ApiUrlOption[] =
       ? TEXT_API_URL_OPTIONS
       : kind === 'image'
         ? IMAGE_API_URL_OPTIONS
-        : kind === 'background-removal'
-          ? BACKGROUND_REMOVAL_API_URL_OPTIONS
-          : VOICE_API_URL_OPTIONS;
+        : VOICE_API_URL_OPTIONS;
   return (map[provider] || []).filter(
     (option, index, array) => array.findIndex((item) => item.value === option.value) === index,
   );
@@ -938,15 +838,6 @@ const applyProviderDefaults = (draft: ProfileDraft, provider: string): ProfileDr
     };
   }
 
-  if (draft.kind === 'background-removal') {
-    return {
-      ...draft,
-      provider,
-      apiUrl: option?.apiUrl ?? draft.apiUrl,
-      model: option?.model ?? draft.model,
-    };
-  }
-
   return {
     ...draft,
     provider,
@@ -978,16 +869,6 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
       badge: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300',
     };
   }
-  if (kind === 'background-removal') {
-    return {
-      title: ai.text5,
-      subtitle: ai.text6,
-      icon: Eraser,
-      accent:
-        'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/30 dark:text-fuchsia-300',
-      badge: 'bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-500/10 dark:text-fuchsia-300',
-    };
-  }
   return {
     title: ai.text7,
     subtitle: ai.text8,
@@ -1003,7 +884,6 @@ interface AISettingsPanelProps {
   savedAIProfiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
-  activeBackgroundRemovalProfileId: string | null;
   activeVoiceProfileId: string | null;
   missingTextApiKey: boolean;
   settingsAttentionTarget?: ProfileKind | null;
@@ -1051,7 +931,6 @@ export function AISettingsPanel({
   savedAIProfiles,
   activeTextProfileId,
   activeImageProfileId,
-  activeBackgroundRemovalProfileId,
   activeVoiceProfileId,
   missingTextApiKey,
   settingsAttentionTarget,
@@ -1087,8 +966,6 @@ export function AISettingsPanel({
   >('idle');
   const [localOllamaModels, setLocalOllamaModels] = React.useState<ModelOption[]>([]);
   const [hostedProxyUsage, setHostedProxyUsage] = React.useState<HostedProxyUsage>({});
-  const [localRembgSetup, setLocalRembgSetup] = React.useState<LocalRembgSetup | null>(null);
-  const [copiedLocalRembgPath, setCopiedLocalRembgPath] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window === 'undefined' || isTauriRuntime()) return;
@@ -1115,31 +992,6 @@ export function AISettingsPanel({
       cancelled = true;
     };
   }, []);
-
-  React.useEffect(() => {
-    const isLocalRembg =
-      editorState?.kind === 'background-removal' && editorState.draft.provider === 'local-rembg';
-    if (!isLocalRembg || !isTauriRuntime()) {
-      setLocalRembgSetup(null);
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      const invoke = await getTauriInvoke();
-      if (!invoke) return;
-      try {
-        const setup = (await invoke('get_local_rembg_setup')) as LocalRembgSetup;
-        if (!cancelled) setLocalRembgSetup(setup);
-      } catch (error) {
-        console.warn('Unable to read local rembg setup paths:', error);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [editorState?.kind, editorState?.draft.provider]);
 
   React.useEffect(() => {
     if (editorState?.kind === 'text' && editorState.draft.provider === 'ollama') {
@@ -1181,9 +1033,6 @@ export function AISettingsPanel({
   const imageProfiles = savedAIProfiles.filter(
     (profile): profile is ImageAIProfile => profile.kind === 'image',
   );
-  const backgroundRemovalProfiles = savedAIProfiles.filter(
-    (profile): profile is BackgroundRemovalAIProfile => profile.kind === 'background-removal',
-  );
   const voiceProfiles = savedAIProfiles.filter(
     (profile): profile is VoiceAIProfile => profile.kind === 'voice',
   );
@@ -1192,9 +1041,6 @@ export function AISettingsPanel({
     textProfiles.find((profile) => profile.id === activeTextProfileId) ?? null;
   const activeImageProfile =
     imageProfiles.find((profile) => profile.id === activeImageProfileId) ?? null;
-  const activeBackgroundRemovalProfile =
-    backgroundRemovalProfiles.find((profile) => profile.id === activeBackgroundRemovalProfileId) ??
-    null;
   const activeVoiceProfile =
     voiceProfiles.find((profile) => profile.id === activeVoiceProfileId) ?? null;
 
@@ -1210,12 +1056,6 @@ export function AISettingsPanel({
       profiles: imageProfiles,
       activeId: activeImageProfileId,
       activeProfile: activeImageProfile,
-    },
-    {
-      kind: 'background-removal' as const,
-      profiles: backgroundRemovalProfiles,
-      activeId: activeBackgroundRemovalProfileId,
-      activeProfile: activeBackgroundRemovalProfile,
     },
     {
       kind: 'voice' as const,
@@ -1250,13 +1090,11 @@ export function AISettingsPanel({
         ? {
             text: 'AI 对话',
             image: '图片',
-            'background-removal': '去背景',
             voice: '语音',
           }
         : {
             text: 'AI chat',
             image: 'image',
-            'background-removal': 'background removal',
             voice: 'voice',
           };
     const label = labelMap[kind];
@@ -1289,10 +1127,8 @@ export function AISettingsPanel({
     const draft =
       kind === 'text'
         ? buildDefaultTextDraft()
-        : kind === 'image'
-          ? buildDefaultImageDraft()
-          : kind === 'background-removal'
-            ? buildDefaultBackgroundRemovalDraft()
+          : kind === 'image'
+            ? buildDefaultImageDraft()
             : buildDefaultVoiceDraft();
     draft.name = buildFallbackProfileName(kind, language);
     setImageTemplateImportStatus('idle');
@@ -1353,27 +1189,6 @@ export function AISettingsPanel({
       setImageTemplateImportStatus(imported ? 'success' : 'empty');
     } catch {
       setImageTemplateImportStatus('blocked');
-    }
-  };
-
-  const copyLocalRembgPath = async (path: string) => {
-    if (!navigator.clipboard?.writeText) return;
-    try {
-      await navigator.clipboard.writeText(path);
-      setCopiedLocalRembgPath(path);
-      window.setTimeout(() => setCopiedLocalRembgPath(null), 1800);
-    } catch {
-      // Clipboard access is optional; the path remains selectable in the UI.
-    }
-  };
-
-  const openLocalRembgSetupDirectory = async () => {
-    const invoke = await getTauriInvoke();
-    if (!invoke) return;
-    try {
-      await invoke('open_local_rembg_setup_dir');
-    } catch (error) {
-      console.warn('Unable to open local rembg setup directory:', error);
     }
   };
 
@@ -1502,12 +1317,7 @@ export function AISettingsPanel({
     const providerOptions = getProviderOptions(editorState.kind).filter(
       (option) =>
         !(editorState.kind === 'image' && option.value === 'hosted-image' && isTauriRuntime()) &&
-        !(editorState.kind === 'voice' && option.value === 'hosted-voice' && isTauriRuntime()) &&
-        !(
-          editorState.kind === 'background-removal' &&
-          option.value === 'local-rembg' &&
-          !isTauriRuntime()
-        ),
+        !(editorState.kind === 'voice' && option.value === 'hosted-voice' && isTauriRuntime()),
     );
     const rawModelOptions = getModelOptions(editorState.kind, draft.provider);
     const modelOptions =
@@ -1518,23 +1328,12 @@ export function AISettingsPanel({
     const meta = getProfileKindMeta(editorState.kind, language);
     const isLocalStableDiffusion =
       draft.kind === 'image' && draft.provider === LOCAL_STABLE_DIFFUSION_PROVIDER;
-    const isLocalRembg = draft.kind === 'background-removal' && draft.provider === 'local-rembg';
-    const localRembgRuntimePath =
-      localRembgSetup?.runtimePath || '%APPDATA%\\com.galwriter.ai\\rembg\\rembg-sidecar.exe';
-    const localRembgModelPath =
-      localRembgSetup?.defaultModelPath || '%APPDATA%\\com.galwriter.ai\\rembg-models\\u2netp.onnx';
-    const localRembgRuntimeDownloadUrl =
-      localRembgSetup?.runtimeDownloadUrl || LOCAL_REMBG_RUNTIME_RELEASE_URL;
-    const localRembgModelDownloadUrl =
-      localRembgSetup?.modelDownloadUrl || U2NETP_MODEL_DOWNLOAD_URL;
     const isOllama = draft.kind === 'text' && draft.provider === 'ollama';
     // NOTE: hosted 模式下无需用户填写 API Key，由服务端代理持有
     const isHosted = draft.kind === 'text' && draft.provider === 'hosted';
     const isHostedVoice = draft.kind === 'voice' && draft.provider === 'hosted-voice';
     const showModelSelect =
-      draft.kind === 'background-removal' ||
-      draft.kind !== 'voice' ||
-      (draft.provider !== 'system' && draft.provider !== 'youdao');
+      draft.kind !== 'voice' || (draft.provider !== 'system' && draft.provider !== 'youdao');
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -1624,9 +1423,7 @@ export function AISettingsPanel({
                       ? language === 'zh'
                         ? '后端 AI 提供商'
                         : 'Backend AI Provider'
-                      : draft.kind === 'background-removal' && draft.provider === 'aliyun'
-                        ? 'Model'
-                        : draft.kind === 'voice' && draft.provider === 'doubao' && language === 'zh'
+                      : draft.kind === 'voice' && draft.provider === 'doubao' && language === 'zh'
                           ? 'Resource ID'
                           : language === 'zh'
                             ? '模型'
@@ -1973,271 +1770,6 @@ export function AISettingsPanel({
                 )}
               </>
             )}
-
-            {draft.kind === 'background-removal' && isLocalRembg && (
-              <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-4 text-sm leading-6 text-fuchsia-950 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-50">
-                <p className="font-black">本机去背景组件按需下载</p>
-                <p className="mt-1 text-xs font-medium text-fuchsia-800 dark:text-fuchsia-100/80">
-                  为保持安装包小巧，GalWriter
-                  不再内置运行器或模型。下载并放好一次后，图片只在本机处理，不会上传。
-                </p>
-                <ol className="mt-3 list-decimal space-y-1 pl-4 text-xs font-medium text-fuchsia-900 dark:text-fuchsia-50">
-                  <li>
-                    下载 <code className="font-mono">rembg-sidecar.exe</code>（运行器，约 139 MB）。
-                  </li>
-                  <li>
-                    下载 <code className="font-mono">u2netp.onnx</code>（默认模型，约 4.6 MB）。
-                  </li>
-                  <li>将两个文件放入下方指定位置，再保存这个 AI 配置。</li>
-                </ol>
-
-                <div className="mt-3 space-y-2 text-xs">
-                  <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-black">运行器路径</p>
-                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">
-                          {localRembgRuntimePath}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void copyLocalRembgPath(localRembgRuntimePath)}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-fuchsia-200 px-2 py-1 text-[10px] font-black hover:bg-fuchsia-100 dark:border-fuchsia-400/30 dark:hover:bg-fuchsia-500/20"
-                      >
-                        {copiedLocalRembgPath === localRembgRuntimePath ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                        {copiedLocalRembgPath === localRembgRuntimePath ? '已复制' : '复制'}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-black">默认模型路径</p>
-                        <p className="mt-0.5 break-all font-mono text-[11px] leading-5">
-                          {localRembgModelPath}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void copyLocalRembgPath(localRembgModelPath)}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-fuchsia-200 px-2 py-1 text-[10px] font-black hover:bg-fuchsia-100 dark:border-fuchsia-400/30 dark:hover:bg-fuchsia-500/20"
-                      >
-                        {copiedLocalRembgPath === localRembgModelPath ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                        {copiedLocalRembgPath === localRembgModelPath ? '已复制' : '复制'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <a
-                    href={localRembgRuntimeDownloadUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    下载运行器
-                  </a>
-                  <a
-                    href={localRembgModelDownloadUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    下载 u2netp 模型
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => void openLocalRembgSetupDirectory()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
-                  >
-                    <FolderOpen className="h-3.5 w-3.5" />
-                    打开放置目录
-                  </button>
-                </div>
-                <p className="mt-3 text-[11px] font-medium leading-5 text-fuchsia-800 dark:text-fuchsia-100/80">
-                  选用 BiRefNet General Lite 前请确认其许可；该模型会由已安装的 rembg
-                  运行器在首次使用时按需下载。
-                </p>
-              </div>
-            )}
-
-            {draft.kind === 'background-removal' &&
-              !isLocalRembg &&
-              (isLocalRembg ? (
-                <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-4 text-sm leading-6 text-fuchsia-950 dark:border-fuchsia-500/30 dark:bg-fuchsia-500/10 dark:text-fuchsia-50">
-                  <p className="font-black">本机去背景：图片不会上传到服务器</p>
-                  <p className="mt-1 text-xs font-medium text-fuchsia-800 dark:text-fuchsia-100/80">
-                    u2netp 已随 Windows 安装包提供。选择其他模型后，会在首次实际去背景时下载到
-                    GalWriter 的本机模型目录；之后可离线使用。
-                  </p>
-                  <div className="mt-3 grid gap-2 text-xs font-medium md:grid-cols-2">
-                    <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
-                      <p className="font-black">默认：u2netp</p>
-                      <p className="mt-0.5">体积最小、启动最快，适合日常角色图的快速处理。</p>
-                    </div>
-                    <div className="rounded-xl border border-fuchsia-200/80 bg-white/70 px-3 py-2.5 dark:border-fuchsia-400/20 dark:bg-slate-950/30">
-                      <p className="font-black">高级：BiRefNet General Lite</p>
-                      <p className="mt-0.5">
-                        请自行确认模型许可并在此处选择；首次使用会按 rembg 的官方模型机制下载。
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <a
-                      href="https://github.com/danielgatis/rembg"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      rembg 模型说明
-                    </a>
-                    <a
-                      href="https://github.com/ZhengPeng7/BiRefNet"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-fuchsia-950 transition-colors hover:bg-white dark:border-fuchsia-400/40 dark:bg-slate-950/40 dark:text-fuchsia-50"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      BiRefNet 配置与许可
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="grid gap-5 md:grid-cols-2">
-                    {draft.provider === 'aliyun' && (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 md:col-span-2">
-                        <p className="text-sm font-black">{ai.text24}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <a
-                            href={ALIYUN_IMAGESEG_HELP_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {ai.text25}
-                          </a>
-                          <a
-                            href={ALIYUN_IMAGESEG_OPEN_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {ai.text26}
-                          </a>
-                          <a
-                            href={ALIYUN_ACCESS_KEY_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-amber-900 transition-colors hover:bg-white dark:border-amber-400/40 dark:bg-slate-950/40 dark:text-amber-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {ai.text27}
-                          </a>
-                        </div>
-                        <p>
-                          {language === 'zh'
-                            ? `1. API URL：选择 ${ALIYUN_IMAGESEG_API_URL}。`
-                            : `1. API URL: choose ${ALIYUN_IMAGESEG_API_URL}.`}
-                        </p>
-                        <p>
-                          {language === 'zh'
-                            ? `2. Model：人物立绘填 ${ALIYUN_IMAGESEG_MODEL}；通用主体可改成 SegmentCommonImage。`
-                            : `2. Model: use ${ALIYUN_IMAGESEG_MODEL}; SegmentCommonImage is available for general subjects.`}
-                        </p>
-                        <p>{ai.text28}</p>
-                        <p>{ai.text29}</p>
-                      </div>
-                    )}
-                    {draft.provider === 'volcengine' && (
-                      <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold leading-6 text-orange-900 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-100 md:col-span-2">
-                        <p className="text-sm font-black">{ai.text30}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <a
-                            href={VOLCENGINE_IMAGEX_HELP_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {ai.text31}
-                          </a>
-                          <a
-                            href={VOLCENGINE_IMAGEX_SERVICE_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {ai.text32}
-                          </a>
-                          <a
-                            href={VOLCENGINE_ACCESS_KEY_URL}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white/80 px-3 py-1.5 text-[11px] font-black text-orange-900 transition-colors hover:bg-white dark:border-orange-400/40 dark:bg-slate-950/40 dark:text-orange-100"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            {ai.text33}
-                          </a>
-                        </div>
-                        <p>
-                          {language === 'zh'
-                            ? `1. API URL：选择 ${VOLCENGINE_IMAGEX_API_URL}。`
-                            : `1. API URL: choose ${VOLCENGINE_IMAGEX_API_URL}.`}
-                        </p>
-                        <p>{ai.text34}</p>
-                        <p>
-                          {language === 'zh'
-                            ? `3. Model：填 humanv2|ServiceId|你的图片访问域名，例如 ${VOLCENGINE_IMAGEX_MODEL}。`
-                            : `3. Model: enter humanv2|ServiceId|delivery-domain, for example ${VOLCENGINE_IMAGEX_MODEL}.`}
-                        </p>
-                        <p>{ai.text35}</p>
-                      </div>
-                    )}
-                    {renderApiUrlField({
-                      draft,
-                      name: 'ai-background-removal-api-url',
-                      label: 'API URL',
-                      placeholder: 'api/proxy.php',
-                      className: 'md:col-span-2',
-                    })}
-                    <div className="space-y-2 md:col-span-2">
-                      {renderFieldLabel(
-                        draft.provider === 'aliyun' || draft.provider === 'volcengine'
-                          ? 'API Key (AccessKeyId:AccessKeySecret)'
-                          : 'API Key',
-                      )}
-                      <input
-                        type="password"
-                        name="ai-background-removal-api-key"
-                        autoComplete="new-password"
-                        value={draft.apiKey}
-                        onChange={(e) => updateDraft({ apiKey: e.target.value })}
-                        className="w-full rounded-2xl border-2 border-[var(--card-border)] bg-white px-4 py-3 text-sm font-mono text-slate-900 outline-none transition-all focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/15 dark:bg-slate-950 dark:text-slate-100"
-                      />
-                      <p className="text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-                        {ai.text36}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ))}
 
             {draft.kind === 'voice' && (
               <>

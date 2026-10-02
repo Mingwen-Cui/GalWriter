@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { AgentOverlay } from '../../agent/animation/AgentOverlay';
 import { useAgentRuntime } from '../../agent/runtime/useAgentRuntime';
 import type {
-  BackgroundRemovalAIProfile,
   CharacterAssetType,
   CharacterImageMode,
   ImageAIProfile,
@@ -77,7 +76,6 @@ import type { PlayTestDisplayMode, PlaytestWindowLayer } from '../render/playtes
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
 import type { RenderWorkspaceLaunchIntent } from '../render/video/shared/types';
 import {
-  buildDefaultBackgroundRemovalProfile,
   buildDefaultImageProfile,
   buildDefaultTextProfile,
   buildDefaultVoiceProfile,
@@ -188,14 +186,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   }, [showSettings]);
   const [settingsAttention, setSettingsAttention] = useState(false);
   const [settingsAttentionTarget, setSettingsAttentionTarget] = useState<
-    'text' | 'image' | 'background-removal' | 'voice' | null
+    'text' | 'image' | 'voice' | null
   >(null);
   const [savedAIProfiles, setSavedAIProfiles] = useState<SavedAIProfile[]>([]);
   const [activeTextProfileId, setActiveTextProfileId] = useState<string | null>(null);
   const [activeImageProfileId, setActiveImageProfileId] = useState<string | null>(null);
-  const [activeBackgroundRemovalProfileId, setActiveBackgroundRemovalProfileId] = useState<
-    string | null
-  >(null);
   const [activeVoiceProfileId, setActiveVoiceProfileId] = useState<string | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsNarrationMode, setTtsNarrationMode] = useState<TtsNarrationMode>('body');
@@ -400,14 +395,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       ) ?? null
     );
   }, [activeImageProfileId, savedAIProfiles]);
-  const activeBackgroundRemovalProfile = useMemo(() => {
-    return (
-      savedAIProfiles.find(
-        (profile): profile is BackgroundRemovalAIProfile =>
-          profile.kind === 'background-removal' && profile.id === activeBackgroundRemovalProfileId,
-      ) ?? null
-    );
-  }, [activeBackgroundRemovalProfileId, savedAIProfiles]);
   const activeVoiceProfile = useMemo(() => {
     if (!isTauriRuntime() && activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID) {
       return HOSTED_VOICE_PROXY_PROFILE;
@@ -438,11 +425,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const imageEnableHr = activeImageProfile?.enableHr ?? false;
   const imageHrScale = activeImageProfile?.hrScale ?? 2;
   const imageDenoisingStrength = activeImageProfile?.denoisingStrength ?? 0.7;
-  const imageRemoveBackground = activeImageProfile?.removeBackground ?? false;
-  const backgroundRemovalApiUrl = activeBackgroundRemovalProfile?.apiUrl ?? '';
-  const backgroundRemovalApiKey = activeBackgroundRemovalProfile?.apiKey ?? '';
-  const backgroundRemovalModel = activeBackgroundRemovalProfile?.model ?? '';
-  const backgroundRemovalProvider = activeBackgroundRemovalProfile?.provider ?? 'custom';
   const ttsApiKey = activeVoiceProfile?.apiKey ?? '';
   const ttsApiUrl = activeVoiceProfile?.apiUrl ?? DEFAULT_TTS_API_URL;
   const ttsAppKey = activeVoiceProfile?.appKey ?? activeVoiceProfile?.model ?? DEFAULT_TTS_MODEL;
@@ -454,7 +436,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     const profiles = [
       activeTextProfile,
       activeImageProfile,
-      activeBackgroundRemovalProfile,
       activeVoiceProfile,
     ].filter(
       (profile): profile is SavedAIProfile =>
@@ -477,10 +458,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         activeImageProfileId && exportedProfileIds.has(activeImageProfileId)
           ? activeImageProfileId
           : null,
-      activeBackgroundRemovalProfileId:
-        activeBackgroundRemovalProfileId && exportedProfileIds.has(activeBackgroundRemovalProfileId)
-          ? activeBackgroundRemovalProfileId
-          : null,
       activeVoiceProfileId:
         activeVoiceProfileId && exportedProfileIds.has(activeVoiceProfileId)
           ? activeVoiceProfileId
@@ -488,8 +465,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       exportedAt: new Date().toISOString(),
     };
   }, [
-    activeBackgroundRemovalProfile,
-    activeBackgroundRemovalProfileId,
     activeImageProfile,
     activeImageProfileId,
     activeTextProfile,
@@ -556,7 +531,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
   const handleCreateAIProfile = useCallback(
     async (
-      kind: 'text' | 'image' | 'background-removal' | 'voice',
+      kind: 'text' | 'image' | 'voice',
       initialProfile: AIProfileSeed = {},
     ) => {
       const baseProfile =
@@ -564,9 +539,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           ? buildDefaultTextProfile()
           : kind === 'image'
             ? buildDefaultImageProfile()
-            : kind === 'background-removal'
-              ? buildDefaultBackgroundRemovalProfile()
-              : buildDefaultVoiceProfile();
+            : buildDefaultVoiceProfile();
       const profile = Object.assign({}, baseProfile, initialProfile, {
         id: baseProfile.id,
         kind,
@@ -574,7 +547,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       setSavedAIProfiles((current) => [...current, profile]);
       if (kind === 'text') setActiveTextProfileId(profile.id);
       if (kind === 'image') setActiveImageProfileId(profile.id);
-      if (kind === 'background-removal') setActiveBackgroundRemovalProfileId(profile.id);
       if (kind === 'voice') setActiveVoiceProfileId(profile.id);
       return profile.id;
     },
@@ -597,10 +569,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   );
 
   const handleSelectAIProfile = useCallback(
-    async (kind: 'text' | 'image' | 'background-removal' | 'voice', profileId: string) => {
+    async (kind: 'text' | 'image' | 'voice', profileId: string) => {
       if (kind === 'text') setActiveTextProfileId(profileId);
       if (kind === 'image') setActiveImageProfileId(profileId);
-      if (kind === 'background-removal') setActiveBackgroundRemovalProfileId(profileId);
       if (kind === 'voice') setActiveVoiceProfileId(profileId);
     },
     [],
@@ -626,11 +597,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             nextProfiles.find((profile) => profile.kind === 'image')?.id ?? null,
           );
         }
-        if (activeBackgroundRemovalProfileId === profileId) {
-          setActiveBackgroundRemovalProfileId(
-            nextProfiles.find((profile) => profile.kind === 'background-removal')?.id ?? null,
-          );
-        }
         if (activeVoiceProfileId === profileId) {
           setActiveVoiceProfileId(
             nextProfiles.find((profile) => profile.kind === 'voice')?.id ?? null,
@@ -640,7 +606,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       });
     },
     [
-      activeBackgroundRemovalProfileId,
       activeImageProfileId,
       activeTextProfileId,
       activeVoiceProfileId,
@@ -763,17 +728,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         : activeVoiceProfile.provider !== 'system' &&
           activeVoiceProfile.provider !== 'hosted-voice' &&
           !activeVoiceProfile.apiKey.trim()));
-  const missingBackgroundRemovalApiKey =
-    didHydrateLocalState &&
-    (!activeBackgroundRemovalProfile ||
-      (activeBackgroundRemovalProfile.provider !== 'local-rembg' &&
-        (!activeBackgroundRemovalProfile.apiUrl.trim() ||
-          !activeBackgroundRemovalProfile.apiKey.trim() ||
-          (activeBackgroundRemovalProfile.provider !== 'custom' &&
-            !activeBackgroundRemovalProfile.model.trim()))));
   const importModeRef = useRef<'replace' | 'new'>('replace');
   const requestSettingsAttention = useCallback(
-    (target: 'text' | 'image' | 'background-removal' | 'voice') => {
+    (target: 'text' | 'image' | 'voice') => {
       setSettingsAttentionTarget(target);
       setSettingsAttention(false);
       window.setTimeout(() => setSettingsAttention(true), 0);
@@ -789,13 +746,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     if (
       (settingsAttentionTarget === 'text' && !missingTextApiKey) ||
       (settingsAttentionTarget === 'image' && !missingImageApiKey) ||
-      (settingsAttentionTarget === 'background-removal' && !missingBackgroundRemovalApiKey) ||
       (settingsAttentionTarget === 'voice' && !missingVoiceApiKey)
     ) {
       setSettingsAttentionTarget(null);
     }
   }, [
-    missingBackgroundRemovalApiKey,
     missingImageApiKey,
     missingTextApiKey,
     missingVoiceApiKey,
@@ -1182,7 +1137,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         activeTextProfileId === HOSTED_PROXY_PROFILE_ID ? null : activeTextProfileId,
       activeImageProfileId:
         activeImageProfileId === HOSTED_IMAGE_PROXY_PROFILE_ID ? null : activeImageProfileId,
-      activeBackgroundRemovalProfileId: activeBackgroundRemovalProfileId,
       activeVoiceProfileId:
         activeVoiceProfileId === HOSTED_VOICE_PROXY_PROFILE_ID ? null : activeVoiceProfileId,
     });
@@ -1191,7 +1145,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     savedAIProfiles,
     activeTextProfileId,
     activeImageProfileId,
-    activeBackgroundRemovalProfileId,
     activeVoiceProfileId,
   ]);
 
@@ -1336,7 +1289,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     handleRemoveTextFromImage,
     handleGenerateSettingNodeImage,
     handleGenerateStoryNodeImage,
-    handleRemoveCharacterImageBackground,
     handleExtractMedia,
   } = useMediaActions({
     nodes,
@@ -1356,11 +1308,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     imageEnableHr,
     imageHrScale,
     imageDenoisingStrength,
-    imageRemoveBackground,
-    backgroundRemovalApiUrl,
-    backgroundRemovalApiKey,
-    backgroundRemovalModel,
-    backgroundRemovalProvider,
     sceneImageMode,
     characterAssetTypes,
     showTitles: showTitles && storyTitlePlacement === 'inside',
@@ -1370,9 +1317,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     onMissingImageApiKeyRequest: () => {
       requestSettingsAttention('image');
       showToast(storyEditorCopy.imageApiRequired);
-    },
-    onMissingBackgroundRemovalApiRequest: () => {
-      requestSettingsAttention('background-removal');
     },
   });
 
@@ -2357,8 +2301,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setActiveTextProfileId,
     activeImageProfileId,
     setActiveImageProfileId,
-    activeBackgroundRemovalProfileId,
-    setActiveBackgroundRemovalProfileId,
     activeVoiceProfileId,
     setActiveVoiceProfileId,
     getExportedAIProfiles,
@@ -2755,7 +2697,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       onGenerateSettingImage: handleGenerateSettingNodeImage,
       onPreviewCharacterVoice: handlePreviewCharacterVoice,
       voiceOptions: characterVoiceOptions,
-      onRemoveCharacterImageBackground: handleRemoveCharacterImageBackground,
       onAddTextToImage: handleAddTextToImage,
       onRemoveTextFromImage: handleRemoveTextFromImage,
       onExtractMedia: handleExtractMedia,
@@ -2798,7 +2739,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       handleGenerateSettingNodeImage,
       handlePreviewCharacterVoice,
       characterVoiceOptions,
-      handleRemoveCharacterImageBackground,
       handleAddTextToImage,
       handleRemoveTextFromImage,
       handleExtractMedia,
@@ -3392,7 +3332,6 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           savedAIProfiles={savedAIProfiles}
           activeTextProfileId={activeTextProfileId}
           activeImageProfileId={activeImageProfileId}
-          activeBackgroundRemovalProfileId={activeBackgroundRemovalProfileId}
           activeVoiceProfileId={activeVoiceProfileId}
           settingsAttentionTarget={settingsAttentionTarget}
           onAcknowledgeSettingsAttention={acknowledgeSettingsAttention}

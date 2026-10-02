@@ -53,8 +53,6 @@ interface UseProjectManagementParams {
   setActiveTextProfileId: React.Dispatch<React.SetStateAction<string | null>>;
   activeImageProfileId: string | null;
   setActiveImageProfileId: React.Dispatch<React.SetStateAction<string | null>>;
-  activeBackgroundRemovalProfileId: string | null;
-  setActiveBackgroundRemovalProfileId: React.Dispatch<React.SetStateAction<string | null>>;
   activeVoiceProfileId: string | null;
   setActiveVoiceProfileId: React.Dispatch<React.SetStateAction<string | null>>;
   getExportedAIProfiles: () => ProjectAIProfilesExport | null;
@@ -157,7 +155,6 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     setSavedAIProfiles,
     setActiveTextProfileId,
     setActiveImageProfileId,
-    setActiveBackgroundRemovalProfileId,
     setActiveVoiceProfileId,
     getExportedAIProfiles,
     setTheme,
@@ -1194,9 +1191,6 @@ export function useProjectManagement(params: UseProjectManagementParams) {
             ? HOSTED_IMAGE_PROXY_PROFILE_ID
             : savedProfilesState.activeImageProfileId,
         );
-        setActiveBackgroundRemovalProfileId(
-          savedProfilesState.activeBackgroundRemovalProfileId ?? null,
-        );
         setActiveVoiceProfileId(
           shouldUseHostedProxyByDefault
             ? HOSTED_VOICE_PROXY_PROFILE_ID
@@ -1230,7 +1224,6 @@ export function useProjectManagement(params: UseProjectManagementParams) {
     setSavedAIProfiles,
     setActiveTextProfileId,
     setActiveImageProfileId,
-    setActiveBackgroundRemovalProfileId,
     setActiveVoiceProfileId,
     setTheme,
     setCloseButtonBehavior,

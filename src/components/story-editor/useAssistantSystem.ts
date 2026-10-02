@@ -266,7 +266,7 @@ interface UseAssistantSystemParams {
   selectedAssistantTargetNodes: Node[];
 
   showToast: (message: string, tone?: 'success' | 'error') => void;
-  requestSettingsAttention: (target: 'text' | 'image' | 'background-removal' | 'voice') => void;
+  requestSettingsAttention: (target: 'text' | 'image' | 'voice') => void;
   onOpenCreativePlaytest?: () => void;
 }
 

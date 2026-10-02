@@ -39,7 +39,6 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type {
-  BackgroundRemovalAIProfile,
   CharacterAssetType,
   ImageAIProfile,
   PlotStructureGenerateDirection,
@@ -69,16 +68,14 @@ import {
 } from './render/canvas/playtestCanvasModel';
 import type { RenderStyle } from './render/video/shared/types';
 
-type AIProfileKind = 'text' | 'image' | 'background-removal' | 'voice';
+type AIProfileKind = 'text' | 'image' | 'voice';
 type AIProfileSeed =
   | Partial<TextAIProfile>
   | Partial<ImageAIProfile>
-  | Partial<BackgroundRemovalAIProfile>
   | Partial<VoiceAIProfile>;
 type AIProfileUpdates =
   | Partial<TextAIProfile>
   | Partial<ImageAIProfile>
-  | Partial<BackgroundRemovalAIProfile>
   | Partial<VoiceAIProfile>;
 
 function FloatingHint({
@@ -232,7 +229,6 @@ interface SettingsModalProps {
   savedAIProfiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
-  activeBackgroundRemovalProfileId: string | null;
   activeVoiceProfileId: string | null;
   settingsAttentionTarget?: AIProfileKind | null;
   onAcknowledgeSettingsAttention?: () => void;
@@ -458,7 +454,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   savedAIProfiles,
   activeTextProfileId,
   activeImageProfileId,
-  activeBackgroundRemovalProfileId,
   activeVoiceProfileId,
   settingsAttentionTarget,
   onAcknowledgeSettingsAttention,
@@ -2798,7 +2793,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     savedAIProfiles={savedAIProfiles}
                     activeTextProfileId={activeTextProfileId}
                     activeImageProfileId={activeImageProfileId}
-                    activeBackgroundRemovalProfileId={activeBackgroundRemovalProfileId}
                     activeVoiceProfileId={activeVoiceProfileId}
                     missingTextApiKey={missingTextApiKey}
                     settingsAttentionTarget={settingsAttentionTarget}

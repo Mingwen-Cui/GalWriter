@@ -15,7 +15,7 @@ type UseStoryNodeSpeechGenerationOptions = {
   activeVoiceProfile: VoiceAIProfile | null;
   handleUpdateNode: (nodeId: string, data: Record<string, unknown>) => void;
   nodes: Node[];
-  requestSettingsAttention: (target: 'text' | 'image' | 'background-removal' | 'voice') => void;
+  requestSettingsAttention: (target: 'text' | 'image' | 'voice') => void;
   setTtsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   showDialogAlert: (options: AlertOptions) => Promise<void>;
   showToast: (message: string, tone?: 'success' | 'error') => void;

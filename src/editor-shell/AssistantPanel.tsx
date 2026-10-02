@@ -1,4 +1,5 @@
 import {
+  Bot,
   BrainCircuit,
   CheckCircle2,
   ChevronDown,
@@ -632,6 +633,7 @@ export function AssistantPanel({
     () => new Set(),
   );
   const [documentDragActive, setDocumentDragActive] = useState(false);
+  const [agentConnectionOpen, setAgentConnectionOpen] = useState(false);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
   const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
   const [welcomeGradientState, setWelcomeGradientState] = useState<
@@ -1562,6 +1564,19 @@ export function AssistantPanel({
                     </span>
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setAgentConnectionOpen(true)}
+                  className="assistant-welcome-option assistant-welcome-option--agent"
+                >
+                  <span className="assistant-welcome-option-icon" aria-hidden="true">
+                    <img src={getAppAssetUrl('/assistant/welcome/external-agent.png')} alt="" />
+                  </span>
+                  <span className="assistant-welcome-option-copy">
+                    <span className="assistant-welcome-option-title">{ui.agentConnectTitle}</span>
+                    <span className="assistant-welcome-option-desc">{ui.agentConnectDescription}</span>
+                  </span>
+                </button>
               </div>
             </div>
           </section>
@@ -2479,6 +2494,51 @@ export function AssistantPanel({
                 </div>
               </button>
             </div>
+          </div>,
+          document.body,
+        )}
+      {agentConnectionOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[430] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setAgentConnectionOpen(false);
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="assistant-agent-connect-title"
+              className="assistant-agent-connect-dialog"
+            >
+              <div className="assistant-agent-connect-heading">
+                <div className="assistant-agent-connect-mark"><Bot className="h-5 w-5" /></div>
+                <button
+                  type="button"
+                  onClick={() => setAgentConnectionOpen(false)}
+                  className="assistant-agent-connect-close"
+                  aria-label={ui.close}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <h2 id="assistant-agent-connect-title">{ui.agentConnectDialogTitle}</h2>
+                <p>{ui.agentConnectDialogDescription}</p>
+              </div>
+              <div className="assistant-agent-connect-options">
+                <button type="button" disabled className="assistant-agent-connect-option">
+                  <span className="assistant-agent-provider-mark assistant-agent-provider-openai">O</span>
+                  <span><strong>{ui.agentConnectOpenAI}</strong><small>{ui.agentConnectMcpNote}</small></span>
+                </button>
+                <button type="button" disabled className="assistant-agent-connect-option">
+                  <span className="assistant-agent-provider-mark assistant-agent-provider-deepseek">D</span>
+                  <span><strong>{ui.agentConnectDeepSeek}</strong><small>{ui.agentConnectMcpNote}</small></span>
+                </button>
+              </div>
+              <div className="assistant-agent-connect-status" role="status">
+                <span className="assistant-agent-connect-status-dot" />
+                {ui.agentConnectServiceUnavailable}
+              </div>
+            </section>
           </div>,
           document.body,
         )}
