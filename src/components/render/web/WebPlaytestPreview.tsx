@@ -1,3 +1,4 @@
+import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../lib/typewriterTiming';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   Eye,
@@ -25,6 +26,7 @@ import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import {
   getInlineSwitchAction,
+  isSwitchInlineAction,
   resolveCharacterImageUrl,
   resolveSceneMedia,
 } from '../../../lib/inlineAssetSwitch';
@@ -640,6 +642,9 @@ export function WebPlaytestPreview({
     setPresentationExiting(false);
     setPresentationVisible(false);
     setPresentationReady(false);
+    setActiveInlineAction(null);
+    setCompletedSwitchActions([]);
+    setCompletedInlineActions([]);
     setCurrentAudioEnded(false);
     setCurrentVideoEnded(false);
     let revealFrame = 0;
@@ -694,10 +699,8 @@ export function WebPlaytestPreview({
     : null;
   const sceneSwitchImageUrl = sceneSwitchMedia?.videoUrl ? '' : sceneSwitchMedia?.imageUrl || '';
   const sceneSwitchDurationMs = activeSceneSwitchTransition
-    ? Math.max(
-        180,
-        (activeSceneSwitchTransition.duration || 420) / Math.max(0.5, settings.animationSpeed ?? 1),
-      )
+    ? getInlineActionDuration(activeSceneSwitchTransition) /
+      Math.max(0.5, settings.animationSpeed ?? 1)
     : undefined;
 
   React.useEffect(() => {
@@ -904,13 +907,15 @@ export function WebPlaytestPreview({
       hideCharacterTags: settings.hideCharacterTags,
       hideSceneTags: settings.hideSceneTags,
     });
+    let cancelled = false;
     let stepIndex = 0;
     let committedHtml = '';
     let committedText = '';
     let timer = 0;
     setDisplayedPreviewText('');
 
-    const playNext = () => {
+    const playNext = async () => {
+      if (cancelled) return;
       window.clearInterval(timer);
       const step = playbackSteps[stepIndex];
       if (!step) {
@@ -921,6 +926,35 @@ export function WebPlaytestPreview({
       }
 
       if (step.kind === 'action') {
+        if (isSwitchInlineAction(step.action)) {
+          const source = nodes.find((node) => node.id === step.action.sourceNodeId);
+          const config = presentation.characters.find(
+            (item) => item.sourceNodeId === step.action.sourceNodeId,
+          );
+          const url =
+            step.action.kind === 'scene'
+              ? resolveSceneMedia({
+                  data: source?.data as SceneNodeData,
+                  scene: presentation.scene,
+                  switchAction: step.action,
+                }).imageUrl
+              : config && source
+                ? resolveCharacterImageUrl(source.data as CharacterNodeData, config, step.action)
+                : undefined;
+          if (url) {
+            const image = new Image();
+            image.src = url;
+            let timeout = 0;
+            await Promise.race([
+              image.decode().catch(() => {}),
+              new Promise<void>((resolve) => {
+                timeout = window.setTimeout(resolve, 3000);
+              }),
+            ]);
+            window.clearTimeout(timeout);
+          }
+          if (cancelled) return;
+        }
         setInlineActionPlaybackId((value) => value + 1);
         setActiveInlineAction(step.action);
         inlineActionTimerRef.current = scheduleStep(
@@ -975,6 +1009,7 @@ export function WebPlaytestPreview({
     };
     playNext();
     return () => {
+      cancelled = true;
       window.clearInterval(timer);
       if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
     };
@@ -1363,7 +1398,10 @@ export function WebPlaytestPreview({
       return true;
     }
     if (element.role === 'speed') {
-      onUpdateSettings('typewriterSpeed', Math.max(10, Math.min(200, element.actionValue ?? 65)));
+      onUpdateSettings(
+        'typewriterSpeed',
+        Math.max(10, Math.min(200, element.actionValue ?? DEFAULT_TYPEWRITER_INTERVAL_MS)),
+      );
       return true;
     }
     if (element.role === 'textSize') {
@@ -2163,6 +2201,7 @@ export function WebPlaytestPreview({
         <WebPreviewMenuPages
           language={language}
           settings={settings}
+          renderStyle={renderStyle}
           previewMode={previewMode}
           selectedStartMenuElementId={selectedStartMenuElementId}
           archiveOpen={isPreviewArchiveOpen}

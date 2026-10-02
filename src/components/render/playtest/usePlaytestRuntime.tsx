@@ -780,6 +780,9 @@ export function usePlaytestRuntime(
     setPresentationExiting(false);
     setPresentationVisible(false);
     setPresentationReady(false);
+    setActiveInlineAction(null);
+    setCompletedSwitchActions([]);
+    setCompletedInlineActions([]);
     setCurrentAudioEnded(false);
     setCurrentVideoEnded(false);
     setMediaStatusNodeId(currentNodeId);
@@ -1909,8 +1912,8 @@ export function usePlaytestRuntime(
             ...inlineActionCssVars(inlineAction),
             transformOrigin: 'bottom center',
             transitionProperty: 'opacity, transform',
-            transitionDuration: `${inlineAction && !presentationExiting ? inlineDuration : playbackMotion.duration}ms`,
-            transitionDelay: `${inlineAction ? 0 : playbackMotion.delay}ms`,
+            transitionDuration: `${actionPlaying && !presentationExiting ? inlineDuration : playbackMotion.duration}ms`,
+            transitionDelay: `${actionPlaying ? 0 : playbackMotion.delay}ms`,
             transitionTimingFunction: 'ease-out',
           };
           const switchDuration = getInlineActionDuration(switchAction);

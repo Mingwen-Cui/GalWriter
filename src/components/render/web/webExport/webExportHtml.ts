@@ -1,4 +1,8 @@
-import { createInlinePlaybackParser } from '../../../../lib/inlinePresentationPlayback';
+import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
+import {
+  createInlinePlaybackParser,
+  getInlineActionDuration,
+} from '../../../../lib/inlinePresentationPlayback';
 import SCENE_SWITCH_CSS from '../../shared/sceneSwitch.css?inline';
 import { mountPresentationText } from '../../shared/presentationTextDom';
 import type { WebMenuElement } from '../../video/shared/types';
@@ -26,6 +30,7 @@ import {
 } from '../webPlaybackUi';
 import { WEB_EXPORT_STYLES } from './webExportStyles';
 import { WEB_BUTTON_MOTION_CSS } from '../webButtonMotion';
+import { webShapeMarkup } from '../webShapes';
 
 export const makeIndexHtml = (
   title: string,
@@ -123,7 +128,8 @@ ${SCENE_SWITCH_CSS}</style>
     <div id="playerSettingsRoot" hidden></div>
     <div class="start-layer" id="settingsCustomLayer"></div>
   </div>
-  <div class="settings-backdrop" id="saveBackdrop">
+  <div class="settings-backdrop" id="saveBackdrop" role="dialog" aria-modal="true" aria-label="${language === 'zh' ? '存档' : language === 'ja' ? 'セーブ' : 'Saves'}">
+    <div class="start-layer" id="archiveCustomLayer" hidden></div>
     <div class="settings-panel save-panel" role="dialog" aria-modal="true">
       <div class="settings-head">
         <div class="settings-title" id="saveTitle"></div>
@@ -310,7 +316,7 @@ ${SCENE_SWITCH_CSS}</style>
     settings.startMenuShowNewGame = settings.startMenuShowNewGame !== false;
     settings.startMenuShowSettings = settings.startMenuShowSettings !== false;
     settings.interactionMode = settings.interactionMode || "typewriter";
-    settings.typewriterSpeed = clamp(settings.typewriterSpeed, 10, 200, 65);
+    settings.typewriterSpeed = clamp(settings.typewriterSpeed, 10, 200, ${DEFAULT_TYPEWRITER_INTERVAL_MS});
     settings.autoAdvance = Boolean(settings.autoAdvance);
     settings.textScale = clamp(settings.textScale, 85, 130, 100);
     settings.animationSpeed = clamp(settings.animationSpeed, 0.5, 2, 1);
@@ -840,6 +846,7 @@ ${SCENE_SWITCH_CSS}</style>
 
     const playerSettingsRoot = document.getElementById("playerSettingsRoot");
     const settingsCustomLayer = document.getElementById("settingsCustomLayer");
+    const archiveCustomLayer = document.getElementById("archiveCustomLayer");
     const playbackToolbar = document.getElementById("playbackToolbar");
     document.querySelector('.app').classList.add('has-playback-toolbar');
     // The playlist stays interactive when the obsolete header is hidden.
@@ -874,6 +881,7 @@ ${SCENE_SWITCH_CSS}</style>
     }
     applySurfaceBackground(startScreen, "startMenuBackground");
     if (!settings.surfaceAppearances?.settings) applySurfaceBackground(settingsBackdrop, "settingsBackground");
+    if (!settings.surfaceAppearances?.archive) applySurfaceBackground(saveBackdrop, "archiveBackground");
     applySurfaceBackground(document.querySelector(".app"), "dialogueBackground");
     applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
     applySurfaceBackground(flowOverviewViewport, "flowOverviewBackground");
@@ -1054,7 +1062,7 @@ ${SCENE_SWITCH_CSS}</style>
           settings: {
             autoAdvance: Boolean(settings.autoAdvance),
             interactionMode: settings.interactionMode,
-            typewriterSpeed: Number(settings.typewriterSpeed) || 65,
+            typewriterSpeed: Number(settings.typewriterSpeed) || ${DEFAULT_TYPEWRITER_INTERVAL_MS},
             textScale: Number(settings.textScale) || 100,
             animationSpeed: Number(settings.animationSpeed) || 1,
             soundEnabled: settings.soundEnabled !== false,
@@ -1112,6 +1120,16 @@ ${SCENE_SWITCH_CSS}</style>
 
     function openSaveList() {
       const collection = readSaveCollection();
+      if (settings.archivePageElements?.length) {
+        saveBackdrop.querySelector('.save-panel').hidden = true;
+        saveBackdrop.classList.add('custom-archive', 'open');
+        renderCustomStartMenu(readSave(), archiveCustomLayer, settings.archivePageElements);
+        archiveCustomLayer.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+        return;
+      }
+      saveBackdrop.querySelector('.save-panel').hidden = false;
+      archiveCustomLayer.hidden = true;
+      saveBackdrop.classList.remove('custom-archive');
       saveTitle.textContent = labels.archive || labels.saveSlot;
       saveList.innerHTML = "";
       const slots = collection?.slots || [];
@@ -1172,18 +1190,27 @@ ${SCENE_SWITCH_CSS}</style>
       if (!hasCustomElements) return;
       elements.forEach((element) => {
       if (!element || element.visible === false) return;
+      if (layer === archiveCustomLayer && !save && ['slotContinue', 'slotDelete'].includes(element.role)) return;
       const isToolbar = layer === playbackToolbar;
       if (isToolbar && ((!settings.showStartMenu && element.role === 'mainMenu') || (controlsHidden && element.role !== 'controlsToggle'))) return;
       const actionByRole = {
         history: { label: playbackCopy.history, onClick: openDialogueHistory },
-        back: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: isToolbar ? () => backButton.click() : closeSettingsPanel },
+        back: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: layer === archiveCustomLayer ? () => saveBackdrop.classList.remove('open') : isToolbar ? () => backButton.click() : closeSettingsPanel },
+        slotContinue: { label: labels.continue, disabled: !canContinueSave(save), primary: true, onClick: () => { if (applySave(save)) { saveBackdrop.classList.remove('open'); startGameFromCurrent(); } } },
+        slotDelete: { label: labels.deleteSave, disabled: !save, onClick: () => {
+          const collection = readSaveCollection();
+          const slots = (collection?.slots || []).filter((item) => item.id !== save?.id);
+          activeSaveId = slots[0]?.id || null;
+          try { localStorage.setItem(saveKey, JSON.stringify({ version: 2, activeSaveId, slots })); } catch (_) {}
+          openSaveList(); updateStartMenu();
+        } },
         return: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: isToolbar ? () => backButton.click() : closeSettingsPanel },
         mainMenu: { label: labels.mainMenu, onClick: () => { closeSettingsPanel(); returnToMainMenu(); } },
         fullscreen: { label: "Fullscreen", onClick: () => { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); else document.documentElement.requestFullscreen?.().catch(() => {}); } },
         controlsToggle: { label: labels.controls, onClick: () => changePlayerSettings({ controlsVisible: controlsHidden }) },
         audio: { label: labels.playlist, onClick: () => { if (!isToolbar) closeSettingsPanel(); playlistButton.click(); } },
         auto: { label: labels.autoPlay, onClick: () => changePlayerSettings({ autoAdvance: !settings.autoAdvance }) },
-        speed: { label: labels.textSpeed, onClick: () => changePlayerSettings({ typewriterSpeed: clamp(element.actionValue, 10, 200, 65) }) },
+        speed: { label: labels.textSpeed, onClick: () => changePlayerSettings({ typewriterSpeed: clamp(element.actionValue, 10, 200, ${DEFAULT_TYPEWRITER_INTERVAL_MS}) }) },
         textSize: { label: "Text size", onClick: () => changePlayerSettings({ textScale: clamp(element.actionValue, 85, 130, 100) }) },
         animationSpeed: { label: "Animation speed", onClick: () => changePlayerSettings({ animationSpeed: clamp(element.actionValue, 0.5, 2, 1) }) },
         sound: { label: "Sound", onClick: () => changePlayerSettings({ soundEnabled: !settings.soundEnabled }) },
@@ -1221,7 +1248,7 @@ ${SCENE_SWITCH_CSS}</style>
           label: labels.newGame,
           disabled: false,
           primary: !settings.startMenuShowSave,
-          onClick: startNewGame,
+          onClick: () => { if (layer === archiveCustomLayer) saveBackdrop.classList.remove('open'); startNewGame(); },
         },
         settings: {
           label: labels.settings,
@@ -1289,7 +1316,10 @@ ${SCENE_SWITCH_CSS}</style>
           layer.appendChild(wrapper);
           return;
         }
-        if (element.kind === "image") {
+        if (element.kind === "shape") {
+          wrapper.style.pointerEvents = 'none';
+          wrapper.innerHTML = (${webShapeMarkup.toString()})(element, settings.canvasWidth, settings.canvasHeight);
+        } else if (element.kind === "image") {
           if (!element.imageUrl) return;
           const image = document.createElement("img");
           image.className = "start-element-image";
@@ -1303,7 +1333,8 @@ ${SCENE_SWITCH_CSS}</style>
         } else if (element.kind === "button") {
           const action = actionByRole[element.role] || null;
           const widget = layer === settingsCustomLayer ? settingsWidgetMarkup[element.id] : null;
-          const button = document.createElement(widget ? "div" : "button");
+          const archiveSlot = layer === archiveCustomLayer && element.role === 'slot';
+          const button = document.createElement(widget || archiveSlot ? "div" : "button");
           button.type = "button";
           button.className = "start-element-button" + (isToolbar ? ' gw-playback-control' + (element.textVisible !== false ? ' gw-playback-control-with-label' : '') : '') + ((element.primary || action?.primary) ? " primary" : "");
           const buttonLabel = isToolbar
@@ -1387,7 +1418,7 @@ ${SCENE_SWITCH_CSS}</style>
             host.className = 'gw-ps-widget-surface';
             host.innerHTML = widget;
             button.appendChild(host);
-            settingsWidgetControllers.push(mountSettingsWidget(host, playerSettingsValues(), playerDefaults, changePlayerSettings, closeSettingsPanel, [element]));
+            settingsWidgetControllers.push(mountSettingsWidget(host, playerSettingsValues(), playerDefaults, changePlayerSettings, closeSettingsPanel, [element], style));
             host.querySelectorAll('[data-role-label]').forEach((label) => {
               applyTextPaint(label, element, element.textColor || '#f8fafc');
               label.style.fontFamily = element.fontFamily || 'inherit';
@@ -1395,7 +1426,24 @@ ${SCENE_SWITCH_CSS}</style>
               label.style.visibility = element.textVisible === false ? 'hidden' : 'visible';
             });
           }
-          if (!widget && element.textVisible !== false) {
+          if (archiveSlot) {
+            const list = document.createElement('div'); list.className = 'gw-archive-slot-list';
+            const slots = readSaveCollection()?.slots || [];
+            if (!slots.length) {
+              const empty = document.createElement('div'); empty.className = 'gw-archive-empty';
+              const title = document.createElement('strong'); title.textContent = content.language === 'zh' ? '还没有存档' : content.language === 'ja' ? 'セーブはまだありません' : 'No saves yet';
+              const hint = document.createElement('span'); hint.textContent = content.language === 'zh' ? '开始故事后，你的阅读进度会保存在这里。' : content.language === 'ja' ? '物語を始めると、ここに進行状況が保存されます。' : 'Your reading progress will appear here after you start.';
+              empty.append(title, hint); list.appendChild(empty);
+            }
+            slots.forEach((slot, index) => {
+              const row = document.createElement('button'); row.type = 'button'; row.className = 'gw-archive-slot'; row.setAttribute('aria-pressed', String(slot.id === save?.id));
+              const title = document.createElement('strong'); title.textContent = saveProgressLabel(slot) || (content.language === 'zh' ? '存档 ' : content.language === 'ja' ? 'セーブ ' : 'Save ') + (index + 1);
+              const date = document.createElement('span'); date.textContent = saveLabel(slot);
+              row.append(title, date); row.addEventListener('click', () => { activeSaveId = slot.id; openSaveList(); }); list.appendChild(row);
+            });
+            button.appendChild(list);
+          }
+          if (!widget && !archiveSlot && element.textVisible !== false) {
             const label = document.createElement("span");
             label.textContent = buttonLabel;
             label.style.position = "relative";
@@ -1674,7 +1722,7 @@ ${SCENE_SWITCH_CSS}</style>
       settingsWidgetControllers.push(mountSettingsWidget(playerSettingsRoot, playerSettingsValues(), playerDefaults, patch => {
         if (patch.autoAdvance !== undefined) autoAdvanceHoldId = null;
         changePlayerSettings(patch);
-      }, closeSettingsPanel, []));
+      }, closeSettingsPanel, [], style));
       playerSettingsRoot.querySelector('button')?.focus({ preventScroll: true });
     }
     function openSettingsPanel() {
@@ -2475,7 +2523,7 @@ ${SCENE_SWITCH_CSS}</style>
             );
             data.presentation.characters.forEach((char) => {
               const imgEl = charImgsBySourceId.get(char.sourceNodeId || '');
-              if (imgEl && char.exit && char.exit.type !== 'none') {
+              if (imgEl && imgEl.dataset.exited !== 'true' && char.exit && char.exit.type !== 'none') {
                 const duration = (char.exit.duration || 0) / settings.animationSpeed;
                 imgEl.style.transition = 'opacity ' + duration + 'ms ease-out, transform ' + duration + 'ms ease-out';
                 if (char.exit.type === 'fade') {
@@ -2573,18 +2621,6 @@ ${SCENE_SWITCH_CSS}</style>
       return "";
     }
 
-    function isPersistentInlineAction(action) {
-      return action && (
-        action.action === "translate" ||
-        action.action === "translate-x" ||
-        action.action === "translate-y" ||
-        action.action === "scale" ||
-        action.action === "rotate" ||
-        action.action === "opacity" ||
-        action.action === "brightness"
-      );
-    }
-
     function playSceneSwitch(action) {
       const outgoing = stageEl.querySelector('.scene-image');
       const source = nodeById.get(action.sourceNodeId || "");
@@ -2621,7 +2657,6 @@ ${SCENE_SWITCH_CSS}</style>
     }
 
     function settleInlineAction(target, action) {
-      if (!isPersistentInlineAction(action)) { clearInlineActionElement(target); return; }
       if (['translate', 'translate-x', 'translate-y'].includes(action.action)) target.dataset.inlineTranslation = inlineActionTransform(action);
       if (action.action === 'scale') target.dataset.inlineScale = inlineActionTransform(action);
       if (action.action === 'rotate') target.style.rotate = (action.strength || 15) + 'deg';
@@ -2634,6 +2669,7 @@ ${SCENE_SWITCH_CSS}</style>
     function playCharacterSwitch(target, action, duration) {
       if (!action.targetImageUrl) return;
       const incoming = target.cloneNode(true);
+      incoming.src = action.targetImageUrl;
       incoming.removeAttribute('data-source-id');
       incoming.alt = '';
       incoming.style.setProperty('--inline-switch-opacity', getComputedStyle(target).opacity);
@@ -2642,13 +2678,14 @@ ${SCENE_SWITCH_CSS}</style>
       typewriterTimers.push(schedulePlaybackStep(() => { target.src = action.targetImageUrl; incoming.remove(); }, duration));
     }
 
+    const inlineActionDuration = ${getInlineActionDuration.toString()};
     function applyInlineAction(action) {
       if (!action || (action.action === "none" && !action.timelinePhase)) return;
       if (action.kind === 'scene' && action.action === 'switch') {
         playSceneSwitch(action);
         return;
       }
-      const duration = Math.max(0, action.duration || 0) / settings.animationSpeed;
+      const duration = inlineActionDuration(action) / settings.animationSpeed;
       const target =
         action.kind === "scene"
           ? stageEl.querySelector('.scene-image, #nodeVideo')
@@ -2671,8 +2708,8 @@ ${SCENE_SWITCH_CSS}</style>
         return;
       }
       clearInlineActionElement(target);
-      if (action.action === 'switch') { playCharacterSwitch(target, action, duration); return; }
       target.style.transform = [target.dataset.baseTransform || '', target.dataset.inlineTranslation || '', target.dataset.inlineScale || ''].join(' ');
+      if (action.action === 'switch') { playCharacterSwitch(target, action, duration); return; }
       void target.offsetWidth;
       target.style.setProperty("--inline-action-duration", duration + "ms");
       const repeats = Math.max(1, Math.round(action.repeats || 1));
@@ -2756,7 +2793,9 @@ ${SCENE_SWITCH_CSS}</style>
       let segmentTimer = 0;
       visible.textContent = "";
       if (element._revealText) element._revealText(0);
-      const playNextStep = () => {
+      const renderedStage = stageEl.firstElementChild;
+      const playNextStep = async () => {
+        if (stageEl.firstElementChild !== renderedStage) return;
         clearInterval(segmentTimer);
         const step = playbackSteps[stepIndex];
         if (!step) {
@@ -2766,11 +2805,18 @@ ${SCENE_SWITCH_CSS}</style>
           return;
         }
         if (step.kind === "action") {
+          if (step.action.action === 'switch' && step.action.targetImageUrl) {
+            const image = new Image(); image.src = step.action.targetImageUrl;
+            let timeout;
+            await Promise.race([image.decode().catch(() => {}), new Promise((resolve) => { timeout = setTimeout(resolve, 3000); })]);
+            clearTimeout(timeout);
+            if (stageEl.firstElementChild !== renderedStage) return;
+          }
           applyInlineAction(step.action);
           const waitTimer = schedulePlaybackStep(() => {
             stepIndex += 1;
             playNextStep();
-          }, Math.max(0, step.action.duration || 0) / settings.animationSpeed);
+          }, inlineActionDuration(step.action) / settings.animationSpeed);
           typewriterTimers.push(waitTimer);
           return;
         }
@@ -3091,7 +3137,9 @@ ${SCENE_SWITCH_CSS}</style>
       watchZenButtonPosition();
 
       // Start entrance transitions after the initial styles have been applied.
-      setTimeout(() => {
+      const initialStage = stageEl.firstElementChild;
+      typewriterTimers.push(setTimeout(() => {
+        if (stageEl.firstElementChild !== initialStage) return;
         const mediaEl = stageEl.querySelector('.scene-image, #nodeVideo');
         if (mediaEl) {
           mediaEl.style.opacity = '1';
@@ -3118,7 +3166,7 @@ ${SCENE_SWITCH_CSS}</style>
             }
           });
         }
-      }, 50);
+      }, 50));
       gwAppearance(stageEl.querySelector('.dialogue'),dialogObject.appearance,dialogObject.corners?dialogObject.corners.map(n=>n+'px').join(' '):null);
       gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
@@ -3221,6 +3269,14 @@ ${SCENE_SWITCH_CSS}</style>
     });
     saveBackdrop.addEventListener("click", (event) => {
       if (event.target === saveBackdrop) saveBackdrop.classList.remove("open");
+    });
+    saveBackdrop.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); saveBackdrop.classList.remove('open'); return; }
+      if (event.key !== 'Tab') return;
+      const items = Array.from(saveBackdrop.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled)')).filter((item) => item.getClientRects().length);
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     });
     const mountSettingsWidget = (${mountPlayerSettings.toString()});
     settingsBackdrop.addEventListener("click", (event) => {

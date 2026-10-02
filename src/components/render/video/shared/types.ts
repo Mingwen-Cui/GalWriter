@@ -310,7 +310,8 @@ export type WebMenuElement = {
   appearance?: SurfaceAppearance;
   settingsControlForm?: 'switch' | 'segmented' | 'slider' | 'stepper' | 'select';
   id: string;
-  kind: 'button' | 'text' | 'image';
+  kind: 'button' | 'text' | 'image' | 'shape';
+  shapeType?: 'rectangle' | 'rounded' | 'ellipse' | 'triangle' | 'line';
   role?:
     | 'save'
     | 'continue'

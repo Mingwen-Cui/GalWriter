@@ -72,37 +72,37 @@ export const playerControlCatalog = (language: Language) => {
     language === 'en'
       ? [
           'Text display',
-          'Typing interval',
+          'Text speed',
           'Text size',
           'Auto advance',
           'Animation speed',
           'Playback audio',
           'Show toolbar',
           'Reading preview',
-          'Restore defaults',
+          'Restore story defaults',
         ]
       : language === 'ja'
         ? [
             '文字の表示',
-            '文字の表示間隔',
+            '文字の表示速度',
             '文字サイズ',
             '自動ページ送り',
             'アニメーション速度',
             'サウンド',
             '操作バーを表示',
             '読み方のプレビュー',
-            '初期設定に戻す',
+            '作品の初期設定に戻す',
           ]
         : [
-            '文字呈现',
-            '打字间隔',
+            '文字显示',
+            '文字速度',
             '文字大小',
-            '自动翻页',
+            '自动推进',
             '动画速度',
             '播放声音',
-            '显示控制栏',
+            '显示操作栏',
             '阅读效果预览',
-            '恢复默认',
+            '恢复作品默认',
           ];
   const ids: PlayerControlId[] = [
     'mode',

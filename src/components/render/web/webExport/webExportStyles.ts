@@ -933,6 +933,10 @@ export const WEB_EXPORT_STYLES = String.raw`
     #settingsBackdrop.gw-playback-settings { background: rgba(15,23,42,0.56); backdrop-filter: blur(10px); }
     #settingsCustomLayer { z-index:20; pointer-events:none; }
     #settingsCustomLayer .start-element { pointer-events:auto; }
+    #saveBackdrop.custom-archive { padding:0; backdrop-filter:none; }
+    #archiveCustomLayer { z-index:20; pointer-events:none; }
+    #archiveCustomLayer .start-element { pointer-events:auto; }
+    #saveBackdrop .save-panel[hidden] { display:none; }
     .settings-panel {
       width: min(560px, calc(100vw - 32px));
       display: grid;

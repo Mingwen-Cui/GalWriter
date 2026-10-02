@@ -1,4 +1,5 @@
 import { playerControlCatalog } from './playerSettingsPanelConfig';
+import { webShapeCatalog } from './webShapes';
 import {
   CornerEditor,
   getLayerOrderChanges,
@@ -510,7 +511,7 @@ export function StartMenuElementInspector({
       textGradientStart: stops[0]?.color || element.textGradientStart || '#ffffff',
       textGradientEnd: stops.at(-1)?.color || element.textGradientEnd || '#0ea5e9',
     });
-  const hasTextControls = element.kind !== 'image';
+  const hasTextControls = element.kind === 'text' || element.kind === 'button';
   const textStrokeTarget = element.textStrokeTarget || 'text';
   const strokeIsText = element.kind === 'text' && textStrokeTarget === 'text';
   const strokeColor = strokeIsText
@@ -1339,6 +1340,13 @@ export function StartMenuElementInspector({
             : undefined
         }
       />
+
+      {element.kind === 'shape' && <label className="flex items-center justify-between gap-3 rounded-xl bg-[var(--vr-surface-soft)] p-3 text-xs font-semibold text-[var(--vr-text)]">
+        <span>{language === 'zh' ? '图形' : language === 'ja' ? '図形' : 'Shape'}</span>
+        <select aria-label={language === 'zh' ? '图形类型' : language === 'ja' ? '図形の種類' : 'Shape type'} value={element.shapeType || 'rounded'} onChange={(event) => onUpdate({ shapeType: event.target.value as WebMenuElement['shapeType'] })} className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 py-1.5">
+          {webShapeCatalog(language).map((shape) => <option key={shape.type} value={shape.type}>{shape.label}</option>)}
+        </select>
+      </label>}
 
       {element.kind === 'image' && (
         <Group

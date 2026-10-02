@@ -2,6 +2,7 @@ import { WebInlineText } from './WebInlineText';
 import { WebToolbarSelectionTools } from './WebToolbarSelectionTools';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
+import { webShapeMarkup } from './webShapes';
 import {
   Eye,
   EyeOff,
@@ -754,11 +755,11 @@ function ToolbarElement({
   const editable = previewMode === 'edit';
   // Editing overlays include their own buttons (rotate, visibility, resize).
   // The editable target therefore cannot itself be a <button>.
-  const ElementContainer = editable ? 'div' : 'button';
+  const ElementContainer = editable || element.kind === 'shape' ? 'div' : 'button';
   const [editingText, setEditingText] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const beginTextEditing = () => {
-    if (!editable || (toolbarControl && element.textVisible === false) || element.kind === 'image')
+    if (!editable || (toolbarControl && element.textVisible === false) || element.kind === 'image' || element.kind === 'shape')
       return;
     onSelect?.(element.id);
     setEditingText(true);
@@ -771,7 +772,7 @@ function ToolbarElement({
         ? 'flex-end'
         : 'center';
   const elementBoxStyle =
-    element.kind !== 'text' || element.textStrokeTarget === 'box'
+    element.kind !== 'shape' && (element.kind !== 'text' || element.textStrokeTarget === 'box')
       ? webElementBoxStyle(element)
       : {};
   const motionBoxStyle =
@@ -958,7 +959,7 @@ function ToolbarElement({
       className={`${toolbarControl ? `gw-playback-control ${element.textVisible !== false ? 'gw-playback-control-with-label' : ''}` : ''} pointer-events-auto absolute text-xs font-black text-white ${
         element.kind === 'text'
           ? 'bg-transparent shadow-none'
-          : element.kind === 'image'
+          : element.kind === 'image' || element.kind === 'shape'
             ? 'border-0 bg-transparent shadow-none'
             : `shadow-lg ${active ? 'bg-sky-500/35 text-sky-100' : 'bg-white/12 hover:bg-white/20'}`
       } ${disabled ? 'opacity-35 grayscale' : ''}`}
@@ -995,6 +996,7 @@ function ToolbarElement({
           lineHeight: element.lineHeight,
           ...(element.kind === 'text' ? webElementShadowStyle(element, 'text') : {}),
           cursor: editable ? 'grab' : undefined,
+          pointerEvents: element.kind === 'shape' && !editable ? 'none' : undefined,
           ...(element.appearance
             ? {
                 background: 'transparent',
@@ -1025,7 +1027,7 @@ function ToolbarElement({
         if (!disabled) onAction();
       }}
     >
-      {element.appearance && !toolbarControl && (
+      {element.appearance && !toolbarControl && element.kind !== 'shape' && (
         <SurfaceLayers value={element.appearance} radius={element.borderRadius || 0} />
       )}
       {editable &&
@@ -1047,7 +1049,7 @@ function ToolbarElement({
           textAlign: element.textAlign || 'center',
         }}
       >
-        {element.kind === 'image' ? (
+        {element.kind === 'shape' ? <span className="h-full w-full" dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }} /> : element.kind === 'image' ? (
           element.imageUrl ? (
             <img
               src={resolveKnownAppAssetUrl(element.imageUrl)}

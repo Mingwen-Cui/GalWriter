@@ -162,8 +162,8 @@ export function WebPlaytestMediaLayers({
                 ...inlineActionCssVars(inlineAction),
                 transformOrigin: 'bottom center',
                 transitionProperty: 'opacity, transform',
-                transitionDuration: `${(inlineAction ? inlineDuration : playbackMotion.duration) / animationRate}ms`,
-                transitionDelay: `${inlineAction ? 0 : playbackMotion.delay / animationRate}ms`,
+                transitionDuration: `${(actionPlaying ? inlineDuration : playbackMotion.duration) / animationRate}ms`,
+                transitionDelay: `${actionPlaying ? 0 : playbackMotion.delay / animationRate}ms`,
                 transitionTimingFunction: 'ease-out',
               };
               const switchAction = getInlineSwitchAction(

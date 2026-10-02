@@ -3,6 +3,7 @@ import { resolveWebToolbarElements } from './webExperienceTemplates';
 import {
   buildSettingsPageElements,
   resolveSettingsPageElements,
+  resolveArchivePageElements,
 } from './webMenuPageElements';
 import { PlayerSettingsControlsInspector } from './PlayerSettingsControlsInspector';
 import { themeRenderPatch, themeMenuPatch } from '../experienceThemes';
@@ -26,6 +27,7 @@ import {
   RotateCw,
   Save,
   Settings,
+  Shapes,
   Sparkles,
   Trash2,
   Type,
@@ -58,6 +60,7 @@ import type {
 } from './WebPlaytestPreview';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
+import { webShapeCatalog, webShapeMarkup } from './webShapes';
 import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 
 const webSmallTabClass =
@@ -325,7 +328,7 @@ function TemplateMiniPreview({
               transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
             }}
           >
-            {element.kind !== 'image' && (
+            {element.kind === 'shape' ? <span className="absolute inset-0" dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }} /> : element.kind !== 'image' && (
               <span
                 className="absolute left-[12%] right-[12%] top-1/2 h-[1px] -translate-y-1/2 rounded-full"
                 style={{ backgroundColor: element.textColor || '#ffffff' }}
@@ -896,7 +899,7 @@ export function WebWorkspace({
   const archivePageElements = webSettings.archivePageElements?.length
     ? hasLegacyPageLayout(webSettings.archivePageElements, legacyArchiveLayout)
       ? defaultArchivePageElements
-      : webSettings.archivePageElements
+      : resolveArchivePageElements(webSettings, language, webChoiceColor, webChoiceTextColor)
     : defaultArchivePageElements;
   const settingsPageElements =
     hasLegacyPageLayout(webSettings.settingsPageElements, legacySettingsLayout) ||
@@ -1577,6 +1580,19 @@ export function WebWorkspace({
     ]);
     setSelectedStartMenuElementId(id);
   };
+  const addCurrentSurfaceShape = (shapeType: NonNullable<WebMenuElement['shapeType']>) => {
+    const id = `${currentPreviewSurface}-shape-${crypto.randomUUID()}`;
+    const key = currentPreviewSurface === 'game' ? 'dialogueOverlayElements' : activeElementSettingsKey;
+    const source = currentPreviewSurface === 'game' ? webSettings.dialogueOverlayElements || [] : activePageElements;
+    updateWebSettings(key, [...source, {
+      id, kind: 'shape', shapeType, role: 'custom', text: webShapeCatalog(language).find((shape) => shape.type === shapeType)?.label || '', visible: true,
+      x: 40, y: 36, width: 20, height: shapeType === 'line' ? 6 : 20, scale: 1, rotation: 0,
+      backgroundType: 'solid', backgroundColor: '#eef2ff', borderColor: '#625bf6', borderWidth: shapeType === 'line' ? 4 : 1,
+      borderRadius: shapeType === 'rounded' ? 20 : 0,
+      zIndex: Math.max(0, ...source.map((element) => element.zIndex || 0)) + 1,
+    }]);
+    setSelectedStartMenuElementId(id);
+  };
   const addCurrentSurfaceImage = () => {
     if (currentPreviewSurface === 'start') {
       addStartMenuImage();
@@ -1929,7 +1945,7 @@ JSON schema:
             currentElements[index] ||
             currentElements[0];
           const kind =
-            element.kind === 'button' || element.kind === 'image' || element.kind === 'text'
+            element.kind === 'button' || element.kind === 'image' || element.kind === 'text' || element.kind === 'shape'
               ? element.kind
               : base.kind;
           return {
@@ -2124,6 +2140,12 @@ JSON schema:
                   onClick={addCurrentSurfaceImage}
                   tone="emerald"
                 />
+                <details className="relative z-[1200]">
+                  <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-2.5 text-[11px] font-bold text-violet-700"><Shapes className="h-[17px] w-[17px]" />{language === 'zh' ? '添加图形' : language === 'ja' ? '図形を追加' : 'Add shape'}</summary>
+                  <div className="absolute right-0 top-full mt-2 grid min-w-36 gap-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2 shadow-xl">
+                    {webShapeCatalog(language).map((shape) => <button key={shape.type} type="button" className="rounded-lg px-3 py-2 text-left text-xs font-semibold text-[var(--vr-text)] hover:bg-violet-100 hover:text-violet-700" onClick={(event) => { addCurrentSurfaceShape(shape.type); event.currentTarget.closest('details')?.removeAttribute('open'); }}>{shape.label}</button>)}
+                  </div>
+                </details>
                 <AddElementButton
                   icon={MousePointerClick}
                   label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1561')}

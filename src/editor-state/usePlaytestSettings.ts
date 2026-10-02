@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react';
+import {
+  DEFAULT_TYPEWRITER_INTERVAL_MS,
+  migratePlaytestTypewriterSpeed,
+  migratePlaytestTextPlayback,
+} from '../lib/typewriterTiming';
 
 import type {
   PlaytestChoicesPosition,
@@ -148,10 +153,16 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
     }
   };
   const [playTestInteractionMode, setPlayTestInteractionMode] = useState(() =>
-    getStoredString('playtest-interaction-mode', 'immediate'),
+    migratePlaytestTextPlayback(
+      getStoredString('playtest-interaction-mode', 'typewriter'),
+      getStoredValue('playtest-text-playback-version'),
+    ),
   );
   const [playTestTypewriterSpeed, setPlayTestTypewriterSpeed] = useState(() =>
-    getStoredNumber('playtest-typewriter-speed', 30),
+    migratePlaytestTypewriterSpeed(
+      getStoredNumber('playtest-typewriter-speed', DEFAULT_TYPEWRITER_INTERVAL_MS),
+      getStoredValue('playtest-text-playback-version'),
+    ),
   );
   const [playTestChoiceDelay, setPlayTestChoiceDelay] = useState(() =>
     getStoredNumber('playtest-choice-delay', 2),
@@ -191,13 +202,21 @@ export const usePlaytestSettings = (): PlaytestSettingsState => {
   const [playTestWindowSettings, setPlayTestWindowSettings] = useState(getStoredWindowSettings);
 
   useEffect(() => {
+    // Hot reload can retain an old state initializer. Normalize before writing
+    // the version so that an open preview receives the upgrade as well.
+    const version = getStoredValue('playtest-text-playback-version');
+    const playbackMode = migratePlaytestTextPlayback(playTestInteractionMode, version);
+    const playbackSpeed = migratePlaytestTypewriterSpeed(playTestTypewriterSpeed, version);
+    if (playbackMode !== playTestInteractionMode) setPlayTestInteractionMode(playbackMode);
+    if (playbackSpeed !== playTestTypewriterSpeed) setPlayTestTypewriterSpeed(playbackSpeed);
     const serializedSettings = JSON.stringify({
       'playtest-dark-mode': String(playTestDarkMode),
       'playtest-columns': String(playTestChoicesColumns),
       'playtest-video-autoplay': String(playTestVideoAutoPlay),
       'playtest-layout-mode': playTestLayoutMode,
-      'playtest-interaction-mode': playTestInteractionMode,
-      'playtest-typewriter-speed': String(playTestTypewriterSpeed),
+      'playtest-interaction-mode': playbackMode,
+      'playtest-typewriter-speed': String(playbackSpeed),
+      'playtest-text-playback-version': '3',
       'playtest-choice-delay': String(playTestChoiceDelay),
       'playtest-choices-position': playTestChoicesPosition,
       'playtest-blur-background': String(playTestBlurBackground),

@@ -242,7 +242,7 @@ function PlaytestRuntimeSettingsSection({
         <RuntimeNumber
           label={text.typewriterSpeed}
           value={value.typewriterSpeed}
-          unit="ms"
+          unit={language === 'zh' ? 'ms/字' : language === 'ja' ? 'ms/文字' : 'ms/char'}
           min={0}
           max={500}
           onChange={(typewriterSpeed) => onChange({ typewriterSpeed })}

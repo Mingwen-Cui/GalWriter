@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Language } from '../../../lib/i18n';
-import type { WebMenuElement } from '../video/shared/types';
+import type { RenderStyle, WebMenuElement } from '../video/shared/types';
 import {
   mountPlayerSettings,
   playerSettingsMarkup,
@@ -20,6 +20,7 @@ type Props = {
   elements: WebMenuElement[];
   element?: WebMenuElement;
   editableLabel?: ReactNode;
+  readingStyle?: Partial<RenderStyle>;
   onChange: (patch: Partial<PlayerSettingsValues>) => void;
   onClose: () => void;
 };
@@ -33,6 +34,7 @@ export function PlayerSettingsPanel(props: Props) {
   const controller = useRef<ReturnType<typeof mountPlayerSettings> | null>(null);
   const configKey = JSON.stringify(props.config || {});
   const widgetKey = JSON.stringify(props.element || null);
+  const readingStyleKey = JSON.stringify(props.readingStyle || null);
   const markup = useMemo(
     () =>
       playerSettingsMarkup(
@@ -59,6 +61,7 @@ export function PlayerSettingsPanel(props: Props) {
       (patch) => latest.current.onChange(patch),
       () => latest.current.onClose(),
       JSON.parse(elementConfig),
+      JSON.parse(readingStyleKey) || undefined,
     );
     controller.current = mounted;
     if (current.element) {
@@ -81,7 +84,7 @@ export function PlayerSettingsPanel(props: Props) {
       mounted.destroy();
       if (controller.current === mounted) controller.current = null;
     };
-  }, [markup, elementConfig, hasEditableLabel]);
+  }, [markup, elementConfig, hasEditableLabel, readingStyleKey]);
   useLayoutEffect(() => {
     controller.current?.sync(props.values);
   }, [props.values]);

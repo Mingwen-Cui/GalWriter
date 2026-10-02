@@ -1,3 +1,4 @@
+import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
@@ -19,7 +20,7 @@ import { filterMentionTags } from '../../video/shared/storyNodes';
 import type { RenderStyle } from '../../video/shared/types';
 import { DEFAULT_RENDER_STYLE } from '../../video/VideoRenderModal/workspaceStorage';
 import { resolveWebToolbarElements } from '../webExperienceTemplates';
-import { resolveSettingsPageElements } from '../webMenuPageElements';
+import { resolveSettingsPageElements, resolveArchivePageElements } from '../webMenuPageElements';
 import { LOCAL_PREVIEW_CMD, LOCAL_PREVIEW_SERVER } from './localPreviewLauncher';
 import { makeIndexHtml } from './webExportHtml';
 import type {
@@ -397,7 +398,7 @@ export async function buildInteractiveWebZipBlob(
     startMenuButtonLayout: options.settings?.startMenuButtonLayout || 'vertical',
     startMenuButtonSize: options.settings?.startMenuButtonSize || 'normal',
     startMenuElements: options.settings?.startMenuElements || [],
-    archivePageElements: options.settings?.archivePageElements || [],
+    archivePageElements: resolveArchivePageElements(options.settings || {}, options.language, '#0ea5e9', '#ffffff'),
     settingsPageElements: resolveSettingsPageElements(
       options.settings || {},
       options.language,
@@ -424,7 +425,7 @@ export async function buildInteractiveWebZipBlob(
     blurBackground: options.settings?.blurBackground ?? true,
     skipSingleChoicePopup: options.settings?.skipSingleChoicePopup ?? true,
     interactionMode: options.settings?.interactionMode || 'typewriter',
-    typewriterSpeed: options.settings?.typewriterSpeed ?? 65,
+    typewriterSpeed: options.settings?.typewriterSpeed ?? DEFAULT_TYPEWRITER_INTERVAL_MS,
     autoAdvance: options.settings?.autoAdvance ?? false,
     textScale: options.settings?.textScale ?? 100,
     animationSpeed: options.settings?.animationSpeed ?? 1,

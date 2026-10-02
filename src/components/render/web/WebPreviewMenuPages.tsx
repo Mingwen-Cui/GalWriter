@@ -1,5 +1,6 @@
 import { WebInlineText } from './WebInlineText';
 import { playerControlCatalog } from './playerSettingsPanelConfig';
+import { webShapeMarkup } from './webShapes';
 import type React from 'react';
 import type { CSSProperties } from 'react';
 import { Fragment, useRef, useState } from 'react';
@@ -9,7 +10,7 @@ import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
-import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
+import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { GradientCanvasControl } from './GradientCanvasControl';
 import { formatWebText } from './i18n';
 import { getSurfaceBackground } from './StartMenuBackgroundInspector';
@@ -59,6 +60,7 @@ const elementRadiusStyle = (element: WebMenuElement, fallback: number): CSSPrope
 type WebPreviewMenuPagesProps = {
   language: Language;
   settings: WebExportSettings;
+  renderStyle?: RenderStyle;
   previewMode: 'edit' | 'test';
   selectedStartMenuElementId?: string | null;
   archiveOpen: boolean;
@@ -102,6 +104,7 @@ type WebPreviewMenuPagesProps = {
 export function WebPreviewMenuPages({
   language,
   settings,
+  renderStyle,
   previewMode,
   selectedStartMenuElementId,
   archiveOpen,
@@ -152,6 +155,7 @@ export function WebPreviewMenuPages({
   const settingsRootRef = useRef<HTMLDivElement>(null);
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
   const [archiveShowsSaveExample, setArchiveShowsSaveExample] = useState(false);
+  const [selectedArchiveSaveId, setSelectedArchiveSaveId] = useState<string | null>(null);
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
   const marqueeRef = useRef<{
     page: 'archive' | 'settings';
@@ -446,7 +450,7 @@ export function WebPreviewMenuPages({
     document.body.style.cursor = '';
   };
   const editableArchiveElements = archiveElements;
-  const activeArchiveSave = saveSlots[0] || null;
+  const activeArchiveSave = saveSlots.find((save) => save.id === selectedArchiveSaveId) || saveSlots[0] || null;
   const testArchiveElements = archiveElements
     .filter(
       (element) =>
@@ -466,6 +470,7 @@ export function WebPreviewMenuPages({
     );
   return (
     <>
+      <style>{PLAYER_SETTINGS_CSS}</style>
       {archiveOpen && (
         <div
           ref={archiveRootRef}
@@ -515,6 +520,13 @@ export function WebPreviewMenuPages({
           />
           <MenuPageElementLayer
             page="archive"
+            renderControl={(element) => element.role === 'slot' && previewMode === 'test' ? (
+              <div className="gw-archive-slot-list">
+                {saveSlots.length ? saveSlots.map((save, index) => <button key={save.id} type="button" className="gw-archive-slot" aria-pressed={save.id === activeArchiveSave?.id} onClick={(event) => { event.stopPropagation(); setSelectedArchiveSaveId(save.id); }}>
+                  <strong>{language === 'zh' ? `存档 ${index + 1}` : language === 'ja' ? `セーブ ${index + 1}` : `Save ${index + 1}`}</strong><span>{new Date(save.savedAt).toLocaleString()}</span>
+                </button>) : <div className="gw-archive-empty"><strong>{language === 'zh' ? '还没有存档' : language === 'ja' ? 'セーブはまだありません' : 'No saves yet'}</strong><span>{language === 'zh' ? '开始故事后，你的阅读进度会保存在这里。' : language === 'ja' ? '物語を始めると、ここに進行状況が保存されます。' : 'Your reading progress will appear here after you start.'}</span></div>}
+              </div>
+            ) : null}
             elements={
               previewMode === 'test'
                 ? testArchiveElements
@@ -605,6 +617,7 @@ export function WebPreviewMenuPages({
                 <PlayerSettingsPanel
                   config={settings.playerSettingsPanel}
                   language={language}
+                  readingStyle={renderStyle}
                   values={playerValues}
                   defaults={playerDefaults.current}
                   elements={[element]}
@@ -767,6 +780,14 @@ function MenuPageElementLayer({
                 ? 'flex-end'
                 : 'center';
 
+          if (element.kind === 'shape') return (
+            <div key={element.id} data-selectable-element-id={element.id} className={`absolute ${editable ? 'pointer-events-auto cursor-move' : 'pointer-events-none'}`} style={commonStyle}
+              onPointerDown={(event) => editable && onBeginElementDrag(page, event, element, 'move')}
+              onClick={(event) => { if (editable) { event.stopPropagation(); onSelectElement?.(element.id); } }}>
+              <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }} />
+              {selected && <SelectedElementFrame page={page} element={element} onUpdateElement={onUpdateElement} onBeginElementDrag={onBeginElementDrag} />}
+            </div>
+          );
           if (element.kind === 'button') {
             const control = renderControl?.(element, label);
             const ButtonShell = editable || control ? 'div' : 'button';

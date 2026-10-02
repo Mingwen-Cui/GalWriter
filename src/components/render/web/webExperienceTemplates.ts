@@ -82,6 +82,13 @@ const button = (
   borderRadius: 12,
 });
 
+const pagePanel = (id: string, width = 62): WebMenuElement => ({
+  id, kind: 'shape', shapeType: 'rounded', role: 'custom', text: '页面底板', visible: true,
+  x: 5, y: 5, width, height: 94, scale: 1, rotation: 0,
+  backgroundType: 'solid', backgroundColor: '#f8fafff5', borderColor: '#e0e5ef', borderWidth: 1, borderRadius: 24,
+  shadowColor: '#252a59', shadowOpacity: 8, shadowBlur: 32, shadowOffsetY: 8,
+});
+
 export const buildRehearsalArchivePageElements = (
   language: Language,
   choiceColor: string,
@@ -89,15 +96,16 @@ export const buildRehearsalArchivePageElements = (
 ): WebMenuElement[] => {
   const settingsCopy = getWebSettingsCopy(language);
   return [
+    pagePanel('archive-panel'),
     text(
       'archive-title',
       'title',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText92'),
       8,
-      16,
-      30,
-      10,
-      42,
+      8,
+      44,
+      8,
+      40,
     ),
     {
       ...text(
@@ -109,10 +117,10 @@ export const buildRehearsalArchivePageElements = (
             ? '進行状況を選んで、物語を続けよう'
             : 'Choose a save to continue your journey',
         8,
-        28,
-        30,
+        18,
+        56,
         5,
-        16,
+        18,
       ),
       textAlign: 'left' as const,
     },
@@ -120,9 +128,9 @@ export const buildRehearsalArchivePageElements = (
       'archive-back',
       'back',
       settingsCopy.backToMainMenu,
-      8,
-      35,
-      14,
+      54,
+      9,
+      10,
       7,
       choiceColor,
       choiceTextColor,
@@ -132,9 +140,9 @@ export const buildRehearsalArchivePageElements = (
       'slot',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText107'),
       8,
-      45,
-      30,
-      13,
+      33,
+      56,
+      22,
       choiceColor,
       choiceTextColor,
     ),
@@ -143,9 +151,9 @@ export const buildRehearsalArchivePageElements = (
       'slotContinue',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText119'),
       8,
-      60,
-      20,
-      7,
+      58,
+      36,
+      8,
       choiceColor,
       choiceTextColor,
       true,
@@ -154,10 +162,10 @@ export const buildRehearsalArchivePageElements = (
       'archive-slot-delete',
       'slotDelete',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText120'),
-      30,
-      60,
+      46,
+      58,
+      18,
       8,
-      7,
       choiceColor,
       choiceTextColor,
     ),
@@ -166,31 +174,40 @@ export const buildRehearsalArchivePageElements = (
       'new',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText124'),
       8,
-      70,
-      30,
-      9,
+      80,
+      56,
+      10,
       choiceColor,
       choiceTextColor,
       true,
     ),
+    {
+      ...text('archive-progress-heading', 'custom', language === 'zh' ? '你的阅读进度' : language === 'ja' ? '保存した進行状況' : 'Your reading progress', 8, 26, 56, 5, 22),
+      textColor: '#252a59', fontWeight: 700, textAlign: 'left' as const,
+    },
+    {
+      ...text('archive-new-hint', 'custom', language === 'zh' ? '想重新体验故事？可以从头开始。' : language === 'ja' ? '物語を最初から楽しむこともできます。' : 'You can also enjoy the story from the beginning.', 8, 72, 56, 5, 18),
+      textColor: '#59637d', textAlign: 'left' as const,
+    },
   ].map((element) => {
     if (element.role === 'title') return { ...element, textColor: '#252a59', textAlign: 'left' };
     if (element.role === 'subtitle')
       return { ...element, textColor: '#68719a', fontWeight: 600, textAlign: 'left' };
-    const primary = element.role === 'new' || element.role === 'slotContinue';
+    if (element.kind !== 'button') return element;
+    const primary = element.role === 'slotContinue';
     return {
       ...element,
       primary,
-      fontSize: element.role === 'slot' ? 16 : 15,
+      fontSize: element.role === 'slot' ? 20 : 18,
       textColor: primary ? '#ffffff' : '#334155',
-      backgroundColor: primary ? '#625bf6' : '#ffffff',
-      borderColor: primary ? '#4f46c5' : 'rgba(15,23,42,0.28)',
+      backgroundColor: primary ? '#625bf6' : element.role === 'back' || element.role === 'new' ? '#eef2ff' : '#ffffff',
+      borderColor: primary ? '#4f46c5' : '#e0e5ef',
       borderWidth: primary ? 1.5 : 1,
-      borderRadius: element.role === 'back' ? 999 : 14,
+      borderRadius: 14,
       shadowColor: '#0f172a',
-      shadowOpacity: primary ? 18 : 12,
-      shadowBlur: primary ? 24 : 16,
-      shadowOffsetY: primary ? 8 : 6,
+      shadowOpacity: primary ? 14 : 4,
+      shadowBlur: primary ? 20 : 10,
+      shadowOffsetY: primary ? 6 : 2,
     };
   });
 };
@@ -201,56 +218,93 @@ export const buildRehearsalSettingsPageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const positions: Record<string, [number, number, number, number]> = {
-    mode: [8, 42, 26, 11],
-    speed: [8, 56, 26, 15],
-    textSize: [8, 74, 26, 15],
-    preview: [8, 91, 26, 8],
-    auto: [38, 42, 26, 11],
-    animationSpeed: [38, 56, 26, 15],
-    sound: [38, 74, 26, 11],
-    controls: [38, 88, 26, 8],
-    reset: [72, 88, 16, 8],
+    mode: [8, 33, 26, 10],
+    speed: [8, 45, 26, 14],
+    textSize: [8, 61, 26, 19],
+    preview: [8, 83, 56, 14],
+    auto: [38, 33, 26, 10],
+    animationSpeed: [38, 45, 26, 14],
+    sound: [38, 61, 26, 9],
+    controls: [38, 72, 26, 8],
+    reset: [72, 87, 16, 9],
   };
   return [
+    pagePanel('settings-panel'),
     text(
       'settings-title',
       'title',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText192'),
       8,
-      16,
+      8,
       48,
-      10,
-      42,
+      8,
+      40,
     ),
     button(
       'settings-back',
       'back',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText196'),
-      8,
-      29,
-      14,
+      54,
+      9,
+      10,
       7,
       choiceColor,
       choiceTextColor,
     ),
+    {
+      ...text('settings-intro', 'custom', language === 'zh' ? '按照你的节奏，享受这个故事。' : language === 'ja' ? '自分のペースで物語を楽しもう。' : 'Enjoy the story at your own pace.', 8, 18, 56, 5, 18),
+      textColor: '#59637d',
+      textAlign: 'left' as const,
+    },
+    ...(['reading', 'playback'] as const).map((group, index) => ({
+      ...text(`settings-${group}-heading`, 'custom', language === 'zh' ? (index === 0 ? '文字与阅读' : '声音与操作') : language === 'ja' ? (index === 0 ? '文字と読み方' : 'サウンドと操作') : (index === 0 ? 'Text & reading' : 'Audio & controls'), index === 0 ? 8 : 38, 26, 26, 5, 22),
+      textColor: '#252a59',
+      fontWeight: 700,
+      textAlign: 'left' as const,
+    })),
     ...playerControlCatalog(language).map(({ id, label, forms }) => ({
       ...button(`settings-${id}`, id, label, ...positions[id], choiceColor, choiceTextColor),
-      fontSize: id === 'reset' ? 13 : 15,
+      fontSize: id === 'reset' ? 16 : 20,
       textAlign: 'left' as const,
       textColor: id === 'reset' ? '#4f46e5' : '#334155',
       backgroundColor: id === 'reset' ? '#eef2ff' : '#ffffff',
-      borderColor: id === 'reset' ? '#c7d2fe' : 'rgba(15,23,42,0.28)',
+      borderColor: id === 'reset' ? '#c7d2fe' : '#e0e5ef',
       borderWidth: 1,
       borderRadius: id === 'reset' ? 12 : 14,
       shadowColor: '#0f172a',
-      shadowOpacity: id === 'reset' ? 10 : 12,
-      shadowBlur: id === 'reset' ? 14 : 16,
-      shadowOffsetY: id === 'reset' ? 4 : 6,
+      shadowOpacity: id === 'reset' ? 8 : 4,
+      shadowBlur: id === 'reset' ? 14 : 10,
+      shadowOffsetY: id === 'reset' ? 4 : 2,
       settingsControlForm: forms[0],
     })),
   ].map((element) =>
-    element.role === 'title' ? { ...element, textColor: '#252a59', textAlign: 'left' } : element,
+    element.role === 'title' ? { ...element, textColor: '#252a59', textAlign: 'left' } : element.role === 'back' ? { ...element, textColor: '#4338ca', backgroundColor: '#eef2ff', borderColor: '#c7d2fe', fontSize: 18, textAlign: 'center' } : element,
   );
+};
+
+/** Only upgrade the untouched default grid; authored layouts remain authoritative. */
+export const isPreviousRehearsalSettingsLayout = (elements: WebMenuElement[] | undefined) => {
+  const positions: Record<string, [number, number, number, number]> = {
+    title: [8, 16, 48, 10], back: [8, 29, 14, 7],
+    mode: [8, 42, 26, 11], speed: [8, 56, 26, 15], textSize: [8, 74, 26, 15],
+    preview: [8, 91, 26, 8], auto: [38, 42, 26, 11], animationSpeed: [38, 56, 26, 15],
+    sound: [38, 74, 26, 11], controls: [38, 88, 26, 8], reset: [72, 88, 16, 8],
+  };
+  return elements?.length === Object.keys(positions).length && Object.entries(positions).every(([role, [x, y, width, height]]) => {
+    const element = elements.find((item) => item.id === `settings-${role}`);
+    return element?.x === x && element.y === y && element.width === width && element.height === height;
+  });
+};
+
+export const isPreviousRehearsalArchiveLayout = (elements: WebMenuElement[] | undefined) => {
+  const positions: Record<string, [number, number, number, number]> = {
+    title: [8, 16, 30, 10], subtitle: [8, 28, 30, 5], back: [8, 35, 14, 7], slot: [8, 45, 30, 13],
+    'slot-continue': [8, 60, 20, 7], 'slot-delete': [30, 60, 8, 7], new: [8, 70, 30, 9],
+  };
+  return elements?.length === Object.keys(positions).length && Object.entries(positions).every(([role, [x, y, width, height]]) => {
+    const element = elements.find((item) => item.id === `archive-${role}`);
+    return element?.x === x && element.y === y && element.width === width && element.height === height;
+  });
 };
 
 import { arrangeToolbarRow } from './webToolbarLayout';
