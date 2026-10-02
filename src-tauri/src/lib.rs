@@ -16,6 +16,8 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
+mod mcp_server;
+
 #[cfg(target_os = "windows")]
 use windows::{
   core::PCWSTR,
@@ -1701,6 +1703,7 @@ pub fn run() {
     .manage(CloseButtonBehaviorState {
       minimize_on_close: Mutex::new(false),
     })
+    .manage(mcp_server::GalWriterMcpState::default())
     .manage(web_player_server_state)
     .invoke_handler(tauri::generate_handler![
       default_render_dir,
@@ -1726,7 +1729,9 @@ pub fn run() {
       write_render_audio_chunk,
       write_render_asset_chunk,
       finish_high_perf_render,
-      finish_render_session
+      finish_render_session,
+      mcp_server::update_galwriter_mcp_project,
+      mcp_server::get_galwriter_mcp_status
     ])
     .setup(move |app| {
       if cfg!(debug_assertions) {
@@ -1757,6 +1762,11 @@ pub fn run() {
         }
         #[cfg(not(target_os = "windows"))]
         return Err("The standalone web player is only available on Windows.".into());
+      }
+      if !is_web_player {
+        if let Err(error) = mcp_server::start_galwriter_mcp_server(&app.handle()) {
+          log::error!("Failed to start GalWriter MCP service: {error}");
+        }
       }
       Ok(())
     })

@@ -2419,6 +2419,11 @@ html.canvas-selection-dragging * {
   background: #4338ca;
 }
 
+.assistant-agent-connect-download {
+  margin-top: 10px;
+  text-decoration: none;
+}
+
 .assistant-agent-connect-status {
   display: flex;
   align-items: flex-start;

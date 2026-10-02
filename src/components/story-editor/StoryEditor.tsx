@@ -67,7 +67,7 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
-import { isTauriRuntime } from '../../lib/tauriRuntime';
+import { getTauriInvoke, isTauriRuntime } from '../../lib/tauriRuntime';
 import { htmlToSpeechText } from '../../lib/tts';
 import { getPlatformVoiceOptions, getPlatformVoicePlaceholder } from '../../lib/voiceCatalog';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
@@ -1096,7 +1096,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   }, [didHydrateLocalState, theme]);
 
   React.useEffect(() => {
-    if (!import.meta.env.DEV || isTauriRuntime() || !didHydrateLocalState) return;
+    if (!didHydrateLocalState) return;
 
     const omitMcpField = /(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob)/i;
     const sanitizeMcpValue = (value: unknown, depth = 0): unknown => {
@@ -1109,17 +1109,28 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           .map(([key, item]) => [key, sanitizeMcpValue(item, depth + 1)]),
       );
     };
-    const payload = JSON.stringify({
+    const projectPayload = {
       projectId: currentProjectId,
       projectTitle,
+      updatedAt: new Date().toISOString(),
       nodes: sanitizeMcpValue(nodes),
       edges: sanitizeMcpValue(edges),
-    });
+    };
     const timeout = window.setTimeout(() => {
+      if (isTauriRuntime()) {
+        void getTauriInvoke().then((invoke) => {
+          if (!invoke) return;
+          return invoke('update_galwriter_mcp_project', { project: projectPayload });
+        }).catch(() => {
+          // The desktop app remains usable if its local MCP bridge is unavailable.
+        });
+        return;
+      }
+      if (!import.meta.env.DEV) return;
       void fetch('/__galwriter/mcp/project-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: payload,
+        body: JSON.stringify(projectPayload),
       }).catch(() => {
         // The development MCP server can be absent while a static preview is open.
       });

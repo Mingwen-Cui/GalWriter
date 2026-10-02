@@ -49,7 +49,8 @@ import type {
   AssistantStoryOutline,
   AssistantTask,
 } from '../editor-state/editorConfig';
-import { getAppAssetUrl } from '../lib/appAssets';
+import { FULL_BUILD_DOWNLOAD_URL, getAppAssetUrl } from '../lib/appAssets';
+import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 import { assistantPanelCopy } from './i18n/assistant';
@@ -2534,7 +2535,15 @@ export function AssistantPanel({
                   onClick={async () => {
                     try {
                       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
-                      await navigator.clipboard.writeText(ui.agentConnectCopyPrompt);
+                      const developmentEndpoint = `${window.location.origin}/mcp`;
+                      const endpoint = isTauriRuntime()
+                        ? 'http://127.0.0.1:38941/mcp'
+                        : import.meta.env.DEV
+                          ? developmentEndpoint
+                          : 'http://127.0.0.1:38941/mcp';
+                      await navigator.clipboard.writeText(
+                        ui.agentConnectCopyPrompt.replace('http://127.0.0.1:38941/mcp', endpoint),
+                      );
                       setAgentConnectStatus(ui.agentConnectCopied);
                     } catch {
                       setAgentConnectStatus(ui.agentConnectCopyFailed);
@@ -2551,6 +2560,28 @@ export function AssistantPanel({
                   onClick={async () => {
                     setAgentConnectChecking(true);
                     try {
+                      if (!isTauriRuntime() && !import.meta.env.DEV) {
+                        setAgentConnectStatus(ui.agentConnectBrowserOnly);
+                        return;
+                      }
+                      if (isTauriRuntime()) {
+                        const invoke = await getTauriInvoke();
+                        if (!invoke) throw new Error('Desktop bridge unavailable');
+                        const status = await invoke('get_galwriter_mcp_status') as {
+                          serverAvailable: boolean;
+                          projectAvailable: boolean;
+                          projectTitle: string | null;
+                          nodeCount: number;
+                        };
+                        if (!status.serverAvailable) throw new Error('Desktop MCP server is unavailable');
+                        const toolNames = ['get_connection_status', 'get_current_project', 'list_project_cards'];
+                        setAgentConnectStatus(
+                          status.projectAvailable
+                            ? `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${status.projectTitle || ui.agentConnectUntitled} · ${status.nodeCount} ${ui.agentConnectCards}`
+                            : `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${ui.agentConnectProjectMissing}`,
+                        );
+                        return;
+                      }
                       const response = await fetch('/__galwriter/mcp/status', { cache: 'no-store' });
                       if (!response.ok) throw new Error('MCP server is unavailable');
                       const status = (await response.json()) as {
@@ -2620,6 +2651,17 @@ export function AssistantPanel({
                   {ui.agentConnectTestButton}
                 </button>
               </div>
+              {!isTauriRuntime() && !import.meta.env.DEV && (
+                <a
+                  className="assistant-agent-connect-action assistant-agent-connect-download"
+                  href={FULL_BUILD_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Download className="h-4 w-4" />
+                  {ui.agentConnectDownloadButton}
+                </a>
+              )}
               <p className="assistant-agent-connect-browser-note">{ui.agentConnectBrowserNote}</p>
               <div className="assistant-agent-connect-status" role="status">
                 <span className="assistant-agent-connect-status-dot" />
