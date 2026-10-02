@@ -184,7 +184,7 @@ export const useProjectSerialization = ({
           settingLibraryItems,
         });
 
-        if (exportedProject.canceled) return;
+        if (exportedProject.canceled) return { exported: false, canceled: true };
 
         if (exportedProject.filePath) {
           await onProjectFilePathSaved?.(exportedProject.filePath);
@@ -209,6 +209,7 @@ export const useProjectSerialization = ({
             ? `ZIP 备份已导出到：${savedLocation}`
             : `ZIP backup exported to: ${savedLocation}`,
         );
+        return { exported: true, filePath: exportedProject.filePath };
       } catch (error) {
         console.error('Export failed:', error);
         const message = error instanceof Error ? error.message : String(error);
@@ -222,6 +223,7 @@ export const useProjectSerialization = ({
           description: message,
           tone: 'warning',
         });
+        return { exported: false, error: message };
       }
     },
     [

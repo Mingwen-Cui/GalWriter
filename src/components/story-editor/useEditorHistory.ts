@@ -76,5 +76,26 @@ export function useEditorHistory({ edges, nodes, setEdges, setNodes }: UseEditor
     });
   }, [edges, nodes, setEdges, setNodes]);
 
-  return { history, setHistory, lastHistoryState, undo, redo };
+  const applyExternalChange = useCallback(
+    (nextNodes: Node[], nextEdges: Edge[]) => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      const before = { nodes, edges };
+      const after = { nodes: nextNodes, edges: nextEdges };
+      if (JSON.stringify(before) === JSON.stringify(after)) return false;
+      setHistory((currentHistory) => ({
+        past: [...currentHistory.past, before].slice(-50),
+        future: [],
+      }));
+      lastHistoryState.current = after;
+      setNodes(nextNodes);
+      setEdges(nextEdges);
+      return true;
+    },
+    [edges, nodes, setEdges, setNodes],
+  );
+
+  return { history, setHistory, lastHistoryState, undo, redo, applyExternalChange };
 }

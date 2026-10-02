@@ -2596,7 +2596,7 @@ export function AssistantPanel({
                           nodeCount: number;
                         };
                         if (!status.serverAvailable) throw new Error('Desktop MCP server is unavailable');
-                        const toolNames = ['get_connection_status', 'get_current_project', 'list_project_cards'];
+                        const toolNames = ['get_connection_status', 'get_current_project', 'list_project_cards', 'list_project_assets', 'update_story_node', 'update_project_node', 'set_story_text', 'set_story_presentation', 'create_story_node', 'create_character_node', 'create_scene_node', 'connect_story_nodes', 'disconnect_story_nodes', 'delete_story_node', 'move_story_node', 'set_story_media', 'clear_story_media', 'preview_story_changes', 'apply_story_changes', 'save_current_project', 'export_current_project'];
                         setAgentConnectStatus(
                           status.projectAvailable
                             ? `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${status.projectTitle || ui.agentConnectUntitled} · ${status.nodeCount} ${ui.agentConnectCards}`

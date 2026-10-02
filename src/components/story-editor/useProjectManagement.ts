@@ -934,6 +934,9 @@ export function useProjectManagement(params: UseProjectManagementParams) {
   const handleExportProjectFromList = useCallback(
     async (projectId: string) => {
       try {
+        if (projectId === currentProjectId && getProjectSnapshot() !== lastSavedSnapshot.current) {
+          if (!(await saveCurrentProject())) return;
+        }
         const project = await localPersistenceService.loadProject(projectId);
         if (!project) {
           showToast(language === 'zh' ? '找不到要导出的项目' : 'Project not found for export');
@@ -987,12 +990,15 @@ export function useProjectManagement(params: UseProjectManagementParams) {
         showToast(language === 'zh' ? '导出失败' : 'Export failed');
       }
     },
-    [currentProjectId, defaultProjectSaveDir, language, showToast],
+    [currentProjectId, defaultProjectSaveDir, getProjectSnapshot, language, lastSavedSnapshot, saveCurrentProject, showToast],
   );
 
   const handleExportProjectsBundleFromList = useCallback(
     async (projectIds: string[]) => {
       try {
+        if (currentProjectId && projectIds.includes(currentProjectId) && getProjectSnapshot() !== lastSavedSnapshot.current) {
+          if (!(await saveCurrentProject())) return;
+        }
         const serializer = createProjectSerializer({
           defaultEdgeOptions,
           defaultAIPrompts,
@@ -1053,7 +1059,7 @@ export function useProjectManagement(params: UseProjectManagementParams) {
         showToast(language === 'zh' ? '整合包导出失败' : 'Bundle export failed');
       }
     },
-    [defaultProjectSaveDir, language, showToast],
+    [currentProjectId, defaultProjectSaveDir, getProjectSnapshot, language, lastSavedSnapshot, saveCurrentProject, showToast],
   );
 
   // =========================================================================

@@ -55,6 +55,7 @@ import {
 } from '../lib/hostedProxy';
 import { Language, translations } from '../lib/i18n';
 import { isTauriRuntime } from '../lib/tauriRuntime';
+import { AgentConnectionContent } from '../editor-shell/AgentConnectionContent';
 import { aiSettingsCopy } from './i18n/ai-settings';
 
 type ProfileKind = 'text' | 'image' | 'voice';
@@ -2098,6 +2099,7 @@ export function AISettingsPanel({
   return (
     <>
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+        <AgentConnectionContent language={language} inline />
         {editorState ? (
           renderProfileForm()
         ) : (

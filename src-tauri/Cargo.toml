@@ -25,7 +25,7 @@ log = "0.4"
 tauri = { version = "2.11.0", features = [] }
 tauri-plugin-log = "2"
 axum = "0.8"
-rmcp = { version = "3.5.0", features = ["server", "macros", "transport-streamable-http-server"] }
+rmcp = { version = "3.5.0", features = ["server", "macros", "schemars", "transport-streamable-http-server"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync"] }
 
 [target.'cfg(windows)'.dependencies]

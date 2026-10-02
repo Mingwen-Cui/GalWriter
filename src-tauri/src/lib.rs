@@ -1731,7 +1731,8 @@ pub fn run() {
       finish_high_perf_render,
       finish_render_session,
       mcp_server::update_galwriter_mcp_project,
-      mcp_server::get_galwriter_mcp_status
+      mcp_server::get_galwriter_mcp_status,
+      mcp_server::resolve_galwriter_mcp_write
     ])
     .setup(move |app| {
       if cfg!(debug_assertions) {

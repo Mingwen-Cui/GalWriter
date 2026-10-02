@@ -129,6 +129,22 @@ import { useRegionAssistantContext } from './useRegionAssistantContext';
 import { useStoryNodeSpeechGeneration } from './useStoryNodeSpeechGeneration';
 import { useStoryPresentationBindings } from './useStoryPresentationBindings';
 import { syncCloseButtonBehavior } from './windowBehavior';
+import { applyMcpOperations, getMcpAssetCatalog } from './mcpEditorOperations';
+
+const sanitizeMcpSnapshotValue = (value: unknown, depth = 0): unknown => {
+  if (depth > 12) return '[truncated]';
+  if (typeof value === 'string') return value.length > 20_000 ? `${value.slice(0, 20_000)}…` : value;
+  if (Array.isArray(value)) return value.slice(0, 500).map((item) => sanitizeMcpSnapshotValue(item, depth + 1));
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !/(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob)/i.test(key))
+      .map(([key, item]) => [key, sanitizeMcpSnapshotValue(item, depth + 1)]),
+  );
+};
+
+const escapeMcpStoryText = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br>');
 
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
   const keyboardMouse = useKeyboardMouseSettings();
@@ -700,12 +716,33 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     );
 
   // NOTE: 当全局标题显示状态切换时，自动调整带有媒体的卡片高度
-  const { history, setHistory, lastHistoryState, undo, redo } = useEditorHistory({
+  const { history, setHistory, lastHistoryState, undo, redo, applyExternalChange } = useEditorHistory({
     edges,
     nodes,
     setEdges,
     setNodes,
   });
+  const mcpNodesRef = useRef(nodes);
+  const mcpEdgesRef = useRef(edges);
+  const mcpProjectIdRef = useRef(currentProjectId);
+  const mcpProjectTitleRef = useRef(projectTitle);
+  const mcpApplyExternalChangeRef = useRef(applyExternalChange);
+  const mcpWriteConfirmationRef = useRef<{
+    requestId: string;
+    projectId: string | null;
+    result: Record<string, unknown>;
+    nodes: Node[];
+    edges: Edge[];
+  } | null>(null);
+  const mcpProjectActionsRef = useRef<{
+    save: () => Promise<boolean>;
+    export: () => Promise<{ exported: boolean; canceled?: boolean; filePath?: string; error?: string }>;
+  } | null>(null);
+  mcpNodesRef.current = nodes;
+  mcpEdgesRef.current = edges;
+  mcpProjectIdRef.current = currentProjectId;
+  mcpProjectTitleRef.current = projectTitle;
+  mcpApplyExternalChangeRef.current = applyExternalChange;
   const [didHydrateLocalState, setDidHydrateLocalState] = useState(false);
   // NOTE: ollama 和 hosted 均不需要用户填写 API Key，故不触发警告
   const missingTextApiKey =
@@ -1115,6 +1152,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       updatedAt: new Date().toISOString(),
       nodes: sanitizeMcpValue(nodes),
       edges: sanitizeMcpValue(edges),
+      assetCatalog: getMcpAssetCatalog(nodes),
     };
     const timeout = window.setTimeout(() => {
       if (isTauriRuntime()) {
@@ -1138,6 +1176,176 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
 
     return () => window.clearTimeout(timeout);
   }, [currentProjectId, didHydrateLocalState, edges, nodes, projectTitle]);
+
+  React.useEffect(() => {
+    const pending = mcpWriteConfirmationRef.current;
+    if (!pending) return;
+    if (pending.projectId !== currentProjectId) {
+      mcpWriteConfirmationRef.current = null;
+      void getTauriInvoke()
+        .then((invoke) => invoke?.('resolve_galwriter_mcp_write', {
+          requestId: pending.requestId,
+          error: 'The active project changed before the editor confirmed the MCP write.',
+        }))
+        .catch((error) => console.error('Failed to reject stale GalWriter MCP write:', error));
+      return;
+    }
+    if (pending.nodes !== nodes || pending.edges !== edges) return;
+    mcpWriteConfirmationRef.current = null;
+
+    void getTauriInvoke()
+      .then((invoke) => invoke?.('resolve_galwriter_mcp_write', {
+        requestId: pending.requestId,
+        result: pending.result,
+        project: {
+          projectId: currentProjectId,
+          projectTitle,
+          updatedAt: new Date().toISOString(),
+          nodes: sanitizeMcpSnapshotValue(nodes),
+          edges: sanitizeMcpSnapshotValue(edges),
+          assetCatalog: getMcpAssetCatalog(nodes),
+        },
+      }))
+      .catch((error) => console.error('Failed to confirm GalWriter MCP write:', error));
+  }, [currentProjectId, edges, nodes, projectTitle]);
+
+  React.useEffect(() => {
+    if (!didHydrateLocalState || !isTauriRuntime()) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void import('@tauri-apps/api/event')
+      .then(({ listen }) => listen<{
+        requestId: string;
+        operation: string;
+        projectId: string | null;
+        input: Record<string, unknown>;
+      }>('galwriter-mcp-write-request', async ({ payload }) => {
+        const resolveFailure = async (message: string) => {
+          const invoke = await getTauriInvoke();
+          await invoke?.('resolve_galwriter_mcp_write', { requestId: payload.requestId, error: message });
+        };
+        const resolveSuccess = async (result: Record<string, unknown>, includeSnapshot = false) => {
+          const invoke = await getTauriInvoke();
+          await invoke?.('resolve_galwriter_mcp_write', {
+            requestId: payload.requestId,
+            result,
+            ...(includeSnapshot ? { project: {
+              projectId: mcpProjectIdRef.current,
+              projectTitle: mcpProjectTitleRef.current,
+              updatedAt: new Date().toISOString(),
+              nodes: sanitizeMcpSnapshotValue(mcpNodesRef.current),
+              edges: sanitizeMcpSnapshotValue(mcpEdgesRef.current),
+              assetCatalog: getMcpAssetCatalog(mcpNodesRef.current),
+            } } : {}),
+          });
+        };
+
+        try {
+          if (payload.projectId !== currentProjectId) {
+            throw new Error('The active project changed before the MCP write could be applied.');
+          }
+
+          if (payload.operation === 'save_current_project') {
+            const actions = mcpProjectActionsRef.current;
+            if (!actions || !(await actions.save())) throw new Error('The editor could not save the current project.');
+            await resolveSuccess({ saved: true, destination: 'local-project-storage' }, true);
+            return;
+          }
+          if (payload.operation === 'export_current_project') {
+            const outcome = await mcpProjectActionsRef.current?.export();
+            if (!outcome) throw new Error('The editor export action is unavailable.');
+            if (outcome.error) throw new Error(outcome.error);
+            await resolveSuccess(outcome.exported
+              ? { exported: true, filePath: outcome.filePath || null }
+              : { exported: false, canceled: Boolean(outcome.canceled) });
+            return;
+          }
+
+          if (payload.operation === 'list_project_assets') {
+            await resolveSuccess({ assets: getMcpAssetCatalog(mcpNodesRef.current) });
+            return;
+          }
+
+          let operations: Array<Record<string, unknown>>;
+          const simpleMap: Record<string, string> = {
+            update_story_node: 'update_story_node',
+            update_project_node: 'update_node',
+            create_story_node: 'create_story_node',
+            create_character_node: 'create_character_node',
+            create_scene_node: 'create_scene_node',
+            connect_story_nodes: 'connect_story_nodes',
+            delete_story_node: 'delete_story_node',
+            move_story_node: 'move_node',
+            disconnect_story_nodes: 'disconnect_story_nodes',
+            set_story_media: 'set_media',
+            clear_story_media: 'clear_media',
+          };
+          if (payload.operation === 'preview_story_changes' || payload.operation === 'apply_story_changes') {
+            if (!Array.isArray(payload.input.operations)) throw new Error('operations must be an array.');
+            operations = payload.input.operations as Array<Record<string, unknown>>;
+            operations.forEach((operation, index) => {
+              if (['create_story_node', 'create_character_node', 'create_scene_node'].includes(String(operation.type)) && (typeof operation.node_id !== 'string' || !operation.node_id.trim())) {
+                throw new Error(`operations[${index}].node_id is required for batch creates so preview and apply use the same node IDs.`);
+              }
+            });
+          } else if (payload.operation === 'set_story_text') {
+            operations = [{ type: 'set_text_segments', ...payload.input }];
+          } else if (payload.operation === 'set_story_presentation') {
+            operations = [{ type: 'set_presentation', ...payload.input }];
+          } else {
+            const operationType = simpleMap[payload.operation];
+            if (!operationType) throw new Error(`Unsupported MCP write operation: ${payload.operation}`);
+            operations = [{ type: operationType, ...payload.input }];
+          }
+
+          const change = applyMcpOperations(
+            mcpNodesRef.current,
+            mcpEdgesRef.current,
+            operations,
+            { type: defaultEdgeOptions.type, markerEnd: defaultEdgeOptions.markerEnd, style: defaultEdgeOptions.style },
+          );
+          const isPreview = payload.operation === 'preview_story_changes';
+          const result = { ...(isPreview ? { previewOnly: true } : { applied: true }), ...change.summary };
+          if (isPreview) {
+            await resolveSuccess(result);
+            return;
+          }
+          if (!change.changed) {
+            await resolveSuccess({ ...result, applied: false, reason: 'No project changes were needed.' }, true);
+            return;
+          }
+          if (!mcpApplyExternalChangeRef.current(change.nodes, change.edges)) {
+            await resolveSuccess({ ...result, applied: false, reason: 'No project changes were needed.' }, true);
+            return;
+          }
+          mcpWriteConfirmationRef.current = {
+            requestId: payload.requestId,
+            projectId: currentProjectId,
+            result,
+            nodes: change.nodes,
+            edges: change.edges,
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          try {
+            await resolveFailure(message);
+          } catch (resolveError) {
+            console.error('Failed to reject GalWriter MCP write:', resolveError);
+          }
+        }
+      }))
+      .then((cleanup) => {
+        if (cancelled) cleanup();
+        else unlisten = cleanup;
+      })
+      .catch((error) => console.error('Failed to listen for GalWriter MCP writes:', error));
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [currentProjectId, defaultEdgeOptions.markerEnd, defaultEdgeOptions.style, defaultEdgeOptions.type, didHydrateLocalState, projectTitle]);
 
   const effectiveAccentColor = useMemo(
     () => resolveAccentColor(accentColor, resolvedTheme),
@@ -2411,6 +2619,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setDidHydrateLocalState,
     showToast,
   });
+  mcpProjectActionsRef.current = { save: saveCurrentProject, export: confirmExportJSON };
 
   useEditorKeyboardShortcuts({
     deleteSelected,
