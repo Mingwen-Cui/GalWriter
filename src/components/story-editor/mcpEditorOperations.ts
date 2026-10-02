@@ -521,6 +521,79 @@ export const applyMcpOperations = (
       continue;
     }
 
+    if (operation.type === 'import_project_node_image') {
+      if (typeof nodeId !== 'string' || typeof operation.asset_type !== 'string' || typeof operation.image_data !== 'string') {
+        throw new Error('node_id, asset_type, and image_data are required.');
+      }
+      const target = nextNodes.find((node) => node.id === nodeId);
+      if (!target || (target.type !== 'characterNode' && target.type !== 'sceneNode')) {
+        throw new Error(`Node '${nodeId}' is not an existing character or scene card.`);
+      }
+      const assetType = operation.asset_type;
+      const fieldByType: Record<string, string> = target.type === 'characterNode'
+        ? { portrait: 'avatarUrl', 'three-view': 'threeViewUrl', 'tag-sprite': 'tagSpriteUrl' }
+        : { background: 'coverImageUrl' };
+      const field = fieldByType[assetType];
+      if (!field) throw new Error(`asset_type '${assetType}' is not supported for this card.`);
+
+      let imageData = operation.image_data.trim();
+      let mimeType = typeof operation.mime_type === 'string' ? operation.mime_type.toLowerCase() : 'image/png';
+      const dataUrlMatch = imageData.match(/^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=\s]+)$/i);
+      if (dataUrlMatch) {
+        mimeType = dataUrlMatch[1].toLowerCase();
+        imageData = dataUrlMatch[2];
+      }
+      imageData = imageData.replace(/\s/g, '');
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
+        throw new Error('mime_type must be image/png, image/jpeg, or image/webp.');
+      }
+      if (!imageData || imageData.length > 11_184_812 || imageData.length % 4 !== 0 || !/^[a-z0-9+/]+={0,2}$/i.test(imageData)) {
+        throw new Error('image_data must be valid base64 and no larger than 8 MB decoded.');
+      }
+      let decodedSize = 0;
+      let decodedImage = '';
+      try {
+        decodedImage = atob(imageData);
+        decodedSize = decodedImage.length;
+      } catch {
+        throw new Error('image_data is not valid base64.');
+      }
+      if (decodedSize === 0 || decodedSize > 8 * 1024 * 1024) {
+        throw new Error('Generated image must be between 1 byte and 8 MB.');
+      }
+      const hasBytes = (...bytes: number[]) => bytes.every((byte, index) => decodedImage.charCodeAt(index) === byte);
+      const hasImageSignature = mimeType === 'image/png'
+        ? hasBytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+        : mimeType === 'image/jpeg'
+          ? hasBytes(0xff, 0xd8, 0xff)
+          : decodedImage.length >= 12 && decodedImage.slice(0, 4) === 'RIFF' && decodedImage.slice(8, 12) === 'WEBP';
+      if (!hasImageSignature) throw new Error(`image_data contents do not match ${mimeType}.`);
+
+      const dataUrl = `data:${mimeType};base64,${imageData}`;
+      nextNodes = nextNodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        const data = { ...node.data } as Record<string, unknown>;
+        if (target.type === 'sceneNode') {
+          const images = Array.isArray(data.images) ? [...data.images as Array<Record<string, unknown>>] : [];
+          const oldCover = typeof data.coverImageUrl === 'string' ? data.coverImageUrl : '';
+          if (oldCover && oldCover !== dataUrl && !images.some((image) => image.imageUrl === oldCover)) {
+            images.unshift({
+              id: uuidv4(),
+              name: language === 'zh' ? '上一张场景图片' : language === 'ja' ? '前のシーン画像' : 'Previous Scene Image',
+              imageUrl: oldCover,
+            });
+          }
+          data.images = images;
+        }
+        data[field] = dataUrl;
+        data.generatedSettingImageId = undefined;
+        return { ...node, data };
+      });
+      changes.push({ type: operation.type, nodeId, assetType, field, mimeType, bytes: decodedSize });
+      changedCount += 1;
+      continue;
+    }
+
     if (operation.type === 'clear_media') {
       if (typeof nodeId !== 'string' || typeof operation.field !== 'string') throw new Error('node_id and field must be strings.');
       const target = nextNodes.find((node) => node.id === nodeId);

@@ -59,6 +59,9 @@ interface AssistantPanelProps {
   mcpConnected: boolean;
   showMcpConnectionIndicator: boolean;
   onShowMcpConnectionIndicatorChange: (checked: boolean) => void;
+  agentConnectionOpen: boolean;
+  setAgentConnectionOpen: Dispatch<SetStateAction<boolean>>;
+  onMcpConnectionReadyToAnimate: () => void;
   assistantOpen: boolean;
   isMobile: boolean;
   assistantPanelWidth: number;
@@ -569,6 +572,9 @@ export function AssistantPanel({
   mcpConnected,
   showMcpConnectionIndicator,
   onShowMcpConnectionIndicatorChange,
+  agentConnectionOpen,
+  setAgentConnectionOpen,
+  onMcpConnectionReadyToAnimate,
   assistantOpen,
   isMobile,
   assistantPanelWidth,
@@ -640,7 +646,7 @@ export function AssistantPanel({
     () => new Set(),
   );
   const [documentDragActive, setDocumentDragActive] = useState(false);
-  const [agentConnectionOpen, setAgentConnectionOpen] = useState(false);
+  const agentConnectionDialogOpenedRef = useRef(false);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
   const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
   const [welcomeGradientState, setWelcomeGradientState] = useState<
@@ -677,6 +683,21 @@ export function AssistantPanel({
   const composerInputContexts = assistantInputContexts.filter(
     (context) => context.source !== 'selection',
   );
+
+  useEffect(() => {
+    if (agentConnectionOpen) {
+      agentConnectionDialogOpenedRef.current = true;
+      return;
+    }
+    if (!agentConnectionDialogOpenedRef.current || !mcpConnected) return;
+    agentConnectionDialogOpenedRef.current = false;
+    if (showMcpConnectionIndicator) onMcpConnectionReadyToAnimate();
+  }, [
+    agentConnectionOpen,
+    mcpConnected,
+    onMcpConnectionReadyToAnimate,
+    showMcpConnectionIndicator,
+  ]);
   useEffect(() => {
     if (closeAnimationTimerRef.current) {
       window.clearTimeout(closeAnimationTimerRef.current);

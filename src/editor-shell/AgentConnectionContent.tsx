@@ -53,6 +53,25 @@ export function AgentConnectionContent({
         {!inline && <h2 id={titleId}>{ui.agentConnectDialogTitle}</h2>}
         <p>{isTauriRuntime() ? ui.agentConnectDesktopDescription : ui.agentConnectDialogDescription}</p>
       </div>
+      {!inline && (
+        <div className="assistant-agent-connect-overview">
+          <img
+            className="assistant-agent-connect-overview-image"
+            src="/assistant/agent-connect-overview.png"
+            alt={ui.agentConnectOverviewAlt}
+          />
+          <div className="assistant-agent-connect-overview-copy">
+            <div>
+              <strong>{ui.agentConnectAssistantTitle}</strong>
+              <span>{ui.agentConnectAssistantDescription}</span>
+            </div>
+            <div>
+              <strong>{ui.agentConnectMcpTitle}</strong>
+              <span>{ui.agentConnectMcpDescription}</span>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={`assistant-agent-connect-actions${inline ? ' assistant-agent-connect-inline-actions' : ''}`}>
         {!isTauriRuntime() && !import.meta.env.DEV && (
           <div className="assistant-agent-connect-step">

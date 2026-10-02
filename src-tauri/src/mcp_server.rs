@@ -10,7 +10,7 @@ use std::{
 
 use axum::{
   body::Body,
-  extract::Request,
+  extract::{DefaultBodyLimit, Request},
   http::{header::HOST, StatusCode},
   middleware::{self, Next},
   response::Response,
@@ -32,6 +32,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 const MCP_BIND_ADDRESS: &str = "127.0.0.1:38941";
 const MCP_ENDPOINT: &str = "http://127.0.0.1:38941/mcp";
 const MAX_PROJECT_STATE_BYTES: usize = 20 * 1024 * 1024;
+const MAX_IMPORTED_IMAGE_BASE64_CHARS: usize = 11_184_812;
 static NEXT_WRITE_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Default, Clone)]
@@ -219,7 +220,7 @@ impl GalWriterMcpServer {
       return Err(McpError::internal_error(format!("Could not deliver write request to the editor: {error}"), None));
     }
 
-    let timeout = std::time::Duration::from_secs(if matches!(operation, "generate_project_node_image" | "capture_playtest_screen" | "capture_editor_canvas") { 180 } else { 20 });
+    let timeout = std::time::Duration::from_secs(if matches!(operation, "generate_project_node_image" | "capture_playtest_screen" | "capture_editor_canvas") { 180 } else if operation == "import_project_node_image" { 60 } else { 20 });
     match tokio::time::timeout(timeout, receiver).await {
       Ok(Ok(Ok(result))) => {
         *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) = Some(timestamp_now());
@@ -386,14 +387,14 @@ impl GalWriterMcpServer {
     ]))
   }
 
-  #[tool(description = "Update the title and/or body text of an existing story card. Only title and text fields can be changed. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  #[tool(description = "Update the title and/or body text of an existing story card. Only title and text fields can be changed. For MCP-written story text, keep each card to about 3 visible lines and never more than 5; split further developments into following cards. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
   async fn update_story_node(&self, Parameters(input): Parameters<UpdateStoryNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("update_story_node", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Create a story card at a rough canvas anchor. Optional layout_direction ('up', 'down', 'left', 'right') sets the story-flow direction. In a multi-card apply_story_changes batch, the editor positions story, character, and scene cards into type groups, adds fitting background cards, and computes connection handles from final geometry. Use capture_editor_canvas to inspect the user's viewport and move_story_node to refine placement. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "Create a story card at a rough canvas anchor. Keep MCP-generated story text to about 3 visible lines per card and never more than 5; split further developments into following cards. Optional layout_direction ('up', 'down', 'left', 'right') sets the story-flow direction. In a multi-card apply_story_changes batch, the editor positions story, character, and scene cards into type groups, adds fitting background cards, and computes connection handles from final geometry. Use capture_editor_canvas to inspect the user's viewport and move_story_node to refine placement. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
   async fn create_story_node(&self, Parameters(input): Parameters<CreateStoryNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("create_story_node", input).await?;
@@ -505,10 +506,20 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Generate one image with the Image AI profile already configured in the open editor, then attach it to the specified character or scene card. asset_type must be portrait, three-view, tag-sprite, or background. API credentials stay in the editor and are never part of this tool input or result.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = true))]
+  #[tool(description = "Generate one image with the Image AI profile already configured in the open editor, then attach it to the specified character or scene card. asset_type must be portrait, three-view, tag-sprite, or background. API credentials stay in the editor and are never part of this tool input or result. If the API fails, the tool returns the HTTP status and error; do not retry a 403, ask the user once for permission to use the assistant's image generator, then use import_project_node_image only after approval.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = true))]
   async fn generate_project_node_image(&self, Parameters(input): Parameters<GenerateProjectNodeImageInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("generate_project_node_image", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Import an image created by the assistant after the user approves the fallback, then attach it directly to an existing character or scene card. image_data accepts a base64 data URL or base64 payload; supported types are PNG, JPEG, and WebP, with an 8 MB decoded limit. Use this only after generate_project_node_image returns HTTP 403 and the user approves assistant-generated fallback.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  async fn import_project_node_image(&self, Parameters(input): Parameters<ImportProjectNodeImageInput>) -> Result<CallToolResult, McpError> {
+    if input.image_data.len() > MAX_IMPORTED_IMAGE_BASE64_CHARS + 128 {
+      return Err(McpError::invalid_params("Generated image exceeds the 8 MB limit.".to_string(), None));
+    }
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("import_project_node_image", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
@@ -519,7 +530,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Apply a validated list of supported story and setting-card edits as one undoable change. Optional layout_direction ('up', 'down', 'left', 'right') controls the story-flow layout for newly created cards. Multi-card creation groups story, character, and scene cards and creates fitting background regions. Apply clearly requested routine edits directly; use preview_story_changes for large or ambiguous batches where a review would help.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  #[tool(description = "Apply a validated list of supported story and setting-card edits as one undoable change. Keep MCP-generated story text to about 3 visible lines per card and never more than 5; give each card one readable beat and move extra details to following cards. Optional layout_direction ('up', 'down', 'left', 'right') controls the story-flow layout for newly created cards. Multi-card creation groups story, character, and scene cards and creates fitting background regions. Apply clearly requested routine edits directly; use preview_story_changes for large or ambiguous batches where a review would help.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
   async fn apply_story_changes(&self, Parameters(input): Parameters<StoryChangesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("apply_story_changes", input).await?;
@@ -539,7 +550,7 @@ impl GalWriterMcpServer {
   }
 }
 
-#[tool_handler(name = "galwriter", version = "1.5.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Read the current GalWriter desktop project before editing. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation.")]
+  #[tool_handler(name = "galwriter", version = "1.6.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Image fallback: if generate_project_node_image returns HTTP 403, explain the configured image API denied access and ask once whether the user permits the assistant's own image generator. Do not generate a fallback before approval. If approved, generate from the target card's setting and call import_project_node_image with the same node ID and asset type; report insertion only after it succeeds. Read the current GalWriter desktop project before editing. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation.")]
 impl ServerHandler for GalWriterMcpServer {}
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -656,6 +667,15 @@ struct GenerateProjectNodeImageInput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct ImportProjectNodeImageInput {
+  node_id: String,
+  asset_type: ProjectImageAssetType,
+  /// Base64 image payload or a base64 data URL returned by the assistant's image generator.
+  image_data: String,
+  mime_type: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct SetStoryTextInput {
   node_id: String,
   segments: Vec<StoryTextSegment>,
@@ -761,6 +781,7 @@ pub fn start_galwriter_mcp_server(app: &AppHandle) -> Result<(), String> {
   );
   let router = Router::new()
     .nest_service("/mcp", mcp_service)
+    .layer(DefaultBodyLimit::max(12 * 1024 * 1024))
     .layer(middleware::from_fn(restrict_to_loopback_host));
   let app_state = app.state::<GalWriterMcpState>().inner().clone();
 

@@ -149,6 +149,8 @@ const escapeMcpStoryText = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br>');
 
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
+  const [agentConnectionOpen, setAgentConnectionOpen] = useState(false);
+  const [mcpConnectionAnimationToken, setMcpConnectionAnimationToken] = useState(0);
   const [mcpConnected, setMcpConnected] = useState(false);
   const [showMcpConnectionIndicator, setShowMcpConnectionIndicator] = useState(() => {
     try {
@@ -797,6 +799,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     nodeId: string,
     type: 'character' | 'scene',
     assetType: 'portrait' | 'three-view' | 'tag-sprite' | 'background',
+    propagateError?: boolean,
   ) => Promise<boolean>) | null>(null);
   const mcpPlaytestActionsRef = useRef<{
     open: (mode: 'fullscreen' | 'windowed') => void;
@@ -1405,6 +1408,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
               nodeId,
               node.type === 'characterNode' ? 'character' : 'scene',
               assetType as 'portrait' | 'three-view' | 'tag-sprite' | 'background',
+              true,
             );
             if (!generated) {
               throw new Error('Image generation did not complete. Check the Image AI API configuration and card settings, then try again.');
@@ -1436,6 +1440,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             disconnect_story_nodes: 'disconnect_story_nodes',
             set_story_media: 'set_media',
             clear_story_media: 'clear_media',
+            import_project_node_image: 'import_project_node_image',
           };
           if (payload.operation === 'preview_story_changes' || payload.operation === 'apply_story_changes') {
             if (!Array.isArray(payload.input.operations)) throw new Error('operations must be an array.');
@@ -2776,8 +2781,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setDidHydrateLocalState,
     showToast,
   });
-  mcpGenerateSettingImageRef.current = (nodeId, type, assetType) =>
-    handleGenerateSettingNodeImage(nodeId, type, undefined, assetType);
+  mcpGenerateSettingImageRef.current = (nodeId, type, assetType, propagateError) =>
+    handleGenerateSettingNodeImage(nodeId, type, undefined, assetType, propagateError);
   mcpPlaytestActionsRef.current = {
     open: (mode) => {
       setSettingsPlaytestWindowSession('none');
@@ -3389,6 +3394,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             language={language}
             mcpConnected={mcpConnected}
             showMcpConnectionIndicator={showMcpConnectionIndicator}
+            mcpConnectionDialogOpen={agentConnectionOpen}
+            mcpConnectionAnimationToken={mcpConnectionAnimationToken}
             assistantOpen={assistantOpen}
             assistantPanelWidth={assistantPanelWidth}
             assistantResizing={assistantResizing}
@@ -3563,6 +3570,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           mcpConnected={mcpConnected}
           showMcpConnectionIndicator={showMcpConnectionIndicator}
           onShowMcpConnectionIndicatorChange={handleShowMcpConnectionIndicator}
+          agentConnectionOpen={agentConnectionOpen}
+          setAgentConnectionOpen={setAgentConnectionOpen}
+          onMcpConnectionReadyToAnimate={() => setMcpConnectionAnimationToken((token) => token + 1)}
           assistantOpen={assistantOpen}
           isMobile={isMobile}
           assistantPanelWidth={assistantPanelWidth}

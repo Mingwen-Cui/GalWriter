@@ -11,6 +11,8 @@ import { getSideToolbarStrings } from './i18n/side-toolbar';
 interface EditorRightToolbarProps {
   mcpConnected: boolean;
   showMcpConnectionIndicator: boolean;
+  mcpConnectionDialogOpen: boolean;
+  mcpConnectionAnimationToken: number;
   isMobile: boolean;
   language: Language;
   assistantOpen: boolean;
@@ -48,6 +50,8 @@ interface EditorRightToolbarProps {
 export function EditorRightToolbar({
   mcpConnected,
   showMcpConnectionIndicator,
+  mcpConnectionDialogOpen,
+  mcpConnectionAnimationToken,
   isMobile,
   language,
   assistantOpen,
@@ -85,8 +89,20 @@ export function EditorRightToolbar({
   const titleMenuRef = useRef<HTMLDivElement | null>(null);
   const titleMenuCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTitleMenu, setShowTitleMenu] = useState(false);
+  const [isMcpConnectionAnimating, setIsMcpConnectionAnimating] = useState(false);
+  const lastMcpConnectionAnimationTokenRef = useRef(mcpConnectionAnimationToken);
   const [titleMenuPosition, setTitleMenuPosition] = useState({ left: 0, top: 0 });
   const [hoveredTitleMenuItemId, setHoveredTitleMenuItemId] = useState<string | null>(null);
+  const mcpAssistantActive =
+    mcpConnected && showMcpConnectionIndicator && !mcpConnectionDialogOpen;
+
+  useEffect(() => {
+    if (mcpConnectionAnimationToken === lastMcpConnectionAnimationTokenRef.current) return;
+    lastMcpConnectionAnimationTokenRef.current = mcpConnectionAnimationToken;
+    setIsMcpConnectionAnimating(true);
+    const timer = window.setTimeout(() => setIsMcpConnectionAnimating(false), 850);
+    return () => window.clearTimeout(timer);
+  }, [mcpConnectionAnimationToken]);
 
   const cancelTitleMenuClose = () => {
     if (titleMenuCloseTimerRef.current !== null) {
@@ -188,20 +204,23 @@ export function EditorRightToolbar({
     >
       <button
         onClick={() => setAssistantOpen((open) => !open)}
-        className={`glass-toolbar-ai shrink-0 rounded-xl transition-colors ${
+        className={`glass-toolbar-ai relative shrink-0 rounded-xl transition-colors ${
+          isMcpConnectionAnimating ? 'mcp-connection-just-completed' : ''
+        } ${
           toolbarLayout === 'horizontal' ? 'mx-1.5 my-auto h-10 w-10' : 'mx-auto my-1.5 h-10 w-10'
         } ${
           assistantOpen
             ? 'glass-toolbar-active bg-indigo-600 text-white shadow-sm'
             : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
         } flex items-center justify-center`}
-        title={mcpConnected && showMcpConnectionIndicator
+        title={mcpAssistantActive
           ? language === 'zh' ? 'MCP 助手' : language === 'ja' ? 'MCP アシスタント' : 'MCP Assistant'
           : language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'}
       >
-        {mcpConnected && showMcpConnectionIndicator
+        {mcpAssistantActive
           ? <Network className="h-5 w-5" />
           : <Bot className="h-5 w-5" />}
+        {mcpAssistantActive && <span className="mcp-assistant-connected-dot" aria-hidden="true" />}
         {renderToolbarLabel(sideToolbarStrings.assistant)}
       </button>
 
