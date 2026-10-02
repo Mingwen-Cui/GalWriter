@@ -35,6 +35,7 @@ export const aiSettingsEn = {
   text48: 'Unsaved profile',
   text49: 'Delete',
   text50: 'AI Provider Profiles',
+  mcpConnectionTitle: 'Connect to MCP',
   text51: 'Got it',
   text52: 'New Profile',
   text53: 'No saved profiles yet',

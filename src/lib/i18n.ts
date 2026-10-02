@@ -82,8 +82,6 @@ export const translations = {
     contactTitle: '联系作者',
     contactDesc: '如果您在使用过程中遇到任何问题或建议，欢迎通过以下方式联系我：',
     author: '作者',
-    apiKeyLocalOnly: '所有 API Key 均保存在您的本地设备中，不会上传至任何服务器。',
-
     // MiniMap
     showMiniMap: '显示小地图 (预览窗)',
     showControls: '显示缩放控制按钮',
@@ -118,6 +116,8 @@ export const translations = {
     includeSettingLibraryDesc:
       '勾选后会把已保存的人物、场景设定及其图片写入 ZIP；重新导入时会合并回设定库。',
     confirmSave: '导出 ZIP',
+    projectBackupExported: 'ZIP 备份已导出到：{location}',
+    projectExportFailed: '导出失败',
 
     // Guide
     guideTestTitle: '项目测试与保存',
@@ -254,9 +254,6 @@ export const translations = {
     contactTitle: 'Contact Author',
     contactDesc: 'If you encounter any issues or have suggestions, feel free to contact me via:',
     author: 'Author',
-    apiKeyLocalOnly:
-      'All API keys are stored locally on your device and are never uploaded to any server.',
-
     // MiniMap
     showMiniMap: 'Show MiniMap',
     showControls: 'Show Zoom Controls',
@@ -292,6 +289,8 @@ export const translations = {
     includeSettingLibraryDesc:
       'Includes saved character and scene settings with their images. They are merged into the setting library when imported.',
     confirmSave: 'Export ZIP',
+    projectBackupExported: 'ZIP backup exported to: {location}',
+    projectExportFailed: 'Export failed',
 
     // Guide
     guideTestTitle: 'Test & Save',
@@ -424,9 +423,6 @@ export const translations = {
     contactTitle: '開発者に連絡',
     contactDesc: '問題が発生した場合や提案がある場合は、お気軽にご連絡ください：',
     author: '開発者',
-    apiKeyLocalOnly:
-      'すべての API キーはお使いのデバイスにローカル保存され、サーバーにはアップロードされません。',
-
     // MiniMap
     showMiniMap: 'ミニマップを表示',
     showControls: 'ズームコントロールを表示',
@@ -462,6 +458,8 @@ export const translations = {
     includeSettingLibraryDesc:
       '保存済みの人物・シーン設定と画像をZIPに含めます。インポート時には設定ライブラリーへ統合されます。',
     confirmSave: 'ZIPをエクスポート',
+    projectBackupExported: 'ZIPバックアップを書き出しました：{location}',
+    projectExportFailed: 'エクスポートに失敗しました',
 
     // Guide
     guideTestTitle: 'テストと保存',

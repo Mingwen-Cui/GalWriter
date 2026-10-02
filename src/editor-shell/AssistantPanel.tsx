@@ -1,9 +1,7 @@
 import {
-  Bot,
   BrainCircuit,
   CheckCircle2,
   ChevronDown,
-  Copy,
   Download,
   FilePlus2,
   FileText,
@@ -49,11 +47,12 @@ import type {
   AssistantStoryOutline,
   AssistantTask,
 } from '../editor-state/editorConfig';
-import { FULL_BUILD_DOWNLOAD_URL, getAppAssetUrl } from '../lib/appAssets';
-import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
+import { getAppAssetUrl } from '../lib/appAssets';
+import { isTauriRuntime } from '../lib/tauriRuntime';
 import type { AssistantDocument } from '../lib/documentReader';
 import type { Language } from '../lib/i18n';
 import { assistantPanelCopy } from './i18n/assistant';
+import { AgentConnectionContent } from './AgentConnectionContent';
 import { AssistantStoryOutlineFlow } from './AssistantStoryOutlineFlow';
 
 interface AssistantPanelProps {
@@ -636,8 +635,6 @@ export function AssistantPanel({
   );
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [agentConnectionOpen, setAgentConnectionOpen] = useState(false);
-  const [agentConnectStatus, setAgentConnectStatus] = useState('');
-  const [agentConnectChecking, setAgentConnectChecking] = useState(false);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
   const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
   const [welcomeGradientState, setWelcomeGradientState] = useState<
@@ -2509,180 +2506,7 @@ export function AssistantPanel({
               if (event.target === event.currentTarget) setAgentConnectionOpen(false);
             }}
           >
-            <section
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="assistant-agent-connect-title"
-              className="assistant-agent-connect-dialog"
-            >
-              <div className="assistant-agent-connect-heading">
-                <div className="assistant-agent-connect-mark"><Bot className="h-5 w-5" /></div>
-                <button
-                  type="button"
-                  onClick={() => setAgentConnectionOpen(false)}
-                  className="assistant-agent-connect-close"
-                  aria-label={ui.close}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <h2 id="assistant-agent-connect-title">{ui.agentConnectDialogTitle}</h2>
-                <p>{isTauriRuntime() ? ui.agentConnectDesktopDescription : ui.agentConnectDialogDescription}</p>
-              </div>
-              <div className="assistant-agent-connect-actions">
-                {!isTauriRuntime() && !import.meta.env.DEV && (
-                  <div className="assistant-agent-connect-step">
-                    <span className="assistant-agent-connect-step-label">{ui.agentConnectStepOne}</span>
-                    <a
-                      className="assistant-agent-connect-action assistant-agent-connect-download"
-                      href={FULL_BUILD_DOWNLOAD_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Download className="h-4 w-4" />
-                      {ui.agentConnectDownloadButton}
-                    </a>
-                  </div>
-                )}
-                <div className="assistant-agent-connect-step">
-                  <span className="assistant-agent-connect-step-label">
-                    {isTauriRuntime() || import.meta.env.DEV ? ui.agentConnectStepOne : ui.agentConnectStepTwo}
-                  </span>
-                  <button
-                    type="button"
-                    className="assistant-agent-connect-action assistant-agent-connect-action--primary"
-                    onClick={async () => {
-                    try {
-                      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
-                      const developmentEndpoint = `${window.location.origin}/mcp`;
-                      const endpoint = isTauriRuntime()
-                        ? 'http://127.0.0.1:38941/mcp'
-                        : import.meta.env.DEV
-                          ? developmentEndpoint
-                          : 'http://127.0.0.1:38941/mcp';
-                      await navigator.clipboard.writeText(
-                        ui.agentConnectCopyPrompt.replace('http://127.0.0.1:38941/mcp', endpoint),
-                      );
-                      setAgentConnectStatus(ui.agentConnectCopied);
-                    } catch {
-                      setAgentConnectStatus(ui.agentConnectCopyFailed);
-                    }
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                    {ui.agentConnectCopyButton}
-                  </button>
-                </div>
-                {(isTauriRuntime() || import.meta.env.DEV) && (
-                  <div className="assistant-agent-connect-step">
-                    <span className="assistant-agent-connect-step-label">{ui.agentConnectStepTwo}</span>
-                    <button
-                      type="button"
-                      className="assistant-agent-connect-action"
-                      disabled={agentConnectChecking}
-                      onClick={async () => {
-                    setAgentConnectChecking(true);
-                    try {
-                      if (!isTauriRuntime() && !import.meta.env.DEV) {
-                        setAgentConnectStatus(ui.agentConnectBrowserOnly);
-                        return;
-                      }
-                      if (isTauriRuntime()) {
-                        const invoke = await getTauriInvoke();
-                        if (!invoke) throw new Error('Desktop bridge unavailable');
-                        const status = await invoke('get_galwriter_mcp_status') as {
-                          serverAvailable: boolean;
-                          projectAvailable: boolean;
-                          projectTitle: string | null;
-                          nodeCount: number;
-                        };
-                        if (!status.serverAvailable) throw new Error('Desktop MCP server is unavailable');
-                        const toolNames = ['get_connection_status', 'get_current_project', 'list_project_cards', 'list_project_assets', 'update_story_node', 'update_project_node', 'set_story_text', 'set_story_presentation', 'create_story_node', 'create_character_node', 'create_scene_node', 'connect_story_nodes', 'disconnect_story_nodes', 'delete_story_node', 'move_story_node', 'set_story_media', 'clear_story_media', 'preview_story_changes', 'apply_story_changes', 'save_current_project', 'export_current_project'];
-                        setAgentConnectStatus(
-                          status.projectAvailable
-                            ? `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${status.projectTitle || ui.agentConnectUntitled} · ${status.nodeCount} ${ui.agentConnectCards}`
-                            : `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${ui.agentConnectProjectMissing}`,
-                        );
-                        return;
-                      }
-                      const response = await fetch('/__galwriter/mcp/status', { cache: 'no-store' });
-                      if (!response.ok) throw new Error('MCP server is unavailable');
-                      const status = (await response.json()) as {
-                        serverAvailable: boolean;
-                        projectAvailable: boolean;
-                        projectTitle: string | null;
-                        nodeCount: number;
-                      };
-                      if (!status.serverAvailable) throw new Error('MCP server is unavailable');
-                      const callMcp = async (id: number, method: string, params?: unknown) => {
-                        const mcpResponse = await fetch('/mcp', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            Accept: 'application/json, text/event-stream',
-                          },
-                          body: JSON.stringify({ jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }),
-                        });
-                        if (!mcpResponse.ok) throw new Error('MCP protocol request failed');
-                        return (await mcpResponse.json()) as {
-                          result?: {
-                            tools?: Array<{ name: string }>;
-                            content?: Array<{ type: string; text?: string }>;
-                            isError?: boolean;
-                          };
-                        };
-                      };
-                      await callMcp(1, 'initialize', {
-                        protocolVersion: '2025-11-25',
-                        capabilities: {},
-                        clientInfo: { name: 'galwriter-connection-check', version: '1.0.0' },
-                      });
-                      const initializedResponse = await fetch('/mcp', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          Accept: 'application/json, text/event-stream',
-                        },
-                        body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
-                      });
-                      if (!initializedResponse.ok) throw new Error('MCP initialization failed');
-                      const toolsResult = await callMcp(2, 'tools/list');
-                      const toolNames = (toolsResult.result?.tools || []).map((tool) => tool.name);
-                      if (!toolNames.length) throw new Error('MCP tool discovery failed');
-                      if (status.projectAvailable) {
-                        const projectResult = await callMcp(3, 'tools/call', {
-                          name: 'get_current_project',
-                          arguments: {},
-                        });
-                        if (projectResult.result?.isError || !projectResult.result?.content?.length) {
-                          throw new Error('Current project read failed');
-                        }
-                      }
-                      setAgentConnectStatus(
-                        status.projectAvailable
-                          ? `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${status.projectTitle || ui.agentConnectUntitled} · ${status.nodeCount} ${ui.agentConnectCards} · ${ui.agentConnectReadVerified}`
-                          : `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${ui.agentConnectProjectMissing}`,
-                      );
-                    } catch {
-                      setAgentConnectStatus(ui.agentConnectServerMissing);
-                    } finally {
-                      setAgentConnectChecking(false);
-                    }
-                      }}
-                    >
-                      <RefreshCw className={`h-4 w-4${agentConnectChecking ? ' animate-spin' : ''}`} />
-                      {ui.agentConnectTestButton}
-                    </button>
-                  </div>
-                )}
-              </div>
-              {isTauriRuntime() && <p className="assistant-agent-connect-browser-note">{ui.agentConnectDesktopNote}</p>}
-              {agentConnectStatus && (
-                <div className="assistant-agent-connect-status" role="status">
-                  <span className="assistant-agent-connect-status-dot" />
-                  {agentConnectStatus}
-                </div>
-              )}
-            </section>
+            <AgentConnectionContent language={language} onClose={() => setAgentConnectionOpen(false)} />
           </div>,
           document.body,
         )}

@@ -15,7 +15,6 @@ export const assistantPanelJa = {
   agentConnectTestButton: '接続をテスト',
   agentConnectCopyPrompt: 'http://127.0.0.1:38941/mcp にある、この PC で実行中の GalWriter デスクトップ版 MCP に接続してください。デスクトップ版が起動していることを確認し、MCP 設定を追加または再利用して、接続を確認し、利用可能なツールを一覧表示し、get_current_project を呼び出して現在のプロジェクトを読み取ってください。サービスに接続できない場合は、GalWriter デスクトップ版をインストールして起動するよう案内してください。閲覧中のウェブサイトには接続せず、設定ファイルの手動編集を求めたり、確認前に成功を主張したりしないでください。',
   agentConnectBrowserNote: 'ウェブサイトから訪問者の PC 上の MCP には接続できません。GalWriter デスクトップ版をダウンロードして起動し、指示をローカル Codex にコピーしてください。',
-  agentConnectDesktopNote: 'ローカル MCP アドレス：http://127.0.0.1:38941/mcp。GalWriter デスクトップ版を起動したままにして、指示をローカル Codex に送信してください。',
   agentConnectHint: 'GalWriter デスクトップ版を起動してから、指示をローカル Codex に送信してください。',
   agentConnectCopied: '接続指示をコピーしました。ローカル Codex に送信してください。',
   agentConnectCopyFailed: 'コピーできませんでした。ブラウザーのクリップボード権限を確認してください。',

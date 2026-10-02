@@ -36,6 +36,7 @@ export const aiSettingsJa = {
   text48: '未保存の設定',
   text49: '削除',
   text50: 'AI Provider Profiles',
+  mcpConnectionTitle: 'MCP に接続',
   text51: 'Got it',
   text52: 'New Profile',
   text53: 'No saved profiles yet',

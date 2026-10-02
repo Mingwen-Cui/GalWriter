@@ -284,8 +284,20 @@ impl GalWriterMcpServer {
           "data": {
             "title": data.get("title"),
             "characterName": data.get("characterName"),
+            "identity": data.get("identity"),
+            "appearance": data.get("appearance"),
+            "traits": data.get("traits"),
+            "personality": data.get("personality"),
             "sceneName": data.get("sceneName"),
+            "description": data.get("description"),
+            "location": data.get("location"),
             "chapterTitle": data.get("chapterTitle"),
+            "creationMode": data.get("creationMode"),
+            "cardCount": data.get("cardCount"),
+            "detailLevel": data.get("detailLevel"),
+            "direction": data.get("direction"),
+            "choiceInterval": data.get("choiceInterval"),
+            "prefetchCount": data.get("prefetchCount"),
           }
         })
       })
@@ -364,7 +376,28 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Replace story-card dialogue with validated text, formatting, and character/scene mention segments.")]
+  #[tool(description = "Edit an existing character setting card. Writable fields: characterName, identity, appearance, traits, personality, habits, speechStyle, experience, relationships, notes, features, background, other, isGlobal, showPersonality, showFeatures, showBackground, showOther. Use camelCase field names from the project.")]
+  async fn update_character_node(&self, Parameters(input): Parameters<UpdateCharacterNodeInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_character_node", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Edit an existing scene setting card. Writable fields: sceneName, description, location, items, atmosphere, time, weather, visual, sound, notes, other, isGlobal, showLocation, showItems, showAtmosphere, showOther, scenePresetEnabled, sceneEnvironment, visualStyle. Use camelCase field names from the project.")]
+  async fn update_scene_node(&self, Parameters(input): Parameters<UpdateSceneNodeInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_scene_node", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Edit an existing plot-structure card. Writable fields: creationMode ('continue' or 'play'), cardCount (integer 1-20), detailLevel ('brief', 'standard', or 'detailed'), direction (string), choiceInterval (integer 1-12), prefetchCount (integer 1-3), and isMinimized (boolean). Use camelCase field names from the project.")]
+  async fn update_plot_structure_node(&self, Parameters(input): Parameters<UpdatePlotStructureNodeInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_plot_structure_node", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Replace story-card dialogue with validated text segments. To add a character or scene tag, include a {type: mention, node_id, kind} segment referencing an existing characterNode or sceneNode; this creates a real editable mention chip and synchronizes its presentation association.")]
   async fn set_story_text(&self, Parameters(input): Parameters<SetStoryTextInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("set_story_text", input).await?;
@@ -433,7 +466,7 @@ impl GalWriterMcpServer {
   }
 }
 
-#[tool_handler(name = "galwriter", version = "1.3.0", instructions = "Read the current GalWriter desktop project and make scoped, undoable story-card edits through the open editor.")]
+#[tool_handler(name = "galwriter", version = "1.3.0", instructions = "Read the current GalWriter desktop project before editing. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. For multi-step edits, preview_story_changes first, then apply_story_changes. Changes are applied through the open editor as undoable edits; call save_current_project when persistence is requested.")]
 impl ServerHandler for GalWriterMcpServer {}
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -475,6 +508,24 @@ struct MoveStoryNodeInput {
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct UpdateProjectNodeInput {
+  node_id: String,
+  fields: std::collections::BTreeMap<String, Value>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct UpdateCharacterNodeInput {
+  node_id: String,
+  fields: std::collections::BTreeMap<String, Value>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct UpdateSceneNodeInput {
+  node_id: String,
+  fields: std::collections::BTreeMap<String, Value>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct UpdatePlotStructureNodeInput {
   node_id: String,
   fields: std::collections::BTreeMap<String, Value>,
 }

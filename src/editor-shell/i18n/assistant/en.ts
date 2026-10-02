@@ -15,7 +15,6 @@ export const assistantPanelEn = {
   agentConnectTestButton: 'Test connection',
   agentConnectCopyPrompt: 'Connect to the MCP server in my local GalWriter desktop app at http://127.0.0.1:38941/mcp. Confirm the desktop app is running, then add or reuse the MCP configuration, verify the connection, list the available tools, and call get_current_project to read the current project. If the service is unreachable, tell me to install and launch the GalWriter desktop app first. Do not connect to the website I visited, ask me to edit configuration manually, or claim success without verification.',
   agentConnectBrowserNote: 'The website cannot connect to MCP services on a visitor’s computer. Download and run the GalWriter desktop app, then copy the instruction into local Codex.',
-  agentConnectDesktopNote: 'Local MCP endpoint: http://127.0.0.1:38941/mcp. Keep the GalWriter desktop app running and send the instruction to local Codex.',
   agentConnectHint: 'Launch the GalWriter desktop app, then send the instruction to local Codex.',
   agentConnectCopied: 'Connection instruction copied. Send it to local Codex to continue.',
   agentConnectCopyFailed: 'Copy failed. Check your browser clipboard permissions.',

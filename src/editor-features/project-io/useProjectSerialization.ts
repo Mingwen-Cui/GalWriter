@@ -14,6 +14,7 @@ import type {
 import type { ProjectAIProfilesExport } from '../../domain/project';
 import type { SettingLibraryItem } from '../../domain/settingLibrary';
 import { autosaveService } from '../../editor-services/autosaveService';
+import { translations } from '../../lib/i18n';
 import {
   createProjectSerializer,
   type ProjectSnapshotData,
@@ -205,21 +206,14 @@ export const useProjectSerialization = ({
             ? '浏览器下载文件夹'
             : 'your browser downloads folder';
         showToast(
-          settings.language === 'zh'
-            ? `ZIP 备份已导出到：${savedLocation}`
-            : `ZIP backup exported to: ${savedLocation}`,
+          translations[settings.language].projectBackupExported.replace('{location}', savedLocation),
         );
         return { exported: true, filePath: exportedProject.filePath };
       } catch (error) {
         console.error('Export failed:', error);
         const message = error instanceof Error ? error.message : String(error);
         await showDialogAlert({
-          title:
-            settings.language === 'zh'
-              ? '导出失败'
-              : settings.language === 'ja'
-                ? 'エクスポートに失敗しました'
-                : 'Export failed',
+          title: translations[settings.language].projectExportFailed,
           description: message,
           tone: 'warning',
         });

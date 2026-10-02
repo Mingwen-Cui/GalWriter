@@ -1271,6 +1271,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           const simpleMap: Record<string, string> = {
             update_story_node: 'update_story_node',
             update_project_node: 'update_node',
+            update_character_node: 'update_character_node',
+            update_scene_node: 'update_scene_node',
+            update_plot_structure_node: 'update_plot_structure_node',
             create_story_node: 'create_story_node',
             create_character_node: 'create_character_node',
             create_scene_node: 'create_scene_node',

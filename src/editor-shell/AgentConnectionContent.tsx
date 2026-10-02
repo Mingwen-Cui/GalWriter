@@ -18,17 +18,20 @@ export function AgentConnectionContent({
   const ui = assistantPanelCopy(language);
   const [status, setStatus] = useState('');
   const [checking, setChecking] = useState(false);
+  const titleId = inline ? 'assistant-agent-connect-settings-title' : 'assistant-agent-connect-title';
 
-  return (
+  const content = (
     <section
-      className={`assistant-agent-connect-dialog${inline ? ' assistant-agent-connect-inline' : ''}`}
+      className={`assistant-agent-connect-dialog${inline ? ' assistant-agent-connect-inline' : ''}${
+        isTauriRuntime() && !inline ? ' assistant-agent-connect-desktop-dialog' : ''
+      }`}
       {...(!inline ? {
         role: 'dialog',
         'aria-modal': true,
-        'aria-labelledby': 'assistant-agent-connect-title',
+        'aria-labelledby': titleId,
       } : {})}
     >
-      <div className="assistant-agent-connect-heading">
+      <div className={`assistant-agent-connect-heading${inline ? ' assistant-agent-connect-inline-heading' : ''}`}>
         <div className="assistant-agent-connect-mark"><Bot className="h-5 w-5" /></div>
         {onClose && (
           <button
@@ -40,10 +43,10 @@ export function AgentConnectionContent({
             <X className="h-4 w-4" />
           </button>
         )}
-        <h2 id="assistant-agent-connect-title">{ui.agentConnectDialogTitle}</h2>
+        {!inline && <h2 id={titleId}>{ui.agentConnectDialogTitle}</h2>}
         <p>{isTauriRuntime() ? ui.agentConnectDesktopDescription : ui.agentConnectDialogDescription}</p>
       </div>
-      <div className="assistant-agent-connect-actions">
+      <div className={`assistant-agent-connect-actions${inline ? ' assistant-agent-connect-inline-actions' : ''}`}>
         {!isTauriRuntime() && !import.meta.env.DEV && (
           <div className="assistant-agent-connect-step">
             <span className="assistant-agent-connect-step-label">{ui.agentConnectStepOne}</span>
@@ -112,9 +115,11 @@ export function AgentConnectionContent({
                     if (!result.serverAvailable) throw new Error('Desktop MCP server is unavailable');
                     const toolNames = [
                       'get_connection_status', 'get_current_project', 'list_project_cards', 'list_project_assets',
-                      'update_story_node', 'update_project_node', 'set_story_text', 'set_story_presentation',
+                      'update_story_node', 'update_project_node', 'update_character_node', 'update_scene_node',
+                      'update_plot_structure_node', 'set_story_text', 'set_story_presentation',
                       'create_story_node', 'create_character_node', 'create_scene_node', 'connect_story_nodes',
                       'disconnect_story_nodes', 'delete_story_node', 'move_story_node', 'set_story_media',
+                      'clear_story_media',
                       'preview_story_changes', 'apply_story_changes', 'save_current_project', 'export_current_project',
                     ];
                     setStatus(
@@ -195,7 +200,6 @@ export function AgentConnectionContent({
           </div>
         )}
       </div>
-      {isTauriRuntime() && <p className="assistant-agent-connect-browser-note">{ui.agentConnectDesktopNote}</p>}
       {status && (
         <div className="assistant-agent-connect-status" role="status">
           <span className="assistant-agent-connect-status-dot" />
@@ -204,4 +208,6 @@ export function AgentConnectionContent({
       )}
     </section>
   );
+
+  return content;
 }

@@ -1,6 +1,9 @@
 import type { Edge, Node } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
 
+import { createCharacterPresentation, createScenePresentation } from '../../lib/presentation';
+import { getSettingRename, replaceMentionNameInText } from './nodeRename';
+
 type McpOperation = Record<string, unknown>;
 
 const textFields: Record<string, string[]> = {
@@ -10,11 +13,131 @@ const textFields: Record<string, string[]> = {
     'experience', 'relationships', 'notes', 'features', 'background', 'other',
   ],
   sceneNode: ['sceneName', 'description', 'location', 'items', 'atmosphere', 'time', 'weather', 'visual', 'sound', 'notes', 'other'],
+  plotStructureNode: ['direction'],
+};
+
+const resolveMentionNode = (kind: 'character' | 'scene', name: string, nodes: Node[]) => {
+  const matches = nodes.filter((node) => node.type === `${kind}Node` && getNodeName(node).trim() === name);
+  if (matches.length > 1) throw new Error(`The ${kind} name '${name}' is ambiguous; rename one of the matching setting cards before tagging it.`);
+  return matches[0];
 };
 const booleanFields: Record<string, string[]> = {
   storyNode: ['hideTitleInPlayback', 'showTextOverlay'],
   characterNode: ['isGlobal', 'showPersonality', 'showFeatures', 'showBackground', 'showOther'],
   sceneNode: ['isGlobal', 'showLocation', 'showItems', 'showAtmosphere', 'showOther', 'scenePresetEnabled'],
+  plotStructureNode: ['isMinimized'],
+};
+
+const getSceneMedia = (node: Node) => {
+  const data = node.data as Record<string, unknown>;
+  const images = Array.isArray(data.images) ? (data.images as Array<Record<string, unknown>>) : [];
+  const imageUrl = (typeof data.coverImageUrl === 'string' ? data.coverImageUrl : undefined)
+    || images.find((image) => typeof image.imageUrl === 'string')?.imageUrl as string | undefined;
+  const videoUrl = imageUrl ? undefined : images.find((image) => typeof image.videoUrl === 'string')?.videoUrl as string | undefined;
+  return { imageUrl, videoUrl };
+};
+
+const syncMcpStoryMentions = (story: Node, nodes: Node[]) => {
+  const data = story.data as Record<string, unknown>;
+  const html = typeof data.text === 'string' ? data.text : '';
+  const documentBody = new DOMParser().parseFromString(html, 'text/html').body;
+  const mentions = Array.from(documentBody.querySelectorAll<HTMLElement>('[data-mention-kind][data-mention-name]'))
+    .map((element) => ({ kind: element.dataset.mentionKind, name: element.dataset.mentionName?.trim() || '' }))
+    .filter((mention) => mention.name && (mention.kind === 'character' || mention.kind === 'scene'));
+  const presentation = data.presentation && typeof data.presentation === 'object' && !Array.isArray(data.presentation)
+    ? data.presentation as Record<string, unknown>
+    : {};
+  const existingCharacters = Array.isArray(presentation.characters)
+    ? presentation.characters as Array<Record<string, unknown>>
+    : [];
+  const mentionedCharacters = mentions.filter((mention) => mention.kind === 'character')
+    .map((mention) => resolveMentionNode('character', mention.name, nodes))
+    .filter((node): node is Node => Boolean(node));
+  const nextCharacters = mentionedCharacters.reduce<Array<Record<string, unknown>>>((result, node) => {
+    if (result.some((item) => item.sourceNodeId === node.id)) return result;
+    result.push(existingCharacters.find((item) => item.sourceNodeId === node.id) || createCharacterPresentation(node.id) as unknown as Record<string, unknown>);
+    return result;
+  }, []);
+
+  const sceneMention = mentions.find((mention) => mention.kind === 'scene');
+  const mentionedScene = sceneMention
+    ? resolveMentionNode('scene', sceneMention.name, nodes)
+    : undefined;
+  const existingScene = presentation.scene && typeof presentation.scene === 'object'
+    ? presentation.scene as Record<string, unknown>
+    : undefined;
+  let nextScene = existingScene;
+  const mediaUpdates: Record<string, unknown> = {};
+  if (mentionedScene && existingScene?.sourceNodeId !== mentionedScene.id) {
+    const media = getSceneMedia(mentionedScene);
+    nextScene = {
+      ...createScenePresentation(
+        mentionedScene.id,
+        typeof existingScene?.previousImageUrl === 'string'
+          ? existingScene.previousImageUrl
+          : typeof data.imageUrl === 'string' ? data.imageUrl : undefined,
+        false,
+        typeof existingScene?.previousShowTextOverlay === 'boolean'
+          ? existingScene.previousShowTextOverlay
+          : typeof data.showTextOverlay === 'boolean' ? data.showTextOverlay : undefined,
+      ),
+      previousVideoUrl: typeof existingScene?.previousVideoUrl === 'string'
+        ? existingScene.previousVideoUrl
+        : typeof data.videoUrl === 'string' ? data.videoUrl : undefined,
+    } as unknown as Record<string, unknown>;
+    mediaUpdates.imageUrl = media.imageUrl;
+    mediaUpdates.videoUrl = media.videoUrl;
+    mediaUpdates.showTextOverlay = true;
+  } else if (!mentionedScene && existingScene) {
+    nextScene = undefined;
+    mediaUpdates.imageUrl = existingScene.previousImageUrl;
+    mediaUpdates.videoUrl = existingScene.previousVideoUrl;
+    mediaUpdates.showTextOverlay = existingScene.previousShowTextOverlay ?? data.showTextOverlay;
+  }
+  return {
+    ...story,
+    data: {
+      ...data,
+      ...mediaUpdates,
+      presentation: { ...presentation, scene: nextScene, characters: nextCharacters },
+    },
+  };
+};
+
+const ensurePresentationMentionTags = (story: Node, presentation: Record<string, unknown>, nodes: Node[]) => {
+  const data = story.data as Record<string, unknown>;
+  const currentText = typeof data.text === 'string' ? data.text : '';
+  const body = new DOMParser().parseFromString(currentText, 'text/html').body;
+  const present = new Set(Array.from(body.querySelectorAll<HTMLElement>('[data-mention-kind][data-mention-name]'))
+    .map((element) => `${element.dataset.mentionKind}:${element.dataset.mentionName?.trim() || ''}`));
+  const requested: Array<{ kind: 'character' | 'scene'; nodeId: string }> = [];
+  const scene = presentation.scene;
+  if (scene && typeof scene === 'object' && !Array.isArray(scene) && typeof (scene as Record<string, unknown>).sourceNodeId === 'string') {
+    requested.push({ kind: 'scene', nodeId: (scene as Record<string, unknown>).sourceNodeId as string });
+  }
+  if (Array.isArray(presentation.characters)) {
+    for (const item of presentation.characters) {
+      if (item && typeof item === 'object' && !Array.isArray(item) && typeof (item as Record<string, unknown>).sourceNodeId === 'string') {
+        requested.push({ kind: 'character', nodeId: (item as Record<string, unknown>).sourceNodeId as string });
+      }
+    }
+  }
+  const additions = requested.flatMap(({ kind, nodeId }) => {
+    const target = nodes.find((node) => node.id === nodeId && node.type === `${kind}Node`);
+    if (!target) throw new Error(`Cannot add a ${kind} tag: source node '${nodeId}' does not exist.`);
+    const name = getNodeName(target).trim();
+    const hasDuplicateNameReference = requested.some((item) => {
+      if (item.kind !== kind || item.nodeId === nodeId) return false;
+      const source = nodes.find((node) => node.id === item.nodeId);
+      return source && getNodeName(source).trim() === name;
+    });
+    if (hasDuplicateNameReference) throw new Error(`Cannot tag both '${name}' setting cards because mentions resolve by name; rename one card first.`);
+    if (!name || present.has(`${kind}:${name}`)) return [];
+    present.add(`${kind}:${name}`);
+    const safeName = escapeHtml(name);
+    return [`<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${uuidv4()}" contenteditable="false" draggable="false">${safeName}</span>`];
+  });
+  return additions.length ? `${additions.join('')}${body.innerHTML}` : currentText;
 };
 
 const escapeHtml = (value: string) =>
@@ -67,6 +190,7 @@ const sanitizeRichText = (html: string, nodes: Node[]) => {
       if (kind !== 'character' && kind !== 'scene') return escapeHtml(name);
       const target = nodes.find((node) => node.type === `${kind}Node` && getNodeName(node) === name);
       if (!target) throw new Error(`Rich text mentions an unknown ${kind} '${name}'.`);
+      resolveMentionNode(kind, name.trim(), nodes);
       const safeName = escapeHtml(name);
       return `<span class="mention-chip mention-chip-${kind}" data-mention-kind="${kind}" data-mention-name="${safeName}" data-mention-id="${uuidv4()}" contenteditable="false" draggable="false">${safeName}</span>`;
     }
@@ -205,6 +329,7 @@ export const applyMcpOperations = (
   const created: string[] = [];
   const deleted: string[] = [];
   const changes: Array<{ type: string; nodeId?: string; sourceId?: string; targetId?: string }> = [];
+  const storyTextChangedIds = new Set<string>();
   let changedCount = 0;
 
   for (const operation of operations) {
@@ -237,11 +362,19 @@ export const applyMcpOperations = (
       continue;
     }
 
-    if (operation.type === 'update_node' || operation.type === 'update_story_node') {
+    if (['update_node', 'update_story_node', 'update_character_node', 'update_scene_node', 'update_plot_structure_node'].includes(operation.type)) {
       if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
       const current = nextNodes.find((node) => node.id === nodeId);
       if (!current) throw new Error(`Node '${nodeId}' was not found.`);
-      if (operation.type === 'update_story_node' && current.type !== 'storyNode') throw new Error(`Node '${nodeId}' is not a story card.`);
+      const expectedType: Record<string, string> = {
+        update_story_node: 'storyNode',
+        update_character_node: 'characterNode',
+        update_scene_node: 'sceneNode',
+        update_plot_structure_node: 'plotStructureNode',
+      };
+      if (expectedType[operation.type] && current.type !== expectedType[operation.type]) {
+        throw new Error(`Node '${nodeId}' is not a ${expectedType[operation.type]} card.`);
+      }
       const fields = operation.fields;
       if (!fields || typeof fields !== 'object' || Array.isArray(fields)) throw new Error('fields must be an object.');
       const updates = fields as Record<string, unknown>;
@@ -249,6 +382,7 @@ export const applyMcpOperations = (
       const allowedText = textFields[current.type || ''] || [];
       const allowedBoolean = booleanFields[current.type || ''] || [];
       const nextData = { ...current.data } as Record<string, unknown>;
+      const rename = getSettingRename(current, updates);
       for (const [key, value] of Object.entries(updates)) {
         if (operation.type === 'update_story_node' && !['title', 'text', 'text_html'].includes(key)) throw new Error(`Field '${key}' is not writable with update_story_node.`);
         if (key === 'text_html' && current.type === 'storyNode') {
@@ -278,11 +412,30 @@ export const applyMcpOperations = (
           if (!['none', 'clear', 'warm-film', 'cool-cinematic', 'neon', 'muted-rain', 'night-blue'].includes(String(style.filter))) throw new Error('visualStyle.filter is invalid.');
           if (typeof style.backgroundBlur !== 'number' || style.backgroundBlur < 0 || style.backgroundBlur > 100 || typeof style.intensity !== 'number' || style.intensity < 0 || style.intensity > 100) throw new Error('visualStyle backgroundBlur and intensity must be between 0 and 100.');
           nextData.visualStyle = { lighting: style.lighting, filter: style.filter, backgroundBlur: style.backgroundBlur, intensity: style.intensity };
+        } else if (current.type === 'plotStructureNode' && key === 'creationMode') {
+          if (value !== 'continue' && value !== 'play') throw new Error('creationMode must be continue or play.');
+          nextData.creationMode = value;
+        } else if (current.type === 'plotStructureNode' && key === 'detailLevel') {
+          if (!['brief', 'standard', 'detailed'].includes(String(value))) throw new Error('detailLevel must be brief, standard, or detailed.');
+          nextData.detailLevel = value;
+        } else if (current.type === 'plotStructureNode' && ['choiceInterval', 'prefetchCount', 'cardCount'].includes(key)) {
+          const bounds: Record<string, [number, number]> = { choiceInterval: [1, 12], prefetchCount: [1, 3], cardCount: [1, 20] };
+          const [min, max] = bounds[key];
+          if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) throw new Error(`${key} must be an integer between ${min} and ${max}.`);
+          nextData[key] = value;
         } else {
           throw new Error(`Field '${key}' is not writable for node type '${current.type}'.`);
         }
       }
       nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data: nextData } : node);
+      if (rename) {
+        nextNodes = nextNodes.map((node) => {
+          if (node.type !== 'storyNode' || typeof node.data.text !== 'string') return node;
+          const text = replaceMentionNameInText(node.data.text, rename.oldName, rename.newName);
+          return text === node.data.text ? node : { ...node, data: { ...node.data, text } };
+        });
+      }
+      if (current.type === 'storyNode' && ('text' in updates || 'text_html' in updates)) storyTextChangedIds.add(nodeId);
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
       continue;
@@ -293,7 +446,11 @@ export const applyMcpOperations = (
       const current = nextNodes.find((node) => node.id === nodeId && node.type === 'storyNode');
       if (!current) throw new Error(`Story node '${String(nodeId)}' was not found.`);
       const presentation = validatePresentation(operation.presentation, nextNodes);
-      nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, presentation } } : node);
+      nextNodes = nextNodes.map((node) => node.id === nodeId ? {
+        ...node,
+        data: { ...node.data, text: ensurePresentationMentionTags(node, presentation, nextNodes), presentation },
+      } : node);
+      storyTextChangedIds.add(nodeId);
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
       continue;
@@ -322,12 +479,14 @@ export const applyMcpOperations = (
           if (Object.keys(segment).some((key) => !['type', 'node_id', 'kind'].includes(key))) throw new Error('Mention segment contains unsupported fields.');
           const target = nextNodes.find((node) => node.id === segment.node_id && node.type === `${segment.kind}Node`);
           if (!target) throw new Error(`Mention target '${segment.node_id}' is not an existing ${segment.kind} card.`);
+          resolveMentionNode(segment.kind, getNodeName(target).trim(), nextNodes);
           const name = escapeHtml(getNodeName(target));
           return `<span class="mention-chip mention-chip-${segment.kind}" data-mention-kind="${segment.kind}" data-mention-name="${name}" data-mention-id="${uuidv4()}" contenteditable="false" draggable="false">${name}</span>`;
         }
         throw new Error('Each text segment must be text or a character/scene mention.');
       }).join('');
       nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, text: html } } : node);
+      storyTextChangedIds.add(nodeId);
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
       continue;
@@ -429,6 +588,12 @@ export const applyMcpOperations = (
       continue;
     }
     throw new Error(`Unsupported story edit operation '${operation.type}'.`);
+  }
+
+  if (storyTextChangedIds.size) {
+    nextNodes = nextNodes.map((node) => storyTextChangedIds.has(node.id) && node.type === 'storyNode'
+      ? syncMcpStoryMentions(node, nextNodes)
+      : node);
   }
 
   return {

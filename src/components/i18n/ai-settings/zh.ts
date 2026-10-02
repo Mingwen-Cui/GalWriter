@@ -34,6 +34,7 @@ export const aiSettingsZh = {
   text48: '未保存配置',
   text49: '删除',
   text50: 'AI 接口配置',
+  mcpConnectionTitle: '连接MCP',
   text51: '我已知晓',
   text52: '新建配置',
   text53: '还没有保存的配置',

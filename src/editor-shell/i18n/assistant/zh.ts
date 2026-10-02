@@ -15,7 +15,6 @@ export const assistantPanelZh = {
   agentConnectTestButton: '测试连接',
   agentConnectCopyPrompt: '请连接我本机运行的 GalWriter 桌面版 MCP，地址为 http://127.0.0.1:38941/mcp。请确认桌面版正在运行，然后由你自行添加或复用 MCP 配置，验证连接、列出可用工具，并调用 get_current_project 读取当前项目。如果服务不可达，请告诉我需要先安装并启动 GalWriter 桌面版；不要尝试连接我访问的网站，也不要让我手动编辑配置或声称连接成功。',
   agentConnectBrowserNote: '网站页面不能连接访问者电脑上的 MCP。请下载并运行 GalWriter 桌面版，再把连接指令复制到本机 Codex。',
-  agentConnectDesktopNote: '本机 MCP 地址：http://127.0.0.1:38941/mcp。请保持 GalWriter 桌面版运行，并把连接指令发给本机 Codex。',
   agentConnectHint: '先运行 GalWriter 桌面版，再把连接指令发给本机 Codex。',
   agentConnectCopied: '连接指令已复制。请发给本机 Codex 继续配置。',
   agentConnectCopyFailed: '复制失败，请检查浏览器的剪贴板权限。',

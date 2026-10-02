@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   BrainCircuit,
   Check,
-  Copy,
   ExternalLink,
   Feather,
   ImageIcon,
@@ -2099,7 +2098,14 @@ export function AISettingsPanel({
   return (
     <>
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-        <AgentConnectionContent language={language} inline />
+        <section className="space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <h3 className="text-base font-black text-[var(--text-primary)]">{ai.mcpConnectionTitle}</h3>
+            </div>
+          </div>
+          <AgentConnectionContent language={language} inline />
+        </section>
         {editorState ? (
           renderProfileForm()
         ) : (
@@ -2109,9 +2115,6 @@ export function AISettingsPanel({
                 <div className="flex items-center gap-3">
                   <div>
                     <h3 className="text-base font-black text-[var(--text-primary)]">{ai.text50}</h3>
-                    <p className="mt-1 text-[11px] font-medium text-[var(--text-muted)]">
-                      {t.apiKeyLocalOnly}
-                    </p>
                   </div>
                 </div>
               </div>
