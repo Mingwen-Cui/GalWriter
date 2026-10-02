@@ -5,6 +5,7 @@ import {
   FilePlus2,
   FolderOpen,
   Maximize2,
+  Network,
   PlayCircle,
   Save,
   Sparkles,
@@ -24,6 +25,8 @@ import { editorHeaderCopy } from './i18n/editor-header';
 
 interface EditorHeaderProps {
   appTitle: string;
+  mcpConnected: boolean;
+  showMcpConnectionIndicator: boolean;
   projectName: string;
   projectNamePlaceholder?: string;
   onProjectNameChange: (value: string) => void;
@@ -57,6 +60,8 @@ interface EditorHeaderProps {
 }
 
 export function EditorHeader({
+  mcpConnected,
+  showMcpConnectionIndicator,
   projectName,
   projectNamePlaceholder,
   onProjectNameChange,
@@ -243,6 +248,12 @@ export function EditorHeader({
                 </span>
               )}
             </button>
+            {mcpConnected && showMcpConnectionIndicator && (
+              <span className="editor-header-mcp-status" title="MCP">
+                <Network className="h-3.5 w-3.5" />
+                <span>{language === 'zh' ? '已连接 MCP' : language === 'ja' ? 'MCP 接続済み' : 'MCP connected'}</span>
+              </span>
+            )}
             <span
               ref={projectNameSizerRef}
               className="pointer-events-none absolute -left-[9999px] top-auto whitespace-pre px-1 py-0.5 text-sm font-bold"
@@ -392,6 +403,12 @@ export function EditorHeader({
                     </span>
                   )}
                 </button>
+                {mcpConnected && showMcpConnectionIndicator && (
+                  <span className="editor-header-mcp-status" title="MCP">
+                    <Network className="h-3.5 w-3.5" />
+                    <span>{language === 'zh' ? '已连接 MCP' : language === 'ja' ? 'MCP 接続済み' : 'MCP connected'}</span>
+                  </span>
+                )}
                 <span
                   ref={projectNameSizerRef}
                   className="pointer-events-none absolute -left-[9999px] top-auto whitespace-pre px-1 py-0.5 text-sm font-bold md:text-base"

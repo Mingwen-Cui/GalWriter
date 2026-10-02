@@ -358,7 +358,7 @@ export const useMediaActions = ({
             if (!sizeOverride) setImageSize('2048x2048');
           } else {
             const retryErrText = await response.text();
-            throw new Error(retryErrText || errText || `HTTP ${response.status}`);
+            throw new Error(`Image API HTTP ${response.status}: ${retryErrText || errText || response.statusText}`);
           }
         } else if (shouldRetryConfiguredSize) {
           const fallbackRequest = buildImageGenerationRequest(
@@ -379,10 +379,10 @@ export const useMediaActions = ({
           });
           if (!response.ok) {
             const retryErrText = await response.text();
-            throw new Error(retryErrText || errText || `HTTP ${response.status}`);
+            throw new Error(`Image API HTTP ${response.status}: ${retryErrText || errText || response.statusText}`);
           }
         } else {
-          throw new Error(errText || `HTTP ${response.status}`);
+          throw new Error(`Image API HTTP ${response.status}: ${errText || response.statusText}`);
         }
       }
 
@@ -446,6 +446,7 @@ export const useMediaActions = ({
       type: 'character' | 'scene',
       onProgress?: (current: number, total: number, label?: string) => void,
       requestedAssetType?: CharacterAssetType | 'background',
+      propagateError = false,
     ) => {
       const node = nodes.find((item) => item.id === id);
       if (!node) return false;
@@ -644,6 +645,7 @@ export const useMediaActions = ({
         );
         return true;
       } catch (error: any) {
+        if (propagateError) throw error;
         console.error('Setting image generation failed:', error);
         await showDialogAlert({
           title:

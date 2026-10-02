@@ -1,4 +1,4 @@
-import { Bot, Captions, CaptionsOff, ChevronDown, Redo2, Settings, Undo2 } from 'lucide-react';
+import { Bot, Captions, CaptionsOff, ChevronDown, Network, Redo2, Settings, Undo2 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -9,6 +9,8 @@ import type { Language } from '../lib/i18n';
 import { getSideToolbarStrings } from './i18n/side-toolbar';
 
 interface EditorRightToolbarProps {
+  mcpConnected: boolean;
+  showMcpConnectionIndicator: boolean;
   isMobile: boolean;
   language: Language;
   assistantOpen: boolean;
@@ -44,6 +46,8 @@ interface EditorRightToolbarProps {
 }
 
 export function EditorRightToolbar({
+  mcpConnected,
+  showMcpConnectionIndicator,
   isMobile,
   language,
   assistantOpen,
@@ -191,11 +195,13 @@ export function EditorRightToolbar({
             ? 'glass-toolbar-active bg-indigo-600 text-white shadow-sm'
             : 'text-[var(--icon-color)] hover:bg-slate-100 dark:hover:bg-slate-700'
         } flex items-center justify-center`}
-        title={
-          language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'
-        }
+        title={mcpConnected && showMcpConnectionIndicator
+          ? language === 'zh' ? 'MCP 助手' : language === 'ja' ? 'MCP アシスタント' : 'MCP Assistant'
+          : language === 'zh' ? 'AI 助手' : language === 'ja' ? 'AIアシスタント' : 'AI Assistant'}
       >
-        <Bot className="h-5 w-5" />
+        {mcpConnected && showMcpConnectionIndicator
+          ? <Network className="h-5 w-5" />
+          : <Bot className="h-5 w-5" />}
         {renderToolbarLabel(sideToolbarStrings.assistant)}
       </button>
 

@@ -56,6 +56,9 @@ import { AgentConnectionContent } from './AgentConnectionContent';
 import { AssistantStoryOutlineFlow } from './AssistantStoryOutlineFlow';
 
 interface AssistantPanelProps {
+  mcpConnected: boolean;
+  showMcpConnectionIndicator: boolean;
+  onShowMcpConnectionIndicatorChange: (checked: boolean) => void;
   assistantOpen: boolean;
   isMobile: boolean;
   assistantPanelWidth: number;
@@ -563,6 +566,9 @@ const CreativeCharacterTraitControls = ({
 };
 
 export function AssistantPanel({
+  mcpConnected,
+  showMcpConnectionIndicator,
+  onShowMcpConnectionIndicatorChange,
   assistantOpen,
   isMobile,
   assistantPanelWidth,
@@ -2506,7 +2512,13 @@ export function AssistantPanel({
               if (event.target === event.currentTarget) setAgentConnectionOpen(false);
             }}
           >
-            <AgentConnectionContent language={language} onClose={() => setAgentConnectionOpen(false)} />
+            <AgentConnectionContent
+              language={language}
+              connected={mcpConnected}
+              showConnectionIndicator={showMcpConnectionIndicator}
+              onShowConnectionIndicatorChange={onShowMcpConnectionIndicatorChange}
+              onClose={() => setAgentConnectionOpen(false)}
+            />
           </div>,
           document.body,
         )}

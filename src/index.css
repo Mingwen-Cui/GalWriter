@@ -2450,6 +2450,84 @@ html.canvas-selection-dragging * {
   background: #4338ca;
 }
 
+.assistant-agent-connect-connection {
+  display: flex;
+  width: 100%;
+  min-height: 80px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.assistant-agent-connect-connection-indicator {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #cbd5e1;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.assistant-agent-connect-connection.is-connected {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.assistant-agent-connect-connection.is-connected .assistant-agent-connect-connection-indicator {
+  border-color: #16a34a;
+  background: #16a34a;
+}
+
+.assistant-agent-connect-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.assistant-agent-connect-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: #16a34a;
+  cursor: pointer;
+}
+
+.editor-header-mcp-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .editor-header-mcp-status {
+  border-color: rgb(34 197 94 / 35%);
+  background: rgb(22 163 74 / 15%);
+  color: #86efac;
+}
+
 .assistant-agent-connect-download {
   margin-top: 0;
   text-decoration: none;
@@ -2518,6 +2596,12 @@ html.canvas-selection-dragging * {
     min-height: 60px;
     font-size: 16px;
   }
+
+  .assistant-agent-connect-connection {
+    min-height: 60px;
+    border-radius: 16px;
+    font-size: 15px;
+  }
 }
 
 .assistant-agent-connect-desktop-dialog {
@@ -2570,6 +2654,19 @@ html.canvas-selection-dragging * {
   padding: 10px 14px;
   border-radius: 14px;
   font-size: 13px;
+}
+
+.assistant-agent-connect-desktop-dialog .assistant-agent-connect-connection {
+  min-height: 50px;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+
+.assistant-agent-connect-desktop-dialog .assistant-agent-connect-connection-indicator {
+  width: 18px;
+  height: 18px;
 }
 
 .assistant-agent-connect-desktop-dialog .assistant-agent-connect-status {
@@ -2643,6 +2740,19 @@ html.canvas-selection-dragging * {
   border-radius: 14px;
   font-size: 14px;
   font-weight: 700;
+}
+
+.assistant-agent-connect-inline .assistant-agent-connect-connection {
+  min-height: 48px;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+
+.assistant-agent-connect-inline .assistant-agent-connect-connection-indicator {
+  width: 18px;
+  height: 18px;
 }
 
 .assistant-agent-connect-inline .assistant-agent-connect-status {

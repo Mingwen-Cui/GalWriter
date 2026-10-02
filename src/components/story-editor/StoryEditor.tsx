@@ -149,6 +149,59 @@ const escapeMcpStoryText = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br>');
 
 export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorProps) {
+  const [mcpConnected, setMcpConnected] = useState(false);
+  const [showMcpConnectionIndicator, setShowMcpConnectionIndicator] = useState(() => {
+    try {
+      return window.localStorage.getItem('galwriter.showMcpConnectionIndicator') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    let disposed = false;
+    const refreshMcpConnection = async () => {
+      try {
+        let status: { serverAvailable?: boolean; lastMcpRequestAt?: string | null };
+        if (isTauriRuntime()) {
+          const invoke = await getTauriInvoke();
+          if (!invoke) return;
+          status = await invoke('get_galwriter_mcp_status') as {
+            serverAvailable?: boolean;
+            lastMcpRequestAt?: string | null;
+          };
+        } else if (import.meta.env.DEV) {
+          const response = await fetch('/__galwriter/mcp/status', { cache: 'no-store' });
+          if (!response.ok) return;
+          status = await response.json() as {
+            serverAvailable?: boolean;
+            lastMcpRequestAt?: string | null;
+          };
+        } else {
+          return;
+        }
+        if (!disposed) setMcpConnected(status.serverAvailable !== false && Boolean(status.lastMcpRequestAt));
+      } catch {
+        if (!disposed) setMcpConnected(false);
+      }
+    };
+
+    void refreshMcpConnection();
+    const interval = window.setInterval(() => void refreshMcpConnection(), 2000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const handleShowMcpConnectionIndicator = (checked: boolean) => {
+    setShowMcpConnectionIndicator(checked);
+    try {
+      window.localStorage.setItem('galwriter.showMcpConnectionIndicator', String(checked));
+    } catch {
+      // Keep the current-session choice if browser storage is unavailable.
+    }
+  };
   const keyboardMouse = useKeyboardMouseSettings();
   const nodeTypesMemo = useMemo(() => nodeTypes, []);
   const edgeTypesMemo = useMemo(() => edgeTypes, []);
@@ -3250,6 +3303,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     `}</style>
       <EditorHeader
         appTitle={APP_TITLE}
+        mcpConnected={mcpConnected}
+        showMcpConnectionIndicator={showMcpConnectionIndicator}
         projectName={currentProjectId ? projectTitle.trim() : ''}
         projectNamePlaceholder={currentProjectId ? PROJECT_TITLE_PLACEHOLDER : ''}
         showLastSavedTime={showLastSavedTime}
@@ -3332,6 +3387,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           <EditorRightToolbar
             isMobile={isMobile}
             language={language}
+            mcpConnected={mcpConnected}
+            showMcpConnectionIndicator={showMcpConnectionIndicator}
             assistantOpen={assistantOpen}
             assistantPanelWidth={assistantPanelWidth}
             assistantResizing={assistantResizing}
@@ -3503,6 +3560,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         </div>
 
         <AssistantPanel
+          mcpConnected={mcpConnected}
+          showMcpConnectionIndicator={showMcpConnectionIndicator}
+          onShowMcpConnectionIndicatorChange={handleShowMcpConnectionIndicator}
           assistantOpen={assistantOpen}
           isMobile={isMobile}
           assistantPanelWidth={assistantPanelWidth}
