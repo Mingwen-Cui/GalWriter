@@ -1,6 +1,3 @@
-import { htmlToSpeechText } from '../../../lib/tts';
-import { filterMentionTags } from '../video/shared/storyNodes';
-import { PresentationText, useDialogueTextLayout, textBlockCss } from '../shared/PresentationText';
 import {
   FastForward,
   ListMusic,
@@ -9,9 +6,9 @@ import {
   Minimize2,
   Monitor,
   MoreHorizontal,
+  PencilLine,
   PictureInPicture2,
   PlayCircle,
-  PencilLine,
   RotateCcw,
   RotateCw,
   Send,
@@ -21,9 +18,13 @@ import {
 } from 'lucide-react';
 import React from 'react';
 
+import { htmlToSpeechText } from '../../../lib/tts';
 import { AudioPlaylistModal } from '../../AudioPlaylistModal';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import { getSceneBackgroundStyle, getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
+import { PresentationText, textBlockCss,useDialogueTextLayout } from '../shared/PresentationText';
+import { SceneSwitchFlash } from '../shared/SceneSwitchFlash';
+import { filterMentionTags } from '../video/shared/storyNodes';
 import { getPlaytestText } from './i18n';
 import { getPlaytestWindowText } from './i18n/playtest-window';
 import {
@@ -33,7 +34,6 @@ import {
 } from './model/playtestCanvasModel';
 import { PlaytestFloatingWindow, PlaytestWindowActions } from './PlaytestFloatingWindow';
 import { PlaytestSettingsWorkbench } from './PlaytestSettingsWorkbench';
-import { SceneSwitchFlash } from '../shared/SceneSwitchFlash';
 import type { PlayTestProps } from './types';
 import { usePlaytestRuntime } from './usePlaytestRuntime';
 
@@ -914,7 +914,7 @@ export function PlayTestModal(props: PlayTestProps) {
         )}
 
         {/* Novel Container */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative" data-playtest-game-screen="true">
           <div
             className={`w-full h-full flex flex-col ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}
           >

@@ -445,11 +445,16 @@ export const useMediaActions = ({
       id: string,
       type: 'character' | 'scene',
       onProgress?: (current: number, total: number, label?: string) => void,
+      requestedAssetType?: CharacterAssetType | 'background',
     ) => {
       const node = nodes.find((item) => item.id === id);
-      if (!node) return;
+      if (!node) return false;
 
       try {
+        if ((type === 'scene' && requestedAssetType && requestedAssetType !== 'background') ||
+            (type === 'character' && requestedAssetType === 'background')) {
+          throw new Error('The requested image asset type does not match this card type.');
+        }
         const titleText =
           type === 'character'
             ? (node.data.characterName as string) ||
@@ -486,7 +491,7 @@ export const useMediaActions = ({
                   : 'Fill in the character or scene setting first.',
             tone: 'warning',
           });
-          return;
+          return false;
         }
 
         if (type === 'character') {
@@ -507,7 +512,9 @@ export const useMediaActions = ({
             );
           };
           const characterSetting = `Character setting:\n\n${basePrompt}`;
-          const selectedAssetTypes = characterAssetTypes;
+          const selectedAssetTypes = requestedAssetType && requestedAssetType !== 'background'
+            ? [requestedAssetType]
+            : characterAssetTypes;
 
           if (selectedAssetTypes.length === 0) {
             showToast(
@@ -517,7 +524,7 @@ export const useMediaActions = ({
                   ? 'Image AI で生成するキャラクター素材を選択してください'
                   : 'Choose character assets to generate in Image AI first',
             );
-            return;
+            return false;
           }
 
           const total = selectedAssetTypes.length;
@@ -533,7 +540,7 @@ export const useMediaActions = ({
             const avatarUrl = await requestGeneratedImage(
               `Create exactly ONE polished visual novel character portrait for a character card. Use a front-facing close-up or upper-body composition, with the face clear and centered. One character only. No character sheet, no alternate views, no duplicate figures, no text, no UI, and no frame. Preserve the character design described below:\n\n${characterSetting}`,
             );
-            if (!avatarUrl) return;
+            if (!avatarUrl) return false;
             saveCharacterAsset({ avatarUrl });
             portraitReference = [{ url: avatarUrl, label: `${titleText} card portrait` }];
             generatedAssetLabels.push(language === 'zh' ? '头像' : 'portrait');
@@ -545,7 +552,7 @@ export const useMediaActions = ({
               `Create a polished visual novel character design sheet with exactly three full-body views of the SAME character: front, side, and back. Keep the face, hair, clothing, proportions, and colors consistent with the attached card portrait. Use a clean neutral background. No text labels, no UI, and no frame.\n\n${characterSetting}`,
               portraitReference.length > 0 ? { referenceImages: portraitReference } : undefined,
             );
-            if (!threeViewUrl) return;
+            if (!threeViewUrl) return false;
             saveCharacterAsset({ threeViewUrl });
             generatedAssetLabels.push(language === 'zh' ? '三视图' : 'three-view sheet');
           }
@@ -561,7 +568,7 @@ export const useMediaActions = ({
                 ...(portraitReference.length > 0 ? { referenceImages: portraitReference } : {}),
               },
             );
-            if (!tagSpriteUrl) return;
+            if (!tagSpriteUrl) return false;
             saveCharacterAsset({ tagSpriteUrl });
             generatedAssetLabels.push(language === 'zh' ? '透明标签立绘' : 'transparent sprite');
           }
@@ -574,7 +581,7 @@ export const useMediaActions = ({
                 ? 'キャラクター素材を生成しました'
                 : `Character assets generated: ${generatedAssetLabels.join(', ')}`,
           );
-          return;
+          return true;
         }
 
         const prompt =
@@ -587,7 +594,7 @@ export const useMediaActions = ({
           sizeOverride: forceSceneStoryboard ? '1920x1080' : undefined,
           aspectRatio: forceSceneStoryboard ? 16 / 9 : undefined,
         });
-        if (!imageSrc) return;
+        if (!imageSrc) return false;
 
         setNodes((nds) =>
           nds.map((current) => {
@@ -635,6 +642,7 @@ export const useMediaActions = ({
               ? 'シーン画像が生成されました'
               : 'Scene image generated',
         );
+        return true;
       } catch (error: any) {
         console.error('Setting image generation failed:', error);
         await showDialogAlert({
@@ -647,6 +655,7 @@ export const useMediaActions = ({
           description: error.message || 'Unknown error',
           tone: 'warning',
         });
+        return false;
       }
     },
     [
@@ -801,7 +810,7 @@ export const useMediaActions = ({
         const result = await response.json();
         const imageData = result?.data?.[0];
         const stableDiffusionImage = Array.isArray(result?.images) ? result.images[0] : '';
-        let imageSrc = stableDiffusionImage
+        const imageSrc = stableDiffusionImage
           ? `data:image/png;base64,${stableDiffusionImage}`
           : imageData?.b64_json
             ? `data:image/png;base64,${imageData.b64_json}`

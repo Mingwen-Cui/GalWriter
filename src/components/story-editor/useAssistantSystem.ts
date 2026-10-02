@@ -22,6 +22,7 @@ import {
 } from '../../editor-features/assistant/useAssistantPanel';
 import type { AITextResult, AITextStreamHandlers } from '../../editor-services/aiClient';
 import { assistantPanelCopy } from '../../editor-shell/i18n/assistant';
+import { getStoryConnectionHandles } from './storyConnectionHandles';
 import {
   type CharacterAppearanceGender,
   getCharacterAppearanceCatalog,
@@ -246,7 +247,7 @@ interface UseAssistantSystemParams {
   startAgentWaiting?: (title: string, label: string, nodeIds?: string[]) => void;
   stopAgentWaiting: () => void;
 
-  handleGenerateSettingNodeImage: (nodeId: string, type: 'character' | 'scene') => Promise<void>;
+  handleGenerateSettingNodeImage: (nodeId: string, type: 'character' | 'scene') => Promise<boolean>;
   handleGenerateStoryNodeImage: (nodeId: string) => Promise<void>;
 
   callAIForTextResult: (prompt: string) => Promise<AITextResult>;
@@ -1359,6 +1360,17 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         if (source?.type === 'numberConditionNode') return 'left';
         return 'top';
       };
+      const getFlowEdgeHandles = (
+        source: Node,
+        target: Node,
+        requestedSourceHandle = getFlowSourceHandle(source),
+      ) =>
+        source.type === 'storyNode' && target.type === 'storyNode'
+          ? getStoryConnectionHandles(source, target)
+          : {
+              sourceHandle: requestedSourceHandle,
+              targetHandle: getFlowTargetHandle(source, target),
+            };
       const newEdges: Edge[] = [];
       const hasExplicitConnections = remainingCards.some(
         (card) => (card.connectTo?.length || 0) > 0 || (card.branchTargets?.length || 0) > 0,
@@ -1600,12 +1612,13 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         return 'out-greater';
       };
       const pushFlowEdge = (source: Node, target: Node, sourceHandle: string, label?: string) => {
+        const handles = getFlowEdgeHandles(source, target, sourceHandle);
         newEdges.push({
           id: `e-${source.id}-${target.id}-${newEdges.length}`,
           source: source.id,
-          sourceHandle,
+          sourceHandle: handles.sourceHandle,
           target: target.id,
-          targetHandle: getFlowTargetHandle(source, target),
+          targetHandle: handles.targetHandle,
           type: 'customEdge',
           data: label ? { label } : undefined,
         });
@@ -1685,12 +1698,13 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
           mode !== 'future-targets' &&
           mode !== 'adjacent-revision'
         ) {
+          const handles = getFlowEdgeHandles(sourceNode, flowNodesToLink[0], 'bottom');
           newEdges.push({
             id: `e-${sourceNode.id}-${flowNodesToLink[0].id}`,
             source: sourceNode.id,
-            sourceHandle: 'bottom',
+            sourceHandle: handles.sourceHandle,
             target: flowNodesToLink[0].id,
-            targetHandle: getFlowTargetHandle(sourceNode, flowNodesToLink[0]),
+            targetHandle: handles.targetHandle,
             type: 'customEdge',
           });
         }
@@ -1703,24 +1717,34 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         ) {
           const sourceFlowNode = flowNodesToLink[i];
           const targetFlowNode = flowNodesToLink[i + 1];
+          const handles = getFlowEdgeHandles(
+            sourceFlowNode,
+            targetFlowNode,
+            getFlowSourceHandle(sourceFlowNode),
+          );
           newEdges.push({
             id: `e-${sourceFlowNode.id}-${targetFlowNode.id}`,
             source: sourceFlowNode.id,
-            sourceHandle: getFlowSourceHandle(sourceFlowNode),
+            sourceHandle: handles.sourceHandle,
             target: targetFlowNode.id,
-            targetHandle: getFlowTargetHandle(sourceFlowNode, targetFlowNode),
+            targetHandle: handles.targetHandle,
             type: 'customEdge',
           });
         }
       }
       if (mode === 'bridge-to-target' && targetNode && flowNodesToLink.length > 0) {
         const lastBridgeNode = flowNodesToLink[flowNodesToLink.length - 1];
+        const handles = getFlowEdgeHandles(
+          lastBridgeNode,
+          targetNode,
+          getFlowSourceHandle(lastBridgeNode),
+        );
         newEdges.push({
           id: `e-${lastBridgeNode.id}-${targetNode.id}`,
           source: lastBridgeNode.id,
-          sourceHandle: getFlowSourceHandle(lastBridgeNode),
+          sourceHandle: handles.sourceHandle,
           target: targetNode.id,
-          targetHandle: getFlowTargetHandle(lastBridgeNode, targetNode),
+          targetHandle: handles.targetHandle,
           type: 'customEdge',
         });
       }

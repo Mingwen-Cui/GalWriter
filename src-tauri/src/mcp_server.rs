@@ -161,7 +161,7 @@ fn is_private_or_media_field(key: &str) -> bool {
   let key = key.to_ascii_lowercase();
   [
     "api_key", "api-key", "apikey", "secret", "token", "password", "base64", "dataurl", "thumbnail",
-    "image", "audio", "video", "media", "blob",
+    "image", "audio", "video", "media", "blob", "avatar", "threeview", "tag_sprite", "tagsprite",
   ]
   .iter()
   .any(|part| key.contains(part))
@@ -219,16 +219,17 @@ impl GalWriterMcpServer {
       return Err(McpError::internal_error(format!("Could not deliver write request to the editor: {error}"), None));
     }
 
-    match tokio::time::timeout(std::time::Duration::from_secs(20), receiver).await {
+    let timeout = std::time::Duration::from_secs(if matches!(operation, "generate_project_node_image" | "capture_playtest_screen" | "capture_editor_canvas") { 180 } else { 20 });
+    match tokio::time::timeout(timeout, receiver).await {
       Ok(Ok(Ok(result))) => {
         *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) = Some(timestamp_now());
         Ok(result)
       }
       Ok(Ok(Err(error))) => Err(McpError::invalid_params(error, None)),
       Ok(Err(_)) => Err(McpError::internal_error("The editor closed before confirming the write.".to_string(), None)),
-      Err(_) => {
-        self.state.pending_writes.lock().await.remove(&request_id);
-        Err(McpError::internal_error("The editor did not confirm the write within 20 seconds.".to_string(), None))
+        Err(_) => {
+          self.state.pending_writes.lock().await.remove(&request_id);
+        Err(McpError::internal_error(format!("The editor did not confirm the write within {} seconds.", timeout.as_secs()), None))
       }
     }
   }
@@ -259,7 +260,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
   }
 
-  #[tool(description = "List story cards in the currently open GalWriter project without returning their full text.")]
+  #[tool(description = "List story, character, scene, and plot-structure cards in the currently open GalWriter project without returning full story text. The isRoot field identifies the protected root story card.")]
   async fn list_project_cards(&self) -> Result<CallToolResult, McpError> {
     *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) =
       Some(timestamp_now());
@@ -281,6 +282,7 @@ impl GalWriterMcpServer {
           "id": node.get("id"),
           "type": node.get("type"),
           "position": node.get("position"),
+          "isRoot": data.get("isRoot"),
           "data": {
             "title": data.get("title"),
             "characterName": data.get("characterName"),
@@ -327,6 +329,63 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
   }
 
+  #[tool(description = "Open the GalWriter playtest UI in fullscreen or windowed mode. Defaults to fullscreen.")]
+  async fn open_playtest(&self, Parameters(input): Parameters<OpenPlaytestInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("open_playtest", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Read current playtest runtime settings, canvas settings, and safe render-object styling so you can inspect the game interface before editing it.")]
+  async fn get_playtest_configuration(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("get_playtest_configuration", json!({})).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Update validated playtest parameters. patch is {runtime?: {darkMode?, choicesColumns?, interactionMode?, typewriterSpeed?, choiceDelay?, blurBackground?, blurText?, dimBackground?, autoAdvance?, autoAdvanceDelay?, videoAutoPlay?, hideCharacterTags?, hideSceneTags?, skipSingleChoicePopup?, layoutMode?, choicesPosition?}, canvas?: {canvasWidth?, canvasHeight?, canvasRatioWidth?, canvasRatioHeight?, canvasRatioLocked?, layoutMode?, sceneFit?, sceneScale?, sceneScaleX?, sceneScaleY?, sceneOffsetX?, sceneOffsetY?, sceneBackgroundVisible?, sceneBackgroundType?, sceneBackgroundColor?, sceneBackgroundGradientStart?, sceneBackgroundGradientEnd?, sceneBackgroundGradientAngle?, choicesPosition?, skipSingleChoicePopup?, autoAdvance?, videoAutoPlay?, hideCharacterTags?, hideSceneTags?}}. Numeric values and enums are range-checked; media URLs and credentials are not accepted.")]
+  async fn update_playtest_settings(&self, Parameters(input): Parameters<UpdatePlaytestSettingsInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_playtest_settings", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Update one playtest object: dialogBox, title, body, nameplate, or choice. fields accepts validated position/size/layer/visibility/text settings and fill, stroke, shadow, or shadows patches. Image URLs, arbitrary CSS, and credential fields are rejected.")]
+  async fn update_playtest_render_object(&self, Parameters(input): Parameters<UpdatePlaytestRenderObjectInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_playtest_render_object", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Capture the current playtest game stage as a PNG and return it as an MCP image block for visual evaluation. Open the playtest first. Settings panels are excluded.")]
+  async fn capture_playtest_screen(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("capture_playtest_screen", json!({})).await?;
+    let image_data = result.get("imageData").and_then(Value::as_str)
+      .ok_or_else(|| McpError::internal_error("The editor returned no playtest screenshot.", None))?;
+    if image_data.len() > 8 * 1024 * 1024 {
+      return Err(McpError::internal_error("The playtest screenshot is larger than the 8 MB limit.", None));
+    }
+    let mime_type = result.get("mimeType").and_then(Value::as_str).unwrap_or("image/png");
+    Ok(CallToolResult::success(vec![
+      ContentBlock::text("Current GalWriter playtest screenshot."),
+      ContentBlock::image(image_data, mime_type),
+    ]))
+  }
+
+  #[tool(description = "Capture the currently visible story editor canvas as a PNG, including cards, links, and background regions. Use this to inspect the user's canvas layout before or after arranging cards. The screenshot reflects the current viewport.")]
+  async fn capture_editor_canvas(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("capture_editor_canvas", json!({})).await?;
+    let image_data = result.get("imageData").and_then(Value::as_str)
+      .ok_or_else(|| McpError::internal_error("The editor returned no canvas screenshot.", None))?;
+    if image_data.len() > 8 * 1024 * 1024 {
+      return Err(McpError::internal_error("The editor screenshot is larger than the 8 MB limit.", None));
+    }
+    let mime_type = result.get("mimeType").and_then(Value::as_str).unwrap_or("image/png");
+    Ok(CallToolResult::success(vec![
+      ContentBlock::text("Current GalWriter story editor canvas screenshot."),
+      ContentBlock::image(image_data, mime_type),
+    ]))
+  }
+
   #[tool(description = "Update the title and/or body text of an existing story card. Only title and text fields can be changed.")]
   async fn update_story_node(&self, Parameters(input): Parameters<UpdateStoryNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
@@ -352,6 +411,13 @@ impl GalWriterMcpServer {
   async fn delete_story_node(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("delete_story_node", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Delete an existing non-root story, character, scene, or plot-structure card and its connected links. The protected root story card must be updated to the new story's first card instead of deleted.")]
+  async fn delete_project_node(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("delete_project_node", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
@@ -439,14 +505,21 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Validate a list of supported story-card edits and return a preview without changing the project.")]
+  #[tool(description = "Generate one image with the Image AI profile already configured in the open editor, then attach it to the specified character or scene card. asset_type must be portrait, three-view, tag-sprite, or background. API credentials stay in the editor and are never part of this tool input or result.")]
+  async fn generate_project_node_image(&self, Parameters(input): Parameters<GenerateProjectNodeImageInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("generate_project_node_image", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Validate a list of supported story and setting-card edits, including deletion of non-root story, character, scene, and plot-structure cards, and return a preview without changing the project.")]
   async fn preview_story_changes(&self, Parameters(input): Parameters<StoryChangesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("preview_story_changes", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Apply a validated list of supported story edits as one undoable change. Use preview_story_changes first for a dry run.")]
+  #[tool(description = "Apply a validated list of supported story and setting-card edits as one undoable change. Use preview_story_changes first for a dry run.")]
   async fn apply_story_changes(&self, Parameters(input): Parameters<StoryChangesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("apply_story_changes", input).await?;
@@ -466,7 +539,7 @@ impl GalWriterMcpServer {
   }
 }
 
-#[tool_handler(name = "galwriter", version = "1.3.0", instructions = "Read the current GalWriter desktop project before editing. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. For multi-step edits, preview_story_changes first, then apply_story_changes. Changes are applied through the open editor as undoable edits; call save_current_project when persistence is requested.")]
+#[tool_handler(name = "galwriter", version = "1.5.0", instructions = "Read the current GalWriter desktop project before editing. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation. For multi-step story edits, preview_story_changes first, then apply_story_changes. Changes are applied through the open editor as undoable edits; call save_current_project when persistence is requested.")]
 impl ServerHandler for GalWriterMcpServer {}
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -556,6 +629,21 @@ struct ClearStoryMediaInput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+enum ProjectImageAssetType {
+  Portrait,
+  ThreeView,
+  TagSprite,
+  Background,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct GenerateProjectNodeImageInput {
+  node_id: String,
+  asset_type: ProjectImageAssetType,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct SetStoryTextInput {
   node_id: String,
   segments: Vec<StoryTextSegment>,
@@ -573,6 +661,29 @@ struct StoryChangesInput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct OpenPlaytestInput {
+  display_mode: Option<PlaytestDisplayMode>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum PlaytestDisplayMode {
+  Fullscreen,
+  Windowed,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct UpdatePlaytestSettingsInput {
+  patch: Value,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct UpdatePlaytestRenderObjectInput {
+  object_id: String,
+  fields: std::collections::BTreeMap<String, Value>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum StoryChangeOperation {
   UpdateNode { node_id: String, fields: std::collections::BTreeMap<String, Value> },
@@ -584,6 +695,7 @@ enum StoryChangeOperation {
   CreateCharacterNode { node_id: Option<String>, character_name: String, position: StoryNodePosition },
   CreateSceneNode { node_id: Option<String>, scene_name: String, position: StoryNodePosition },
   DeleteStoryNode { node_id: String },
+  DeleteProjectNode { node_id: String },
   MoveNode { node_id: String, position: StoryNodePosition },
   ConnectStoryNodes { source_id: String, target_id: String, label: Option<String> },
   DisconnectStoryNodes { source_id: String, target_id: String },

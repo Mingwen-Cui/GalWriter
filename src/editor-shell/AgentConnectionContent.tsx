@@ -2,8 +2,8 @@ import { Bot, Copy, Download, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { FULL_BUILD_DOWNLOAD_URL } from '../lib/appAssets';
-import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import type { Language } from '../lib/i18n';
+import { getTauriInvoke, isTauriRuntime } from '../lib/tauriRuntime';
 import { assistantPanelCopy } from './i18n/assistant';
 
 export function AgentConnectionContent({
@@ -118,8 +118,10 @@ export function AgentConnectionContent({
                       'update_story_node', 'update_project_node', 'update_character_node', 'update_scene_node',
                       'update_plot_structure_node', 'set_story_text', 'set_story_presentation',
                       'create_story_node', 'create_character_node', 'create_scene_node', 'connect_story_nodes',
-                      'disconnect_story_nodes', 'delete_story_node', 'move_story_node', 'set_story_media',
-                      'clear_story_media',
+                      'disconnect_story_nodes', 'delete_story_node', 'delete_project_node', 'move_story_node', 'set_story_media',
+                      'clear_story_media', 'generate_project_node_image',
+                      'open_playtest', 'get_playtest_configuration', 'update_playtest_settings',
+                      'update_playtest_render_object', 'capture_playtest_screen', 'capture_editor_canvas',
                       'preview_story_changes', 'apply_story_changes', 'save_current_project', 'export_current_project',
                     ];
                     setStatus(

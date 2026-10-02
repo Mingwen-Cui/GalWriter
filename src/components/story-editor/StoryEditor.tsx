@@ -1,4 +1,5 @@
 import { Edge, Node, useEdgesState, useNodesState, useReactFlow, useStore } from '@xyflow/react';
+import { toPng } from 'html-to-image';
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -67,6 +68,7 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
+import { useKeyboardMouseSettings } from '../../lib/keyboardMouseSettings';
 import { getTauriInvoke, isTauriRuntime } from '../../lib/tauriRuntime';
 import { htmlToSpeechText } from '../../lib/tts';
 import { getPlatformVoiceOptions, getPlatformVoicePlaceholder } from '../../lib/voiceCatalog';
@@ -103,6 +105,8 @@ import { edgeTypes, nodeTypes } from './flowTypes';
 import { formatStoryEditorText, getStoryEditorCopy } from './i18n';
 import { createDefaultEdgeOptions, INITIAL_EDGES, INITIAL_NODES } from './initialGraph';
 import { PlayTestModal, SettingsModal, VideoRenderModal } from './lazyModals';
+import { applyMcpOperations, getMcpAssetCatalog } from './mcpEditorOperations';
+import { applyMcpPlaytestRenderObjectPatch, validateMcpPlaytestSettingsPatch } from './mcpPlaytestOperations';
 import { getMediaDimensions, TITLE_HEIGHT } from './mediaDimensions';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
 import { getPersistedProjectName } from './projectNames';
@@ -120,7 +124,6 @@ import { useAssistantSystem } from './useAssistantSystem';
 import { useEditorFooterHint } from './useEditorFooterHint';
 import { useEditorHistory } from './useEditorHistory';
 import { useEditorKeyboardShortcuts } from './useEditorKeyboardShortcuts';
-import { useKeyboardMouseSettings } from '../../lib/keyboardMouseSettings';
 import { useEditorUtilityActions } from './useEditorUtilityActions';
 import { useGraphPresentation } from './useGraphPresentation';
 import { usePlotStructureGeneration } from './usePlotStructureGeneration';
@@ -129,7 +132,6 @@ import { useRegionAssistantContext } from './useRegionAssistantContext';
 import { useStoryNodeSpeechGeneration } from './useStoryNodeSpeechGeneration';
 import { useStoryPresentationBindings } from './useStoryPresentationBindings';
 import { syncCloseButtonBehavior } from './windowBehavior';
-import { applyMcpOperations, getMcpAssetCatalog } from './mcpEditorOperations';
 
 const sanitizeMcpSnapshotValue = (value: unknown, depth = 0): unknown => {
   if (depth > 12) return '[truncated]';
@@ -138,7 +140,7 @@ const sanitizeMcpSnapshotValue = (value: unknown, depth = 0): unknown => {
   if (!value || typeof value !== 'object') return value;
   return Object.fromEntries(
     Object.entries(value)
-      .filter(([key]) => !/(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob)/i.test(key))
+      .filter(([key]) => !/(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob|avatar|three.?view|tag.?sprite)/i.test(key))
       .map(([key, item]) => [key, sanitizeMcpSnapshotValue(item, depth + 1)]),
   );
 };
@@ -738,6 +740,18 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     save: () => Promise<boolean>;
     export: () => Promise<{ exported: boolean; canceled?: boolean; filePath?: string; error?: string }>;
   } | null>(null);
+  const mcpGenerateSettingImageRef = useRef<((
+    nodeId: string,
+    type: 'character' | 'scene',
+    assetType: 'portrait' | 'three-view' | 'tag-sprite' | 'background',
+  ) => Promise<boolean>) | null>(null);
+  const mcpPlaytestActionsRef = useRef<{
+    open: (mode: 'fullscreen' | 'windowed') => void;
+    getConfiguration: () => Record<string, unknown>;
+    updateSettings: (patch: unknown) => void;
+    updateRenderObject: (objectId: unknown, fields: unknown) => void;
+    captureScreen: () => Promise<string>;
+  } | null>(null);
   mcpNodesRef.current = nodes;
   mcpEdgesRef.current = edges;
   mcpProjectIdRef.current = currentProjectId;
@@ -1135,7 +1149,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   React.useEffect(() => {
     if (!didHydrateLocalState) return;
 
-    const omitMcpField = /(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob)/i;
+    const omitMcpField = /(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob|avatar|three.?view|tag.?sprite)/i;
     const sanitizeMcpValue = (value: unknown, depth = 0): unknown => {
       if (depth > 12) return '[truncated]';
       if (typeof value === 'string') return value.length > 20_000 ? `${value.slice(0, 20_000)}…` : value;
@@ -1266,6 +1280,91 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             await resolveSuccess({ assets: getMcpAssetCatalog(mcpNodesRef.current) });
             return;
           }
+          if (payload.operation === 'get_playtest_configuration') {
+            const actions = mcpPlaytestActionsRef.current;
+            if (!actions) throw new Error('The playtest settings are unavailable.');
+            await resolveSuccess(actions.getConfiguration());
+            return;
+          }
+          if (payload.operation === 'open_playtest') {
+            const actions = mcpPlaytestActionsRef.current;
+            if (!actions) throw new Error('The playtest window is unavailable.');
+            const mode = payload.input.display_mode === undefined ? 'fullscreen' : payload.input.display_mode;
+            if (mode !== 'fullscreen' && mode !== 'windowed') throw new Error('display_mode must be fullscreen or windowed.');
+            actions.open(mode);
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+            await resolveSuccess({ opened: true, displayMode: mode });
+            return;
+          }
+          if (payload.operation === 'update_playtest_settings') {
+            const actions = mcpPlaytestActionsRef.current;
+            if (!actions) throw new Error('The playtest settings are unavailable.');
+            actions.updateSettings(payload.input.patch);
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+            await resolveSuccess({ updated: true });
+            return;
+          }
+          if (payload.operation === 'update_playtest_render_object') {
+            const actions = mcpPlaytestActionsRef.current;
+            if (!actions) throw new Error('The playtest render settings are unavailable.');
+            actions.updateRenderObject(payload.input.object_id, payload.input.fields);
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+            await resolveSuccess({ updated: true, objectId: payload.input.object_id });
+            return;
+          }
+          if (payload.operation === 'capture_playtest_screen') {
+            const actions = mcpPlaytestActionsRef.current;
+            if (!actions) throw new Error('The playtest screen capture is unavailable.');
+            const imageData = await actions.captureScreen();
+            if (imageData.length > 8 * 1024 * 1024) throw new Error('The playtest screenshot is larger than the 8 MB MCP limit.');
+            await resolveSuccess({ imageData, mimeType: 'image/png' });
+            return;
+          }
+          if (payload.operation === 'capture_editor_canvas') {
+            const target = document.querySelector<HTMLElement>('.story-canvas-flow');
+            if (!target) throw new Error('The story editor canvas is unavailable.');
+            await document.fonts?.ready;
+            const dataUrl = await toPng(target, { cacheBust: true, pixelRatio: 1 });
+            const prefix = 'data:image/png;base64,';
+            if (!dataUrl.startsWith(prefix)) throw new Error('The editor screenshot could not be encoded as PNG.');
+            const imageData = dataUrl.slice(prefix.length);
+            if (imageData.length > 8 * 1024 * 1024) throw new Error('The editor screenshot is larger than the 8 MB MCP limit.');
+            await resolveSuccess({ imageData, mimeType: 'image/png' });
+            return;
+          }
+          if (payload.operation === 'generate_project_node_image') {
+            const nodeId = payload.input.node_id;
+            const assetType = payload.input.asset_type;
+            if (typeof nodeId !== 'string' || typeof assetType !== 'string') {
+              throw new Error('node_id and asset_type are required.');
+            }
+            const node = mcpNodesRef.current.find((item) => item.id === nodeId);
+            if (!node || (node.type !== 'characterNode' && node.type !== 'sceneNode')) {
+              throw new Error(`Node '${nodeId}' is not an existing character or scene card.`);
+            }
+            const validAssetTypes = node.type === 'characterNode'
+              ? ['portrait', 'three-view', 'tag-sprite']
+              : ['background'];
+            if (!validAssetTypes.includes(assetType)) {
+              throw new Error(`asset_type must be one of: ${validAssetTypes.join(', ')} for this card.`);
+            }
+            const generated = await mcpGenerateSettingImageRef.current?.(
+              nodeId,
+              node.type === 'characterNode' ? 'character' : 'scene',
+              assetType as 'portrait' | 'three-view' | 'tag-sprite' | 'background',
+            );
+            if (!generated) {
+              throw new Error('Image generation did not complete. Check the Image AI API configuration and card settings, then try again.');
+            }
+            const fieldByAssetType: Record<string, string> = {
+              portrait: 'avatarUrl',
+              'three-view': 'threeViewUrl',
+              'tag-sprite': 'tagSpriteUrl',
+              background: 'coverImageUrl',
+            };
+            await resolveSuccess({ generated: true, nodeId, field: fieldByAssetType[assetType] });
+            return;
+          }
 
           let operations: Array<Record<string, unknown>>;
           const simpleMap: Record<string, string> = {
@@ -1279,6 +1378,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             create_scene_node: 'create_scene_node',
             connect_story_nodes: 'connect_story_nodes',
             delete_story_node: 'delete_story_node',
+            delete_project_node: 'delete_project_node',
             move_story_node: 'move_node',
             disconnect_story_nodes: 'disconnect_story_nodes',
             set_story_media: 'set_media',
@@ -2622,6 +2722,91 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setDidHydrateLocalState,
     showToast,
   });
+  mcpGenerateSettingImageRef.current = (nodeId, type, assetType) =>
+    handleGenerateSettingNodeImage(nodeId, type, undefined, assetType);
+  mcpPlaytestActionsRef.current = {
+    open: (mode) => {
+      setSettingsPlaytestWindowSession('none');
+      setPlayTestWindowLayer('workspace');
+      setPlayTestDisplayMode(mode);
+    },
+    getConfiguration: () => sanitizeMcpSnapshotValue({
+      isOpen: playTestDisplayMode !== null,
+      displayMode: playTestDisplayMode,
+      runtime: {
+        darkMode: playTestDarkMode,
+        choicesColumns: playTestChoicesColumns,
+        interactionMode: playTestInteractionMode,
+        typewriterSpeed: playTestTypewriterSpeed,
+        choiceDelay: playTestChoiceDelay,
+        blurBackground: playTestBlurBackground,
+        blurText: playTestBlurText,
+        dimBackground: playTestDimBackground,
+        autoAdvance: sharedCanvas.settings.autoAdvance,
+        autoAdvanceDelay: playTestAutoAdvanceDelay,
+        videoAutoPlay: sharedCanvas.settings.videoAutoPlay,
+        hideCharacterTags: sharedCanvas.settings.hideCharacterTags,
+        hideSceneTags: sharedCanvas.settings.hideSceneTags,
+        skipSingleChoicePopup: sharedCanvas.settings.skipSingleChoicePopup,
+      },
+      canvas: sharedCanvas.settings,
+      renderObjects: sharedRenderStyle.renderObjects,
+    }) as Record<string, unknown>,
+    updateSettings: (patch) => {
+      const normalized = validateMcpPlaytestSettingsPatch(patch);
+      const runtime = normalized.runtime;
+      const canvasPatch = { ...normalized.canvas };
+      const mirrorToCanvas = (key: 'layoutMode' | 'choicesPosition' | 'videoAutoPlay' | 'skipSingleChoicePopup' | 'autoAdvance' | 'hideCharacterTags' | 'hideSceneTags', value: unknown) => {
+        if (canvasPatch[key] !== undefined && canvasPatch[key] !== value) {
+          throw new Error(`runtime.${key} and canvas.${key} cannot conflict in one update.`);
+        }
+        (canvasPatch as Record<string, unknown>)[key] = value;
+      };
+      if (runtime.layoutMode !== undefined) mirrorToCanvas('layoutMode', runtime.layoutMode);
+      for (const key of ['choicesPosition', 'videoAutoPlay', 'skipSingleChoicePopup', 'autoAdvance', 'hideCharacterTags', 'hideSceneTags'] as const) {
+        if (runtime[key] !== undefined) mirrorToCanvas(key, runtime[key]);
+      }
+      if (runtime.darkMode !== undefined) setPlayTestDarkMode(runtime.darkMode as boolean);
+      if (runtime.choicesColumns !== undefined) setPlayTestChoicesColumns(runtime.choicesColumns as number);
+      if (runtime.interactionMode !== undefined) setPlayTestInteractionMode(runtime.interactionMode as string);
+      if (runtime.typewriterSpeed !== undefined) setPlayTestTypewriterSpeed(runtime.typewriterSpeed as number);
+      if (runtime.choiceDelay !== undefined) setPlayTestChoiceDelay(runtime.choiceDelay as number);
+      if (runtime.blurBackground !== undefined) setPlayTestBlurBackground(runtime.blurBackground as boolean);
+      if (runtime.blurText !== undefined) setPlayTestBlurText(runtime.blurText as boolean);
+      if (runtime.dimBackground !== undefined) setPlayTestDimBackground(runtime.dimBackground as boolean);
+      if (runtime.autoAdvanceDelay !== undefined) setPlayTestAutoAdvanceDelay(runtime.autoAdvanceDelay as number);
+      if (runtime.layoutMode !== undefined) {
+        setPlayTestLayoutMode(runtime.layoutMode as 'classic' | 'immersive');
+      }
+      if (Object.keys(canvasPatch).length) {
+        sharedCanvas.update(canvasPatch);
+        if (canvasPatch.layoutMode !== undefined) setPlayTestLayoutMode(canvasPatch.layoutMode);
+        if (canvasPatch.choicesPosition !== undefined) setPlayTestChoicesPosition(canvasPatch.choicesPosition);
+        if (canvasPatch.videoAutoPlay !== undefined) setPlayTestVideoAutoPlay(canvasPatch.videoAutoPlay);
+        if (canvasPatch.skipSingleChoicePopup !== undefined) setPlayTestSkipSingleChoicePopup(canvasPatch.skipSingleChoicePopup);
+        if (canvasPatch.autoAdvance !== undefined) setPlayTestAutoAdvance(canvasPatch.autoAdvance);
+        if (canvasPatch.hideCharacterTags !== undefined) setPlayTestHideCharacterTags(canvasPatch.hideCharacterTags);
+        if (canvasPatch.hideSceneTags !== undefined) setPlayTestHideSceneTags(canvasPatch.hideSceneTags);
+      }
+    },
+    updateRenderObject: (objectId, fields) => {
+      setSharedRenderStyle((current) => applyMcpPlaytestRenderObjectPatch(current, objectId, fields));
+    },
+    captureScreen: async () => {
+      let target: HTMLElement | null = null;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        target = document.querySelector<HTMLElement>('[data-playtest-game-screen="true"]');
+        if (target) break;
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+      }
+      if (!target) throw new Error('Open the playtest first, then call capture_playtest_screen.');
+      await document.fonts?.ready;
+      const dataUrl = await toPng(target, { cacheBust: true, pixelRatio: 1 });
+      const prefix = 'data:image/png;base64,';
+      if (!dataUrl.startsWith(prefix)) throw new Error('The screenshot could not be encoded as PNG.');
+      return dataUrl.slice(prefix.length);
+    },
+  };
   mcpProjectActionsRef.current = { save: saveCurrentProject, export: confirmExportJSON };
 
   useEditorKeyboardShortcuts({

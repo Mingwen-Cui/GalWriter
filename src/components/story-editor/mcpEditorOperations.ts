@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { createCharacterPresentation, createScenePresentation } from '../../lib/presentation';
 import { getSettingRename, replaceMentionNameInText } from './nodeRename';
+import { getStoryConnectionHandles } from './storyConnectionHandles';
 
 type McpOperation = Record<string, unknown>;
 
@@ -553,6 +554,24 @@ export const applyMcpOperations = (
       continue;
     }
 
+    if (operation.type === 'delete_project_node') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
+      const current = nextNodes.find((node) => node.id === nodeId);
+      if (!current) throw new Error(`Node '${nodeId}' was not found.`);
+      if (!['storyNode', 'characterNode', 'sceneNode', 'plotStructureNode'].includes(current.type || '')) {
+        throw new Error(`Node '${nodeId}' is not a deletable story, character, scene, or plot-structure card.`);
+      }
+      if (current.type === 'storyNode' && (current.data as Record<string, unknown>).isRoot === true) {
+        throw new Error('The root story card is protected. Update it to become the first card of the new story instead.');
+      }
+      nextNodes = nextNodes.filter((node) => node.id !== nodeId);
+      nextEdges = nextEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+      deleted.push(nodeId);
+      changes.push({ type: operation.type, nodeId });
+      changedCount += 1;
+      continue;
+    }
+
     if (operation.type === 'move_node') {
       if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
       const position = positionOf(operation.position);
@@ -581,7 +600,10 @@ export const applyMcpOperations = (
         if (nextEdges.some((edge) => edge.source === sourceId && edge.target === targetId)) throw new Error('A link between these story cards already exists.');
         const label = operation.label;
         if (label !== undefined && (typeof label !== 'string' || label.length > 500)) throw new Error('label must be a string of at most 500 characters.');
-        nextEdges.push({ id: `mcp-${uuidv4()}`, ...defaultEdge, source: sourceId, target: targetId, ...(typeof label === 'string' && label ? { label } : {}) });
+        const sourceNode = nextNodes.find((node) => node.id === sourceId)!;
+        const targetNode = nextNodes.find((node) => node.id === targetId)!;
+        const { sourceHandle, targetHandle } = getStoryConnectionHandles(sourceNode, targetNode);
+        nextEdges.push({ id: `mcp-${uuidv4()}`, ...defaultEdge, source: sourceId, sourceHandle, target: targetId, targetHandle, ...(typeof label === 'string' && label ? { label } : {}) });
       }
       changes.push({ type: operation.type, sourceId, targetId });
       changedCount += 1;
