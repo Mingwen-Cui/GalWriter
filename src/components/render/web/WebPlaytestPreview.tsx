@@ -30,7 +30,8 @@ import {
 } from '../../../lib/inlineAssetSwitch';
 import {
   buildInlinePlaybackSteps,
-  getImmediatelySettledInlineActions,
+  getInlineActionDuration,
+  getInitialPresentationEnterDuration,
   inlineActionAnimation,
   inlineActionCssVars,
   inlineActionTransform,
@@ -88,7 +89,7 @@ import {
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
 import { resolveSettingsPageElements } from './webMenuPageElements';
 import { buildArchivePageElements } from './webMenuPageElements';
-import { WebDialogueHistory, WebPlaybackSettings,WebStoryEnding } from './WebPlaybackDialogs';
+import { WebDialogueHistory, WebPlaybackSettings, WebStoryEnding } from './WebPlaybackDialogs';
 import { WEB_BUTTON_MOTION_CSS } from './webButtonMotion';
 import { WEB_PLAYBACK_UI_CSS, webStoryTitle, webToolbarButtonLabel } from './webPlaybackUi';
 import { WebPlaytestDialoguePanel } from './WebPlaytestDialoguePanel';
@@ -376,7 +377,9 @@ export function WebPlaytestPreview({
     [_onUpdateRenderStyle, renderStyle],
   );
   const [presentationVisible, setPresentationVisible] = useState(false);
+  const [presentationReady, setPresentationReady] = useState(false);
   const [presentationExiting, setPresentationExiting] = useState(false);
+  const [inlineActionPlaybackId, setInlineActionPlaybackId] = useState(0);
   const [activeInlineAction, setActiveInlineAction] = useState<InlinePresentationAction | null>(
     null,
   );
@@ -487,15 +490,6 @@ export function WebPlaytestPreview({
   );
   const renderObjects = getRenderObjects(renderStyle);
   const dialogWidth = Math.max(0, Math.min(100, renderObjects.dialogBox.width || 86));
-
-  React.useEffect(() => {
-    setPresentationExiting(false);
-    setPresentationVisible(false);
-    setCurrentAudioEnded(false);
-    setCurrentVideoEnded(false);
-    const frame = requestAnimationFrame(() => setPresentationVisible(true));
-    return () => cancelAnimationFrame(frame);
-  }, [currentNodeId]);
 
   React.useEffect(() => {
     if (!root) {
@@ -641,6 +635,28 @@ export function WebPlaytestPreview({
       normalizeStoryPresentation(currentNode?.data?.presentation as StoryPresentation | undefined),
     [currentNode?.data?.presentation],
   );
+  const initialEnterDuration = getInitialPresentationEnterDuration(presentation) / animationRate;
+  React.useLayoutEffect(() => {
+    setPresentationExiting(false);
+    setPresentationVisible(false);
+    setPresentationReady(false);
+    setCurrentAudioEnded(false);
+    setCurrentVideoEnded(false);
+    let revealFrame = 0;
+    let readyTimer = 0;
+    const frame = requestAnimationFrame(() => {
+      revealFrame = requestAnimationFrame(() => {
+        setPresentationVisible(true);
+        readyTimer = window.setTimeout(() => setPresentationReady(true), initialEnterDuration);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(revealFrame);
+      window.clearTimeout(readyTimer);
+    };
+  }, [currentNodeId, storySurfaceActive, initialEnterDuration]);
+
   const sceneSource = presentation.scene
     ? nodes.find((node) => node.id === presentation.scene?.sourceNodeId)
     : null;
@@ -878,56 +894,10 @@ export function WebPlaytestPreview({
       };
       return window.setTimeout(tick, Math.min(32, Math.max(0, delay)));
     };
-    if (settings.interactionMode !== 'typewriter') {
-      const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
-        hideCharacterTags: settings.hideCharacterTags,
-        hideSceneTags: settings.hideSceneTags,
-      });
-      const switchActions = playbackSteps
-        .filter(
-          (step): step is { kind: 'action'; action: InlinePresentationAction } =>
-            step.kind === 'action',
-        )
-        .map((step) => step.action)
-        .filter((action) => action.action === 'switch' && Boolean(action.targetAssetId));
-      setCompletedInlineActions(
-        getImmediatelySettledInlineActions(
-          playbackSteps
-            .filter(
-              (step): step is { kind: 'action'; action: InlinePresentationAction } =>
-                step.kind === 'action',
-            )
-            .map((step) => step.action),
-        ),
-      );
-      setDisplayedPreviewText(text);
-      if (!switchActions.length) {
-        setAnimationDone(true);
-        return;
-      }
-
+    if (!presentationReady) {
+      setDisplayedPreviewText('');
       setAnimationDone(false);
-      const playSwitch = (index: number) => {
-        const action = switchActions[index];
-        if (!action) {
-          setActiveInlineAction(null);
-          setAnimationDone(true);
-          return;
-        }
-        setActiveInlineAction(action);
-        const duration =
-          Math.max(180, action.duration || 420) / Math.max(0.5, settings.animationSpeed ?? 1);
-        inlineActionTimerRef.current = scheduleStep(() => {
-          setActiveInlineAction(null);
-          setCompletedSwitchActions((previous) => [...previous, action]);
-          setCompletedInlineActions((previous) => [...previous, action]);
-          playSwitch(index + 1);
-        }, duration);
-      };
-      playSwitch(0);
-      return () => {
-        if (inlineActionTimerRef.current) window.clearTimeout(inlineActionTimerRef.current);
-      };
+      return;
     }
     setAnimationDone(false);
     const playbackSteps = buildInlinePlaybackSteps(rawText, presentation, {
@@ -936,6 +906,7 @@ export function WebPlaytestPreview({
     });
     let stepIndex = 0;
     let committedHtml = '';
+    let committedText = '';
     let timer = 0;
     setDisplayedPreviewText('');
 
@@ -945,11 +916,12 @@ export function WebPlaytestPreview({
       if (!step) {
         setActiveInlineAction(null);
         setAnimationDone(true);
-        setDisplayedPreviewText(committedHtml);
+        setDisplayedPreviewText(committedText);
         return;
       }
 
       if (step.kind === 'action') {
+        setInlineActionPlaybackId((value) => value + 1);
         setActiveInlineAction(step.action);
         inlineActionTimerRef.current = scheduleStep(
           () => {
@@ -963,12 +935,22 @@ export function WebPlaytestPreview({
             stepIndex += 1;
             playNext();
           },
-          Math.max(0, step.action.duration || 0) / Math.max(0.5, settings.animationSpeed ?? 1),
+          getInlineActionDuration(step.action) / Math.max(0.5, settings.animationSpeed ?? 1),
         );
         return;
       }
 
-      const source = stripHtml(step.html);
+      const cumulativeHtml = committedHtml + step.html;
+      const cumulativeText = stripHtml(cumulativeHtml);
+      const source = cumulativeText.slice(committedText.length);
+      if (settings.interactionMode !== 'typewriter' || !source) {
+        committedHtml = cumulativeHtml;
+        committedText = cumulativeText;
+        setDisplayedPreviewText(committedText);
+        stepIndex += 1;
+        playNext();
+        return;
+      }
       const revealUnits =
         renderStyle.bodyTypewriterMode === 'line'
           ? source.split(/(\n+)/)
@@ -981,10 +963,11 @@ export function WebPlaytestPreview({
         if (playbackPausedRef.current) return;
         index += 1;
         const visibleText = revealUnits.slice(0, index).join('');
-        setDisplayedPreviewText(committedHtml + visibleText);
+        setDisplayedPreviewText(committedText + visibleText);
         if (index >= revealUnits.length) {
           window.clearInterval(timer);
-          committedHtml += source;
+          committedHtml = cumulativeHtml;
+          committedText = cumulativeText;
           stepIndex += 1;
           playNext();
         }
@@ -997,6 +980,7 @@ export function WebPlaytestPreview({
     };
   }, [
     storySurfaceActive,
+    presentationReady,
     currentNodeId,
     presentation,
     renderStyle.bodyTypewriterMode,
@@ -1756,7 +1740,11 @@ export function WebPlaytestPreview({
     // Use the primary button so a normal drag box-selects and a normal empty
     // click clears selection, rather than hiding multi-select behind right
     // click.
-    if (previewMode !== 'edit' || event.button !== (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2)) return;
+    if (
+      previewMode !== 'edit' ||
+      event.button !== (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2)
+    )
+      return;
     const rect = startMenuEditorRef.current?.getBoundingClientRect();
     if (!rect) return;
     event.preventDefault();
@@ -2904,6 +2892,7 @@ export function WebPlaytestPreview({
       presentation={presentation}
       presentationExiting={presentationExiting}
       presentationVisible={presentationVisible}
+      inlineActionPlaybackId={inlineActionPlaybackId}
       activeInlineAction={activeInlineAction}
       completedInlineActions={completedInlineActions}
       emptyText={formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText2153')}
@@ -3048,18 +3037,16 @@ export function WebPlaytestPreview({
             style={{ width: 'min(520px, calc(100% - 32px))' }}
           >
             <ChoiceButtonsGroup
-              items={
-                (language === 'zh'
-                  ? ['选项A', '选项B']
-                  : language === 'ja'
-                    ? ['選択肢 A', '選択肢 B']
-                    : ['Option A', 'Option B']
-                ).map((label, index) => ({
-                  id: `choice-style-sample-${index}`,
-                  label,
-                  onClick: () => undefined,
-                }))
-              }
+              items={(language === 'zh'
+                ? ['选项A', '选项B']
+                : language === 'ja'
+                  ? ['選択肢 A', '選択肢 B']
+                  : ['Option A', 'Option B']
+              ).map((label, index) => ({
+                id: `choice-style-sample-${index}`,
+                label,
+                onClick: () => undefined,
+              }))}
               extraClass="grid-cols-1"
               choiceColor={choiceColor}
               choiceTextColor={choiceTextColor}

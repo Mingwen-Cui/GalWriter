@@ -1,8 +1,18 @@
 import type { CSSProperties } from 'react';
 
-import type { InlinePresentationAction, StoryPresentation } from '../domain/project';
+import type {
+  CharacterPresentation,
+  InlinePresentationAction,
+  StoryPresentation,
+} from '../domain/project';
 import { isSwitchInlineAction } from './inlineAssetSwitch';
-import { getPresentationContentWindow } from './presentation';
+import {
+  getCharacterEnterDelay,
+  getPresentationContentWindow,
+  getPresentationEnterDuration,
+  getPresentationMotionDuration,
+  getPresentationTransform,
+} from './presentation';
 
 // Text fragments concatenate into the original rich-text structure. A tag
 // action inside a paragraph may split its opening and closing HTML tags.
@@ -15,169 +25,180 @@ type InlinePlaybackOptions = {
   hideSceneTags?: boolean;
 };
 
-const filterPlaybackMentionTags = (
-  html: string,
-  { hideCharacterTags = false, hideSceneTags = false }: InlinePlaybackOptions = {},
-) => {
-  if (!html) return html;
-  const container = document.createElement('div');
-  container.innerHTML = html;
-  container.querySelectorAll('[data-mention-kind="video"]').forEach((node) => node.remove());
-  if (hideCharacterTags) {
-    container.querySelectorAll('[data-mention-kind="character"]').forEach((node) => node.remove());
-  }
-  if (hideSceneTags) {
-    container.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());
-  }
-  return container.innerHTML;
-};
-
-const hasMeaningfulTextOutsideMentions = (html: string) => {
-  const container = document.createElement('div');
-  container.innerHTML = html;
-  container.querySelectorAll('.mention-chip').forEach((node) => node.remove());
-  return /[\p{L}\p{N}]/u.test(container.textContent || '');
-};
-
-const mentionPlacement = (root: HTMLElement, mention: HTMLElement) => {
-  const beforeRange = document.createRange();
-  beforeRange.setStart(root, 0);
-  beforeRange.setEndBefore(mention);
-  const afterRange = document.createRange();
-  afterRange.setStartAfter(mention);
-  afterRange.setEnd(root, root.childNodes.length);
-  const before = document.createElement('div');
-  const after = document.createElement('div');
-  before.appendChild(beforeRange.cloneContents());
-  after.appendChild(afterRange.cloneContents());
-  if (!hasMeaningfulTextOutsideMentions(before.innerHTML)) return 'start';
-  if (!hasMeaningfulTextOutsideMentions(after.innerHTML)) return 'end';
-  return 'inline';
-};
-
-const findInlineAction = (
-  mention: HTMLElement,
-  presentation: StoryPresentation,
-): InlinePresentationAction | null => {
-  const kind = mention.dataset.mentionKind;
-  if (kind !== 'character' && kind !== 'scene') return null;
-  const mentionId = mention.dataset.mentionId;
-  const sourceNodeId = mention.dataset.sourceNodeId || mention.dataset.mentionSourceNodeId;
-  const actions = (presentation.inlineActions || []).filter((action) => action.kind === kind);
-  const exactAction = mentionId ? actions.find((action) => action.id === mentionId) : undefined;
-  if (exactAction) {
-    return !sourceNodeId || exactAction.sourceNodeId === sourceNodeId ? exactAction : null;
-  }
-  if (!sourceNodeId) return null;
-
-  // Older documents may bind one action to a source instead of a mention.
-  // A modern mention ID must never borrow another mention's action, even if
-  // the two tags have the same display name or reference the same character.
-  const legacyAction = actions.find(
-    (action) => action.id === `${kind}:${sourceNodeId}` && action.sourceNodeId === sourceNodeId,
-  );
-  if (legacyAction) return legacyAction;
-  if (mentionId) return null;
-  const sourceActions = actions.filter((action) => action.sourceNodeId === sourceNodeId);
-  return sourceActions.length === 1 ? sourceActions[0] : null;
-};
-
-export const buildInlinePlaybackSteps = (
-  html: string,
-  presentation: StoryPresentation,
-  options: InlinePlaybackOptions = {},
-): InlinePlaybackStep[] => {
-  if (!html) return [];
-  const container = document.createElement('div');
-  container.innerHTML = html;
-  const steps: InlinePlaybackStep[] = [];
-  let buffer = '';
-
-  const flush = () => {
-    if (!buffer) return;
-    steps.push({ kind: 'text', html: buffer });
-    buffer = '';
+// This self-contained factory is also embedded in the exported offline player.
+export const createInlinePlaybackParser = () => {
+  const filterPlaybackMentionTags = (
+    html: string,
+    { hideCharacterTags = false, hideSceneTags = false }: InlinePlaybackOptions = {},
+  ) => {
+    if (!html) return html;
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    container.querySelectorAll('[data-mention-kind="video"]').forEach((node) => node.remove());
+    if (hideCharacterTags) {
+      container
+        .querySelectorAll('[data-mention-kind="character"]')
+        .forEach((node) => node.remove());
+    }
+    if (hideSceneTags) {
+      container.querySelectorAll('[data-mention-kind="scene"]').forEach((node) => node.remove());
+    }
+    return container.innerHTML;
   };
 
-  const visibleMentionHtml = (mention: HTMLElement) => {
+  const hasMeaningfulTextOutsideMentions = (html: string) => {
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    container.querySelectorAll('.mention-chip').forEach((node) => node.remove());
+    return /[\p{L}\p{N}]/u.test(container.textContent || '');
+  };
+
+  const mentionPlacement = (root: HTMLElement, mention: HTMLElement) => {
+    const beforeRange = document.createRange();
+    beforeRange.setStart(root, 0);
+    beforeRange.setEndBefore(mention);
+    const afterRange = document.createRange();
+    afterRange.setStartAfter(mention);
+    afterRange.setEnd(root, root.childNodes.length);
+    const before = document.createElement('div');
+    const after = document.createElement('div');
+    before.appendChild(beforeRange.cloneContents());
+    after.appendChild(afterRange.cloneContents());
+    if (!hasMeaningfulTextOutsideMentions(before.innerHTML)) return 'start';
+    if (!hasMeaningfulTextOutsideMentions(after.innerHTML)) return 'end';
+    return 'inline';
+  };
+
+  const findInlineAction = (
+    mention: HTMLElement,
+    presentation: StoryPresentation,
+  ): InlinePresentationAction | null => {
     const kind = mention.dataset.mentionKind;
-    if (
-      kind === 'video' ||
-      (kind === 'character' && options.hideCharacterTags) ||
-      (kind === 'scene' && options.hideSceneTags)
-    ) {
-      return '';
+    if (kind !== 'character' && kind !== 'scene') return null;
+    const mentionId = mention.dataset.mentionId;
+    const sourceNodeId = mention.dataset.sourceNodeId || mention.dataset.mentionSourceNodeId;
+    const actions = (presentation.inlineActions || []).filter((action) => action.kind === kind);
+    const exactAction = mentionId ? actions.find((action) => action.id === mentionId) : undefined;
+    if (exactAction) {
+      return !sourceNodeId || exactAction.sourceNodeId === sourceNodeId ? exactAction : null;
     }
-    return mention.outerHTML;
+    if (!sourceNodeId) return null;
+
+    // Older documents may bind one action to a source instead of a mention.
+    // A modern mention ID must never borrow another mention's action, even if
+    // the two tags have the same display name or reference the same character.
+    const legacyAction = actions.find(
+      (action) => action.id === `${kind}:${sourceNodeId}` && action.sourceNodeId === sourceNodeId,
+    );
+    if (legacyAction) return legacyAction;
+    if (mentionId) return null;
+    const sourceActions = actions.filter((action) => action.sourceNodeId === sourceNodeId);
+    return sourceActions.length === 1 ? sourceActions[0] : null;
   };
 
-  const appendNode = (node: ChildNode) => {
-    if (!(node instanceof HTMLElement)) {
-      // Serializing a text node through the DOM preserves escaped <, > and &.
-      const wrapper = document.createElement('div');
-      wrapper.appendChild(node.cloneNode(true));
-      buffer += wrapper.innerHTML;
-      return;
-    }
-    if (node.classList.contains('mention-chip') || node.hasAttribute('data-mention-kind')) {
-      const placement = mentionPlacement(container, node);
-      const action = findInlineAction(node, presentation);
-      // A tag can explicitly place a stage entrance or exit at this point in
-      // the typewriter timeline, even when it appears at the beginning/end.
-      if (action?.timelinePhase) {
-        flush();
-        steps.push({ kind: 'action', action });
-        buffer += visibleMentionHtml(node);
+  const buildInlinePlaybackSteps = (
+    html: string,
+    presentation: StoryPresentation,
+    options: InlinePlaybackOptions = {},
+  ): InlinePlaybackStep[] => {
+    if (!html) return [];
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    const steps: InlinePlaybackStep[] = [];
+    let buffer = '';
+
+    const flush = () => {
+      if (!buffer) return;
+      steps.push({ kind: 'text', html: buffer });
+      buffer = '';
+    };
+
+    const visibleMentionHtml = (mention: HTMLElement) => {
+      const kind = mention.dataset.mentionKind;
+      if (
+        kind === 'video' ||
+        (kind === 'character' && options.hideCharacterTags) ||
+        (kind === 'scene' && options.hideSceneTags)
+      ) {
+        return '';
+      }
+      return mention.outerHTML;
+    };
+
+    const appendNode = (node: ChildNode) => {
+      if (!(node instanceof HTMLElement)) {
+        // Serializing a text node through the DOM preserves escaped <, > and &.
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(node.cloneNode(true));
+        buffer += wrapper.innerHTML;
         return;
       }
-      // A scene tag often sits at the beginning or end of a card rather than
-      // in the middle of a sentence. Switching its media must still be a
-      // real playback step, otherwise the editor can save a switch that the
-      // player/export never executes.
-      if (placement !== 'inline' && action?.action === 'switch') {
-        if (placement === 'start') {
+      if (node.classList.contains('mention-chip') || node.hasAttribute('data-mention-kind')) {
+        const placement = mentionPlacement(container, node);
+        const action = findInlineAction(node, presentation);
+        // A tag can explicitly place a stage entrance or exit at this point in
+        // the typewriter timeline, even when it appears at the beginning/end.
+        if (action?.timelinePhase) {
           flush();
           steps.push({ kind: 'action', action });
           buffer += visibleMentionHtml(node);
           return;
         }
-        buffer += visibleMentionHtml(node);
-        flush();
-        steps.push({ kind: 'action', action });
+        // A scene tag often sits at the beginning or end of a card rather than
+        // in the middle of a sentence. Switching its media must still be a
+        // real playback step, otherwise the editor can save a switch that the
+        // player/export never executes.
+        if (placement !== 'inline' && action?.action === 'switch') {
+          if (placement === 'start') {
+            flush();
+            steps.push({ kind: 'action', action });
+            buffer += visibleMentionHtml(node);
+            return;
+          }
+          buffer += visibleMentionHtml(node);
+          flush();
+          steps.push({ kind: 'action', action });
+          return;
+        }
+        if (placement !== 'inline') {
+          buffer += visibleMentionHtml(node);
+          return;
+        }
+        if (action) {
+          flush();
+          steps.push({ kind: 'action', action });
+          buffer += visibleMentionHtml(node);
+        } else {
+          buffer += visibleMentionHtml(node);
+        }
         return;
       }
-      if (placement !== 'inline') {
-        buffer += visibleMentionHtml(node);
-        return;
-      }
-      if (action) {
-        flush();
-        steps.push({ kind: 'action', action });
-        buffer += visibleMentionHtml(node);
-      } else {
-        buffer += visibleMentionHtml(node);
-      }
-      return;
-    }
 
-    // Keep the actual ancestor markup across text steps. Cloning a DOM Range
-    // for each step would turn one <p> into several separate paragraphs.
-    const shell = node.cloneNode(false) as HTMLElement;
-    const shellHtml = shell.outerHTML;
-    const closingTag = `</${node.tagName.toLowerCase()}>`;
-    const hasClosingTag = shellHtml.endsWith(closingTag);
-    if (!hasClosingTag) {
-      buffer += node.outerHTML;
-      return;
-    }
-    buffer += shellHtml.slice(0, -closingTag.length);
-    Array.from(node.childNodes).forEach(appendNode);
-    buffer += closingTag;
+      // Keep the actual ancestor markup across text steps. Cloning a DOM Range
+      // for each step would turn one <p> into several separate paragraphs.
+      const shell = node.cloneNode(false) as HTMLElement;
+      const shellHtml = shell.outerHTML;
+      const closingTag = `</${node.tagName.toLowerCase()}>`;
+      const hasClosingTag = shellHtml.endsWith(closingTag);
+      if (!hasClosingTag) {
+        buffer += node.outerHTML;
+        return;
+      }
+      buffer += shellHtml.slice(0, -closingTag.length);
+      Array.from(node.childNodes).forEach(appendNode);
+      buffer += closingTag;
+    };
+    Array.from(container.childNodes).forEach(appendNode);
+    flush();
+    return steps.length
+      ? steps
+      : [{ kind: 'text', html: filterPlaybackMentionTags(html, options) }];
   };
-  Array.from(container.childNodes).forEach(appendNode);
-  flush();
-  return steps.length ? steps : [{ kind: 'text', html: filterPlaybackMentionTags(html, options) }];
+
+  return buildInlinePlaybackSteps;
 };
+
+export const buildInlinePlaybackSteps = createInlinePlaybackParser();
 
 export const inlineActionTransform = (action?: InlinePresentationAction | null) => {
   if (
@@ -200,6 +221,7 @@ export const isPersistentInlineAction = (action?: InlinePresentationAction | nul
   action?.action === 'translate' ||
   action?.action === 'translate-x' ||
   action?.action === 'translate-y' ||
+  action?.action === 'scale' ||
   action?.action === 'rotate' ||
   action?.action === 'opacity' ||
   action?.action === 'brightness' ||
@@ -273,6 +295,77 @@ export const getInlineActionDuration = (action?: InlinePresentationAction | null
   return Math.max(action.action === 'switch' ? 180 : 80, duration);
 };
 
+/** A cue starts movement toward its destination; waiting poses never transition. */
+export const getCharacterPlaybackMotion = (
+  config: CharacterPresentation,
+  presentation: StoryPresentation,
+  activeAction: InlinePresentationAction | null,
+  completedActions: InlinePresentationAction[],
+  visible: boolean,
+  exiting: boolean,
+  cardMotion = true,
+) => {
+  const cue = getInlineTimelineCueState(
+    presentation.inlineActions || [],
+    activeAction,
+    completedActions,
+    'character',
+    config.sourceNodeId,
+  );
+  const leaving = exiting || cue.exitCueActive || cue.exitCueCompleted;
+  const motion = leaving ? config.exit : config.enter;
+  const initial =
+    cue.waitingForEnterCue ||
+    (cardMotion && !visible && !cue.enterCueActive && !cue.enterCueCompleted);
+  const offstage = leaving || initial;
+  const playingCue = cue.enterCueActive || cue.exitCueActive;
+  return {
+    transform: offstage ? getCharacterMotionTransform(motion.type, leaving) : '',
+    opacity: offstage && motion.type === 'fade' ? 0 : 1,
+    visibility:
+      cue.waitingForEnterCue || cue.exitCueCompleted ? ('hidden' as const) : ('visible' as const),
+    duration:
+      initial || cue.exitCueCompleted
+        ? 0
+        : playingCue
+          ? getInlineActionDuration(activeAction)
+          : cardMotion
+            ? getPresentationMotionDuration(motion)
+            : 0,
+    delay:
+      !cue.hasEnterCue && cardMotion && visible && !exiting
+        ? getCharacterEnterDelay(presentation)
+        : 0,
+  };
+};
+
+/** Travel beyond the stage edge, independent of sprite width and canvas scale. */
+export const getCharacterMotionTransform = (
+  type: CharacterPresentation['enter']['type'],
+  exiting: boolean,
+) => {
+  if (type === 'slide-left') return `translateX(calc(${exiting ? '-100cqw -' : '100cqw +'} 100%))`;
+  if (type === 'slide-right') return `translateX(calc(${exiting ? '100cqw +' : '-100cqw -'} 100%))`;
+  if (type === 'slide-up') return `translateY(calc(${exiting ? '-100cqh -' : '100cqh +'} 100%))`;
+  if (type === 'slide-down') return `translateY(calc(${exiting ? '100cqh +' : '-100cqh -'} 100%))`;
+  return getPresentationTransform(type, exiting);
+};
+
+/** Tagged entrances belong to the text queue, not the initial card entrance. */
+export const getInitialPresentationEnterDuration = (presentation: StoryPresentation) =>
+  getPresentationEnterDuration({
+    ...presentation,
+    characters: presentation.characters.filter(
+      (character) =>
+        !(presentation.inlineActions || []).some(
+          (action) =>
+            action.kind === 'character' &&
+            action.sourceNodeId === character.sourceNodeId &&
+            action.timelinePhase === 'enter',
+        ),
+    ),
+  });
+
 export const inlineActionCssVars = (action?: InlinePresentationAction | null) => {
   if (!action || action.action === 'none') return {};
   const opacity = Math.max(0, Math.min(100, action.strength || 0)) / 100;
@@ -296,6 +389,42 @@ export const inlineActionSettledStyle = (
     return { filter: `brightness(${variables['--inline-action-brightness']})` };
   }
   return {};
+};
+
+/** Keep independent completed properties when the next action changes another one. */
+export const getInlineTargetState = (
+  completedActions: InlinePresentationAction[],
+  activeAction: InlinePresentationAction | null,
+  kind: 'character' | 'scene',
+  sourceNodeId: string,
+) => {
+  const matches = (action: InlinePresentationAction) =>
+    action.kind === kind &&
+    action.sourceNodeId === sourceNodeId &&
+    action.timelinePhase !== 'enter' &&
+    action.timelinePhase !== 'exit';
+  const completed = completedActions.filter(matches);
+  const transforms =
+    activeAction && matches(activeAction) ? [...completed, activeAction] : completed;
+  const latest = (actions: InlinePresentationAction[], types: string[]) =>
+    actions
+      .slice()
+      .reverse()
+      .find((action) => types.includes(action.action));
+  return {
+    transform: [
+      inlineActionTransform(latest(transforms, ['translate', 'translate-x', 'translate-y'])),
+      inlineActionTransform(latest(transforms, ['scale'])),
+    ]
+      .filter(Boolean)
+      .join(' '),
+    style: Object.assign(
+      {},
+      ...['rotate', 'opacity', 'brightness'].map((type) =>
+        inlineActionSettledStyle(latest(completed, [type])),
+      ),
+    ) as CSSProperties,
+  };
 };
 
 export const inlineActionAnimation = (action?: InlinePresentationAction | null, speed = 1) => {

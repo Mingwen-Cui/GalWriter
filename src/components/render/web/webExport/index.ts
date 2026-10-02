@@ -722,6 +722,26 @@ export async function buildInteractiveWebZipBlob(
           }
         }
       }
+      const packedActions = [];
+      for (const action of rawPresentation.inlineActions || []) {
+        const packedAction = structuredClone(action);
+        if (action.action === 'switch' && action.targetAssetId) {
+          const source = nodes.find((candidate) => candidate.id === action.sourceNodeId);
+          const assets =
+            action.kind === 'scene'
+              ? (source?.data as any)?.images
+              : (source?.data as any)?.outfits;
+          const target = assets?.find((asset: any) => asset.id === action.targetAssetId);
+          packedAction.targetImageUrl = await addImageAsset(
+            zip,
+            target?.imageUrl,
+            `${action.kind}-switch-${action.id}`,
+            assetMap,
+            assetFailures,
+          );
+        }
+        packedActions.push(packedAction);
+      }
       webPresentation = {
         scene: rawPresentation.scene
           ? {
@@ -736,9 +756,7 @@ export async function buildInteractiveWebZipBlob(
             }
           : undefined,
         characters: packedChars,
-        inlineActions: Array.isArray(rawPresentation.inlineActions)
-          ? structuredClone(rawPresentation.inlineActions)
-          : [],
+        inlineActions: packedActions,
       };
     }
 

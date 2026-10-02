@@ -1118,6 +1118,10 @@ export function AssistantPanel({
           ? `assistant-panel-mobile fixed inset-y-0 right-0 z-[220] shadow-sm ${assistantPanelExpanded ? 'w-screen max-w-none' : 'w-[min(26rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)]'}`
           : `assistant-panel-desktop relative z-[80] shrink-0 border-l border-[var(--header-border)] shadow-sm ${showStats ? '' : 'assistant-panel-full-height'}`
       } assistant-panel-shell assistant-panel-chat-surface ${
+        showTransparentWelcomeGradient && !showArticleUploadPage
+          ? `assistant-panel-transparent-gradient assistant-panel-gradient-${welcomeGradientState}`
+          : ''
+      } ${
         panelVisible ? 'assistant-panel-entered' : 'assistant-panel-exiting'
       } flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl dark:bg-slate-950/95`}
       style={isMobile ? undefined : { width: assistantPanelWidth }}
@@ -1350,10 +1354,6 @@ export function AssistantPanel({
         ref={assistantMessagesRef}
         className={`assistant-message-area custom-scrollbar flex-1 space-y-3 overflow-y-auto px-4 ${
           hasStoryOutline ? 'pb-1 pt-4' : 'py-4'
-        } ${
-          showTransparentWelcomeGradient && !showArticleUploadPage
-            ? `assistant-message-transparent-gradient assistant-message-gradient-${welcomeGradientState}`
-            : ''
         }`}
       >
         {showArticleUploadPage ? (

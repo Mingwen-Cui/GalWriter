@@ -1,4 +1,5 @@
-import type { RefObject } from 'react';
+import { Fragment, type CSSProperties, type RefObject } from 'react';
+import { getInlineSwitchAction, resolveCharacterImageUrl } from '../../../lib/inlineAssetSwitch';
 
 import type {
   CharacterNodeData,
@@ -8,17 +9,14 @@ import type {
   StoryPresentation,
 } from '../../../domain/project';
 import {
+  getCharacterPlaybackMotion,
+  getInlineTargetState,
   inlineActionAnimation,
+  getInlineActionDuration,
   inlineActionCssVars,
-  inlineActionTransform,
   latestPersistentInlineAction,
 } from '../../../lib/inlinePresentationPlayback';
-import {
-  clampCharacterLayer,
-  getCharacterEnterDelay,
-  getCharacterStageBounds,
-  getPresentationTransform,
-} from '../../../lib/presentation';
+import { clampCharacterLayer, getCharacterStageBounds } from '../../../lib/presentation';
 import { getSceneGroupStyle } from '../canvas/sceneCanvasStyle';
 import { SceneLightOverlay } from '../shared/SceneLightOverlay';
 import { SceneSwitchFlash } from '../shared/SceneSwitchFlash';
@@ -44,6 +42,7 @@ type WebPlaytestMediaLayersProps = {
   presentation: StoryPresentation;
   presentationExiting: boolean;
   presentationVisible: boolean;
+  inlineActionPlaybackId?: number;
   activeInlineAction: InlinePresentationAction | null;
   completedInlineActions: InlinePresentationAction[];
   emptyText: string;
@@ -67,6 +66,7 @@ export function WebPlaytestMediaLayers({
   presentationExiting,
   presentationVisible,
   activeInlineAction,
+  inlineActionPlaybackId = 0,
   completedInlineActions,
   emptyText,
   onVideoEnded,
@@ -115,58 +115,24 @@ export function WebPlaytestMediaLayers({
           durationMs={sceneSwitchDurationMs}
         />
         {presentedCharacters.length > 0 && (
-          <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+          <div
+            className="absolute inset-0 z-10 overflow-hidden pointer-events-none"
+            style={{ containerType: 'size' }}
+          >
             {presentedCharacters.map(({ config, data, imageUrl }) => {
-              const hasEnterCue = presentation.inlineActions?.some(
-                (action) =>
-                  action.timelinePhase === 'enter' &&
-                  action.kind === 'character' &&
-                  action.sourceNodeId === config.sourceNodeId,
+              const playbackMotion = getCharacterPlaybackMotion(
+                config,
+                presentation,
+                activeInlineAction,
+                completedInlineActions,
+                presentationVisible,
+                presentationExiting,
+                settings.layoutMode === 'immersive',
               );
-              const enterCueActive =
-                activeInlineAction?.timelinePhase === 'enter' &&
-                activeInlineAction.kind === 'character' &&
-                activeInlineAction.sourceNodeId === config.sourceNodeId;
-              const exitCueActive =
-                activeInlineAction?.timelinePhase === 'exit' &&
-                activeInlineAction.kind === 'character' &&
-                activeInlineAction.sourceNodeId === config.sourceNodeId;
-              const enterCueCompleted = completedInlineActions.some(
-                (action) =>
-                  action.timelinePhase === 'enter' &&
-                  action.kind === 'character' &&
-                  action.sourceNodeId === config.sourceNodeId,
-              );
-              const exitCueCompleted = completedInlineActions.some(
-                (action) =>
-                  action.timelinePhase === 'exit' &&
-                  action.kind === 'character' &&
-                  action.sourceNodeId === config.sourceNodeId,
-              );
-              const waitingForEnterCue = Boolean(
-                hasEnterCue && !enterCueActive && !enterCueCompleted,
-              );
-              const motion =
-                presentationExiting || exitCueActive || exitCueCompleted
-                  ? config.exit
-                  : config.enter;
-              // Classic mode intentionally skips the card-level entrance, but a
-              // Tag cue is an explicit timeline event and must still animate.
-              const timelineCueAnimation =
-                enterCueActive || exitCueActive || exitCueCompleted || waitingForEnterCue;
-              const animationActive =
-                timelineCueAnimation ||
-                (settings.layoutMode === 'immersive' &&
-                  (presentationExiting || !presentationVisible));
-              const animationTransform =
-                animationActive && motion
-                  ? getPresentationTransform(
-                      motion.type,
-                      presentationExiting || exitCueActive || exitCueCompleted,
-                    )
-                  : '';
               const inlineAction =
                 activeInlineAction?.kind === 'character' &&
+                activeInlineAction.timelinePhase !== 'enter' &&
+                activeInlineAction.timelinePhase !== 'exit' &&
                 activeInlineAction.sourceNodeId === config.sourceNodeId
                   ? activeInlineAction
                   : latestPersistentInlineAction(
@@ -174,41 +140,81 @@ export function WebPlaytestMediaLayers({
                       'character',
                       config.sourceNodeId,
                     );
-              const inlineDuration = inlineAction ? Math.max(80, inlineAction.duration || 300) : 0;
+              const inlineState = getInlineTargetState(
+                completedInlineActions,
+                activeInlineAction,
+                'character',
+                config.sourceNodeId,
+              );
+              const inlineDuration = getInlineActionDuration(inlineAction);
+              const actionPlaying = inlineAction === activeInlineAction && Boolean(inlineAction);
+              const characterStyle: CSSProperties = {
+                ...getCharacterStageBounds(config),
+                zIndex: clampCharacterLayer(config.layer),
+                ...inlineState.style,
+                opacity: playbackMotion.opacity * Number(inlineState.style.opacity ?? 1),
+                visibility: playbackMotion.visibility,
+                transform: `translate(-50%, 0) ${playbackMotion.transform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineState.transform}`,
+                animation: actionPlaying
+                  ? inlineActionAnimation(inlineAction, animationRate)
+                  : undefined,
+
+                ...inlineActionCssVars(inlineAction),
+                transformOrigin: 'bottom center',
+                transitionProperty: 'opacity, transform',
+                transitionDuration: `${(inlineAction ? inlineDuration : playbackMotion.duration) / animationRate}ms`,
+                transitionDelay: `${inlineAction ? 0 : playbackMotion.delay / animationRate}ms`,
+                transitionTimingFunction: 'ease-out',
+              };
+              const switchAction = getInlineSwitchAction(
+                'character',
+                config.sourceNodeId,
+                activeInlineAction,
+              );
+              const targetImageUrl = switchAction
+                ? resolveCharacterImageUrl(data, config, switchAction)
+                : undefined;
+              const switchDuration = getInlineActionDuration(switchAction) / animationRate;
+              const replayAnimation =
+                actionPlaying && inlineActionAnimation(inlineAction, animationRate);
               return (
-                <img
-                  key={config.sourceNodeId}
-                  src={imageUrl}
-                  alt={data.characterName}
-                  data-character-source-id={config.sourceNodeId}
-                  draggable={false}
-                  onDragStart={(event) => event.preventDefault()}
-                  className="preview-media-safe absolute w-auto object-contain object-bottom"
-                  style={{
-                    ...getCharacterStageBounds(config),
-                    zIndex: clampCharacterLayer(config.layer),
-                    opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-                    transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-                    animation: inlineActionAnimation(inlineAction, animationRate),
-                    ...inlineActionCssVars(inlineAction),
-                    transformOrigin: 'bottom center',
-                    transitionProperty: 'opacity, transform',
-                    transitionDuration: inlineAction
-                      ? `${inlineDuration / animationRate}ms`
-                      : timelineCueAnimation
-                        ? `${(motion.type === 'none' ? 0 : motion.duration) / animationRate}ms`
-                        : settings.layoutMode === 'classic'
-                          ? '0ms'
-                          : `${(motion.type === 'none' ? 0 : motion.duration) / animationRate}ms`,
-                    transitionDelay:
-                      timelineCueAnimation ||
-                      settings.layoutMode === 'classic' ||
-                      presentationExiting
-                        ? '0ms'
-                        : `${getCharacterEnterDelay(presentation) / animationRate}ms`,
-                    transitionTimingFunction: 'ease-out',
-                  }}
-                />
+                <Fragment key={`${currentNodeId}-${config.sourceNodeId}`}>
+                  <img
+                    key={replayAnimation || targetImageUrl ? inlineActionPlaybackId : 'idle'}
+                    src={imageUrl}
+                    alt={data.characterName}
+                    data-character-source-id={config.sourceNodeId}
+                    draggable={false}
+                    onDragStart={(event) => event.preventDefault()}
+                    className="preview-media-safe absolute w-auto object-contain object-bottom"
+                    style={
+                      targetImageUrl
+                        ? ({
+                            ...characterStyle,
+                            animation: `galInlineSwitchOut ${switchDuration}ms ease both`,
+                            '--inline-switch-opacity': characterStyle.opacity,
+                          } as CSSProperties)
+                        : characterStyle
+                    }
+                  />
+                  {targetImageUrl && (
+                    <img
+                      key={`switch-${inlineActionPlaybackId}`}
+                      src={targetImageUrl}
+                      alt=""
+                      aria-hidden="true"
+                      draggable={false}
+                      className="preview-media-safe absolute w-auto object-contain object-bottom"
+                      style={
+                        {
+                          ...characterStyle,
+                          animation: `galInlineSwitch ${switchDuration}ms ease both`,
+                          '--inline-switch-opacity': characterStyle.opacity,
+                        } as CSSProperties
+                      }
+                    />
+                  )}
+                </Fragment>
               );
             })}
           </div>

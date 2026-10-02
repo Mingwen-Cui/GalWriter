@@ -1,3 +1,5 @@
+import { createInlinePlaybackParser } from '../../../../lib/inlinePresentationPlayback';
+import SCENE_SWITCH_CSS from '../../shared/sceneSwitch.css?inline';
 import { mountPresentationText } from '../../shared/presentationTextDom';
 import type { WebMenuElement } from '../../video/shared/types';
 import {
@@ -60,7 +62,8 @@ export const makeIndexHtml = (
   <style>${WEB_EXPORT_STYLES}
 ${PLAYER_SETTINGS_CSS}
 ${WEB_BUTTON_MOTION_CSS}
-${WEB_PLAYBACK_UI_CSS}</style>
+${WEB_PLAYBACK_UI_CSS}
+${SCENE_SWITCH_CSS}</style>
 </head>
 <body>
   <div class="canvas-shell" id="canvasShell">
@@ -503,7 +506,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           target.style.webkitTextFillColor = "transparent";
         } else if (fill.type === "image" && fill.imageUrl) {
           target.style.color = "transparent";
-          target.style.backgroundImage = "url(\"" + String(fill.imageUrl).replace(/"/g, "\\\\\"") + "\")";
+          target.style.backgroundImage = "url(" + JSON.stringify(String(fill.imageUrl)) + ")";
           target.style.backgroundSize = "cover";
           target.style.backgroundPosition = "center";
           target.style.backgroundClip = "text";
@@ -2416,6 +2419,14 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       return '';
     }
 
+    function getCharacterMotionTransform(type, isExit) {
+      if (type === 'slide-left') return 'translateX(calc(' + (isExit ? '-100cqw -' : '100cqw +') + ' 100%))';
+      if (type === 'slide-right') return 'translateX(calc(' + (isExit ? '100cqw +' : '-100cqw -') + ' 100%))';
+      if (type === 'slide-up') return 'translateY(calc(' + (isExit ? '-100cqh -' : '100cqh +') + ' 100%))';
+      if (type === 'slide-down') return 'translateY(calc(' + (isExit ? '100cqh +' : '-100cqh -') + ' 100%))';
+      return getPresentationTransform(type, isExit);
+    }
+
     function goTo(id) {
       if (!storyPlaybackActive() || isTransitioning) return;
       if (autoAdvanceTimer) {
@@ -2472,7 +2483,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
                 } else {
                   const flipScale = char.flipX ? -1 : 1;
                   const scale = char.scale || 1;
-                  const transformMotion = getPresentationTransform(char.exit.type, true);
+                  const transformMotion = getCharacterMotionTransform(char.exit.type, true);
                   imgEl.style.transform = 'translate(-50%, 0) ' + transformMotion + ' scale(' + scale + ') scaleX(' + flipScale + ')';
                 }
               }
@@ -2506,7 +2517,9 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     function stripHtml(html) {
       const temp = document.createElement("div");
       temp.innerHTML = html || "";
-      return temp.textContent || "";
+      temp.querySelectorAll('br').forEach((node) => node.replaceWith(document.createTextNode(String.fromCharCode(10))));
+      temp.querySelectorAll('p,div').forEach((node) => node.append(document.createTextNode(String.fromCharCode(10))));
+      return (temp.textContent || "").trim();
     }
 
     function filterInlineMentionTags(html) {
@@ -2523,70 +2536,12 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       return temp.innerHTML;
     }
 
-    function findInlineAction(mention, presentation) {
-      if (!presentation || !Array.isArray(presentation.inlineActions)) return null;
-      const kind = mention.dataset.mentionKind;
-      if (kind !== "character" && kind !== "scene") return null;
-      const mentionId = mention.dataset.mentionId || "";
-      const name = mention.dataset.mentionName || (mention.textContent || "").replace(/^@/, "");
-      const sourceNodeId = mention.dataset.sourceNodeId || mention.dataset.mentionSourceNodeId || "";
-      return presentation.inlineActions.find((item) => item.id === mentionId) ||
-        presentation.inlineActions.find((item) => sourceNodeId && item.kind === kind && item.sourceNodeId === sourceNodeId) ||
-        presentation.inlineActions.find((item) => name && item.kind === kind && item.name === name) ||
-        null;
-    }
-
+    const parseInlinePlaybackSteps = (${createInlinePlaybackParser.toString()})();
     function buildInlinePlaybackSteps(rawHtml, displayHtml, presentation) {
-      if (!rawHtml || !presentation || !Array.isArray(presentation.inlineActions) || !presentation.inlineActions.length) {
-        return [{ kind: "text", html: displayHtml || rawHtml || "" }];
-      }
-      const temp = document.createElement("div");
-      temp.innerHTML = rawHtml || "";
-      const steps = [];
-      let buffer = "";
-      const hasMeaningfulTextOutsideMentions = (html) => {
-        const probe = document.createElement("div");
-        probe.innerHTML = html || "";
-        probe.querySelectorAll(".mention-chip").forEach((node) => node.remove());
-        return /[\\p{L}\\p{N}]/u.test(probe.textContent || "");
-      };
-      const mentionPlacement = (mention) => {
-        const beforeRange = document.createRange();
-        beforeRange.setStart(temp, 0);
-        beforeRange.setEndBefore(mention);
-        const afterRange = document.createRange();
-        afterRange.setStartAfter(mention);
-        afterRange.setEnd(temp, temp.childNodes.length);
-        const before = document.createElement("div");
-        const after = document.createElement("div");
-        before.appendChild(beforeRange.cloneContents());
-        after.appendChild(afterRange.cloneContents());
-        if (!hasMeaningfulTextOutsideMentions(before.innerHTML)) return "start";
-        if (!hasMeaningfulTextOutsideMentions(after.innerHTML)) return "end";
-        return "inline";
-      };
-      const flush = () => {
-        const html = filterInlineMentionTags(buffer);
-        if (stripHtml(html).trim()) steps.push({ kind: "text", html });
-        buffer = "";
-      };
-      Array.from(temp.childNodes).forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("mention-chip")) {
-          if (mentionPlacement(node) !== "inline") {
-            buffer += node.outerHTML || "";
-            return;
-          }
-          const action = findInlineAction(node, presentation);
-          if (action) {
-            flush();
-            steps.push({ kind: "action", action });
-            return;
-          }
-        }
-        buffer += node.nodeType === Node.ELEMENT_NODE ? node.outerHTML : (node.textContent || "");
+      return parseInlinePlaybackSteps(rawHtml || displayHtml || '', presentation || { characters: [], inlineActions: [] }, {
+        hideCharacterTags: settings.hideCharacterTags,
+        hideSceneTags: settings.hideSceneTags,
       });
-      flush();
-      return steps.length ? steps : [{ kind: "text", html: displayHtml || rawHtml || "" }];
     }
 
     function cssEscape(value) {
@@ -2623,6 +2578,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         action.action === "translate" ||
         action.action === "translate-x" ||
         action.action === "translate-y" ||
+        action.action === "scale" ||
         action.action === "rotate" ||
         action.action === "opacity" ||
         action.action === "brightness"
@@ -2635,13 +2591,14 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       const media = source && source.data && Array.isArray(source.data.images)
         ? source.data.images.find((item) => item && item.id === action.targetAssetId)
         : null;
-      const targetUrl = media && media.imageUrl;
+      const targetUrl = action.targetImageUrl || (media && media.imageUrl);
       if (!outgoing || !targetUrl) return;
       const duration = Math.max(180, Number(action.duration) || 420) / settings.animationSpeed;
       const host = outgoing.parentElement;
       if (!host) return;
       const reveal = document.createElement('div');
-      reveal.style.cssText = 'position:absolute;inset:0;z-index:20;overflow:hidden;clip-path:inset(0 100% 0 0);transition:clip-path ' + duration + 'ms cubic-bezier(.2,.72,.25,1);pointer-events:none;';
+      reveal.className = 'gal-scene-switch-reveal';
+      reveal.style.setProperty('--scene-switch-flash-duration', duration + 'ms');
       const incoming = outgoing.cloneNode(true);
       incoming.src = targetUrl;
       incoming.style.cssText = outgoing.style.cssText;
@@ -2651,15 +2608,10 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       incoming.style.height = '100%';
       reveal.appendChild(incoming);
       const flash = document.createElement('div');
-      // The flash is 58% of the stage width. These two offsets keep its centre
-      // on the reveal edge for the entire duration: 0% -> 100% of the stage.
-      flash.style.cssText = 'position:absolute;top:-28%;left:0;z-index:31;width:58%;height:156%;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(255,255,255,.98) 0%,rgba(255,255,255,.68) 23%,rgba(255,255,255,0) 67%);mix-blend-mode:screen;transform:translateX(-50%);transition:transform ' + duration + 'ms cubic-bezier(.2,.72,.25,1),opacity ' + duration + 'ms cubic-bezier(.2,.72,.25,1);';
+      flash.className = 'gal-scene-switch-flash';
+      flash.style.setProperty('--scene-switch-flash-duration', duration + 'ms');
+      flash.style.background = 'radial-gradient(ellipse at center,rgba(255,255,255,.98) 0%,rgba(255,255,255,.68) 23%,rgba(255,255,255,0) 67%)';
       host.append(reveal, flash);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        reveal.style.clipPath = 'inset(0 0 0 0)';
-        flash.style.opacity = '1';
-        flash.style.transform = 'translateX(122.414%)';
-      }));
       const timer = schedulePlaybackStep(() => {
         outgoing.src = targetUrl;
         reveal.remove();
@@ -2668,8 +2620,30 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       typewriterTimers.push(timer);
     }
 
+    function settleInlineAction(target, action) {
+      if (!isPersistentInlineAction(action)) { clearInlineActionElement(target); return; }
+      if (['translate', 'translate-x', 'translate-y'].includes(action.action)) target.dataset.inlineTranslation = inlineActionTransform(action);
+      if (action.action === 'scale') target.dataset.inlineScale = inlineActionTransform(action);
+      if (action.action === 'rotate') target.style.rotate = (action.strength || 15) + 'deg';
+      if (action.action === 'opacity') target.style.opacity = Math.max(0, Math.min(1, (action.strength || 0) / 100));
+      if (action.action === 'brightness') target.style.filter = 'brightness(' + Math.max(0, Math.min(1, (action.strength || 0) / 100)) + ')';
+      clearInlineActionElement(target);
+      target.style.transform = [target.dataset.baseTransform || '', target.dataset.inlineTranslation || '', target.dataset.inlineScale || ''].join(' ');
+    }
+
+    function playCharacterSwitch(target, action, duration) {
+      if (!action.targetImageUrl) return;
+      const incoming = target.cloneNode(true);
+      incoming.removeAttribute('data-source-id');
+      incoming.alt = '';
+      incoming.style.setProperty('--inline-switch-opacity', getComputedStyle(target).opacity);
+      incoming.style.animation = 'galInlineSwitch ' + duration + 'ms ease both';
+      target.parentElement.append(incoming);
+      typewriterTimers.push(schedulePlaybackStep(() => { target.src = action.targetImageUrl; incoming.remove(); }, duration));
+    }
+
     function applyInlineAction(action) {
-      if (!action || action.action === "none") return;
+      if (!action || (action.action === "none" && !action.timelinePhase)) return;
       if (action.kind === 'scene' && action.action === 'switch') {
         playSceneSwitch(action);
         return;
@@ -2681,7 +2655,25 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           : stageEl.querySelector('.character-img[data-source-id="' + cssEscape(action.sourceNodeId || "") + '"]') ||
             Array.from(stageEl.querySelectorAll(".character-img")).find((img) => (img.getAttribute("alt") || "") === (action.name || ""));
       if (!target) return;
+      if (action.timelinePhase === 'enter' || action.timelinePhase === 'exit') {
+        const presentation = nodeById.get(currentId)?.data?.presentation;
+        const config = action.kind === 'scene' ? presentation?.scene : presentation?.characters?.find((item) => item.sourceNodeId === action.sourceNodeId);
+        if (!config) return;
+        const leaving = action.timelinePhase === 'exit';
+        const motion = leaving ? config.exit : config.enter;
+        target.style.transition = 'opacity ' + duration + 'ms ease-out, transform ' + duration + 'ms ease-out';
+        target.style.visibility = 'visible';
+        target.style.opacity = leaving && motion?.type === 'fade' ? '0' : '1';
+        const base = action.kind === 'character' ? 'translate(-50%, 0) scale(' + (config.scale || 1) + ') scaleX(' + (config.flipX ? -1 : 1) + ')' : 'none';
+        target.style.transform = (leaving ? getCharacterMotionTransform(motion?.type, true) + ' ' : '') + base;
+        target.dataset.baseTransform = base;
+        if (leaving) typewriterTimers.push(schedulePlaybackStep(() => { target.style.visibility = 'hidden'; target.dataset.exited = 'true'; }, duration));
+        return;
+      }
       clearInlineActionElement(target);
+      if (action.action === 'switch') { playCharacterSwitch(target, action, duration); return; }
+      target.style.transform = [target.dataset.baseTransform || '', target.dataset.inlineTranslation || '', target.dataset.inlineScale || ''].join(' ');
+      void target.offsetWidth;
       target.style.setProperty("--inline-action-duration", duration + "ms");
       const repeats = Math.max(1, Math.round(action.repeats || 1));
       target.style.setProperty("--inline-action-step-duration", Math.max(40, duration / repeats) + "ms");
@@ -2696,7 +2688,9 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       const transform = inlineActionTransform(action);
       if (transform) {
         target.style.transition = "transform " + duration + "ms ease";
-        target.style.transform = (baseTransform ? baseTransform + " " : "") + transform;
+        const translation = ['translate', 'translate-x', 'translate-y'].includes(action.action) ? transform : (target.dataset.inlineTranslation || '');
+        const scale = action.action === 'scale' ? transform : (target.dataset.inlineScale || '');
+        target.style.transform = [baseTransform, translation, scale].join(' ');
       } else {
         if (action.action === "shake-x") target.classList.add("inline-shake-x");
         if (action.action === "shake-y") target.classList.add("inline-shake-y");
@@ -2705,10 +2699,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         if (action.action === "opacity") target.classList.add("inline-opacity");
         if (action.action === "brightness") target.classList.add("inline-brightness");
       }
-      if (!isPersistentInlineAction(action)) {
-        const resetTimer = schedulePlaybackStep(() => clearInlineActionElement(target), duration);
-        typewriterTimers.push(resetTimer);
-      }
+      const resetTimer = schedulePlaybackStep(() => settleInlineAction(target, action), duration);
+      typewriterTimers.push(resetTimer);
     }
 
     const mountPresentationText = ${mountPresentationText.toString()};
@@ -2747,13 +2739,6 @@ ${WEB_PLAYBACK_UI_CSS}</style>
     function applyTypewriter(element, html, rawHtml, presentation, enabled, revealChoices) {
       if (revealChoices) currentTextEnded = false;
       if (!element) { if (revealChoices) showChoicesAndMaybeAdvance(); return; }
-      if (!enabled) {
-        element.classList.remove("typewriter-reserved");
-        element.innerHTML = html || "";
-        if (element._revealText) element._revealText(Infinity);
-        if (revealChoices) showChoicesAndMaybeAdvance();
-        return;
-      }
       const playbackSteps = buildInlinePlaybackSteps(rawHtml || html || "", html || "", presentation);
       const source = playbackSteps.filter((step) => step.kind === "text").map((step) => stripHtml(step.html)).join("");
       element.classList.add("typewriter-reserved");
@@ -2767,6 +2752,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
       element.append(placeholder, visible);
       let stepIndex = 0;
       let committedText = "";
+      let committedHtml = "";
       let segmentTimer = 0;
       visible.textContent = "";
       if (element._revealText) element._revealText(0);
@@ -2788,11 +2774,22 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           typewriterTimers.push(waitTimer);
           return;
         }
-        const segmentText = stripHtml(step.html);
+        const cumulativeHtml = committedHtml + step.html;
+        const cumulativeText = stripHtml(cumulativeHtml);
+        const segmentText = cumulativeText.slice(committedText.length);
+        if (!enabled || !segmentText) {
+          committedHtml = cumulativeHtml;
+          committedText = cumulativeText;
+          visible.textContent = committedText;
+          if (element._revealText) element._revealText(Array.from(committedText).length);
+          stepIndex += 1;
+          playNextStep();
+          return;
+        }
         const segmentUnits = style.bodyTypewriterMode === "line"
           ? segmentText.split(/(\\n+)/)
           : (style.bodyTypewriterMode === "sentence" || style.bodyTypewriterMode === "word")
-            ? (segmentText.match(/[^閵嗗偊绱掗敍?!?\\n]+[閵嗗偊绱掗敍?!?]*|\\n+/g) || Array.from(segmentText))
+            ? (segmentText.match(/[^。！？.!?\\n]+[。！？.!?]*|\\n+/g) || Array.from(segmentText))
             : Array.from(segmentText);
         let segmentIndex = 0;
         segmentTimer = setInterval(() => {
@@ -2802,7 +2799,8 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           if (element._revealText) element._revealText(Array.from(visible.textContent).length);
           if (segmentIndex >= segmentUnits.length) {
             clearInterval(segmentTimer);
-            committedText += segmentText;
+            committedHtml = cumulativeHtml;
+          committedText = cumulativeText;
             stepIndex += 1;
             playNextStep();
           }
@@ -3030,6 +3028,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         }
         charactersHtml = '<div class="characters-layer">' +
           data.presentation.characters.map((char) => {
+            const waitingForCue = (data.presentation.inlineActions || []).some((action) => action.kind === 'character' && action.sourceNodeId === char.sourceNodeId && action.timelinePhase === 'enter');
             const charEnter = char.enter;
             const hasCharEnter = charEnter && charEnter.type !== "none";
             const charDuration = hasCharEnter ? (charEnter.duration || 0) / settings.animationSpeed : 0;
@@ -3042,13 +3041,14 @@ ${WEB_PLAYBACK_UI_CSS}</style>
             const scale = char.scale || 1;
             
             const initCharOpacity = (hasCharEnter && charEnter.type === 'fade') ? 0 : 1;
-            const initCharTransform = 'translate(-50%, 0) ' + (hasCharEnter ? getPresentationTransform(charEnter.type, false) : '') + ' scale(' + scale + ') scaleX(' + flipScale + ')';
+            const initCharTransform = 'translate(-50%, 0) ' + (hasCharEnter ? getCharacterMotionTransform(charEnter.type, false) : '') + ' scale(' + scale + ') scaleX(' + flipScale + ')';
             
             return '<img class="character-img" src="' + escapeAttr(char.imageUrl) + '" alt="' + escapeAttr(char.name || "") + '" data-source-id="' + escapeAttr(char.sourceNodeId || "") + '" ' +
               'style="' +
                 'left: ' + left + '; ' +
                 'bottom: ' + bottom + '; ' +
                 'z-index: ' + zIndex + '; ' +
+                'visibility: ' + (waitingForCue ? 'hidden' : 'visible') + '; ' +
                 'opacity: ' + initCharOpacity + '; ' +
                 'transform: ' + initCharTransform + '; ' +
                 'transition: opacity ' + charDuration + 'ms ease-out ' + sceneDuration + 'ms, transform ' + charDuration + 'ms ease-out ' + sceneDuration + 'ms;' +
@@ -3108,7 +3108,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
           );
           data.presentation.characters.forEach((char) => {
             const imgEl = charImgsBySourceId.get(char.sourceNodeId || '');
-            if (imgEl) {
+            if (imgEl && !(data.presentation.inlineActions || []).some((action) => action.kind === 'character' && action.sourceNodeId === char.sourceNodeId && action.timelinePhase === 'enter')) {
               imgEl.style.opacity = '1';
               const flipScale = char.flipX ? -1 : 1;
               const scale = char.scale || 1;
@@ -3146,6 +3146,14 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         element.hidden = hideChoicesDuringTypewriter;
       });
       if (!hideChoicesDuringTypewriter) bindChoices();
+      const initialCharacterDuration = Math.max(0, ...(data.presentation?.characters || []).filter((char) =>
+        !(data.presentation.inlineActions || []).some((action) => action.kind === 'character' && action.sourceNodeId === char.sourceNodeId && action.timelinePhase === 'enter')
+      ).map((char) => char.enter?.type !== 'none' ? Math.max(0, Number(char.enter?.duration) || 500) / settings.animationSpeed : 0));
+      const textElement = document.getElementById('nodeText');
+      if (textElement) { textElement.innerHTML = ''; if (textElement._revealText) textElement._revealText(0); }
+      const renderedId = currentId;
+      typewriterTimers.push(schedulePlaybackStep(() => {
+        if (currentId !== renderedId) return;
       applyTypewriter(
         document.getElementById("nodeText"),
         data.text || "",
@@ -3154,6 +3162,7 @@ ${WEB_PLAYBACK_UI_CSS}</style>
         settings.interactionMode === "typewriter",
         true
       );
+      }, 50 + sceneDuration + initialCharacterDuration));
     }
 
     function escapeHtml(value) {

@@ -1,3 +1,4 @@
+@import './components/render/shared/sceneSwitch.css';
 @import '@xyflow/react/dist/style.css';
 @import 'tailwindcss';
 
@@ -101,66 +102,6 @@
   }
   to {
     opacity: 0;
-  }
-}
-
-/* A short white-light wipe for scene material switches. Screen blending keeps
-   the supplied black backing transparent while preserving the photographed glow. */
-.gal-scene-switch-flash {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  z-index: 31;
-  width: 58%;
-  height: 156%;
-  max-width: none;
-  pointer-events: none;
-  user-select: none;
-  object-fit: contain;
-  mix-blend-mode: screen;
-  filter: brightness(1.25) saturate(0.7);
-  /* The flash is 58% of the stage width. Moving it from -50% to 122.414%
-     of its own width places its centre exactly on the reveal edge from 0% to
-     100% of the stage, using the same animation clock as the clip mask. */
-  transform: translate(-50%, -50%);
-  animation: galSceneSwitchFlash var(--scene-switch-flash-duration, 420ms)
-    cubic-bezier(0.2, 0.72, 0.25, 1) both;
-}
-
-.gal-scene-switch-reveal {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  overflow: hidden;
-  pointer-events: none;
-  clip-path: inset(0 100% 0 0);
-  animation: galSceneSwitchReveal var(--scene-switch-flash-duration, 420ms)
-    cubic-bezier(0.2, 0.72, 0.25, 1) both;
-}
-
-@keyframes galSceneSwitchReveal {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-@keyframes galSceneSwitchFlash {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%);
-  }
-  10% {
-    opacity: 0.88;
-  }
-  58% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(122.414%, -50%);
   }
 }
 
@@ -2321,10 +2262,10 @@ html.canvas-selection-dragging * {
 
 .assistant-agent-connect-dialog {
   position: relative;
-  width: min(100%, 930px);
-  padding: 44px 46px;
+  width: min(100%, 740px);
+  padding: 26px 28px;
   border: 1px solid #e2e8f0;
-  border-radius: 36px;
+  border-radius: 24px;
   background: #fff;
   color: #0f172a;
   box-shadow: 0 28px 90px rgba(15, 23, 42, 0.28);
@@ -2337,10 +2278,10 @@ html.canvas-selection-dragging * {
 
 .assistant-agent-connect-heading {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 40px;
+  grid-template-columns: 56px minmax(0, 1fr) 32px;
   grid-template-rows: auto auto;
   align-items: center;
-  column-gap: 22px;
+  column-gap: 14px;
   row-gap: 8px;
   padding-right: 0;
 }
@@ -2349,8 +2290,8 @@ html.canvas-selection-dragging * {
   display: flex;
   grid-column: 1;
   grid-row: 1 / span 2;
-  width: 72px;
-  height: 72px;
+  width: 56px;
+  height: 56px;
   align-items: center;
   justify-content: center;
   border-radius: 22px;
@@ -2379,7 +2320,7 @@ html.canvas-selection-dragging * {
   grid-column: 2;
   grid-row: 1;
   margin: 0;
-  font-size: 30px;
+  font-size: 22px;
   line-height: 1.2;
   font-weight: 900;
 }
@@ -2389,58 +2330,116 @@ html.canvas-selection-dragging * {
   grid-row: 2;
   margin: 0;
   color: #64748b;
-  font-size: 18px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.assistant-agent-connect-browser-warning {
+  color: #334155;
+  font-weight: 800;
 }
 
 .assistant-agent-connect-overview {
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .assistant-agent-connect-overview-image {
   display: block;
   width: 100%;
-  height: clamp(220px, 36vh, 330px);
+  height: clamp(130px, 21vh, 180px);
   object-fit: contain;
-  border-radius: 18px;
-  background: #f8fafc;
+  border-radius: 14px;
 }
 
 .assistant-agent-connect-overview-copy {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 12px;
+  width: min(100%, 380px);
+  margin: 4px auto 0;
 }
 
-.assistant-agent-connect-overview-copy > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-  padding: 11px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #f8fafc;
-}
-
-.assistant-agent-connect-overview-copy strong {
+.assistant-agent-connect-overview-label {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
   color: #4338ca;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 800;
+  cursor: help;
 }
 
-.assistant-agent-connect-overview-copy span {
-  color: #64748b;
-  font-size: 13px;
-  line-height: 1.55;
+.assistant-agent-connect-overview-label::before,
+.assistant-agent-connect-overview-label::after {
+  position: absolute;
+  z-index: 4;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.assistant-agent-connect-overview-label::before {
+  top: calc(100% + 1px);
+  left: 50%;
+  border: 6px solid transparent;
+  border-bottom-color: #1e293b;
+  content: '';
+  transform: translateX(-50%);
+}
+
+.assistant-agent-connect-overview-label::after {
+  top: calc(100% + 10px);
+  left: 50%;
+  width: max-content;
+  max-width: min(280px, 80vw);
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: #1e293b;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.2);
+  color: #f8fafc;
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  transform: translateX(-50%);
+}
+
+.assistant-agent-connect-overview-label:hover::before,
+.assistant-agent-connect-overview-label:hover::after,
+.assistant-agent-connect-overview-label:focus-visible::before,
+.assistant-agent-connect-overview-label:focus-visible::after {
+  visibility: visible;
+  opacity: 1;
+}
+
+.assistant-agent-connect-overview-label:hover {
+  color: #6366f1;
+}
+
+.assistant-agent-connect-overview-label:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #a5b4fc;
+  outline-offset: 3px;
+}
+
+.assistant-agent-connect-divider {
+  height: 1px;
+  margin-top: 12px;
+  background: #e2e8f0;
+}
+
+.assistant-agent-connect-divider + .assistant-agent-connect-actions {
+  margin-top: 12px;
 }
 
 .assistant-agent-connect-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 44px;
+  gap: 14px;
+  margin-top: 18px;
 }
 
 .assistant-agent-connect-step {
@@ -2448,12 +2447,12 @@ html.canvas-selection-dragging * {
   min-width: 0;
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
+  gap: 8px;
 }
 
 .assistant-agent-connect-step-label {
   color: #64748b;
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.025em;
 }
@@ -2461,17 +2460,17 @@ html.canvas-selection-dragging * {
 .assistant-agent-connect-action {
   display: flex;
   width: 100%;
-  min-height: 80px;
+  min-height: 56px;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px 20px;
+  padding: 10px 14px;
   border: 1px solid #e2e8f0;
-  border-radius: 22px;
+  border-radius: 18px;
   background: #f8fafc;
   color: #334155;
   font: inherit;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 750;
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
@@ -2496,16 +2495,16 @@ html.canvas-selection-dragging * {
 .assistant-agent-connect-connection {
   display: flex;
   width: 100%;
-  min-height: 80px;
+  min-height: 56px;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 16px 20px;
+  padding: 10px 14px;
   border: 1px solid #e2e8f0;
-  border-radius: 22px;
+  border-radius: 18px;
   background: #f8fafc;
   color: #64748b;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   text-align: center;
   transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
@@ -2664,32 +2663,26 @@ html.canvas-selection-dragging * {
   }
 
   .assistant-agent-connect-heading h2 {
-    font-size: 21px;
+    font-size: 18px;
   }
 
   .assistant-agent-connect-heading p {
     grid-column: 1 / 4;
     margin-top: 8px;
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .assistant-agent-connect-overview {
-    margin-top: 14px;
+    margin-top: 10px;
   }
 
   .assistant-agent-connect-overview-image {
-    height: clamp(160px, 27vh, 220px);
-    border-radius: 14px;
+    height: clamp(130px, 20vh, 170px);
+    border-radius: 12px;
   }
 
   .assistant-agent-connect-overview-copy {
-    grid-template-columns: 1fr;
     gap: 8px;
-    margin-top: 8px;
-  }
-
-  .assistant-agent-connect-overview-copy > div {
-    padding: 9px 12px;
   }
 
   .assistant-agent-connect-actions {
@@ -2699,25 +2692,25 @@ html.canvas-selection-dragging * {
   }
 
   .assistant-agent-connect-step-label {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .assistant-agent-connect-action {
-    min-height: 60px;
-    font-size: 16px;
+    min-height: 52px;
+    font-size: 14px;
   }
 
   .assistant-agent-connect-connection {
-    min-height: 60px;
-    border-radius: 16px;
-    font-size: 15px;
+    min-height: 52px;
+    border-radius: 14px;
+    font-size: 13px;
   }
 }
 
 .assistant-agent-connect-desktop-dialog {
-  width: min(100%, 720px);
-  padding: 26px;
-  border-radius: 22px;
+  width: min(100%, 580px);
+  padding: 18px;
+  border-radius: 20px;
 }
 
 .assistant-agent-connect-desktop-dialog .assistant-agent-connect-heading {
@@ -2747,36 +2740,21 @@ html.canvas-selection-dragging * {
 }
 
 .assistant-agent-connect-desktop-dialog .assistant-agent-connect-overview {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .assistant-agent-connect-desktop-dialog .assistant-agent-connect-overview-image {
-  height: clamp(220px, 34vh, 290px);
-  border-radius: 14px;
+  height: clamp(110px, 17vh, 145px);
+  border-radius: 12px;
 }
 
 .assistant-agent-connect-desktop-dialog .assistant-agent-connect-overview-copy {
   gap: 8px;
-  margin-top: 8px;
-}
-
-.assistant-agent-connect-desktop-dialog .assistant-agent-connect-overview-copy > div {
-  gap: 3px;
-  padding: 8px 10px;
-  border-radius: 11px;
-}
-
-.assistant-agent-connect-desktop-dialog .assistant-agent-connect-overview-copy strong {
-  font-size: 12px;
-}
-
-.assistant-agent-connect-desktop-dialog .assistant-agent-connect-overview-copy span {
-  font-size: 11px;
 }
 
 .assistant-agent-connect-desktop-dialog .assistant-agent-connect-actions {
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .assistant-agent-connect-desktop-dialog .assistant-agent-connect-step {
@@ -3418,21 +3396,20 @@ html.canvas-selection-dragging * {
   color: #94a3b8;
 }
 
-[data-theme='dark'] .assistant-agent-connect-overview-image {
-  background: #111c30;
+[data-theme='dark'] .assistant-agent-connect-browser-warning {
+  color: #e2e8f0;
 }
 
-[data-theme='dark'] .assistant-agent-connect-overview-copy > div {
-  border-color: #334155;
-  background: #111c30;
-}
-
-[data-theme='dark'] .assistant-agent-connect-overview-copy strong {
+[data-theme='dark'] .assistant-agent-connect-overview-label {
   color: #a5b4fc;
 }
 
-[data-theme='dark'] .assistant-agent-connect-overview-copy span {
-  color: #94a3b8;
+[data-theme='dark'] .assistant-agent-connect-overview-label:hover {
+  color: #c7d2fe;
+}
+
+[data-theme='dark'] .assistant-agent-connect-divider {
+  background: #334155;
 }
 
 [data-theme='dark'] .assistant-agent-connect-close:hover {
@@ -3726,6 +3703,10 @@ html.canvas-selection-dragging * {
   opacity: 1;
 }
 
+.assistant-panel-shell.assistant-panel-gradient-exiting::before {
+  animation: assistant-welcome-gradient-exit 520ms ease forwards;
+}
+
 .assistant-panel-shell.assistant-panel-chat-surface .assistant-panel-header {
   background: rgba(248, 250, 252, 0.8) !important;
 }
@@ -3736,41 +3717,6 @@ html.canvas-selection-dragging * {
 
 .assistant-panel-shell.assistant-panel-chat-surface .assistant-input-panel {
   background: rgba(255, 255, 255, 0.95) !important;
-}
-
-.assistant-panel-shell.assistant-panel-chat-surface
-  .assistant-message-area.assistant-message-transparent-gradient {
-  position: relative;
-  isolation: isolate;
-  background: transparent !important;
-}
-
-.assistant-message-area.assistant-message-transparent-gradient::before {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  opacity: 1;
-  background:
-    radial-gradient(circle at 88% 8%, rgba(251, 191, 36, 0.32), transparent 42%),
-    radial-gradient(circle at 10% 28%, rgba(45, 212, 191, 0.18), transparent 42%),
-    radial-gradient(circle at 78% 58%, rgba(251, 113, 133, 0.13), transparent 36%),
-    linear-gradient(
-      150deg,
-      rgba(255, 255, 255, 0.98),
-      rgba(255, 247, 237, 0.72) 46%,
-      rgba(240, 253, 250, 0.68)
-    );
-  content: '';
-  pointer-events: none;
-}
-
-.assistant-message-area.assistant-message-gradient-exiting::before {
-  animation: assistant-welcome-gradient-exit 520ms ease forwards;
-}
-
-.assistant-message-area.assistant-message-transparent-gradient > * {
-  position: relative;
-  z-index: 1;
 }
 
 @keyframes assistant-welcome-gradient-exit {
@@ -3805,17 +3751,26 @@ html.canvas-selection-dragging * {
   background: rgba(15, 23, 42, 0.52) !important;
 }
 
-[data-theme='dark'] .assistant-message-area.assistant-message-transparent-gradient::before {
-  background:
-    radial-gradient(circle at 88% 8%, rgba(251, 191, 36, 0.18), transparent 42%),
-    radial-gradient(circle at 10% 28%, rgba(45, 212, 191, 0.11), transparent 42%),
-    radial-gradient(circle at 78% 58%, rgba(251, 113, 133, 0.09), transparent 36%),
-    linear-gradient(
-      150deg,
-      rgba(15, 23, 42, 0.92),
-      rgba(30, 41, 59, 0.72) 48%,
-      rgba(20, 83, 45, 0.3)
-    );
+[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface::before {
+  opacity: 1;
+}
+
+.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-panel-header {
+  background: #f8fafc !important;
+}
+
+.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-message-area,
+.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-input-panel {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-panel-header {
+  background: #0f172a !important;
+}
+
+[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-message-area,
+[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-input-panel {
+  background: rgba(15, 23, 42, 0.52) !important;
 }
 
 [data-theme='dark'] .bubble-glass-mode .toolbar-bubble-surface:hover {

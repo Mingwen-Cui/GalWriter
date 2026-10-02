@@ -314,6 +314,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .media.empty { color: rgba(248,250,252,0.42); font-weight: 700; }
     .characters-layer {
+      container-type: size;
       position: absolute;
       inset: 0;
       pointer-events: none;
@@ -551,9 +552,10 @@ export const WEB_EXPORT_STYLES = String.raw`
       80% { translate: 0 calc(var(--inline-action-strength, 14px) * 0.7); }
     }
     @keyframes inlinePulse {
-      0%, 100% { scale: 1; }
-      50% { scale: var(--inline-action-scale, 1.08); }
+      0%, 100% { opacity: 1; filter: brightness(1); }
+      45% { opacity: var(--inline-action-opacity, .45); filter: brightness(var(--inline-action-brightness, 1.35)); }
     }
+    @keyframes galInlineSwitch { from { opacity: 0; } to { opacity: var(--inline-switch-opacity, 1); } }
     @keyframes inlineRotate {
       0% { rotate: 0deg; }
       45% { rotate: var(--inline-action-rotation, 12deg); }

@@ -20,6 +20,9 @@ import {
 import {
   buildInlinePlaybackSteps,
   getImmediatelySettledInlineActions,
+  getCharacterPlaybackMotion,
+  getInlineTargetState,
+  getInitialPresentationEnterDuration,
   getInlineActionDuration,
   inlineActionAnimation,
   inlineActionCssVars,
@@ -30,9 +33,7 @@ import {
 } from '../../../lib/inlinePresentationPlayback';
 import {
   clampCharacterLayer,
-  getCharacterEnterDelay,
   getCharacterStageBounds,
-  getPresentationEnterDuration,
   getPresentationExitDuration,
   getPresentationMotionDuration,
   getPresentationTransform,
@@ -774,7 +775,7 @@ export function usePlaytestRuntime(
     [currentNodeId, navigateToNode, presentation, presentationExiting],
   );
 
-  const presentationEnterDuration = getPresentationEnterDuration(presentation);
+  const presentationEnterDuration = getInitialPresentationEnterDuration(presentation);
   useLayoutEffect(() => {
     setPresentationExiting(false);
     setPresentationVisible(false);
@@ -889,7 +890,7 @@ export function usePlaytestRuntime(
       setAnimationCompleted(true);
     };
     finishInlinePlaybackRef.current = finish;
-    setDisplayedHtml(interactionMode === 'typewriter' ? '' : textHtml);
+    setDisplayedHtml('');
 
     const finishActions = () => {
       setActiveInlineAction(null);
@@ -977,6 +978,7 @@ export function usePlaytestRuntime(
       const totalLength = sliceHtmlByTextLength(cumulativeHtml, Infinity).totalTextLength;
       const segmentLength = Math.max(0, totalLength - committedTextLength);
       if (interactionMode !== 'typewriter' || segmentLength === 0) {
+        setDisplayedHtml(cumulativeHtml);
         committedHtml = cumulativeHtml;
         committedTextLength = totalLength;
         stepIndex += 1;
@@ -1851,6 +1853,7 @@ export function usePlaytestRuntime(
   const renderPresentedCharacters = (constrainToClassicStage = false) => (
     <>
       <div
+        style={{ containerType: 'size' }}
         className={`absolute inset-y-0 z-10 overflow-hidden pointer-events-none ${
           constrainToClassicStage
             ? 'left-1/2 w-full max-w-[1200px] -translate-x-1/2'
@@ -1858,50 +1861,18 @@ export function usePlaytestRuntime(
         }`}
       >
         {presentedCharacters.map(({ config, data, imageUrl, appearance }) => {
-          const hasEnterCue = presentation.inlineActions?.some(
-            (action) =>
-              action.timelinePhase === 'enter' &&
-              action.kind === 'character' &&
-              action.sourceNodeId === config.sourceNodeId,
+          const playbackMotion = getCharacterPlaybackMotion(
+            config,
+            presentation,
+            activeInlineAction,
+            completedInlineActions,
+            presentationVisible,
+            presentationExiting,
           );
-          const enterCueActive =
-            activeInlineAction?.timelinePhase === 'enter' &&
-            activeInlineAction.kind === 'character' &&
-            activeInlineAction.sourceNodeId === config.sourceNodeId;
-          const exitCueActive =
-            activeInlineAction?.timelinePhase === 'exit' &&
-            activeInlineAction.kind === 'character' &&
-            activeInlineAction.sourceNodeId === config.sourceNodeId;
-          const enterCueCompleted = completedInlineActions.some(
-            (action) =>
-              action.timelinePhase === 'enter' &&
-              action.kind === 'character' &&
-              action.sourceNodeId === config.sourceNodeId,
-          );
-          const exitCueCompleted = completedInlineActions.some(
-            (action) =>
-              action.timelinePhase === 'exit' &&
-              action.kind === 'character' &&
-              action.sourceNodeId === config.sourceNodeId,
-          );
-          const waitingForEnterCue = Boolean(hasEnterCue && !enterCueActive && !enterCueCompleted);
-          const motion =
-            presentationExiting || exitCueActive || exitCueCompleted ? config.exit : config.enter;
-          const animationActive =
-            presentationExiting ||
-            enterCueActive ||
-            exitCueActive ||
-            waitingForEnterCue ||
-            exitCueCompleted;
-          const animationTransform =
-            animationActive && motion
-              ? getPresentationTransform(
-                  motion.type,
-                  presentationExiting || exitCueActive || exitCueCompleted,
-                )
-              : '';
           const inlineAction =
             activeInlineAction?.kind === 'character' &&
+            activeInlineAction.timelinePhase !== 'enter' &&
+            activeInlineAction.timelinePhase !== 'exit' &&
             activeInlineAction.action !== 'switch' &&
             activeInlineAction.sourceNodeId === config.sourceNodeId
               ? activeInlineAction
@@ -1918,21 +1889,28 @@ export function usePlaytestRuntime(
           const targetImageUrl = switchAction
             ? resolveCharacterImageUrl(data, config, switchAction)
             : undefined;
+          const inlineState = getInlineTargetState(
+            completedInlineActions,
+            activeInlineAction,
+            'character',
+            config.sourceNodeId,
+          );
           const inlineDuration = getInlineActionDuration(inlineAction);
           const actionPlaying = Boolean(inlineAction && inlineAction === activeInlineAction);
           const style: React.CSSProperties = {
             ...getCharacterStageBounds(config),
             zIndex: clampCharacterLayer(config.layer),
-            opacity: animationActive && motion.type === 'fade' ? 0 : 1,
-            transform: `translate(-50%, 0) ${animationTransform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineActionTransform(inlineAction)}`,
-            ...(actionPlaying ? {} : inlineActionSettledStyle(inlineAction)),
-            ...(animationActive && motion.type === 'fade' ? { opacity: 0 } : {}),
+            ...inlineState.style,
+            opacity: playbackMotion.opacity * Number(inlineState.style.opacity ?? 1),
+            visibility: playbackMotion.visibility,
+            transform: `translate(-50%, 0) ${playbackMotion.transform} scale(${config.scale}) scaleX(${config.flipX ? -1 : 1}) ${inlineState.transform}`,
+
             animation: actionPlaying ? inlineActionAnimation(inlineAction) : undefined,
             ...inlineActionCssVars(inlineAction),
             transformOrigin: 'bottom center',
             transitionProperty: 'opacity, transform',
-            transitionDuration: `${!presentationVisible && !presentationExiting ? 0 : inlineAction && !presentationExiting ? inlineDuration : getPresentationMotionDuration(motion)}ms`,
-            transitionDelay: `${presentationExiting || !presentationVisible || inlineAction ? 0 : getCharacterEnterDelay(presentation)}ms`,
+            transitionDuration: `${inlineAction && !presentationExiting ? inlineDuration : playbackMotion.duration}ms`,
+            transitionDelay: `${inlineAction ? 0 : playbackMotion.delay}ms`,
             transitionTimingFunction: 'ease-out',
           };
           const switchDuration = getInlineActionDuration(switchAction);
@@ -1949,7 +1927,7 @@ export function usePlaytestRuntime(
             <React.Fragment key={`${currentNodeId}-${playbackSession}-${config.sourceNodeId}`}>
               {appearance ? (
                 <CharacterAppearancePreview
-                  key={`base-${targetImageUrl || actionPlaying ? inlineActionPlaybackId : 'idle'}`}
+                  key={`base-${targetImageUrl || (actionPlaying && inlineActionAnimation(inlineAction)) ? inlineActionPlaybackId : 'idle'}`}
                   appearance={appearance}
                   adjustment={data.appearanceTemplate?.adjustment}
                   mode="sprite"
@@ -1958,7 +1936,7 @@ export function usePlaytestRuntime(
                 />
               ) : (
                 <img
-                  key={`base-${targetImageUrl || actionPlaying ? inlineActionPlaybackId : 'idle'}`}
+                  key={`base-${targetImageUrl || (actionPlaying && inlineActionAnimation(inlineAction)) ? inlineActionPlaybackId : 'idle'}`}
                   src={imageUrl}
                   alt={data.characterName}
                   draggable={false}

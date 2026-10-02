@@ -51,7 +51,16 @@ export function AgentConnectionContent({
           </button>
         )}
         {!inline && <h2 id={titleId}>{ui.agentConnectDialogTitle}</h2>}
-        <p>{isTauriRuntime() ? ui.agentConnectDesktopDescription : ui.agentConnectDialogDescription}</p>
+        <p>
+          {isTauriRuntime() ? ui.agentConnectDesktopDescription : (
+            <>
+              <strong className="assistant-agent-connect-browser-warning">
+                {ui.agentConnectBrowserMcpWarning}
+              </strong>{' '}
+              {ui.agentConnectDialogDescription}
+            </>
+          )}
+        </p>
       </div>
       {!inline && (
         <div className="assistant-agent-connect-overview">
@@ -61,17 +70,26 @@ export function AgentConnectionContent({
             alt={ui.agentConnectOverviewAlt}
           />
           <div className="assistant-agent-connect-overview-copy">
-            <div>
-              <strong>{ui.agentConnectAssistantTitle}</strong>
-              <span>{ui.agentConnectAssistantDescription}</span>
-            </div>
-            <div>
-              <strong>{ui.agentConnectMcpTitle}</strong>
-              <span>{ui.agentConnectMcpDescription}</span>
-            </div>
+            <span
+              className="assistant-agent-connect-overview-label"
+              data-tooltip={ui.agentConnectAssistantDescription}
+              aria-label={`${ui.agentConnectAssistantTitle}：${ui.agentConnectAssistantDescription}`}
+              tabIndex={0}
+            >
+              {ui.agentConnectAssistantTitle}
+            </span>
+            <span
+              className="assistant-agent-connect-overview-label"
+              data-tooltip={ui.agentConnectMcpDescription}
+              aria-label={`${ui.agentConnectMcpTitle}：${ui.agentConnectMcpDescription}`}
+              tabIndex={0}
+            >
+              {ui.agentConnectMcpTitle}
+            </span>
           </div>
         </div>
       )}
+      {!inline && <div className="assistant-agent-connect-divider" aria-hidden="true" />}
       <div className={`assistant-agent-connect-actions${inline ? ' assistant-agent-connect-inline-actions' : ''}`}>
         {!isTauriRuntime() && !import.meta.env.DEV && (
           <div className="assistant-agent-connect-step">
