@@ -1,6 +1,7 @@
 import { WebInlineText } from './WebInlineText';
 import { playerControlCatalog } from './playerSettingsPanelConfig';
 import { webShapeMarkup } from './webShapes';
+import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
 import type React from 'react';
 import type { CSSProperties } from 'react';
 import { Fragment, useRef, useState } from 'react';
@@ -763,7 +764,7 @@ function MenuPageElementLayer({
                 : element.backgroundType === 'gradient'
                   ? 1
                   : (element.opacity ?? 100) / 100,
-            zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
+            zIndex: selected && element.kind !== 'shape' ? 1000 : 20 + (element.zIndex ?? 0),
           };
           const contentStyle: CSSProperties = {
             fontFamily: element.fontFamily,
@@ -785,7 +786,7 @@ function MenuPageElementLayer({
               onPointerDown={(event) => editable && onBeginElementDrag(page, event, element, 'move')}
               onClick={(event) => { if (editable) { event.stopPropagation(); onSelectElement?.(element.id); } }}>
               <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }} />
-              {selected && <SelectedElementFrame page={page} element={element} onUpdateElement={onUpdateElement} onBeginElementDrag={onBeginElementDrag} />}
+              {selected && <WebShapeSelectionOverlay element={element}><SelectedElementFrame page={page} element={element} onUpdateElement={onUpdateElement} onBeginElementDrag={onBeginElementDrag} /></WebShapeSelectionOverlay>}
             </div>
           );
           if (element.kind === 'button') {

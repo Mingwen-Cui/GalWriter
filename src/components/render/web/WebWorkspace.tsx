@@ -27,7 +27,6 @@ import {
   RotateCw,
   Save,
   Settings,
-  Shapes,
   Sparkles,
   Trash2,
   Type,
@@ -61,6 +60,7 @@ import type {
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
 import { webShapeCatalog, webShapeMarkup } from './webShapes';
+import { WebShapeAddControl } from './WebShapeAddControl';
 import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 
 const webSmallTabClass =
@@ -2140,12 +2140,7 @@ JSON schema:
                   onClick={addCurrentSurfaceImage}
                   tone="emerald"
                 />
-                <details className="relative z-[1200]">
-                  <summary className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-2.5 text-[11px] font-bold text-violet-700"><Shapes className="h-[17px] w-[17px]" />{language === 'zh' ? '添加图形' : language === 'ja' ? '図形を追加' : 'Add shape'}</summary>
-                  <div className="absolute right-0 top-full mt-2 grid min-w-36 gap-1 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] p-2 shadow-xl">
-                    {webShapeCatalog(language).map((shape) => <button key={shape.type} type="button" className="rounded-lg px-3 py-2 text-left text-xs font-semibold text-[var(--vr-text)] hover:bg-violet-100 hover:text-violet-700" onClick={(event) => { addCurrentSurfaceShape(shape.type); event.currentTarget.closest('details')?.removeAttribute('open'); }}>{shape.label}</button>)}
-                  </div>
-                </details>
+                <WebShapeAddControl language={language} onAdd={addCurrentSurfaceShape} />
                 <AddElementButton
                   icon={MousePointerClick}
                   label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1561')}

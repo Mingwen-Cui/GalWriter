@@ -3,6 +3,7 @@ import { WebToolbarSelectionTools } from './WebToolbarSelectionTools';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import { webShapeMarkup } from './webShapes';
+import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
 import {
   Eye,
   EyeOff,
@@ -974,7 +975,7 @@ function ToolbarElement({
           transform: `rotate(${element.rotation || 0}deg)`,
           opacity: element.visible === false ? 0.34 : (element.opacity ?? 100) / 100,
           ...elementRadiusStyle(element, element.kind === 'text' ? 0 : 8),
-          zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
+          zIndex: selected && element.kind !== 'shape' ? 1000 : 20 + (element.zIndex ?? 0),
           background:
             element.kind === 'button' && element.fillEnabled !== false && element.backgroundColor
               ? element.backgroundColor
@@ -1101,6 +1102,7 @@ function ToolbarElement({
         )}
       </span>
       {selected && editable && !editingText && onUpdate && selectedElementIds.length < 2 && (
+        <WebShapeSelectionOverlay element={element} enabled={element.kind === 'shape'}>
         <WebEditableElementFrame
           compact={toolbarControl}
           ringClassName="ring-1 ring-indigo-500"
@@ -1113,6 +1115,7 @@ function ToolbarElement({
           }}
           onResizePointerDown={(event, handle) => beginDrag(event, 'resize', handle)}
         />
+        </WebShapeSelectionOverlay>
       )}
     </ElementContainer>
   );

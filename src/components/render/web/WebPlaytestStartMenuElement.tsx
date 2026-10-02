@@ -1,5 +1,6 @@
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import { webShapeMarkup } from './webShapes';
+import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
 import type { CSSProperties, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { WebInlineText } from './WebInlineText';
@@ -322,7 +323,8 @@ export function WebPlaytestStartMenuElement({
       data-selectable-element-id={element.id}
       style={{
         ...elementStyle,
-        zIndex: selected ? 1000 : 20 + (element.zIndex ?? 0),
+        zIndex: selected && element.kind !== 'shape' ? 1000 : 20 + (element.zIndex ?? 0),
+        pointerEvents: element.kind === 'shape' && previewMode !== 'edit' ? 'none' : undefined,
       }}
       onPointerDown={(event) => {
         if (isEditingText) {
@@ -745,6 +747,7 @@ export function WebPlaytestStartMenuElement({
         </div>
       )}
       {previewMode === 'edit' && selected && !isEditingText && (
+        <WebShapeSelectionOverlay element={element} enabled={element.kind === 'shape'}>
         <WebEditableElementFrame
           visible={!imageCropEditing && element.visible}
           onRotatePointerDown={(event) => onBeginDrag(event, element, 'rotate')}
@@ -758,6 +761,7 @@ export function WebPlaytestStartMenuElement({
           }}
           onResizePointerDown={(event, handle) => onBeginDrag(event, element, 'resize', handle)}
         />
+        </WebShapeSelectionOverlay>
       )}
     </div>
   );
