@@ -1095,6 +1095,39 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     void localPersistenceService.saveTheme(theme);
   }, [didHydrateLocalState, theme]);
 
+  React.useEffect(() => {
+    if (!import.meta.env.DEV || isTauriRuntime() || !didHydrateLocalState) return;
+
+    const omitMcpField = /(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob)/i;
+    const sanitizeMcpValue = (value: unknown, depth = 0): unknown => {
+      if (depth > 12) return '[truncated]';
+      if (typeof value === 'string') return value.length > 20_000 ? `${value.slice(0, 20_000)}…` : value;
+      if (Array.isArray(value)) return value.slice(0, 500).map((item) => sanitizeMcpValue(item, depth + 1));
+      if (!value || typeof value !== 'object') return value;
+      return Object.fromEntries(
+        Object.entries(value).filter(([key]) => !omitMcpField.test(key))
+          .map(([key, item]) => [key, sanitizeMcpValue(item, depth + 1)]),
+      );
+    };
+    const payload = JSON.stringify({
+      projectId: currentProjectId,
+      projectTitle,
+      nodes: sanitizeMcpValue(nodes),
+      edges: sanitizeMcpValue(edges),
+    });
+    const timeout = window.setTimeout(() => {
+      void fetch('/__galwriter/mcp/project-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      }).catch(() => {
+        // The development MCP server can be absent while a static preview is open.
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [currentProjectId, didHydrateLocalState, edges, nodes, projectTitle]);
+
   const effectiveAccentColor = useMemo(
     () => resolveAccentColor(accentColor, resolvedTheme),
     [accentColor, resolvedTheme],

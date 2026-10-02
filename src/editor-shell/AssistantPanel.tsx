@@ -3,6 +3,7 @@ import {
   BrainCircuit,
   CheckCircle2,
   ChevronDown,
+  Copy,
   Download,
   FilePlus2,
   FileText,
@@ -634,6 +635,8 @@ export function AssistantPanel({
   );
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const [agentConnectionOpen, setAgentConnectionOpen] = useState(false);
+  const [agentConnectStatus, setAgentConnectStatus] = useState('');
+  const [agentConnectChecking, setAgentConnectChecking] = useState(false);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
   const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
   const [welcomeGradientState, setWelcomeGradientState] = useState<
@@ -2524,19 +2527,103 @@ export function AssistantPanel({
                 <h2 id="assistant-agent-connect-title">{ui.agentConnectDialogTitle}</h2>
                 <p>{ui.agentConnectDialogDescription}</p>
               </div>
-              <div className="assistant-agent-connect-options">
-                <button type="button" disabled className="assistant-agent-connect-option">
-                  <span className="assistant-agent-provider-mark assistant-agent-provider-openai">O</span>
-                  <span><strong>{ui.agentConnectOpenAI}</strong><small>{ui.agentConnectMcpNote}</small></span>
+              <div className="assistant-agent-connect-actions">
+                <button
+                  type="button"
+                  className="assistant-agent-connect-action assistant-agent-connect-action--primary"
+                  onClick={async () => {
+                    try {
+                      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+                      await navigator.clipboard.writeText(ui.agentConnectCopyPrompt);
+                      setAgentConnectStatus(ui.agentConnectCopied);
+                    } catch {
+                      setAgentConnectStatus(ui.agentConnectCopyFailed);
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                  {ui.agentConnectCopyButton}
                 </button>
-                <button type="button" disabled className="assistant-agent-connect-option">
-                  <span className="assistant-agent-provider-mark assistant-agent-provider-deepseek">D</span>
-                  <span><strong>{ui.agentConnectDeepSeek}</strong><small>{ui.agentConnectMcpNote}</small></span>
+                <button
+                  type="button"
+                  className="assistant-agent-connect-action"
+                  disabled={agentConnectChecking}
+                  onClick={async () => {
+                    setAgentConnectChecking(true);
+                    try {
+                      const response = await fetch('/__galwriter/mcp/status', { cache: 'no-store' });
+                      if (!response.ok) throw new Error('MCP server is unavailable');
+                      const status = (await response.json()) as {
+                        serverAvailable: boolean;
+                        projectAvailable: boolean;
+                        projectTitle: string | null;
+                        nodeCount: number;
+                      };
+                      if (!status.serverAvailable) throw new Error('MCP server is unavailable');
+                      const callMcp = async (id: number, method: string, params?: unknown) => {
+                        const mcpResponse = await fetch('/mcp', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json, text/event-stream',
+                          },
+                          body: JSON.stringify({ jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }),
+                        });
+                        if (!mcpResponse.ok) throw new Error('MCP protocol request failed');
+                        return (await mcpResponse.json()) as {
+                          result?: {
+                            tools?: Array<{ name: string }>;
+                            content?: Array<{ type: string; text?: string }>;
+                            isError?: boolean;
+                          };
+                        };
+                      };
+                      await callMcp(1, 'initialize', {
+                        protocolVersion: '2025-11-25',
+                        capabilities: {},
+                        clientInfo: { name: 'galwriter-connection-check', version: '1.0.0' },
+                      });
+                      const initializedResponse = await fetch('/mcp', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Accept: 'application/json, text/event-stream',
+                        },
+                        body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+                      });
+                      if (!initializedResponse.ok) throw new Error('MCP initialization failed');
+                      const toolsResult = await callMcp(2, 'tools/list');
+                      const toolNames = (toolsResult.result?.tools || []).map((tool) => tool.name);
+                      if (!toolNames.length) throw new Error('MCP tool discovery failed');
+                      if (status.projectAvailable) {
+                        const projectResult = await callMcp(3, 'tools/call', {
+                          name: 'get_current_project',
+                          arguments: {},
+                        });
+                        if (projectResult.result?.isError || !projectResult.result?.content?.length) {
+                          throw new Error('Current project read failed');
+                        }
+                      }
+                      setAgentConnectStatus(
+                        status.projectAvailable
+                          ? `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${status.projectTitle || ui.agentConnectUntitled} · ${status.nodeCount} ${ui.agentConnectCards} · ${ui.agentConnectReadVerified}`
+                          : `${ui.agentConnectServerReady} · ${toolNames.join(', ')} · ${ui.agentConnectProjectMissing}`,
+                      );
+                    } catch {
+                      setAgentConnectStatus(ui.agentConnectServerMissing);
+                    } finally {
+                      setAgentConnectChecking(false);
+                    }
+                  }}
+                >
+                  <RefreshCw className={`h-4 w-4${agentConnectChecking ? ' animate-spin' : ''}`} />
+                  {ui.agentConnectTestButton}
                 </button>
               </div>
+              <p className="assistant-agent-connect-browser-note">{ui.agentConnectBrowserNote}</p>
               <div className="assistant-agent-connect-status" role="status">
                 <span className="assistant-agent-connect-status-dot" />
-                {ui.agentConnectServiceUnavailable}
+                {agentConnectStatus || ui.agentConnectHint}
               </div>
             </section>
           </div>,

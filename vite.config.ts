@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
+import { galWriterMcpPlugin } from './build-scripts/galwriter-mcp-plugin.mjs';
 
 const coverTemplatesRoot = path.resolve(__dirname, 'public/cover-templates');
 const imageFilePattern = /\.(png|jpe?g|webp)$/i;
@@ -171,7 +172,14 @@ export default defineConfig(() => {
     // NOTE: 使用相对路径，确保应用加载本地文件时资源引用正确
     base: './',
     assetsInclude: ['**/*.lottie'],
-    plugins: [coverTemplateManifest(), arkImageProxy(), volcengineTtsProxy(), react(), tailwindcss()],
+    plugins: [
+      coverTemplateManifest(),
+      arkImageProxy(),
+      volcengineTtsProxy(),
+      galWriterMcpPlugin(),
+      react(),
+      tailwindcss(),
+    ],
     clearScreen: false,
     esbuild: {
       target: 'esnext',

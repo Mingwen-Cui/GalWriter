@@ -2377,64 +2377,46 @@ html.canvas-selection-dragging * {
   line-height: 1.65;
 }
 
-.assistant-agent-connect-options {
+.assistant-agent-connect-actions {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 9px;
   margin-top: 18px;
 }
 
-.assistant-agent-connect-option {
+.assistant-agent-connect-action {
   display: flex;
   width: 100%;
-  min-height: 62px;
+  min-height: 44px;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #f8fafc;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  opacity: 0.62;
-  cursor: not-allowed;
-}
-
-.assistant-agent-provider-mark {
-  display: flex;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.assistant-agent-provider-openai {
-  background: #e2e8f0;
   color: #334155;
-}
-
-.assistant-agent-provider-deepseek {
-  background: #dbeafe;
-  color: #2563eb;
-}
-
-.assistant-agent-connect-option strong,
-.assistant-agent-connect-option small {
-  display: block;
-}
-
-.assistant-agent-connect-option strong {
+  font: inherit;
   font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
 
-.assistant-agent-connect-option small {
-  margin-top: 3px;
-  color: #64748b;
-  font-size: 10px;
+.assistant-agent-connect-action:hover {
+  border-color: #a5b4fc;
+  background: #eef2ff;
+}
+
+.assistant-agent-connect-action--primary {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.assistant-agent-connect-action--primary:hover {
+  border-color: #4338ca;
+  background: #4338ca;
 }
 
 .assistant-agent-connect-status {
@@ -2943,8 +2925,7 @@ html.canvas-selection-dragging * {
   color: #f8fafc;
 }
 
-[data-theme='dark'] .assistant-agent-connect-heading p,
-[data-theme='dark'] .assistant-agent-connect-option small {
+[data-theme='dark'] .assistant-agent-connect-heading p {
   color: #94a3b8;
 }
 
@@ -2953,9 +2934,25 @@ html.canvas-selection-dragging * {
   color: #f8fafc;
 }
 
-[data-theme='dark'] .assistant-agent-connect-option {
+[data-theme='dark'] .assistant-agent-connect-action {
   border-color: #334155;
   background: #111c30;
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .assistant-agent-connect-action:hover {
+  border-color: #6366f1;
+  background: #1e293b;
+}
+
+[data-theme='dark'] .assistant-agent-connect-action--primary {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+}
+
+[data-theme='dark'] .assistant-agent-connect-action--primary:hover {
+  background: #4338ca;
 }
 
 [data-theme='dark'] .assistant-agent-connect-status {
