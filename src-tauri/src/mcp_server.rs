@@ -112,7 +112,7 @@ fn sanitize_private_and_media_fields(value: Value) -> Value {
 fn is_private_or_media_field(key: &str) -> bool {
   let key = key.to_ascii_lowercase();
   [
-    "api_key", "apikey", "secret", "token", "password", "base64", "dataurl", "thumbnail",
+    "api_key", "api-key", "apikey", "secret", "token", "password", "base64", "dataurl", "thumbnail",
     "image", "audio", "video", "media", "blob",
   ]
   .iter()

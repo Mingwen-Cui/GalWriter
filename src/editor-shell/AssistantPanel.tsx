@@ -2526,13 +2526,31 @@ export function AssistantPanel({
                   <X className="h-4 w-4" />
                 </button>
                 <h2 id="assistant-agent-connect-title">{ui.agentConnectDialogTitle}</h2>
-                <p>{ui.agentConnectDialogDescription}</p>
+                <p>{isTauriRuntime() ? ui.agentConnectDesktopDescription : ui.agentConnectDialogDescription}</p>
               </div>
               <div className="assistant-agent-connect-actions">
-                <button
-                  type="button"
-                  className="assistant-agent-connect-action assistant-agent-connect-action--primary"
-                  onClick={async () => {
+                {!isTauriRuntime() && !import.meta.env.DEV && (
+                  <div className="assistant-agent-connect-step">
+                    <span className="assistant-agent-connect-step-label">{ui.agentConnectStepOne}</span>
+                    <a
+                      className="assistant-agent-connect-action assistant-agent-connect-download"
+                      href={FULL_BUILD_DOWNLOAD_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Download className="h-4 w-4" />
+                      {ui.agentConnectDownloadButton}
+                    </a>
+                  </div>
+                )}
+                <div className="assistant-agent-connect-step">
+                  <span className="assistant-agent-connect-step-label">
+                    {isTauriRuntime() || import.meta.env.DEV ? ui.agentConnectStepOne : ui.agentConnectStepTwo}
+                  </span>
+                  <button
+                    type="button"
+                    className="assistant-agent-connect-action assistant-agent-connect-action--primary"
+                    onClick={async () => {
                     try {
                       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
                       const developmentEndpoint = `${window.location.origin}/mcp`;
@@ -2548,16 +2566,20 @@ export function AssistantPanel({
                     } catch {
                       setAgentConnectStatus(ui.agentConnectCopyFailed);
                     }
-                  }}
-                >
-                  <Copy className="h-4 w-4" />
-                  {ui.agentConnectCopyButton}
-                </button>
-                <button
-                  type="button"
-                  className="assistant-agent-connect-action"
-                  disabled={agentConnectChecking}
-                  onClick={async () => {
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                    {ui.agentConnectCopyButton}
+                  </button>
+                </div>
+                {(isTauriRuntime() || import.meta.env.DEV) && (
+                  <div className="assistant-agent-connect-step">
+                    <span className="assistant-agent-connect-step-label">{ui.agentConnectStepTwo}</span>
+                    <button
+                      type="button"
+                      className="assistant-agent-connect-action"
+                      disabled={agentConnectChecking}
+                      onClick={async () => {
                     setAgentConnectChecking(true);
                     try {
                       if (!isTauriRuntime() && !import.meta.env.DEV) {
@@ -2645,28 +2667,21 @@ export function AssistantPanel({
                     } finally {
                       setAgentConnectChecking(false);
                     }
-                  }}
-                >
-                  <RefreshCw className={`h-4 w-4${agentConnectChecking ? ' animate-spin' : ''}`} />
-                  {ui.agentConnectTestButton}
-                </button>
+                      }}
+                    >
+                      <RefreshCw className={`h-4 w-4${agentConnectChecking ? ' animate-spin' : ''}`} />
+                      {ui.agentConnectTestButton}
+                    </button>
+                  </div>
+                )}
               </div>
-              {!isTauriRuntime() && !import.meta.env.DEV && (
-                <a
-                  className="assistant-agent-connect-action assistant-agent-connect-download"
-                  href={FULL_BUILD_DOWNLOAD_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Download className="h-4 w-4" />
-                  {ui.agentConnectDownloadButton}
-                </a>
+              {isTauriRuntime() && <p className="assistant-agent-connect-browser-note">{ui.agentConnectDesktopNote}</p>}
+              {agentConnectStatus && (
+                <div className="assistant-agent-connect-status" role="status">
+                  <span className="assistant-agent-connect-status-dot" />
+                  {agentConnectStatus}
+                </div>
               )}
-              <p className="assistant-agent-connect-browser-note">{ui.agentConnectBrowserNote}</p>
-              <div className="assistant-agent-connect-status" role="status">
-                <span className="assistant-agent-connect-status-dot" />
-                {agentConnectStatus || ui.agentConnectHint}
-              </div>
             </section>
           </div>,
           document.body,
