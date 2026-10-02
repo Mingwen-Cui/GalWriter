@@ -19,7 +19,6 @@ use rmcp::{
   handler::server::tool::ToolRouter,
   model::{CallToolResult, ContentBlock},
   tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler,
-  ServiceExt,
   transport::streamable_http_server::{
     session::local::LocalSessionManager, StreamableHttpServerConfig, StreamableHttpService,
   },
@@ -127,6 +126,7 @@ fn timestamp_now() -> String {
     .unwrap_or_else(|_| "unknown".to_string())
 }
 
+#[allow(dead_code)]
 #[derive(Clone)]
 struct GalWriterMcpServer {
   state: GalWriterMcpState,
@@ -240,7 +240,9 @@ pub fn start_galwriter_mcp_server(app: &AppHandle) -> Result<(), String> {
   let mcp_service = StreamableHttpService::new(
     move || Ok(GalWriterMcpServer::new(state.clone())),
     LocalSessionManager::default().into(),
-    StreamableHttpServerConfig::default().with_json_response(true),
+    StreamableHttpServerConfig::default()
+      .with_legacy_session_mode(false)
+      .with_json_response(true),
   );
   let router = Router::new()
     .nest_service("/mcp", mcp_service)
