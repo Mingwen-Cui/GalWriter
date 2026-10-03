@@ -96,6 +96,11 @@ import {
   resolvePptTagAnimations,
 } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
+import {
+  deletePptTimelineAnimations,
+  movePptTimelineAnimations,
+  savePptTimelineOverrides,
+} from './pptTimelineEdits';
 import { normalizePptTransition, pptTransitionPreviewStyle } from './pptTransitions';
 import { AnimationRibbon, SlideList, SlideSorter } from './PptWorkspaceControls';
 import { PlayerOverlay, PptFooterBar } from './PptWorkspaceFooter';
@@ -485,9 +490,12 @@ export function PptWorkspace({
       ? orderPptSceneAnimations(scene, tagAnimations, styleTextAnimations, savedAnimations)
       : [...tagAnimations, ...styleTextAnimations, ...savedAnimations];
     return withTimelineStarts(
-      syncNameplateAnimations(
-        ordered.filter((item) => item.effect !== 'none'),
-        speakerCharacterId,
+      filterPptDisabledAnimations(
+        syncNameplateAnimations(
+          ordered.filter((item) => item.effect !== 'none'),
+          speakerCharacterId,
+        ),
+        savedAnimations,
       ),
     );
   }, [savedAnimations, scene, speakerCharacterId, styleTextAnimations, tagAnimations]);
@@ -1135,6 +1143,34 @@ export function PptWorkspace({
       },
     });
   };
+  const deleteTimelineAnimations = (ids: string[]) => {
+    pausePreview();
+    setTimelinePlayheadMs(undefined);
+    replaceTimeline(
+      deletePptTimelineAnimations(
+        savedAnimations,
+        currentAnimations.filter((item) => ids.includes(item.id)),
+      ),
+    );
+    if (selectedObject && ids.some((id) => getAnimation()?.id === id)) {
+      const remaining = currentAnimations.find(
+        (item) =>
+          !ids.includes(item.id) &&
+          item.target === selectedObject.target &&
+          item.targetId === selectedObject.targetId,
+      );
+      setSelectedPhase(remaining?.phase || 'enter');
+    }
+  };
+  const moveTimelineAnimations = (ids: string[], deltaMs: number) => {
+    pausePreview();
+    setTimelinePlayheadMs(undefined);
+    const moved = movePptTimelineAnimations(currentAnimations, ids, deltaMs);
+    const changes = moved.filter(
+      (item, index) => item.delayMs !== currentAnimations[index].delayMs,
+    );
+    if (changes.length) replaceTimeline(savePptTimelineOverrides(savedAnimations, changes));
+  };
   const updateTransition = (patch: Partial<PptSlideTransition>) => {
     const nextTransition = normalizePptTransition({ ...currentTransition, ...patch });
     updatePptSettings({
@@ -1633,7 +1669,9 @@ export function PptWorkspace({
               onSelectVideo={() => {
                 setSelectedObject({ target: 'background', label: copy.background });
               }}
-              onDelete={(id) => replaceTimeline(currentAnimations.filter((item) => item.id !== id))}
+              onDelete={(id) => deleteTimelineAnimations([id])}
+              onDeleteAnimations={deleteTimelineAnimations}
+              onMoveAnimations={moveTimelineAnimations}
               onPreview={previewCurrentSlide}
               previewing={isPreviewing}
               loopPreview={loopPreview}

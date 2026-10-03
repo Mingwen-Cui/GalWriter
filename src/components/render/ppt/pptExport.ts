@@ -24,6 +24,7 @@ import type {
   WebExportSettings,
 } from '../video/shared/types';
 import { syncNameplateAnimations } from './pptAnimationPreview';
+import { filterPptDisabledAnimations } from './pptAnimationReset';
 import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
 import { renderPptGradientPng } from './pptGradient';
 import {
@@ -454,6 +455,7 @@ export async function buildPptxBuffer({
     }
     if (coverTitleLayout.visible !== false) {
       slide.addText(coverTitle || ' ', {
+        objectName: 'ppt-cover-title',
         ...textBoxFrame(coverTitleLayout),
         fontFace: toPptFontFace(coverTitleStyle.fontFamily || style.titleFontFamily),
         fontSize: Math.max(8, (coverTitleStyle.fontSize || 34) * page.scale),
@@ -468,6 +470,7 @@ export async function buildPptxBuffer({
     }
     if (coverSubtitleLayout.visible !== false) {
       slide.addText(coverSubtitle || ' ', {
+        objectName: 'ppt-cover-subtitle',
         ...textBoxFrame(coverSubtitleLayout),
         fontFace: toPptFontFace(coverSubtitleStyle.fontFamily || style.bodyFontFamily),
         fontSize: Math.max(8, (coverSubtitleStyle.fontSize || 15) * page.scale),
@@ -482,6 +485,7 @@ export async function buildPptxBuffer({
     }
     if (coverDescriptionLayout.visible !== false) {
       slide.addText(coverDescription || ' ', {
+        objectName: 'ppt-cover-description',
         ...textBoxFrame(coverDescriptionLayout),
         fontFace: toPptFontFace(coverDescriptionStyle.fontFamily || style.bodyFontFamily),
         fontSize: Math.max(8, (coverDescriptionStyle.fontSize || 20) * page.scale),
@@ -518,9 +522,9 @@ export async function buildPptxBuffer({
       createPptStyleTextAnimations(scene, style, savedSceneAnimations),
       savedSceneAnimations,
     );
-    const sceneAnimations = syncNameplateAnimations(
-      orderedSceneAnimations,
-      speakerCharacter?.sourceNodeId,
+    const sceneAnimations = filterPptDisabledAnimations(
+      syncNameplateAnimations(orderedSceneAnimations, speakerCharacter?.sourceNodeId),
+      savedSceneAnimations,
     );
     if (sceneSlideNumber) {
       sceneAnimationOrderBySlide.set(
@@ -1219,6 +1223,17 @@ export async function buildPptxBuffer({
     outputType: 'arraybuffer',
     compression: true,
   })) as ArrayBuffer;
+  const coverSlideNumber = slideNumberById.get('cover');
+  if (coverSlideNumber) {
+    for (const animation of pptSettings.animations?.cover || []) {
+      if (!animation.target.startsWith('cover-') || animation.effect === 'none') continue;
+      animationTargets.push({
+        slideNumber: coverSlideNumber,
+        objectName: `ppt-${animation.target}`,
+        animation,
+      });
+    }
+  }
   return finalizePptxForPowerPoint(
     buffer,
     orderPptAnimationTargets(animationTargets, sceneAnimationOrderBySlide),
