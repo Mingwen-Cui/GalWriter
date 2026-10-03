@@ -974,6 +974,8 @@ export function WebWorkspace({
   const applyHomepageCoverPreset = async (templateId: string) => {
     const template = homepageCoverTemplates.find((item) => item.id === templateId);
     if (!template) return;
+    let presetStyle = webRenderStyle;
+    let presetSurfaces = webSettings.surfaceAppearances;
     try {
       if (!template.templateUrl) throw new Error('No exported template');
       const response = await fetch(template.templateUrl);
@@ -983,7 +985,9 @@ export function WebWorkspace({
         (await response.json()) as WebExperienceSnapshot,
       );
       if (snapshot.settings) updateWebSettingsBulk(snapshot.settings);
+      presetSurfaces = snapshot.settings?.surfaceAppearances || presetSurfaces;
       if (snapshot.renderStyle) {
+        presetStyle = { ...presetStyle, ...snapshot.renderStyle };
         Object.entries(snapshot.renderStyle).forEach(([key, value]) => {
           updateWebRenderStyle(key as keyof RenderStyle, value as never);
         });
@@ -999,8 +1003,14 @@ export function WebWorkspace({
         startMenuBackgroundImageUrl: template.backgroundUrl,
       });
     }
-    updateWebSettingsBulk(themeMenuPatch(template.id, language));
-    Object.entries(themeRenderPatch(template.id, webRenderStyle)).forEach(([key, value]) =>
+    const pageTheme = themeMenuPatch(template.id, language);
+    updateWebSettingsBulk({ ...pageTheme, surfaceAppearances: { ...presetSurfaces, ...pageTheme.surfaceAppearances } });
+    const theme = pageTheme.menuTheme;
+    if (theme) {
+      updateWebChoiceColor(theme.accent);
+      updateWebChoiceTextColor(theme.onAccent);
+    }
+    Object.entries(themeRenderPatch(template.id, presetStyle)).forEach(([key, value]) =>
       updateWebRenderStyle(key as keyof RenderStyle, value as never),
     );
     setSelectedStartMenuElementId(null);

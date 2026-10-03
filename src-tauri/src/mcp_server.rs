@@ -1,6 +1,8 @@
 use std::{
   collections::HashMap,
+  io::Read,
   net::TcpListener,
+  path::Path,
   sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, RwLock,
@@ -8,6 +10,7 @@ use std::{
   time::{SystemTime, UNIX_EPOCH},
 };
 
+use base64::Engine;
 use axum::{
   body::Body,
   extract::{DefaultBodyLimit, Request},
@@ -33,6 +36,8 @@ const MCP_BIND_ADDRESS: &str = "127.0.0.1:38941";
 const MCP_ENDPOINT: &str = "http://127.0.0.1:38941/mcp";
 const MAX_PROJECT_STATE_BYTES: usize = 20 * 1024 * 1024;
 const MAX_IMPORTED_IMAGE_BASE64_CHARS: usize = 11_184_812;
+const MAX_IMPORTED_MEDIA_BYTES: u64 = 32 * 1024 * 1024;
+const MAX_IMPORTED_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
 static NEXT_WRITE_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Default, Clone)]
@@ -168,6 +173,39 @@ fn is_private_or_media_field(key: &str) -> bool {
   .any(|part| key.contains(part))
 }
 
+fn media_type_for_extension(extension: &str) -> Option<(&'static str, &'static str, u64)> {
+  let (mime, kind) = match extension {
+    "png" => ("image/png", "image"),
+    "jpg" | "jpeg" => ("image/jpeg", "image"),
+    "webp" => ("image/webp", "image"),
+    "gif" => ("image/gif", "image"),
+    "bmp" => ("image/bmp", "image"),
+    "avif" => ("image/avif", "image"),
+    "mp3" => ("audio/mpeg", "audio"),
+    "wav" => ("audio/wav", "audio"),
+    "ogg" => ("audio/ogg", "audio"),
+    "m4a" => ("audio/mp4", "audio"),
+    "aac" => ("audio/aac", "audio"),
+    "flac" => ("audio/flac", "audio"),
+    "mp4" | "m4v" => ("video/mp4", "video"),
+    "webm" => ("video/webm", "video"),
+    "mov" => ("video/quicktime", "video"),
+    "mkv" => ("video/x-matroska", "video"),
+    "avi" => ("video/x-msvideo", "video"),
+    _ => return None,
+  };
+  Some((mime, kind, if kind == "image" { MAX_IMPORTED_IMAGE_BYTES } else { MAX_IMPORTED_MEDIA_BYTES }))
+}
+
+fn media_field_kind(field: &str) -> Option<&'static str> {
+  match field {
+    "imageUrl" | "avatarUrl" | "threeViewUrl" | "tagSpriteUrl" | "coverImageUrl" => Some("image"),
+    "videoUrl" => Some("video"),
+    "audioUrl" => Some("audio"),
+    _ => None,
+  }
+}
+
 fn timestamp_now() -> String {
   SystemTime::now()
     .duration_since(UNIX_EPOCH)
@@ -220,7 +258,7 @@ impl GalWriterMcpServer {
       return Err(McpError::internal_error(format!("Could not deliver write request to the editor: {error}"), None));
     }
 
-    let timeout = std::time::Duration::from_secs(if matches!(operation, "generate_project_node_image" | "capture_playtest_screen" | "capture_editor_canvas") { 180 } else if operation == "import_project_node_image" { 60 } else { 20 });
+    let timeout = std::time::Duration::from_secs(if matches!(operation, "generate_project_node_image" | "generate_story_audio" | "generate_text" | "capture_playtest_screen" | "capture_editor_canvas" | "open_project" | "create_project") { 180 } else if matches!(operation, "import_project_node_image" | "import_project_media") { 60 } else { 20 });
     match tokio::time::timeout(timeout, receiver).await {
       Ok(Ok(Ok(result))) => {
         *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) = Some(timestamp_now());
@@ -316,6 +354,40 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
   }
 
+  #[tool(description = "List locally saved GalWriter projects using only IDs, names, and update times. Does not include thumbnails, project content, paths, or credentials.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  async fn list_projects(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("list_projects", json!({})).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Open a saved local project. The current editor must be saved first; this tool will not discard or silently save unsaved work.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn open_project(&self, Parameters(input): Parameters<ProjectIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("open_project", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Create a fresh local GalWriter project. The current editor must be saved first; this tool will not discard or silently save unsaved work.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn create_project(&self, Parameters(input): Parameters<CreateProjectInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("create_project", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Rename a saved local GalWriter project. This changes only its project-list name and does not delete content.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  async fn rename_project(&self, Parameters(input): Parameters<RenameProjectInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("rename_project", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Permanently delete one saved local project by its exact project_id. This cannot be undone. Ask the user before calling unless they explicitly requested deletion of this exact project. The active project must be saved first.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  async fn delete_project(&self, Parameters(input): Parameters<ProjectIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("delete_project", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
   #[tool(description = "List reusable media asset IDs and names without exposing file paths, URLs, or binary payloads.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
   async fn list_project_assets(&self) -> Result<CallToolResult, McpError> {
     let project = self.state.project.read().unwrap_or_else(|error| error.into_inner()).clone();
@@ -372,6 +444,19 @@ impl GalWriterMcpServer {
     ]))
   }
 
+  #[tool(description = "Read the current playtest story-card ID, available choice IDs and labels, and whether the current dialogue is ready to advance. Open the playtest first.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  async fn get_playtest_state(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("get_playtest_state", json!({})).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Advance playtest through its only available route, or choose a specific outgoing story-card ID with target_node_id when several choices are available. Open the playtest first.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn advance_playtest(&self, Parameters(input): Parameters<AdvancePlaytestInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("advance_playtest", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
   #[tool(description = "Capture the currently visible story editor canvas as a PNG, including cards, links, and background regions. Use this to inspect the user's canvas layout before or after arranging cards. The screenshot reflects the current viewport.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
   async fn capture_editor_canvas(&self) -> Result<CallToolResult, McpError> {
     let result = self.request_editor_write("capture_editor_canvas", json!({})).await?;
@@ -408,6 +493,13 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
+  #[tool(description = "Associate one story card with one character or scene setting card. This is a presentation relationship, not a story-flow choice; the editor binds the setting to the story card and excludes this relationship from playtest navigation. source_id and target_id may be given in either order. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn connect_story_setting(&self, Parameters(input): Parameters<ConnectStoryNodesInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("connect_story_setting", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
   #[tool(description = "Delete one existing story card and its connected links. The root story card cannot be deleted. A clear user request to delete a specific card is sufficient; ask once before deleting multiple cards or performing broad cleanup.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
   async fn delete_story_node(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
@@ -433,6 +525,13 @@ impl GalWriterMcpServer {
   async fn disconnect_story_nodes(&self, Parameters(input): Parameters<ConnectStoryNodesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("disconnect_story_nodes", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Remove the presentation relationship between one story card and one character or scene setting card. This does not remove story-flow links. Endpoints may be given in either order.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  async fn disconnect_story_setting(&self, Parameters(input): Parameters<ConnectStoryNodesInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("disconnect_story_setting", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
@@ -492,10 +591,103 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
+  #[tool(description = "Create a plot-structure card with validated generation settings. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn create_plot_structure_node(&self, Parameters(input): Parameters<CreatePlotStructureNodeInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("create_plot_structure_node", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Create a background region around existing canvas cards. The editor calculates bounds from the selected card IDs; the region does not change story flow.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn create_background_region(&self, Parameters(input): Parameters<CreateBackgroundRegionInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("create_background_region", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Edit the title, color, width, or height of an existing background region. Position can be changed with move_story_node.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  async fn update_background_region(&self, Parameters(input): Parameters<UpdateBackgroundRegionInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_background_region", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Delete one background region. Its enclosed cards remain in the project.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn delete_background_region(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("delete_background_region", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Undo the most recent editor change in the current project. Returns whether an undo was available.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn undo_editor_change(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("undo_editor_change", json!({})).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Redo the most recently undone editor change in the current project. Returns whether a redo was available.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn redo_editor_change(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("redo_editor_change", json!({})).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Generate narration audio for a story card using the voice profile already configured in the editor. Credentials stay in the editor and are never part of MCP input or output.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = true))]
+  async fn generate_story_audio(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("generate_story_audio", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Generate text through the text AI profile already configured in the open editor and return the generated text without changing the project. API credentials remain in the editor. Keep prompt under 20000 characters.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = true))]
+  async fn generate_text(&self, Parameters(input): Parameters<GenerateTextInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("generate_text", input).await?;
+    let text = result.get("text").and_then(Value::as_str)
+      .ok_or_else(|| McpError::internal_error("The editor returned no generated text.", None))?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(text.to_string())]))
+  }
+
   #[tool(description = "Assign an existing project media asset to a compatible story, character, or scene card field without accepting arbitrary paths or URLs. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
   async fn set_story_media(&self, Parameters(input): Parameters<SetStoryMediaInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("set_story_media", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Import one local image, audio, or video file by an explicitly supplied absolute file_path, then attach it to a compatible existing card field. Supported images: PNG, JPEG, WebP, GIF, BMP, AVIF (8 MB max). Supported audio: MP3, WAV, OGG, M4A, AAC, FLAC; supported video: MP4, WebM, MOV, MKV, AVI, M4V (32 MB max). Only the selected media file is read; its path and bytes are not returned to the MCP client. Use story fields imageUrl/videoUrl/audioUrl, character fields avatarUrl/threeViewUrl/tagSpriteUrl, or scene field coverImageUrl. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn import_project_media(&self, Parameters(input): Parameters<ImportProjectMediaInput>) -> Result<CallToolResult, McpError> {
+    let path = Path::new(&input.file_path);
+    if !path.is_absolute() {
+      return Err(McpError::invalid_params("file_path must be an absolute path to one local media file.".to_string(), None));
+    }
+    let metadata = std::fs::metadata(path).map_err(|error| McpError::invalid_params(format!("Could not read the selected media file: {error}"), None))?;
+    if !metadata.is_file() {
+      return Err(McpError::invalid_params("file_path must refer to a regular media file.".to_string(), None));
+    }
+    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+    let (mime_type, kind, limit) = media_type_for_extension(&extension)
+      .ok_or_else(|| McpError::invalid_params("Unsupported media extension. Use a supported image, audio, or video file.".to_string(), None))?;
+    let expected_kind = media_field_kind(&input.field)
+      .ok_or_else(|| McpError::invalid_params("field must be imageUrl, videoUrl, audioUrl, avatarUrl, threeViewUrl, tagSpriteUrl, or coverImageUrl.".to_string(), None))?;
+    if expected_kind != kind {
+      return Err(McpError::invalid_params(format!("The selected file is {kind} media, but field '{}' requires {expected_kind} media.", input.field), None));
+    }
+    if metadata.len() == 0 || metadata.len() > limit {
+      return Err(McpError::invalid_params(format!("The selected file must be between 1 byte and {} MB.", limit / 1024 / 1024), None));
+    }
+    let file = std::fs::File::open(path).map_err(|error| McpError::invalid_params(format!("Could not open the selected media file: {error}"), None))?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(limit + 1).read_to_end(&mut bytes).map_err(|error| McpError::internal_error(format!("Could not read the selected media file: {error}"), None))?;
+    if bytes.is_empty() || bytes.len() as u64 > limit {
+      return Err(McpError::invalid_params("The selected media file exceeds its size limit.".to_string(), None));
+    }
+    let media_data = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    let result = self.request_editor_write("import_project_media", json!({
+      "node_id": input.node_id,
+      "field": input.field,
+      "mime_type": mime_type,
+      "media_data": media_data,
+    })).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
@@ -550,7 +742,7 @@ impl GalWriterMcpServer {
   }
 }
 
-  #[tool_handler(name = "galwriter", version = "1.6.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Image fallback: if generate_project_node_image returns HTTP 403, explain the configured image API denied access and ask once whether the user permits the assistant's own image generator. Do not generate a fallback before approval. If approved, generate from the target card's setting and call import_project_node_image with the same node ID and asset type; report insertion only after it succeeds. Read the current GalWriter desktop project before editing. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation.")]
+  #[tool_handler(name = "galwriter", version = "1.6.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Image fallback: if generate_project_node_image returns HTTP 403, explain the configured image API denied access and ask once whether the user permits the assistant's own image generator. Do not generate a fallback before approval. If approved, generate from the target card's setting and call import_project_node_image with the same node ID and asset type; report insertion only after it succeeds. Read the current GalWriter desktop project before editing. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Before delete_project, ask unless the user explicitly requested deleting that exact project; do not infer permission from a general request to manage projects. Only use import_project_media with a local path explicitly supplied or selected by the user; never guess paths or read other files. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Use connect_story_setting for explicit story-to-character/scene presentation links and connect_story_nodes only for story-flow choices. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation.")]
 impl ServerHandler for GalWriterMcpServer {}
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -595,6 +787,30 @@ struct StoryNodeIdInput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct ProjectIdInput {
+  project_id: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct ImportProjectMediaInput {
+  node_id: String,
+  field: String,
+  /// Absolute path to one local media file chosen by the user.
+  file_path: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct CreateProjectInput {
+  project_name: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct RenameProjectInput {
+  project_id: String,
+  project_name: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct MoveStoryNodeInput {
   node_id: String,
   position: StoryNodePosition,
@@ -636,6 +852,32 @@ struct CreateSceneNodeInput {
   scene_name: String,
   position: StoryNodePosition,
   layout_direction: Option<StoryLayoutDirection>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct CreatePlotStructureNodeInput {
+  node_id: Option<String>,
+  position: StoryNodePosition,
+  direction: Option<String>,
+  creation_mode: Option<String>,
+  card_count: Option<u8>,
+  detail_level: Option<String>,
+  layout_direction: Option<StoryLayoutDirection>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct CreateBackgroundRegionInput {
+  node_id: Option<String>,
+  node_ids: Vec<String>,
+  title: Option<String>,
+  color: Option<String>,
+  padding: Option<f64>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct UpdateBackgroundRegionInput {
+  node_id: String,
+  fields: std::collections::BTreeMap<String, Value>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -699,6 +941,16 @@ struct OpenPlaytestInput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct AdvancePlaytestInput {
+  target_node_id: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct GenerateTextInput {
+  prompt: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 enum PlaytestDisplayMode {
   Fullscreen,
@@ -727,6 +979,10 @@ enum StoryChangeOperation {
   CreateStoryNode { node_id: Option<String>, title: String, text: String, position: StoryNodePosition },
   CreateCharacterNode { node_id: Option<String>, character_name: String, position: StoryNodePosition },
   CreateSceneNode { node_id: Option<String>, scene_name: String, position: StoryNodePosition },
+  CreatePlotStructureNode { node_id: Option<String>, position: StoryNodePosition, direction: Option<String>, creation_mode: Option<String>, card_count: Option<u8>, detail_level: Option<String> },
+  CreateBackgroundRegion { node_id: Option<String>, node_ids: Vec<String>, title: Option<String>, color: Option<String>, padding: Option<f64> },
+  UpdateBackgroundRegion { node_id: String, fields: std::collections::BTreeMap<String, Value> },
+  DeleteBackgroundRegion { node_id: String },
   DeleteStoryNode { node_id: String },
   DeleteProjectNode { node_id: String },
   MoveNode { node_id: String, position: StoryNodePosition },

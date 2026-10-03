@@ -1,4 +1,5 @@
 import { WebInlineText } from './WebInlineText';
+import { webThemeCssVariables } from './webThemeVisuals';
 import { playerControlCatalog } from './playerSettingsPanelConfig';
 import { constrainWebShapeSize, webShapeMarkup } from './webShapes';
 import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
@@ -493,11 +494,11 @@ export function WebPreviewMenuPages({
         <div
           ref={archiveRootRef}
           className={`absolute inset-0 z-50 text-white ${backgroundClass}`}
-          style={
+          style={{ ...webThemeCssVariables(settings.menuTheme), ...(
             settings.surfaceAppearances?.archive
               ? { background: 'transparent' }
               : archiveBackgroundStyle
-          }
+          ) }}
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}
@@ -625,11 +626,11 @@ export function WebPreviewMenuPages({
         <div
           ref={settingsRootRef}
           className={`absolute inset-0 z-50 text-white ${backgroundClass}`}
-          style={
+          style={{ ...webThemeCssVariables(settings.menuTheme), ...(
             settings.surfaceAppearances?.settings
               ? { background: 'transparent' }
               : settingsBackgroundStyle
-          }
+          ) }}
           onPointerMove={handleElementPointerMove}
           onPointerUp={endElementDrag}
           onPointerCancel={endElementDrag}

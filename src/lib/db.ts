@@ -3,6 +3,7 @@ import { DBSchema, IDBPDatabase, openDB } from 'idb';
 import type {
   ApiKeySettings,
   AssistantStoryProfile,
+  ImageAIProfile,
   ProjectSettings,
   SavedAIProfile,
   StoryProject,

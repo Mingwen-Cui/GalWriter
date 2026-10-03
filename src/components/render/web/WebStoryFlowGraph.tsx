@@ -1,4 +1,5 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import { WEB_FLOW_THEME_CSS } from './webThemeVisuals';
 import {
   ArrowDown,
   ArrowLeft,
@@ -521,8 +522,9 @@ export function WebStoryFlowGraph({
 
   return (
     <section
-      className={`${isFullscreen ? 'fixed inset-3 z-[120] rounded-2xl shadow-2xl' : 'relative'} flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border border-[var(--vr-border)] ${transparentSurface ? 'bg-transparent' : 'bg-[var(--vr-surface-soft)]'}`}
+      className={`gw-flow-theme ${isFullscreen ? 'fixed inset-3 z-[120] rounded-2xl shadow-2xl' : 'relative'} flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden ${transparentSurface ? 'border-0 bg-transparent' : 'border border-[var(--vr-border)] bg-[var(--vr-surface-soft)]'}`}
     >
+      <style>{WEB_FLOW_THEME_CSS}</style>
       {showHeader && (
         <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--vr-border)] bg-[var(--vr-surface)] px-4">
           <div className="flex min-w-0 items-center gap-2 text-xs font-black tracking-wide text-[var(--vr-text-soft)]">
@@ -743,7 +745,7 @@ export function WebStoryFlowGraph({
                       ? `${cardLabel}（${textFor(language, '未解锁', '未解放', 'Locked')}）`
                       : cardLabel
                   }
-                  className={`absolute overflow-hidden rounded-xl border text-left shadow-lg transition ${inStoryChain ? 'border-indigo-400 shadow-indigo-200/70' : 'border-slate-200 hover:border-indigo-300 hover:shadow-indigo-100/70'} ${active ? 'ring-2 ring-indigo-300/70' : ''} ${selectedForEdit ? 'ring-4 ring-amber-300/80' : ''}`}
+                  className={`gw-flow-card ${inStoryChain || active ? 'is-active' : ''} absolute overflow-hidden rounded-xl border text-left shadow-lg transition ${selectedForEdit ? 'ring-4 ring-amber-300/80' : ''}`}
                   style={{
                     left: position.x,
                     top: position.y,
@@ -758,7 +760,7 @@ export function WebStoryFlowGraph({
                       className={`h-full w-full object-cover ${locked ? 'brightness-75 saturate-75' : ''}`}
                     />
                   ) : (
-                    <span className="block h-full w-full bg-gradient-to-br from-slate-100 via-white to-indigo-50" />
+                    <span className="gw-flow-card-empty block h-full w-full" />
                   )}
                   {locked && (
                     <span className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-slate-950/15">
@@ -820,13 +822,13 @@ export function WebStoryFlowGraph({
         )}
 
         {detailsOpen && activeSegment && (
-          <aside className="absolute bottom-20 right-4 top-4 z-30 flex w-[min(360px,calc(100%-2rem))] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md">
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <aside className="gw-flow-detail absolute bottom-20 right-4 top-4 z-30 flex w-[min(360px,calc(100%-2rem))] min-h-0 flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-md">
+            <div className="gw-flow-detail-head flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3">
               <div className="min-w-0">
-                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                <div className="gw-flow-muted text-[10px] font-black uppercase tracking-wider">
                   {textFor(language, '卡片内部剧情', 'カード内のストーリー', 'Inside this card')}
                 </div>
-                <div className="mt-1 truncate text-sm font-black text-slate-800">
+                <div className="gw-flow-ink mt-1 truncate text-sm font-black">
                   {activeSegment.name ||
                     textFor(language, '未命名剧情段', '無題のセグメント', 'Untitled segment')}
                 </div>
@@ -841,7 +843,7 @@ export function WebStoryFlowGraph({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-[10px] font-bold text-indigo-700">
+              <div className="gw-flow-detail-summary mb-3 flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-[10px] font-bold">
                 <span>
                   {activeSegment.nodeIds.length}{' '}
                   {textFor(language, '个连续剧情节点', '個の連続ノード', 'story nodes')}
@@ -851,7 +853,7 @@ export function WebStoryFlowGraph({
                     type="button"
                     onClick={() => activeNodeId && onPlayFromNode(activeNodeId)}
                     disabled={!activeNodeId}
-                    className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[10px] font-black text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="gw-flow-detail-play inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Play className="h-3 w-3 fill-current" />
                     {textFor(language, '从此处开始', 'ここから再生', 'Play from here')}
@@ -869,19 +871,19 @@ export function WebStoryFlowGraph({
                       key={nodeId}
                       type="button"
                       onClick={() => setActiveNodeId(nodeId)}
-                      className={`w-full rounded-xl border p-3 text-left transition ${selected ? 'border-indigo-300 bg-indigo-50/80 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50'}`}
+                      className={`gw-flow-detail-item w-full rounded-xl border p-3 text-left transition ${selected ? 'ring-1 ring-[var(--gw-accent)] shadow-sm' : ''}`}
                     >
                       <span className="flex items-center gap-2 text-[10px] font-black text-slate-400">
                         <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
                           {index + 1}
                         </span>
-                        <span className="truncate text-xs text-slate-700">
+                        <span className="gw-flow-ink truncate text-xs">
                           {getNodeDisplayTitle(node) ||
                             textFor(language, '未命名节点', '無題のノード', 'Untitled node')}
                         </span>
                         <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0" />
                       </span>
-                      <span className="mt-2 block line-clamp-3 text-[10px] leading-5 text-slate-500">
+                      <span className="gw-flow-muted mt-2 block line-clamp-3 text-[10px] leading-5">
                         {detailText || textFor(language, '暂无文本', 'テキストなし', 'No text')}
                       </span>
                       {onPlayFromNode && (

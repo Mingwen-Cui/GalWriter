@@ -58,6 +58,7 @@ import { WebElementPlacementOverlay } from '../web/WebElementPlacementOverlay';
 import { gradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
 import { getPptCopy, type PptCopy } from './i18n';
 import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
+import { PptAnimatedText } from './PptAnimatedText';
 import { targetLabel } from './pptAnimationLabels';
 import { findAnimation, previewStyle, syncNameplateAnimations } from './pptAnimationPreview';
 import { clearPptObjectAnimations, filterPptDisabledAnimations } from './pptAnimationReset';
@@ -80,6 +81,7 @@ import {
 } from './pptManualContent';
 import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCanvas';
 import { constrainPptShape, createPptShape } from './pptShapes';
+import { pptTextLinePreview } from './pptTextBuild';
 
 const isConfiguredSelectionButton = (button: number) =>
   button === (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2);
@@ -1010,16 +1012,26 @@ export function PptWorkspace({
     setSidebarTab('style');
   };
   const deleteActiveManualElement = (elementId: string) => {
+    const animationPatch = {
+      animations: {
+        ...animations,
+        [selectedId]: savedAnimations.filter(
+          (item) => item.target !== 'manual-text' || item.targetId !== elementId,
+        ),
+      },
+    };
     if (manualSlide) {
-      saveManualSlides(
-        manualSlides.map((slide) =>
+      updatePptSettings({
+        ...animationPatch,
+        manualSlides: manualSlides.map((slide) =>
           slide.id === manualSlide.id
             ? { ...slide, elements: slide.elements.filter((element) => element.id !== elementId) }
             : slide,
         ),
-      );
+      });
     } else {
       updatePptSettings({
+        ...animationPatch,
         slideElements: {
           ...slideElements,
           [selectedId]: activeSlideElements.filter((element) => element.id !== elementId),
@@ -1027,11 +1039,24 @@ export function PptWorkspace({
       });
     }
     setSelectedManualElementId(undefined);
+    if (selectedObject?.target === 'manual-text' && selectedObject.targetId === elementId)
+      setSelectedObject(null);
   };
   const selectManualElement = (elementId: string) => {
-    setSelectedObject(null);
+    const element = (manualSlide?.elements || activeSlideElements).find(
+      (item) => item.id === elementId,
+    );
+    const selection: Selection | null =
+      element?.kind === 'text'
+        ? { target: 'manual-text', targetId: elementId, label: copy.text }
+        : null;
+    setSelectedObject(selection);
     setSelectedManualElementId(elementId);
-    setSidebarTab('style');
+    if (selection)
+      setSelectedPhase(
+        findAnimation(currentAnimations, selection.target, elementId)[0]?.phase || 'enter',
+      );
+    setSidebarTab(ribbonTab === 'animation' ? 'timeline' : 'style');
   };
   const duplicateCurrentManualSlide = () => {
     const next = createClipboardSlide(selectedId) || createManualSlide(copy.manualSlide);
@@ -1098,7 +1123,7 @@ export function PptWorkspace({
         nameplate: 'nameplate',
         choice: 'choice',
       } as const
-    )[selection.target];
+    )[selection.target as 'dialog-panel' | 'dialog-title' | 'dialog-body' | 'nameplate' | 'choice'];
     if (renderObject) updateRenderStyle('selectedRenderObject', renderObject);
   };
   const updatePptObject = useCallback(
@@ -1276,7 +1301,11 @@ export function PptWorkspace({
       if (existing) replaceTimeline(currentAnimations.filter((item) => item.id !== existing.id));
       return;
     }
-    const nextTimeline = updateSelectedAnimation({ effect });
+    const nextTimeline = updateSelectedAnimation({
+      effect,
+      textBuild: undefined,
+      action: undefined,
+    });
     if (nextTimeline) preview(nextTimeline, true);
   };
   const applyMiddleAction = (action: InlinePresentationActionType) => {
@@ -1463,6 +1492,13 @@ export function PptWorkspace({
               phase={selectedPhase}
               setPhase={applyPhase}
               animation={getAnimation()}
+              textSelected={Boolean(
+                selectedObject &&
+                (selectedObject.target.startsWith('cover-') ||
+                  selectedObject.target === 'dialog-title' ||
+                  selectedObject.target === 'dialog-body' ||
+                  selectedObject.target === 'manual-text'),
+              )}
               onApply={applyEffect}
               onClearAnimations={() => {
                 if (!selectedObject) return;
@@ -1479,7 +1515,16 @@ export function PptWorkspace({
               }}
               onApplyMiddleAction={applyMiddleAction}
               onApplyLineWipe={() => {
-                if (!selectedObject || selectedObject.target !== 'dialog-body') return;
+                if (
+                  !selectedObject ||
+                  !(
+                    selectedObject.target.startsWith('cover-') ||
+                    selectedObject.target === 'dialog-title' ||
+                    selectedObject.target === 'dialog-body' ||
+                    selectedObject.target === 'manual-text'
+                  )
+                )
+                  return;
                 setSelectedPhase('enter');
                 const nextTimeline = updateSelectedAnimation(
                   {
@@ -1676,6 +1721,9 @@ export function PptWorkspace({
               pptSettings={pptSettings}
               updatePptSettings={updatePptSettings}
               onSelectAnimation={(animation) => {
+                setSelectedManualElementId(
+                  animation.target === 'manual-text' ? animation.targetId : undefined,
+                );
                 setSelectedObject({
                   target: animation.target,
                   targetId: animation.targetId,
@@ -2059,6 +2107,9 @@ export function SlideCanvas({
             canvasHeight={shapeCanvasHeight}
             placement={placement}
             slide={manualSlide}
+            animations={animations}
+            previewing={previewing}
+            previewAtMs={previewAtMs}
             editable={editable}
             selectedElementId={selectedManualElementId}
             onSelectElement={onSelectManualElement}
@@ -2133,6 +2184,9 @@ export function SlideCanvas({
                 language={language}
                 canvasHeight={shapeCanvasHeight}
                 elements={slideElements}
+                animations={animations}
+                previewing={previewing}
+                previewAtMs={previewAtMs}
                 editable={editable}
                 selectedElementId={selectedManualElementId}
                 onSelectElement={onSelectManualElement}
@@ -2533,7 +2587,7 @@ function PptCoverTextBox({
           className={`grid h-full w-full place-items-center whitespace-pre-wrap ${textClass}`}
           style={{ ...textPaint, ...previewStyle(animation, previewing, previewAtMs) }}
         >
-          {text}
+          <PptAnimatedText text={text} animations={animation} previewAtMs={previewAtMs} />
         </div>
       )}
       {animation.length ? <span className="ppt-animation-index">✦</span> : null}
@@ -2625,19 +2679,30 @@ function ScenePreview({
     () => getPptDialogueLineTargetIds(scene, bodyText, textLayout.body.starts),
     [scene, bodyText, textLayout.body.starts],
   );
-  const bodyAnimationPreviewAtMs = previewing ? undefined : previewAtMs;
   const bodyLineStyles = useMemo(
     () =>
-      bodyLineTargetIds.map((targetId) =>
-        targetId
-          ? previewStyle(
-              findAnimation(animations, 'dialog-body', targetId),
-              previewing,
-              bodyAnimationPreviewAtMs,
-            )
-          : {},
-      ),
-    [bodyLineTargetIds, animations, previewing, bodyAnimationPreviewAtMs],
+      bodyLineTargetIds.map((targetId, index) => {
+        const entries = [
+          ...findAnimation(animations, 'dialog-body'),
+          ...findAnimation(animations, 'dialog-body', targetId),
+        ];
+        const build = entries.find((item) => item.textBuild);
+        const count = build?.targetId
+          ? bodyLineTargetIds.filter((id) => id === targetId).length
+          : bodyLineTargetIds.length;
+        const lineIndex = build?.targetId
+          ? bodyLineTargetIds.slice(0, index).filter((id) => id === targetId).length
+          : index;
+        return {
+          ...previewStyle(
+            entries.filter((item) => item.targetId),
+            previewing,
+            previewAtMs,
+          ),
+          ...pptTextLinePreview(build, count, lineIndex, previewAtMs),
+        };
+      }),
+    [bodyLineTargetIds, animations, previewing, previewAtMs],
   );
   const panelStyle = objectPaint(panel);
   const panelLayout = resolvePresentationDialogueLayout(canvasWidth, canvasHeight, renderStyle);
@@ -2837,7 +2902,17 @@ function ScenePreview({
               ...textBlockCss(textLayout.title, panelLayout),
             }}
           >
-            <PresentationText block={textLayout.title} />
+            <PresentationText
+              block={textLayout.title}
+              lineStyles={textLayout.title.lines.map((_, index, lines) =>
+                pptTextLinePreview(
+                  findAnimation(animations, 'dialog-title').find((item) => item.textBuild),
+                  lines.length,
+                  index,
+                  previewAtMs,
+                ),
+              )}
+            />
           </PptEditableObject>
         ) : null}
         <PptEditableObject

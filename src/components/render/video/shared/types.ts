@@ -1,5 +1,6 @@
 import type { PlayerSettingsPanelConfig } from '../../web/playerSettingsPanelConfig';
 import type { SurfaceAppearance } from '../../shared/paint/appearance';
+import type { WebThemeVisuals } from '../../web/webThemeVisuals';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import type { ReactNode, RefObject } from 'react';
 
@@ -582,6 +583,8 @@ export type WebExportSettings = {
   flowOverviewMusicFadeOut: number;
   flowOverviewMusicLoop: boolean;
   flowOverviewElements: WebMenuElement[];
+  /** Built-in page colours, shared by settings controls, saves and story flow. */
+  menuTheme?: WebThemeVisuals;
   flowOverviewLayoutDirection: 'right' | 'down' | 'left' | 'up';
   flowOverviewCardSizes?: Record<string, { width: number; height: number }>;
   flowOverviewMinimapWidth: number;
@@ -710,6 +713,7 @@ export type PptAnimationEffect =
 export type PptAnimationStart = 'onClick' | 'withPrevious' | 'afterPrevious';
 export type PptAnimationDirection = 'left' | 'right' | 'up' | 'down';
 export type PptAnimationTarget =
+  | 'manual-text'
   | 'cover-title'
   | 'cover-subtitle'
   | 'cover-description'

@@ -2,131 +2,115 @@ import type { Language } from '../../lib/i18n';
 import { homepageCoverTemplates } from './homepageCoverTemplates';
 import { newPaint, type SurfaceAppearance } from './shared/paint/appearance';
 import { getRenderObjects } from './video/shared/renderObjects';
-import type { RenderStyle, WebExportSettings, WebMenuElement } from './video/shared/types';
+import type { RenderStyle, WebExportSettings } from './video/shared/types';
 import { buildArchivePageElements, buildSettingsPageElements } from './web/webMenuPageElements';
+import { buildRehearsalFlowPageElements } from './web/webExperienceTemplates';
+import { decorateWebPageElements, webThemePalettes } from './web/webThemeVisuals';
 
-const palettes = {
-  'sakura-campus': {
-    panel: '#fff7f4ed',
-    ink: '#4b3140',
-    muted: '#9f6077',
-    accent: '#c8567b',
-    edge: '#eeb9c7',
-    radius: 22,
-  },
-  'rainy-station': {
-    panel: '#081b2aed',
-    ink: '#e2f5ff',
-    muted: '#7dd3fc',
-    accent: '#0891b2',
-    edge: '#1c566b',
-    radius: 10,
-  },
-  'gothic-moon': {
-    panel: '#170f25f2',
-    ink: '#f5edf9',
-    muted: '#ddbd86',
-    accent: '#7e5ba6',
-    edge: '#9d7a45',
-    radius: 4,
-  },
-  'deepsea-sci-fi': {
-    panel: '#071d35eb',
-    ink: '#e2f8ff',
-    muted: '#67e8f9',
-    accent: '#1378aa',
-    edge: '#297a99',
-    radius: 16,
-  },
-};
 export const experienceThemes = homepageCoverTemplates.map((cover) => ({
-  ...cover,
-  ...palettes[cover.id],
+  ...cover, ...webThemePalettes[cover.id],
 }));
-export const getExperienceTheme = (id: string) => experienceThemes.find((t) => t.id === id);
-export function themeAppearance(id: string): SurfaceAppearance {
-  const t = getExperienceTheme(id) || experienceThemes[0];
+export const getExperienceTheme = (id: string) => experienceThemes.find((theme) => theme.id === id);
+
+export function themeAppearance(id: string, primary = false): SurfaceAppearance {
+  const theme = getExperienceTheme(id) || experienceThemes[0];
   return {
-    fills: [
-      {
-        ...newPaint(),
-        id: 'theme-sheen',
-        type: 'gradient',
-        gradientStart: '#ffffff14',
-        gradientEnd: '#ffffff00',
-        gradientAngle: 145,
-      },
-      { ...newPaint(), id: 'theme-panel', color: t.panel },
-    ],
-    strokes: [{ id: 'theme-edge', enabled: true, color: t.edge, width: 1, position: 'inside' }],
+    fills: [{
+      ...newPaint(), id: 'theme-panel', type: 'gradient',
+      gradientStart: primary ? theme.accent : theme.panel,
+      gradientEnd: primary ? theme.accentEnd : theme.panelEnd,
+      gradientAngle: 155, opacity: primary ? 100 : 95,
+    }],
+    strokes: [{ id: 'theme-edge', enabled: true, color: theme.edge, width: 1, position: 'inside' }],
     shadows: [
-      {
-        id: 'theme-depth',
-        enabled: true,
-        color: '#00000030',
-        x: 0,
-        y: 10,
-        blur: 30,
-        spread: 0,
-        inset: false,
-      },
+      { id: 'theme-depth', enabled: true, color: theme.dark ? '#00000038' : '#533a4c18', x: 0, y: 10, blur: 32, spread: 0, inset: false },
+      { id: 'theme-sheen', enabled: true, color: theme.dark ? '#ffffff0a' : '#ffffffb3', x: 0, y: 1, blur: 0, spread: 0, inset: true },
     ],
   };
 }
+
 export function themeRenderPatch(id: string, style: RenderStyle): Partial<RenderStyle> {
-  const t = getExperienceTheme(id);
-  if (!t) return {};
+  const theme = getExperienceTheme(id);
+  if (!theme) return {};
   const objects = getRenderObjects(style);
+  const bodySize = id === 'gothic-moon' ? 28 : 26;
+  const titleSize = 30;
+  const nameSize = 18;
+  const stops = [
+    { id: 'theme-start', color: theme.panel, alpha: 95, position: 0 },
+    { id: 'theme-end', color: theme.panelEnd, alpha: 95, position: 100 },
+  ];
+  const textStyle = (object: typeof objects.body, color: string, size: number, weight: number, lineHeight: number) => ({
+    ...object, fontFamily: theme.font, fontSize: size, fontWeight: weight, lineHeight,
+    letterSpacing: id === 'gothic-moon' ? 0.5 : 0.2,
+    fill: { ...object.fill, enabled: true, type: 'solid' as const, color, alpha: 100 },
+    stroke: { ...object.stroke, enabled: false }, shadow: { ...object.shadow, enabled: false },
+    appearance: undefined,
+  });
   return {
-    panelColor: t.panel.slice(0, 7),
-    panelColorAlpha: 93,
-    dialogRadius: t.radius,
-    dialogVisible: true,
-    titleColor: t.muted,
-    bodyColor: t.ink,
+    panelColor: theme.panel, panelColorAlpha: 95, dialogRadius: theme.radius, dialogVisible: true,
+    dialogBackgroundType: 'gradient', dialogGradientStartColor: theme.panel,
+    dialogGradientColor: theme.panelEnd, dialogGradientAngle: 155, dialogGradientStops: stops,
+    dialogImageUrl: '', titleColor: theme.muted, bodyColor: theme.ink,
+    titleColorAlpha: 100, bodyColorAlpha: 100, titleFontFamily: theme.font, bodyFontFamily: theme.font,
+    titleFontSize: titleSize, bodyFontSize: bodySize, titleLineHeight: 1.3, bodyLineHeight: 1.7,
+    titleLetterSpacing: 0.5, bodyLetterSpacing: 0.2, titleStrokeWidth: 0, bodyStrokeWidth: 0,
+    nameplateFontFamily: theme.font, nameplateFontSize: nameSize, nameplateRadius: theme.radius,
+    nameplateTextColor: theme.ink, nameplateTextColorAlpha: 100,
+    nameplateBackgroundType: 'gradient', nameplateColor: theme.panel, nameplateColorAlpha: 95,
+    nameplateGradientAngle: 155, nameplateGradientStops: stops, nameplateImageUrl: '',
     renderObjects: {
       ...objects,
       dialogBox: {
-        ...objects.dialogBox,
-        appearance: themeAppearance(id),
-        radius: t.radius,
-        corners: [t.radius, t.radius, t.radius, t.radius],
+        ...objects.dialogBox, visible: true, appearance: themeAppearance(id), radius: theme.radius,
+        corners: [theme.radius, theme.radius, theme.radius, theme.radius],
+        fill: { ...objects.dialogBox.fill, enabled: true, type: 'gradient', color: theme.panel, alpha: 95, gradientAngle: 155, gradientStops: stops },
       },
-      title: {
-        ...objects.title,
-        fill: { ...objects.title.fill, type: 'solid', color: t.muted, alpha: 100 },
+      title: textStyle(objects.title, theme.muted, titleSize, 600, 1.3),
+      body: textStyle(objects.body, theme.ink, bodySize, 400, 1.7),
+      nameplate: {
+        ...textStyle(objects.nameplate, theme.ink, nameSize, 600, 1.2),
+        appearance: themeAppearance(id), radius: theme.radius,
+        corners: [theme.radius, theme.radius, theme.radius, theme.radius],
       },
-      body: {
-        ...objects.body,
-        fill: { ...objects.body.fill, type: 'solid', color: t.ink, alpha: 100 },
+      choice: {
+        ...textStyle(objects.choice, theme.onAccent, 20, 600, 1.4),
+        appearance: themeAppearance(id, true), radius: theme.radius,
+        corners: [theme.radius, theme.radius, theme.radius, theme.radius],
       },
     },
   };
 }
+
 export function themeMenuPatch(id: string, language: Language): Partial<WebExportSettings> {
-  const t = getExperienceTheme(id);
-  if (!t) return {};
-  const decorate = (items: WebMenuElement[]) =>
-    items.map((e) => ({
-      ...e,
-      textColor: e.kind === 'text' ? t.ink : '#ffffff',
-      backgroundColor: t.panel,
-      borderRadius: t.radius,
-      ...(e.kind === 'button'
-        ? {
-            appearance: {
-              ...themeAppearance(id),
-              fills: [{ ...newPaint(), id: 'theme-button', color: e.primary ? t.accent : t.panel }],
-            },
-          }
-        : {}),
-    }));
+  const theme = getExperienceTheme(id);
+  if (!theme) return {};
+  const shade: SurfaceAppearance = {
+    fills: [
+      { ...newPaint(), id: 'theme-page-wash', type: 'gradient', gradientStart: theme.canvas, gradientEnd: theme.canvasEnd, gradientAngle: 135, opacity: theme.dark ? 92 : 78 },
+      { ...newPaint(), id: 'theme-page-art', type: 'image', imageUrl: theme.backgroundUrl, imageFit: 'crop', imageScale: 100 },
+    ], strokes: [], shadows: [],
+  };
+  const game: SurfaceAppearance = {
+    fills: [{ ...newPaint(), id: 'theme-game-background', type: 'gradient', gradientStart: theme.canvas, gradientEnd: theme.canvasEnd, gradientAngle: 135 }],
+    strokes: [], shadows: [],
+  };
   return {
-    archiveBackgroundColor: t.panel,
-    archiveBackgroundType: 'solid',
-    settingsBackgroundColor: t.panel,
-    settingsBackgroundType: 'solid',
-    archivePageElements: decorate(buildArchivePageElements(language, t.accent, t.ink)),
-    settingsPageElements: decorate(buildSettingsPageElements(language, t.accent, t.ink)),
+    menuTheme: webThemePalettes[id], settingsPageElementsInitialized: true,
+    archiveBackgroundColor: theme.canvas, archiveBackgroundType: 'gradient',
+    archiveBackgroundGradientStart: theme.canvas, archiveBackgroundGradientEnd: theme.canvasEnd, archiveBackgroundGradientAngle: 135,
+    settingsBackgroundColor: theme.canvas, settingsBackgroundType: 'gradient',
+    settingsBackgroundGradientStart: theme.canvas, settingsBackgroundGradientEnd: theme.canvasEnd, settingsBackgroundGradientAngle: 135,
+    flowOverviewBackgroundColor: theme.canvas, flowOverviewBackgroundType: 'gradient',
+    flowOverviewBackgroundGradientStart: theme.canvas, flowOverviewBackgroundGradientEnd: theme.canvasEnd, flowOverviewBackgroundGradientAngle: 135,
+    dialogueBackgroundType: 'gradient', dialogueBackgroundColor: theme.canvas,
+    dialogueBackgroundGradientStart: theme.canvas, dialogueBackgroundGradientEnd: theme.canvasEnd, dialogueBackgroundGradientAngle: 135,
+    sceneBackgroundType: 'gradient', sceneBackgroundColor: theme.canvas,
+    sceneBackgroundGradientStart: theme.canvas, sceneBackgroundGradientEnd: theme.canvasEnd, sceneBackgroundGradientAngle: 135,
+    sceneBackgroundImageUrl: '',
+    surfaceAppearances: { archive: shade, settings: shade, flow: shade, game },
+    archivePageElements: decorateWebPageElements(buildArchivePageElements(language, theme.accent, theme.ink), theme),
+    settingsPageElements: decorateWebPageElements(buildSettingsPageElements(language, theme.accent, theme.ink), theme),
+    flowOverviewElements: decorateWebPageElements(buildRehearsalFlowPageElements(language), theme),
   };
 }

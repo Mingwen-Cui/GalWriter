@@ -44,6 +44,7 @@ import {
   resolvePptTagAnimations,
 } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
+import { wrapPptExportText } from './pptTextBuild';
 import {
   finalizePptxForPowerPoint,
   orderPptAnimationTargets,
@@ -331,7 +332,8 @@ export async function buildPptxBuffer({
         continue;
       }
       if (element.kind === 'text') {
-        slide.addText(element.text || ' ', {
+        const textOptions = {
+          objectName: `ppt-manual-text-${element.id}`,
           ...frame,
           fontFace: toPptFontFace(
             webStyle.fontFamily || element.fontFamily || style.bodyFontFamily,
@@ -339,11 +341,25 @@ export async function buildPptxBuffer({
           fontSize: Math.max(8, (webStyle.fontSize || element.fontSize) * 0.75 * page.scale),
           bold: webStyle.fontWeight ? webStyle.fontWeight >= 600 : element.bold,
           color: hex(webStyle.textColor || element.color),
-          align: webStyle.textAlign || element.align || 'left',
+          align: webStyle.textAlign || element.align || ('left' as const),
           charSpacing: webStyle.letterSpacing,
           margin: 0,
           rotate: element.rotation || 0,
-        });
+        };
+        // Materialise wrapped lines as editable paragraphs for native line builds.
+        const lineBuild = Object.values(pptSettings.animations || {}).some((entries) =>
+          entries.some(
+            (animation) =>
+              animation.target === 'manual-text' &&
+              animation.targetId === element.id &&
+              animation.textBuild &&
+              animation.effect !== 'none',
+          ),
+        );
+        slide.addText(
+          lineBuild ? wrapPptExportText(element.text || ' ', textOptions) : element.text || ' ',
+          textOptions,
+        );
         continue;
       }
       const targetSlide = element.targetSlideId
@@ -433,6 +449,15 @@ export async function buildPptxBuffer({
     const coverBackground = slideBackgroundStyles.cover;
     const slide = pptx.addSlide();
     slideObjectsById.set('cover', slide);
+    const addCoverText = (text: string, options: PptxGenJS.TextPropsOptions) => {
+      const lineBuild = (pptSettings.animations?.cover || []).some(
+        (animation) =>
+          `ppt-${animation.target}` === options.objectName &&
+          animation.textBuild &&
+          animation.effect !== 'none',
+      );
+      slide.addText(lineBuild ? wrapPptExportText(text, options) : text, options);
+    };
     slide.background = {
       color: hex(
         backgroundColorFor('cover', settings.startMenuBackgroundColor || colors.background),
@@ -454,7 +479,7 @@ export async function buildPptxBuffer({
       slide.addImage({ data: coverImage, ...fullContentFrame });
     }
     if (coverTitleLayout.visible !== false) {
-      slide.addText(coverTitle || ' ', {
+      addCoverText(coverTitle || ' ', {
         objectName: 'ppt-cover-title',
         ...textBoxFrame(coverTitleLayout),
         fontFace: toPptFontFace(coverTitleStyle.fontFamily || style.titleFontFamily),
@@ -469,7 +494,7 @@ export async function buildPptxBuffer({
       });
     }
     if (coverSubtitleLayout.visible !== false) {
-      slide.addText(coverSubtitle || ' ', {
+      addCoverText(coverSubtitle || ' ', {
         objectName: 'ppt-cover-subtitle',
         ...textBoxFrame(coverSubtitleLayout),
         fontFace: toPptFontFace(coverSubtitleStyle.fontFamily || style.bodyFontFamily),
@@ -484,7 +509,7 @@ export async function buildPptxBuffer({
       });
     }
     if (coverDescriptionLayout.visible !== false) {
-      slide.addText(coverDescription || ' ', {
+      addCoverText(coverDescription || ' ', {
         objectName: 'ppt-cover-description',
         ...textBoxFrame(coverDescriptionLayout),
         fontFace: toPptFontFace(coverDescriptionStyle.fontFamily || style.bodyFontFamily),
@@ -1224,6 +1249,19 @@ export async function buildPptxBuffer({
     compression: true,
   })) as ArrayBuffer;
   const coverSlideNumber = slideNumberById.get('cover');
+  for (const id of orderedSlideIds) {
+    const slideNumber = slideNumberById.get(id);
+    if (!slideNumber) continue;
+    for (const animation of pptSettings.animations?.[id] || []) {
+      if (animation.target !== 'manual-text' || !animation.targetId || animation.effect === 'none')
+        continue;
+      animationTargets.push({
+        slideNumber,
+        objectName: `ppt-manual-text-${animation.targetId}`,
+        animation,
+      });
+    }
+  }
   if (coverSlideNumber) {
     for (const animation of pptSettings.animations?.cover || []) {
       if (!animation.target.startsWith('cover-') || animation.effect === 'none') continue;

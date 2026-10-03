@@ -77,4 +77,10 @@ export interface PlayTestProps {
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   isMobile?: boolean;
   creativeInteraction?: PlaytestCreativeInteraction;
+  onMcpControlsChange?: (controls: PlaytestMcpControls | null) => void;
 }
+
+export type PlaytestMcpControls = {
+  getProgress: () => { currentNodeId: string | null; choices: Array<{ nodeId: string; label: string }>; ready: boolean };
+  advance: (targetNodeId?: string) => { advanced: boolean; fromNodeId: string | null; targetNodeId: string; choices: Array<{ nodeId: string; label: string }> };
+};

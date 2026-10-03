@@ -1,4 +1,5 @@
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
+import { defaultWebTheme, webThemeCssVariables, WEB_FLOW_THEME_CSS } from '../webThemeVisuals';
 import {
   createInlinePlaybackParser,
   getInlineActionDuration,
@@ -66,6 +67,7 @@ export const makeIndexHtml = (
   <script src="./content.js"></script>
   <style>${WEB_EXPORT_STYLES}
 ${PLAYER_SETTINGS_CSS}
+${WEB_FLOW_THEME_CSS}
 ${WEB_BUTTON_MOTION_CSS}
 ${WEB_PLAYBACK_UI_CSS}
 ${SCENE_SWITCH_CSS}</style>
@@ -839,6 +841,11 @@ ${SCENE_SWITCH_CSS}</style>
     const saveClose = document.getElementById("saveClose");
     const saveList = document.getElementById("saveList");
     const settingsBackdrop = document.getElementById("settingsBackdrop");
+    const menuThemeVariables = (${webThemeCssVariables.toString()})(settings.menuTheme || ${JSON.stringify(defaultWebTheme)});
+    [saveBackdrop, settingsBackdrop, flowOverviewPanel].forEach(function(surface) {
+      Object.entries(menuThemeVariables).forEach(function(entry) { surface.style.setProperty(entry[0], entry[1]); });
+    });
+    flowOverviewPanel.classList.add('gw-flow-theme');
     gwAppearance(startScreen,settings.surfaceAppearances?.start);
     gwAppearance(saveBackdrop,settings.surfaceAppearances?.archive);
     gwAppearance(settingsBackdrop,settings.surfaceAppearances?.settings);
@@ -883,8 +890,8 @@ ${SCENE_SWITCH_CSS}</style>
     if (!settings.surfaceAppearances?.settings) applySurfaceBackground(settingsBackdrop, "settingsBackground");
     if (!settings.surfaceAppearances?.archive) applySurfaceBackground(saveBackdrop, "archiveBackground");
     applySurfaceBackground(document.querySelector(".app"), "dialogueBackground");
-    applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
-    applySurfaceBackground(flowOverviewViewport, "flowOverviewBackground");
+    if (!settings.surfaceAppearances?.flow) applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
+    flowOverviewViewport.style.background = 'transparent';
     startActions.classList.toggle("horizontal", settings.startMenuButtonLayout === "horizontal");
     backButton.innerHTML = '<img src="./icons/arrow-left.svg" alt="" /><span>' + labels.back + '</span>';
     resetButton.innerHTML = '<img src="./icons/reset.svg" alt="" /><span>' + labels.reset + '</span>';
@@ -2315,8 +2322,13 @@ ${SCENE_SWITCH_CSS}</style>
     function openFlowOverview() {
       const allNodes = Array.isArray(content.nodes) ? content.nodes.filter(Boolean) : [];
       const allEdges = Array.isArray(content.edges) ? content.edges.filter(Boolean) : [];
-      applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
-      applySurfaceBackground(flowOverviewViewport, "flowOverviewBackground");
+      if (settings.surfaceAppearances?.flow) {
+        gwAppearance(flowOverviewPanel, settings.surfaceAppearances.flow);
+        flowOverviewViewport.style.background = 'transparent';
+      } else {
+        applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
+        flowOverviewViewport.style.background = 'transparent';
+      }
       setFlowOverviewZoom(1, false);
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-width", settings.flowOverviewMinimapWidth + "px");
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-height", settings.flowOverviewMinimapHeight + "px");

@@ -651,6 +651,26 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-widget .gw-ps-preview p { margin:8px 0; min-height:3em; line-height:1.5; color:inherit; }
 .gw-ps-widget .gw-ps-motion { background:#e0e5ef; }
 .gw-ps-widget .gw-ps-motion i { background:#625bf6; }
+/* These controls inherit the preset from both React preview and the offline page. */
+.gw-archive-slot-list { color:var(--gw-ink,#252a59); }
+.gw-archive-slot { border-color:var(--gw-edge,#dce0ef); background:linear-gradient(145deg,var(--gw-panel,#fff),var(--gw-panel-end,#f0f2fb)); border-radius:var(--gw-radius,14px); transition:border-color .18s,box-shadow .18s; }
+.gw-archive-slot[aria-pressed=true] { border-color:var(--gw-accent,#7169d8); background:linear-gradient(145deg,var(--gw-panel-end,#f0f2fb),var(--gw-panel,#fff)); box-shadow:inset 3px 0 var(--gw-accent,#7169d8); }
+.gw-archive-slot span,.gw-archive-empty span { color:var(--gw-muted,#68719a); }
+.gw-archive-empty strong { color:var(--gw-ink,#252a59); }
+.gw-archive-slot:focus-visible { outline-color:var(--gw-accent,#7169d8); }
+.gw-ps-panel.gw-ps-widget { color-scheme:var(--gw-scheme,light); }
+.gw-ps-widget .gw-ps-row input[type=range] { background-image:linear-gradient(to right,var(--gw-accent,#7169d8) var(--fill,50%),var(--gw-edge,#dce0ef) var(--fill,50%)); }
+.gw-ps-widget input[type=range]::-webkit-slider-thumb { border-color:var(--gw-accent,#7169d8); }
+.gw-ps-widget input[type=range]::-moz-range-thumb { border-color:var(--gw-accent,#7169d8); }
+.gw-ps-widget .gw-ps-segments,.gw-ps-widget .gw-ps-stepper,.gw-ps-widget .gw-ps-select,.gw-ps-widget .gw-ps-label output { background:var(--gw-panel-end,#f0f2fb); border-color:var(--gw-edge,#dce0ef); }
+.gw-ps-widget .gw-ps-select option { background:var(--gw-panel,#fff); color:var(--gw-ink,#252a59); }
+.gw-ps-widget .gw-ps-segments button[aria-pressed=true],.gw-ps-widget .gw-ps-presets button[aria-pressed=true] { color:var(--gw-on-accent,#fff); border-color:var(--gw-accent,#7169d8); background:linear-gradient(135deg,var(--gw-accent,#7169d8),var(--gw-accent-end,#5750b5)); }
+.gw-ps-widget .gw-ps-presets button { border-color:var(--gw-edge,#dce0ef); }
+.gw-ps-widget .gw-ps-segments button[aria-pressed=true]:hover,.gw-ps-widget .gw-ps-presets button[aria-pressed=true]:hover { background:var(--gw-accent-end,#5750b5); }
+.gw-ps-widget .gw-ps-toggle[aria-checked=true] i,.gw-ps-widget .gw-ps-motion i { background:var(--gw-accent,#7169d8); }
+.gw-ps-widget .gw-ps-preview-head button { color:var(--gw-ink,#252a59); background:var(--gw-panel-end,#f0f2fb); }
+.gw-ps-widget .gw-ps-motion { background:var(--gw-edge,#dce0ef); }
+.gw-ps-widget button:focus-visible,.gw-ps-widget input:focus-visible,.gw-ps-widget select:focus-visible { outline-color:var(--gw-accent,#7169d8); }
 @container (max-width:700px) { .gw-ps-panel { padding:20px; border-radius:18px; } .gw-ps-columns { grid-template-columns:1fr; } .gw-ps-head h2 { font-size:24px; } .gw-ps-group { padding:16px; } .gw-ps-footer { flex-wrap:wrap; } }
 @media (prefers-reduced-motion:reduce) { .gw-ps-toggle i::after { transition:none; } }
 `;

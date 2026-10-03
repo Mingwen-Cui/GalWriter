@@ -111,6 +111,10 @@ export function usePlaytestRuntime(
   }: PlayTestProps,
   { windowContentWidth }: { windowContentWidth?: number | null } = {},
 ) {
+  const playtestEdges = React.useMemo(
+    () => edges.filter((edge) => edge.data?.mcpRelation !== 'presentation'),
+    [edges],
+  );
   const t = translations[language];
   const playtestText = getPlaytestText(language);
   const activeWindowBounds = isMobile ? windowSettings.mobileBounds : windowSettings.bounds;
@@ -629,12 +633,12 @@ export function usePlaytestRuntime(
     const visitBranch = (nodeId: string) => {
       if (minimized.has(nodeId) || activePathIds.has(nodeId)) return;
       minimized.add(nodeId);
-      edges.filter((edge) => edge.source === nodeId).forEach((edge) => visitBranch(edge.target));
+      playtestEdges.filter((edge) => edge.source === nodeId).forEach((edge) => visitBranch(edge.target));
     };
 
     activePath.slice(0, -1).forEach((sourceId, index) => {
       const selectedTarget = activePath[index + 1];
-      edges
+      playtestEdges
         .filter((edge) => edge.source === sourceId && edge.target !== selectedTarget)
         .forEach((edge) => visitBranch(edge.target));
     });
@@ -652,7 +656,7 @@ export function usePlaytestRuntime(
     const visited = new Set<string>();
     while (cursor && cursor !== 'THE_END' && !visited.has(cursor)) {
       visited.add(cursor);
-      const outgoing = edges.filter((edge) => edge.source === cursor);
+      const outgoing = playtestEdges.filter((edge) => edge.source === cursor);
       if (outgoing.length !== 1) break;
       cursor = outgoing[0].target;
       if (cursor !== 'THE_END') visible.add(cursor);
@@ -747,7 +751,7 @@ export function usePlaytestRuntime(
     });
   }, [playlistAudioUrl]);
 
-  const outEdges = edges.filter((e) => e.source === currentNodeId);
+  const outEdges = playtestEdges.filter((e) => e.source === currentNodeId);
   const waitsForBranchVideo = outEdges.length > 1 && Boolean(sceneVideoUrl);
   const choicesReady =
     presentationReady &&
@@ -1208,7 +1212,7 @@ export function usePlaytestRuntime(
               const threshold = (targetNode.data.threshold as number) || 0;
               const targetHandle = selectConditionHandle(sum, threshold, ranges);
 
-              const condEdges = edges.filter((e) => e.source === targetNode!.id);
+              const condEdges = playtestEdges.filter((e) => e.source === targetNode!.id);
               const condEdge = condEdges.find((e) => e.sourceHandle === targetHandle);
 
               if (condEdge) {
@@ -1220,7 +1224,7 @@ export function usePlaytestRuntime(
             }
 
             while (targetNode && targetNode.data.skip === true) {
-              const nextEdges = edges.filter((e) => e.source === targetNode!.id);
+              const nextEdges = playtestEdges.filter((e) => e.source === targetNode!.id);
               if (nextEdges.length > 0) {
                 const nextTarget = nodes.find((n) => n.id === nextEdges[0].target);
                 if (nextTarget) {
@@ -1690,7 +1694,7 @@ export function usePlaytestRuntime(
     };
 
     preloadNodeAudio(currentNodeId);
-    edges
+    playtestEdges
       .filter((edge) => edge.source === currentNodeId)
       .forEach((edge) => preloadNodeAudio(edge.target));
   }, [currentNodeId, nodes, edges]);
@@ -1713,7 +1717,7 @@ export function usePlaytestRuntime(
         const threshold = (node.data.threshold as number) || 0;
         const targetHandle = selectConditionHandle(sum, threshold, ranges);
 
-        const outEdges = edges.filter((e) => e.source === currentNodeId);
+        const outEdges = playtestEdges.filter((e) => e.source === currentNodeId);
         const validEdges = outEdges.filter((e) => e.sourceHandle === targetHandle);
 
         if (validEdges.length > 0) {
@@ -1734,7 +1738,7 @@ export function usePlaytestRuntime(
       const node = nodes.find((n) => n.id === currentNodeId);
       if (node && node.data.skip === true) {
         lastJumpedNode.current = currentNodeId;
-        const outEdges = edges.filter((e) => e.source === currentNodeId);
+        const outEdges = playtestEdges.filter((e) => e.source === currentNodeId);
         if (outEdges.length > 0) {
           const nextId = outEdges[0].target;
           setHistory((prev) => [...prev, currentNodeId]);

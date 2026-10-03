@@ -68,13 +68,14 @@ import {
   HOSTED_VOICE_PROXY_PROFILE_ID,
 } from '../../lib/hostedProxy';
 import { translations } from '../../lib/i18n';
+import { registerBlobAsset } from '../../lib/blobAssetRegistry';
 import { useKeyboardMouseSettings } from '../../lib/keyboardMouseSettings';
 import { getTauriInvoke, isTauriRuntime } from '../../lib/tauriRuntime';
 import { htmlToSpeechText } from '../../lib/tts';
 import { getPlatformVoiceOptions, getPlatformVoicePlaceholder } from '../../lib/voiceCatalog';
 import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPickerModal';
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
-import type { PlayTestDisplayMode, PlaytestWindowLayer } from '../render/playtest/types';
+import type { PlayTestDisplayMode, PlaytestMcpControls, PlaytestWindowLayer } from '../render/playtest/types';
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
 import type { RenderWorkspaceLaunchIntent } from '../render/video/shared/types';
 import {
@@ -794,7 +795,21 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const mcpProjectActionsRef = useRef<{
     save: () => Promise<boolean>;
     export: () => Promise<{ exported: boolean; canceled?: boolean; filePath?: string; error?: string }>;
+    listProjects: () => Promise<Array<{ id: string; projectName: string; updatedAt: number }>>;
+    createProject: (projectName?: string) => Promise<void>;
+    openProject: (projectId: string) => Promise<void>;
+    renameProject: (projectId: string, projectName: string) => Promise<void>;
+    deleteProject: (projectId: string) => Promise<void>;
+    hasUnsavedChanges: () => boolean;
   } | null>(null);
+  const mcpHistoryActionsRef = useRef<{
+    undo: () => void;
+    redo: () => void;
+    canUndo: () => boolean;
+    canRedo: () => boolean;
+  } | null>(null);
+  const mcpSpeechGenerationRef = useRef<((nodeId: string) => Promise<void>) | null>(null);
+  const mcpTextGenerationRef = useRef<((prompt: string) => Promise<string>) | null>(null);
   const mcpGenerateSettingImageRef = useRef<((
     nodeId: string,
     type: 'character' | 'scene',
@@ -808,6 +823,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     updateRenderObject: (objectId: unknown, fields: unknown) => void;
     captureScreen: () => Promise<string>;
   } | null>(null);
+  const mcpPlaytestControlsRef = useRef<PlaytestMcpControls | null>(null);
+  const registerMcpPlaytestControls = useCallback((controls: PlaytestMcpControls | null) => {
+    mcpPlaytestControlsRef.current = controls;
+  }, []);
   mcpNodesRef.current = nodes;
   mcpEdgesRef.current = edges;
   mcpProjectIdRef.current = currentProjectId;
@@ -1316,6 +1335,110 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             throw new Error('The active project changed before the MCP write could be applied.');
           }
 
+          if (payload.operation === 'list_projects') {
+            const projects = await mcpProjectActionsRef.current?.listProjects();
+            if (!projects) throw new Error('The local project list is unavailable.');
+            await resolveSuccess({ projects: projects.map(({ id, projectName, updatedAt }) => ({ id, projectName, updatedAt })) });
+            return;
+          }
+          if (payload.operation === 'rename_project') {
+            const projectId = payload.input.project_id;
+            const projectName = payload.input.project_name;
+            if (typeof projectId !== 'string' || typeof projectName !== 'string' || !projectName.trim() || projectName.length > 200) {
+              throw new Error('project_id and a project_name of 1 to 200 characters are required.');
+            }
+            const actions = mcpProjectActionsRef.current;
+            if (!actions) throw new Error('Project management is unavailable.');
+            if (!(await actions.listProjects()).some((project) => project.id === projectId)) throw new Error(`Saved project '${projectId}' was not found.`);
+            await actions.renameProject(projectId, projectName.trim());
+            await resolveSuccess({ renamed: true, projectId, projectName: projectName.trim() });
+            return;
+          }
+          if (payload.operation === 'delete_project') {
+            const projectId = payload.input.project_id;
+            if (typeof projectId !== 'string' || !projectId.trim()) throw new Error('project_id is required.');
+            const actions = mcpProjectActionsRef.current;
+            if (!actions) throw new Error('Project management is unavailable.');
+            if (!(await actions.listProjects()).some((project) => project.id === projectId)) throw new Error(`Saved project '${projectId}' was not found.`);
+            if (projectId === mcpProjectIdRef.current && actions.hasUnsavedChanges()) {
+              throw new Error('Save the active project before deleting it. MCP will not silently discard unsaved changes.');
+            }
+            await actions.deleteProject(projectId);
+            await resolveSuccess({ deleted: true, projectId });
+            return;
+          }
+          if (payload.operation === 'open_project' || payload.operation === 'create_project') {
+            const actions = mcpProjectActionsRef.current;
+            if (!actions) throw new Error('Project management is unavailable.');
+            if (actions.hasUnsavedChanges()) throw new Error('Save the current project before opening or creating another project. MCP will not silently save or discard unsaved changes.');
+            const previousProjectId = mcpProjectIdRef.current;
+            if (payload.operation === 'open_project') {
+              const projectId = payload.input.project_id;
+              if (typeof projectId !== 'string' || !projectId.trim()) throw new Error('project_id is required.');
+              const projects = await actions.listProjects();
+              if (!projects.some((project) => project.id === projectId)) throw new Error(`Saved project '${projectId}' was not found.`);
+              await actions.openProject(projectId);
+              for (let attempt = 0; attempt < 150 && mcpProjectIdRef.current !== projectId; attempt += 1) {
+                await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+              }
+              if (mcpProjectIdRef.current !== projectId) throw new Error('The saved project did not finish loading within 15 seconds.');
+              await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+              await resolveSuccess({ opened: true, projectId, projectTitle: mcpProjectTitleRef.current }, true);
+              return;
+            }
+            const projectName = typeof payload.input.project_name === 'string' ? payload.input.project_name.trim() : '';
+            if (projectName.length > 200) throw new Error('project_name must be at most 200 characters.');
+            await actions.createProject(projectName || undefined);
+            for (let attempt = 0; attempt < 100 && (!mcpProjectIdRef.current || mcpProjectIdRef.current === previousProjectId); attempt += 1) {
+              await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+            }
+            if (!mcpProjectIdRef.current || mcpProjectIdRef.current === previousProjectId) throw new Error('The new project did not finish opening.');
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+            await resolveSuccess({ created: true, projectId: mcpProjectIdRef.current, projectTitle: mcpProjectTitleRef.current }, true);
+            return;
+          }
+
+          if (payload.operation === 'undo_editor_change' || payload.operation === 'redo_editor_change') {
+            const actions = mcpHistoryActionsRef.current;
+            if (!actions) throw new Error('Editor history is unavailable.');
+            const isUndo = payload.operation === 'undo_editor_change';
+            const available = isUndo ? actions.canUndo() : actions.canRedo();
+            if (available) {
+              (isUndo ? actions.undo : actions.redo)();
+              await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+            }
+            await resolveSuccess({ [isUndo ? 'undone' : 'redone']: available }, true);
+            return;
+          }
+
+          if (payload.operation === 'generate_story_audio') {
+            const nodeId = payload.input.node_id;
+            if (typeof nodeId !== 'string') throw new Error('node_id is required.');
+            const node = mcpNodesRef.current.find((item) => item.id === nodeId && item.type === 'storyNode');
+            if (!node) throw new Error(`Story card '${nodeId}' was not found.`);
+            const beforeCount = Array.isArray(node.data.audioClips) ? node.data.audioClips.length : 0;
+            const speech = mcpSpeechGenerationRef.current;
+            if (!speech) throw new Error('Story narration is unavailable.');
+            await speech(nodeId);
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+            const updated = mcpNodesRef.current.find((item) => item.id === nodeId);
+            const clips = updated && Array.isArray(updated.data.audioClips) ? updated.data.audioClips.length : 0;
+            if (clips <= beforeCount) throw new Error('Narration audio was not generated. Check the configured voice profile and story-card text.');
+            await resolveSuccess({ generated: true, nodeId, clipCount: clips - beforeCount }, true);
+            return;
+          }
+
+          if (payload.operation === 'generate_text') {
+            const prompt = payload.input.prompt;
+            if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000) throw new Error('prompt must contain 1 to 20000 characters.');
+            const generateText = mcpTextGenerationRef.current;
+            if (!generateText) throw new Error('The editor text AI is unavailable.');
+            const text = await generateText(prompt);
+            if (!text.trim()) throw new Error('The configured text AI returned an empty response.');
+            await resolveSuccess({ text });
+            return;
+          }
+
           if (payload.operation === 'save_current_project') {
             const actions = mcpProjectActionsRef.current;
             if (!actions || !(await actions.save())) throw new Error('The editor could not save the current project.');
@@ -1376,6 +1499,20 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             await resolveSuccess({ imageData, mimeType: 'image/png' });
             return;
           }
+          if (payload.operation === 'get_playtest_state') {
+            const progress = mcpPlaytestControlsRef.current?.getProgress();
+            if (!progress) throw new Error('Open the playtest before reading its current story card and choices.');
+            await resolveSuccess(progress);
+            return;
+          }
+          if (payload.operation === 'advance_playtest') {
+            const targetNodeId = payload.input.target_node_id;
+            if (targetNodeId !== undefined && typeof targetNodeId !== 'string') throw new Error('target_node_id must be a string when provided.');
+            const advance = mcpPlaytestControlsRef.current?.advance;
+            if (!advance) throw new Error('Open the playtest before advancing it.');
+            await resolveSuccess(advance(targetNodeId as string | undefined));
+            return;
+          }
           if (payload.operation === 'capture_editor_canvas') {
             const target = document.querySelector<HTMLElement>('.story-canvas-flow');
             if (!target) throw new Error('The story editor canvas is unavailable.');
@@ -1433,7 +1570,13 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             create_story_node: 'create_story_node',
             create_character_node: 'create_character_node',
             create_scene_node: 'create_scene_node',
+            create_plot_structure_node: 'create_plot_structure_node',
+            create_background_region: 'create_background_region',
+            update_background_region: 'update_background_region',
+            delete_background_region: 'delete_background_region',
             connect_story_nodes: 'connect_story_nodes',
+            connect_story_setting: 'connect_story_setting',
+            disconnect_story_setting: 'disconnect_story_setting',
             delete_story_node: 'delete_story_node',
             delete_project_node: 'delete_project_node',
             move_story_node: 'move_node',
@@ -1446,7 +1589,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             if (!Array.isArray(payload.input.operations)) throw new Error('operations must be an array.');
             operations = payload.input.operations as Array<Record<string, unknown>>;
             operations.forEach((operation, index) => {
-              if (['create_story_node', 'create_character_node', 'create_scene_node'].includes(String(operation.type)) && (typeof operation.node_id !== 'string' || !operation.node_id.trim())) {
+              if (['create_story_node', 'create_character_node', 'create_scene_node', 'create_plot_structure_node', 'create_background_region'].includes(String(operation.type)) && (typeof operation.node_id !== 'string' || !operation.node_id.trim())) {
                 throw new Error(`operations[${index}].node_id is required for batch creates so preview and apply use the same node IDs.`);
               }
             });
@@ -1454,6 +1597,35 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             operations = [{ type: 'set_text_segments', ...payload.input }];
           } else if (payload.operation === 'set_story_presentation') {
             operations = [{ type: 'set_presentation', ...payload.input }];
+          } else if (payload.operation === 'import_project_media') {
+            const nodeId = payload.input.node_id;
+            const field = payload.input.field;
+            const mimeType = payload.input.mime_type;
+            const mediaData = payload.input.media_data;
+            if (typeof nodeId !== 'string' || typeof field !== 'string' || typeof mimeType !== 'string' || typeof mediaData !== 'string') {
+              throw new Error('node_id, field, mime_type, and media_data are required.');
+            }
+            const node = mcpNodesRef.current.find((item) => item.id === nodeId);
+            if (!node) throw new Error(`Node '${nodeId}' was not found.`);
+            const fieldsByType: Record<string, string[]> = {
+              storyNode: ['imageUrl', 'videoUrl', 'audioUrl'],
+              characterNode: ['avatarUrl', 'threeViewUrl', 'tagSpriteUrl'],
+              sceneNode: ['coverImageUrl'],
+            };
+            if (!(fieldsByType[node.type || ''] || []).includes(field)) throw new Error(`Media field '${field}' is not supported for this card type.`);
+            const kindByMime = mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('audio/') ? 'audio' : mimeType.startsWith('video/') ? 'video' : null;
+            const kindByField: Record<string, string> = { imageUrl: 'image', videoUrl: 'video', audioUrl: 'audio', avatarUrl: 'image', threeViewUrl: 'image', tagSpriteUrl: 'image', coverImageUrl: 'image' };
+            if (!kindByMime || kindByField[field] !== kindByMime) throw new Error(`mime_type '${mimeType}' is not compatible with field '${field}'.`);
+            if (mediaData.length > 45_000_000 || !/^[a-z0-9+/]+={0,2}$/i.test(mediaData) || mediaData.length % 4 !== 0) throw new Error('media_data is invalid or exceeds the 32 MB media limit.');
+            let decoded: string;
+            try { decoded = atob(mediaData); } catch { throw new Error('media_data is not valid base64.'); }
+            const maxBytes = kindByMime === 'image' ? 8 * 1024 * 1024 : 32 * 1024 * 1024;
+            if (!decoded.length || decoded.length > maxBytes) throw new Error(`The selected ${kindByMime} file exceeds its size limit.`);
+            const bytes = new Uint8Array(decoded.length);
+            for (let index = 0; index < decoded.length; index += 1) bytes[index] = decoded.charCodeAt(index);
+            const blob = new Blob([bytes], { type: mimeType });
+            const mediaUrl = registerBlobAsset(URL.createObjectURL(blob), blob);
+            operations = [{ type: 'import_project_media', node_id: nodeId, field, mime_type: mimeType, media_url: mediaUrl }];
           } else {
             const operationType = simpleMap[payload.operation];
             if (!operationType) throw new Error(`Unsupported MCP write operation: ${payload.operation}`);
@@ -2866,7 +3038,38 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
       return dataUrl.slice(prefix.length);
     },
   };
-  mcpProjectActionsRef.current = { save: saveCurrentProject, export: confirmExportJSON };
+  mcpProjectActionsRef.current = {
+    save: saveCurrentProject,
+    export: confirmExportJSON,
+    listProjects: async () => (await localPersistenceService.listProjects()).map((project) => ({
+      id: project.id,
+      projectName: project.projectName,
+      updatedAt: project.updatedAt,
+    })),
+    createProject: async (nextProjectName) => {
+      const previousProjectId = mcpProjectIdRef.current;
+      await handleCreateProject();
+      if (nextProjectName) setProjectTitle(nextProjectName);
+      for (let attempt = 0; attempt < 100 && (!mcpProjectIdRef.current || mcpProjectIdRef.current === previousProjectId); attempt += 1) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+      }
+      if (!mcpProjectIdRef.current || mcpProjectIdRef.current === previousProjectId) throw new Error('The new project did not finish opening.');
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+      if (!(await mcpProjectActionsRef.current?.save())) throw new Error('The new project was created but could not be saved locally.');
+    },
+    openProject: async (projectId) => { await handleOpenProject(projectId); },
+    renameProject: handleRenameProject,
+    deleteProject: handleDeleteProject,
+    hasUnsavedChanges: () => isDirty,
+  };
+  mcpHistoryActionsRef.current = {
+    undo,
+    redo,
+    canUndo: () => history.past.length > 0,
+    canRedo: () => history.future.length > 0,
+  };
+  mcpSpeechGenerationRef.current = handleGenerateStoryNodeSpeech;
+  mcpTextGenerationRef.current = callAIForText;
 
   useEditorKeyboardShortcuts({
     deleteSelected,
@@ -3690,6 +3893,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             onCanvasSettingsChange={sharedCanvas.update}
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
+            onMcpControlsChange={registerMcpPlaytestControls}
             isMobile={isMobile}
             creativeInteraction={
               creativeStorySession?.status === 'playing' && creativeStoryTurn

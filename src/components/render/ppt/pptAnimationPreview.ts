@@ -63,6 +63,7 @@ export const previewStyle = (
   const previewAnimations = activeDialogueBuild
     ? animations.filter((item) => !dialogueBuilds.includes(item) || item === activeDialogueBuild)
     : animations;
+  const wholeObjectAnimations = previewAnimations.filter((item) => !item.textBuild);
   const animationName = (item: PptObjectAnimation) => {
     const phase = item.phase || 'enter';
     if (phase === 'emphasis' && item.action) {
@@ -89,7 +90,7 @@ export const previewStyle = (
     return `ppt-${item.effect}${suffix}`;
   };
   const cssVariables: Record<string, string> = {};
-  const animationValues = previewAnimations.map((item) => {
+  const animationValues = wholeObjectAnimations.map((item) => {
     const start = (item as TimedPptObjectAnimation).timelineStartMs ?? item.delayMs;
     const repeats = item.phase === 'emphasis' ? Math.max(1, Math.round(item.repeats || 1)) : 1;
     const duration = Math.max(1, Math.round(item.durationMs / repeats));

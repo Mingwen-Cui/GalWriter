@@ -55,6 +55,7 @@ export function AnimationRibbon({
   phase,
   setPhase,
   animation,
+  textSelected,
   onApply,
   onClearAnimations,
   onApplyMiddleAction,
@@ -71,6 +72,7 @@ export function AnimationRibbon({
   phase: PptAnimationPhase;
   setPhase: (phase: PptAnimationPhase) => void;
   animation?: PptObjectAnimation;
+  textSelected: boolean;
   onApply: (effect: PptAnimationEffect) => void;
   onClearAnimations: () => void;
   onApplyMiddleAction: (action: InlinePresentationActionType) => void;
@@ -165,7 +167,7 @@ export function AnimationRibbon({
                         <PptAnimationIcon phase={phase} effect="line" muted={disabled} />
                         <span>{copy.line}</span>
                       </button>
-                      {selected?.target === 'dialog-body' && phase === 'enter' ? (
+                      {textSelected && phase === 'enter' ? (
                         <button
                           type="button"
                           onClick={onApplyLineWipe}

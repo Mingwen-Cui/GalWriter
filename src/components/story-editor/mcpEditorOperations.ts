@@ -173,7 +173,11 @@ export const getMcpAssetCatalog = (nodes: Node[]) => {
       for (const item of data.images) {
         if (!item || typeof item !== 'object') continue;
         const image = item as Record<string, unknown>;
-        if (typeof image.id === 'string') add(node, `images:${image.id}`, 'image', image.imageUrl, String(image.name || image.id));
+        if (typeof image.id === 'string') {
+          const name = String(image.name || image.id);
+          add(node, `images:${image.id}`, 'image', image.imageUrl, name);
+          add(node, `images:${image.id}:video`, 'video', image.videoUrl, name);
+        }
       }
     }
   }
@@ -331,14 +335,98 @@ export const applyMcpOperations = (
   let nextEdges = [...edges];
   const created: string[] = [];
   const deleted: string[] = [];
-  const changes: Array<{ type: string; nodeId?: string; sourceId?: string; targetId?: string }> = [];
+  const changes: Array<{ type: string; nodeId?: string; sourceId?: string; targetId?: string; storyId?: string; settingId?: string; settingType?: string; assetType?: string; field?: string; mimeType?: string; mediaType?: string; bytes?: number }> = [];
   const storyTextChangedIds = new Set<string>();
   let changedCount = 0;
 
   for (const operation of operations) {
     if (!operation || typeof operation !== 'object' || typeof operation.type !== 'string') throw new Error('Each operation must have a supported type.');
     const nodeId = operation.node_id;
-    if (operation.type === 'create_story_node' || operation.type === 'create_character_node' || operation.type === 'create_scene_node') {
+    if (operation.type === 'create_background_region') {
+      if (!Array.isArray(operation.node_ids) || operation.node_ids.length < 1 || operation.node_ids.length > 100) throw new Error('node_ids must contain between 1 and 100 card IDs.');
+      const childIds = Array.from(new Set(operation.node_ids.filter((id): id is string => typeof id === 'string')));
+      if (childIds.length !== operation.node_ids.length) throw new Error('node_ids must contain unique string IDs.');
+      const children = childIds.map((id) => nextNodes.find((node) => node.id === id));
+      if (children.some((node) => !node || ['backgroundNode', 'groupNode', 'batchReplaceNode', 'plotStructureNode', 'aiNode'].includes(node.type || ''))) {
+        throw new Error('Every background-region member must be an existing canvas content card, not another region or utility card.');
+      }
+      const padding = operation.padding ?? 60;
+      if (typeof padding !== 'number' || !Number.isFinite(padding) || padding < 0 || padding > 500) throw new Error('padding must be between 0 and 500.');
+      const bounds = children.reduce((result, node) => {
+        const item = node!;
+        const widthValue = item.measured?.width ?? item.width ?? item.style?.width ?? (item.type === 'characterNode' || item.type === 'sceneNode' ? 440 : 300);
+        const heightValue = item.measured?.height ?? item.height ?? item.style?.height ?? (item.type === 'storyNode' ? 200 : 240);
+        const width = typeof widthValue === 'number' ? widthValue : Number.parseFloat(String(widthValue)) || 300;
+        const height = typeof heightValue === 'number' ? heightValue : Number.parseFloat(String(heightValue)) || 200;
+        return {
+          left: Math.min(result.left, item.position.x),
+          top: Math.min(result.top, item.position.y),
+          right: Math.max(result.right, item.position.x + width),
+          bottom: Math.max(result.bottom, item.position.y + height),
+        };
+      }, { left: Number.POSITIVE_INFINITY, top: Number.POSITIVE_INFINITY, right: 0, bottom: 0 });
+      const id = typeof operation.node_id === 'string' && operation.node_id.trim() ? operation.node_id.trim() : uuidv4();
+      if (id.length > 128 || nextNodes.some((node) => node.id === id)) throw new Error(`Node ID '${id}' is empty, too long, or already in use.`);
+      const title = typeof operation.title === 'string' && operation.title.trim()
+        ? operation.title.trim()
+        : layoutOptions.language === 'zh' ? '新建分组' : layoutOptions.language === 'ja' ? '新しい領域' : 'New Region';
+      if (title.length > 200) throw new Error('title must be at most 200 characters.');
+      const color = operation.color ?? '#f1f5f9';
+      if (typeof color !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(color)) throw new Error('color must be a 3- or 6-digit hex color.');
+      const node: Node = {
+        id,
+        type: 'backgroundNode',
+        position: { x: bounds.left - padding, y: bounds.top - padding },
+        dragHandle: '.custom-drag-handle',
+        style: { width: Math.max(200, bounds.right - bounds.left + padding * 2), height: Math.max(150, bounds.bottom - bounds.top + padding * 2), zIndex: -3 },
+        data: { id, title, color },
+      };
+      nextNodes.push(node);
+      created.push(id);
+      changes.push({ type: operation.type, nodeId: id });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'update_background_region') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
+      const current = nextNodes.find((node) => node.id === nodeId && node.type === 'backgroundNode');
+      if (!current) throw new Error(`Background region '${nodeId}' was not found.`);
+      if (!operation.fields || typeof operation.fields !== 'object' || Array.isArray(operation.fields)) throw new Error('fields must be an object.');
+      const fields = operation.fields as Record<string, unknown>;
+      if (!Object.keys(fields).length || Object.keys(fields).some((key) => !['title', 'color', 'width', 'height'].includes(key))) throw new Error('Background-region fields must include title, color, width, or height only.');
+      const data = { ...current.data } as Record<string, unknown>;
+      const style = { ...(current.style || {}) } as NonNullable<Node['style']>;
+      for (const [key, value] of Object.entries(fields)) {
+        if (key === 'title') {
+          if (typeof value !== 'string' || value.length > 200) throw new Error('title must be a string of at most 200 characters.');
+          data.title = value;
+        } else if (key === 'color') {
+          if (typeof value !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) throw new Error('color must be a 3- or 6-digit hex color.');
+          data.color = value;
+        } else {
+          if (typeof value !== 'number' || !Number.isFinite(value) || value < (key === 'width' ? 200 : 150) || value > 10_000) throw new Error(`${key} must be between ${key === 'width' ? 200 : 150} and 10000.`);
+          style[key as 'width' | 'height'] = value;
+        }
+      }
+      nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data, style } : node);
+      changes.push({ type: operation.type, nodeId });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'delete_background_region') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
+      if (!nextNodes.some((node) => node.id === nodeId && node.type === 'backgroundNode')) throw new Error(`Background region '${nodeId}' was not found.`);
+      nextNodes = nextNodes.filter((node) => node.id !== nodeId);
+      nextEdges = nextEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+      deleted.push(nodeId);
+      changes.push({ type: operation.type, nodeId });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'create_story_node' || operation.type === 'create_character_node' || operation.type === 'create_scene_node' || operation.type === 'create_plot_structure_node') {
       const id = typeof operation.node_id === 'string' ? operation.node_id.trim() : uuidv4();
       if (!id || id.length > 128 || nextNodes.some((node) => node.id === id)) throw new Error(`Node ID '${id}' is empty, too long, or already in use.`);
       const position = positionOf(operation.position);
@@ -353,10 +441,20 @@ export const applyMcpOperations = (
         const characterName = operation.character_name;
         if (typeof characterName !== 'string' || !characterName.trim() || characterName.length > 200) throw new Error('character_name must be a non-empty string of at most 200 characters.');
         node = { id, type: 'characterNode', position, style: { width: 440 }, data: { id, characterName: characterName.trim(), traits: '' } };
-      } else {
+      } else if (operation.type === 'create_scene_node') {
         const sceneName = operation.scene_name;
         if (typeof sceneName !== 'string' || !sceneName.trim() || sceneName.length > 200) throw new Error('scene_name must be a non-empty string of at most 200 characters.');
         node = { id, type: 'sceneNode', position, style: { width: 440 }, data: { id, sceneName: sceneName.trim(), description: '', scenePresetEnabled: false } };
+      } else {
+        const direction = operation.direction;
+        const creationMode = operation.creation_mode ?? 'continue';
+        const detailLevel = operation.detail_level ?? 'standard';
+        const cardCount = operation.card_count ?? 3;
+        if (typeof direction !== 'string' || direction.length > 20_000) throw new Error('direction must be a string of at most 20000 characters.');
+        if (creationMode !== 'continue' && creationMode !== 'play') throw new Error('creation_mode must be continue or play.');
+        if (!['brief', 'standard', 'detailed'].includes(String(detailLevel))) throw new Error('detail_level must be brief, standard, or detailed.');
+        if (typeof cardCount !== 'number' || !Number.isInteger(cardCount) || cardCount < 1 || cardCount > 20) throw new Error('card_count must be an integer between 1 and 20.');
+        node = { id, type: 'plotStructureNode', position, data: { id, creationMode, cardCount, detailLevel, direction } };
       }
       nextNodes.push(node);
       created.push(id);
@@ -511,9 +609,12 @@ export const applyMcpOperations = (
       if (!asset) throw new Error(`Compatible project media asset '${operation.asset_id}' was not found.`);
       const source = nextNodes.find((node) => node.id === asset.nodeId)!;
       const sourceData = source.data as Record<string, unknown>;
-      const sourceValue = asset.field.startsWith('images:')
-        ? (sourceData.images as Array<Record<string, unknown>>).find((item) => item.id === asset.field.slice('images:'.length))?.imageUrl
-        : sourceData[asset.field];
+      const nestedVideo = asset.field.match(/^images:(.*):video$/);
+      const sourceValue = nestedVideo
+        ? (sourceData.images as Array<Record<string, unknown>>).find((item) => item.id === nestedVideo[1])?.videoUrl
+        : asset.field.startsWith('images:')
+          ? (sourceData.images as Array<Record<string, unknown>>).find((item) => item.id === asset.field.slice('images:'.length))?.imageUrl
+          : sourceData[asset.field];
       if (typeof sourceValue !== 'string') throw new Error('The selected media asset is no longer available.');
       nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, [operation.field as string]: sourceValue } } : node);
       changes.push({ type: operation.type, nodeId });
@@ -579,7 +680,7 @@ export const applyMcpOperations = (
           if (oldCover && oldCover !== dataUrl && !images.some((image) => image.imageUrl === oldCover)) {
             images.unshift({
               id: uuidv4(),
-              name: language === 'zh' ? '上一张场景图片' : language === 'ja' ? '前のシーン画像' : 'Previous Scene Image',
+              name: layoutOptions.language === 'zh' ? '上一张场景图片' : layoutOptions.language === 'ja' ? '前のシーン画像' : 'Previous Scene Image',
               imageUrl: oldCover,
             });
           }
@@ -590,6 +691,36 @@ export const applyMcpOperations = (
         return { ...node, data };
       });
       changes.push({ type: operation.type, nodeId, assetType, field, mimeType, bytes: decodedSize });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'import_project_media') {
+      if (typeof nodeId !== 'string' || typeof operation.field !== 'string' || typeof operation.mime_type !== 'string' || typeof operation.media_url !== 'string') {
+        throw new Error('node_id, field, mime_type, and media_url are required.');
+      }
+      const target = nextNodes.find((node) => node.id === nodeId);
+      if (!target) throw new Error(`Node '${nodeId}' was not found.`);
+      const targetFields: Record<string, string[]> = {
+        storyNode: ['imageUrl', 'videoUrl', 'audioUrl'],
+        characterNode: ['avatarUrl', 'threeViewUrl', 'tagSpriteUrl'],
+        sceneNode: ['coverImageUrl'],
+      };
+      const field = operation.field;
+      if (!(targetFields[target.type || ''] || []).includes(field)) throw new Error(`Media field '${field}' is not supported for this card type.`);
+      const kind = operation.mime_type.startsWith('image/') ? 'image'
+        : operation.mime_type.startsWith('audio/') ? 'audio'
+          : operation.mime_type.startsWith('video/') ? 'video' : null;
+      const expectedKind: Record<string, string> = {
+        imageUrl: 'image', videoUrl: 'video', audioUrl: 'audio', avatarUrl: 'image',
+        threeViewUrl: 'image', tagSpriteUrl: 'image', coverImageUrl: 'image',
+      };
+      if (!kind || expectedKind[field] !== kind) throw new Error(`mime_type '${operation.mime_type}' is not compatible with field '${field}'.`);
+      if (!operation.media_url.startsWith('blob:')) throw new Error('Imported media must use an editor-managed local blob URL.');
+      nextNodes = nextNodes.map((node) => node.id === nodeId
+        ? { ...node, data: { ...node.data, [field]: operation.media_url } }
+        : node);
+      changes.push({ type: operation.type, nodeId, field, mediaType: kind });
       changedCount += 1;
       continue;
     }
@@ -681,6 +812,44 @@ export const applyMcpOperations = (
         nextEdges.push({ id: `mcp-${uuidv4()}`, ...defaultEdge, source: sourceId, sourceHandle, target: targetId, targetHandle, ...(typeof label === 'string' && label ? { label } : {}) });
       }
       changes.push({ type: operation.type, sourceId, targetId });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'connect_story_setting' || operation.type === 'disconnect_story_setting') {
+      const firstId = operation.source_id;
+      const secondId = operation.target_id;
+      if (typeof firstId !== 'string' || typeof secondId !== 'string' || !firstId.trim() || !secondId.trim()) throw new Error('source_id and target_id must be non-empty strings.');
+      if (firstId === secondId) throw new Error('A card cannot be associated with itself.');
+      const first = nextNodes.find((node) => node.id === firstId);
+      const second = nextNodes.find((node) => node.id === secondId);
+      if (!first || !second) throw new Error('Both relationship endpoint cards must exist.');
+      const story = first.type === 'storyNode' ? first : second.type === 'storyNode' ? second : null;
+      const setting = story === first ? second : story === second ? first : null;
+      if (!story || (setting?.type !== 'characterNode' && setting?.type !== 'sceneNode')) {
+        throw new Error('Presentation associations require one story card and one character or scene card.');
+      }
+      const isSamePair = (edge: Edge) =>
+        (edge.source === story.id && edge.target === setting.id) ||
+        (edge.source === setting.id && edge.target === story.id);
+      if (operation.type === 'disconnect_story_setting') {
+        const before = nextEdges.length;
+        nextEdges = nextEdges.filter((edge) => !isSamePair(edge));
+        if (nextEdges.length === before) throw new Error('No presentation association exists between these cards.');
+      } else {
+        if (nextEdges.some(isSamePair)) throw new Error('A relationship between these cards already exists.');
+        const { sourceHandle, targetHandle } = getStoryConnectionHandles(story, setting);
+        nextEdges.push({
+          id: `mcp-${uuidv4()}`,
+          ...defaultEdge,
+          source: story.id,
+          sourceHandle,
+          target: setting.id,
+          targetHandle,
+          data: { mcpRelation: 'presentation' },
+        });
+      }
+      changes.push({ type: operation.type, storyId: story.id, settingId: setting.id, settingType: setting.type });
       changedCount += 1;
       continue;
     }

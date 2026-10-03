@@ -39,6 +39,7 @@ import { usePlaytestRuntime } from './usePlaytestRuntime';
 
 export function PlayTestModal(props: PlayTestProps) {
   const [windowContentWidth, setWindowContentWidth] = React.useState<number | null>(null);
+  const runtime = usePlaytestRuntime(props, { windowContentWidth });
   const {
     onClose,
     language,
@@ -135,7 +136,7 @@ export function PlayTestModal(props: PlayTestProps) {
     dialogueShellStyle,
     classicMediaContainerStyle,
     classicMediaFrameStyle,
-  } = usePlaytestRuntime(props, { windowContentWidth });
+  } = runtime;
   const isWindowed = props.displayMode === 'windowed';
   const mobileWindowed = Boolean(isMobile && isWindowed);
   const {
@@ -152,6 +153,42 @@ export function PlayTestModal(props: PlayTestProps) {
   const [creativeInputOpen, setCreativeInputOpen] = React.useState(false);
   const [creativeChoicesVisible, setCreativeChoicesVisible] = React.useState(false);
   const creativeInteraction = props.creativeInteraction;
+  React.useEffect(() => {
+    if (!props.onMcpControlsChange) return;
+    const controls = {
+      getProgress: () => ({
+        currentNodeId: runtime.currentNodeId || null,
+        choices: runtime.outEdges.map((edge) => ({
+          nodeId: edge.target,
+          label: typeof edge.label === 'string' && edge.label.trim()
+            ? edge.label
+            : String(props.nodes.find((node) => node.id === edge.target)?.data?.title || edge.target),
+        })),
+        ready: runtime.choicesReady,
+      }),
+      advance: (requestedTargetId?: string) => {
+        const currentNodeId = runtime.currentNodeId || null;
+        if (!currentNodeId) throw new Error('Playtest has no current story card.');
+        if (!runtime.choicesReady) throw new Error('Wait until the current dialogue and transition are ready before advancing.');
+        const choices = runtime.outEdges.map((edge) => ({
+          nodeId: edge.target,
+          label: typeof edge.label === 'string' && edge.label.trim()
+            ? edge.label
+            : String(props.nodes.find((node) => node.id === edge.target)?.data?.title || edge.target),
+        }));
+        const targetNodeId = requestedTargetId || (choices.length === 1 ? choices[0].nodeId : choices.length === 0 ? 'THE_END' : '');
+        if (!targetNodeId) throw new Error('This card has multiple choices. Pass one of the available node IDs as target_node_id.');
+        if (targetNodeId === 'THE_END' && choices.length > 0) throw new Error('THE_END is available only when the current card has no outgoing choices.');
+        if (targetNodeId !== 'THE_END' && !choices.some((choice) => choice.nodeId === targetNodeId)) {
+          throw new Error(`Node '${targetNodeId}' is not an available choice from '${currentNodeId}'.`);
+        }
+        runtime.handleChoiceClick(targetNodeId);
+        return { advanced: true, fromNodeId: currentNodeId, targetNodeId, choices };
+      },
+    };
+    props.onMcpControlsChange(controls);
+    return () => props.onMcpControlsChange?.(null);
+  }, [props.onMcpControlsChange, props.nodes, runtime.currentNodeId, runtime.outEdges, runtime.choicesReady, runtime.handleChoiceClick]);
   const dialogueText = useDialogueTextLayout(renderStyle, canvasSettings.canvasWidth, canvasSettings.canvasHeight,
     creativeInteraction?.sceneName || currentTitle || '',
     htmlToSpeechText(filterMentionTags(String(currentNode?.data?.text || ''), canvasSettings.hideCharacterTags, canvasSettings.hideSceneTags)),

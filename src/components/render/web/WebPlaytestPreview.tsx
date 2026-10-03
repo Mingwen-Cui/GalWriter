@@ -1,4 +1,5 @@
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../lib/typewriterTiming';
+import { webThemeCssVariables } from './webThemeVisuals';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   Eye,
@@ -2349,7 +2350,7 @@ export function WebPlaytestPreview({
     return (
       <div
         className="absolute inset-0 z-[80] overflow-hidden text-slate-900"
-        style={flowOverviewBackgroundStyle}
+        style={{ ...webThemeCssVariables(settings.menuTheme), ...flowOverviewBackgroundStyle }}
         onClick={(event) => {
           if (previewMode === 'edit' && event.target === event.currentTarget) {
             setSelectedStartMenuElementId(null);

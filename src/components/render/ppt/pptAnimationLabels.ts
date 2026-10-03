@@ -24,6 +24,7 @@ export function targetLabel(copy: PptCopy, animation: PptObjectAnimation, scene?
         'dialog-panel': copy.dialogPanel,
         'dialog-title': copy.dialogTitle,
         'dialog-body': copy.dialogBody,
+        'manual-text': copy.text,
         'cover-title': copy.coverTitle,
         'cover-subtitle': copy.coverSubtitle,
         'cover-description': 'Galgame 说明',

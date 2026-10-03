@@ -3,6 +3,7 @@ import { formatWebText } from './i18n';
 import type { Language } from '../../../lib/i18n';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { getWebSettingsCopy } from './i18n';
+import { decorateWebPageElements, defaultWebTheme } from './webThemeVisuals';
 
 /**
  * The single source of truth for the built-in web rehearsal experience.
@@ -95,7 +96,7 @@ export const buildRehearsalArchivePageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const settingsCopy = getWebSettingsCopy(language);
-  return [
+  return decorateWebPageElements([
     pagePanel('archive-panel'),
     text(
       'archive-title',
@@ -209,7 +210,7 @@ export const buildRehearsalArchivePageElements = (
       shadowBlur: primary ? 20 : 10,
       shadowOffsetY: primary ? 6 : 2,
     };
-  });
+  }), defaultWebTheme);
 };
 
 export const buildRehearsalSettingsPageElements = (
@@ -226,9 +227,9 @@ export const buildRehearsalSettingsPageElements = (
     animationSpeed: [38, 45, 26, 14],
     sound: [38, 61, 26, 9],
     controls: [38, 72, 26, 8],
-    reset: [72, 87, 16, 9],
+    reset: [40, 9, 12, 7],
   };
-  return [
+  return decorateWebPageElements([
     pagePanel('settings-panel'),
     text(
       'settings-title',
@@ -236,7 +237,7 @@ export const buildRehearsalSettingsPageElements = (
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText192'),
       8,
       8,
-      48,
+      30,
       8,
       40,
     ),
@@ -279,8 +280,19 @@ export const buildRehearsalSettingsPageElements = (
     })),
   ].map((element) =>
     element.role === 'title' ? { ...element, textColor: '#252a59', textAlign: 'left' } : element.role === 'back' ? { ...element, textColor: '#4338ca', backgroundColor: '#eef2ff', borderColor: '#c7d2fe', fontSize: 18, textAlign: 'center' } : element,
-  );
+  ), defaultWebTheme);
 };
+
+export const buildRehearsalFlowPageElements = (language: Language): WebMenuElement[] =>
+  decorateWebPageElements([
+    { ...text('flow-title', 'custom', language === 'zh' ? '流程图总览' : language === 'ja' ? 'フロー概要' : 'Story overview', 8, 5, 44, 7, 36), textAlign: 'left', fontWeight: 700 },
+    { ...text('flow-subtitle', 'subtitle', language === 'zh' ? '循着故事的线索，回看每一次选择' : language === 'ja' ? '物語の道をたどり、選択を振り返ろう' : 'Trace your journey and revisit each choice', 8, 13, 58, 4, 18), textAlign: 'left' },
+    ...(['flowDirection', 'flowFitView'] as const).map((role, index) => ({
+      ...button(index === 0 ? 'flow-direction-control' : 'flow-fit-view-control', role, '', 84 + index * 4, 5, 2.588, 4.6, defaultWebTheme.accent, '#fff'),
+      textVisible: false, borderRadius: 999,
+    })),
+    { ...button('flow-minimap', 'flowMinimap', '', 79, 75, 19, 21, defaultWebTheme.accent, '#fff'), textVisible: false },
+  ]);
 
 /** Only upgrade the untouched default grid; authored layouts remain authoritative. */
 export const isPreviousRehearsalSettingsLayout = (elements: WebMenuElement[] | undefined) => {
@@ -671,6 +683,8 @@ export const buildRehearsalTemplate = (
         choiceColor,
         choiceTextColor,
       ),
+      flowOverviewElements: buildRehearsalFlowPageElements(language),
+      menuTheme: defaultWebTheme,
       previewToolbarElements: buildRehearsalToolbarElements(language),
     },
     renderStyle: {

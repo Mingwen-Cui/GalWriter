@@ -1,17 +1,14 @@
-import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type React from 'react';
-import type { Language } from '../../../lib/i18n';
-import { webShapeMarkup } from '../web/webShapes';
-import { WebShapeCornerHandles } from '../web/WebShapeCornerHandles';
-import { WebShapeSelectionOverlay } from '../web/WebShapeSelectionOverlay';
-import { toPptWebInspectorElement, toPptManualElementPatch } from './pptWebInspectorAdapter';
-import { constrainPptShape } from './pptShapes';
 import { useContext, useEffect, useRef, useState } from 'react';
 
+import type { Language } from '../../../lib/i18n';
+import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type {
   PptManualElement,
   PptManualElementWebStyle,
   PptManualSlide,
+  PptObjectAnimation,
   PptSlideBackgroundStyle,
 } from '../video/shared/types';
 import {
@@ -19,9 +16,15 @@ import {
   type WebEditableResizeHandle,
 } from '../web/WebEditableElementFrame';
 import { gradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
-import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH } from './pptWorkspaceModel';
-import { getKeyboardMouseSettings } from '../../../lib/keyboardMouseSettings';
+import { WebShapeCornerHandles } from '../web/WebShapeCornerHandles';
+import { webShapeMarkup } from '../web/webShapes';
+import { WebShapeSelectionOverlay } from '../web/WebShapeSelectionOverlay';
+import { PptAnimatedText } from './PptAnimatedText';
+import { findAnimation, previewStyle } from './pptAnimationPreview';
 import { PptBoxSelectionContext, pptManualBoxSelectionKey } from './PptBoxSelectionContext';
+import { constrainPptShape } from './pptShapes';
+import { toPptManualElementPatch, toPptWebInspectorElement } from './pptWebInspectorAdapter';
+import { PPT_CONTENT_HEIGHT, PPT_CONTENT_WIDTH } from './pptWorkspaceModel';
 
 const isConfiguredSelectionButton = (button: number) =>
   button === (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2);
@@ -185,6 +188,9 @@ export function PptManualElementLayer({
   language = 'zh',
   canvasHeight = PPT_CONTENT_HEIGHT,
   elements,
+  animations = [],
+  previewing = false,
+  previewAtMs,
   editable = false,
   selectedElementId,
   onSelectElement,
@@ -195,6 +201,9 @@ export function PptManualElementLayer({
   language?: Language;
   canvasHeight?: number;
   elements: PptManualElement[];
+  animations?: PptObjectAnimation[];
+  previewing?: boolean;
+  previewAtMs?: number;
   editable?: boolean;
   selectedElementId?: string;
   onSelectElement?: (elementId: string) => void;
@@ -384,6 +393,7 @@ export function PptManualElementLayer({
       className={`absolute inset-0 z-30 ${editable ? 'pointer-events-auto' : 'pointer-events-none'}`}
     >
       {elements.map((element) => {
+        const textAnimations = findAnimation(animations, 'manual-text', element.id);
         if (element.visible === false && !editable) return null;
         const selected =
           editable &&
@@ -490,9 +500,14 @@ export function PptManualElementLayer({
                   className="h-full w-full whitespace-pre-wrap"
                   style={{
                     ...manualTextPaint(element),
+                    ...previewStyle(textAnimations, previewing, previewAtMs),
                   }}
                 >
-                  {element.text}
+                  <PptAnimatedText
+                    text={element.text}
+                    animations={textAnimations}
+                    previewAtMs={previewAtMs}
+                  />
                 </div>
               )
             ) : editingText ? (
@@ -586,6 +601,9 @@ export function PptManualSlideCanvas({
   canvasHeight,
   placement,
   slide,
+  animations,
+  previewing,
+  previewAtMs,
   editable = false,
   selectedElementId,
   onSelectElement,
@@ -598,6 +616,9 @@ export function PptManualSlideCanvas({
   canvasHeight?: number;
   placement?: React.ReactNode;
   slide: PptManualSlide;
+  animations?: PptObjectAnimation[];
+  previewing?: boolean;
+  previewAtMs?: number;
   editable?: boolean;
   selectedElementId?: string;
   onSelectElement?: (elementId: string) => void;
@@ -637,6 +658,9 @@ export function PptManualSlideCanvas({
         language={language}
         canvasHeight={canvasHeight}
         elements={slide.elements}
+        animations={animations}
+        previewing={previewing}
+        previewAtMs={previewAtMs}
         editable={editable}
         selectedElementId={selectedElementId}
         onSelectElement={onSelectElement}
