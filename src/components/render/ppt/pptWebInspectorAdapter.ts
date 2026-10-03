@@ -18,6 +18,9 @@ const omitUndefined = <T extends Record<string, unknown>>(value: T) =>
   ) as Partial<T>;
 
 const styleKeys = new Set<keyof PptManualElementWebStyle>([
+  'shapeType',
+  'polygonSides',
+  'polygonCornerRadii',
   'appearance',
   'primary',
   'disabled',
@@ -113,7 +116,7 @@ export const toPptWebInspectorElement = (element: PptManualElement): WebMenuElem
   id: element.id,
   kind: element.kind,
   role: element.kind === 'button' && element.action === 'url' ? 'link' : 'custom',
-  text: element.kind === 'image' ? '' : element.text,
+  text: element.kind === 'image' || element.kind === 'shape' ? '' : element.text,
   visible: element.visible !== false,
   x: toPercent(element.x, 'x'),
   y: toPercent(element.y, 'y'),
@@ -141,7 +144,7 @@ export const toPptManualElementPatch = (
     }),
   };
   if (element.kind === 'image' && update.imageUrl !== undefined) patch.src = update.imageUrl;
-  if (element.kind !== 'image') {
+  if (element.kind === 'text' || element.kind === 'button') {
     if (update.text !== undefined) patch.text = update.text;
     if (update.fontSize !== undefined) patch.fontSize = update.fontSize;
     if (update.fontFamily !== undefined) patch.fontFamily = update.fontFamily;

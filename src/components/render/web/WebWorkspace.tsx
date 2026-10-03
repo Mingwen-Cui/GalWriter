@@ -18,7 +18,7 @@ import {
   GitBranch,
   Gamepad2,
   Hand,
-  ImagePlus,
+  Image,
   Info,
   LayoutTemplate,
   MousePointerClick,
@@ -59,8 +59,11 @@ import type {
 } from './WebPlaytestPreview';
 import { WebPlaytestPreview } from './WebPlaytestPreview';
 import { protectedStartMenuElementRoles } from './webPlaytestStartMenuTools';
-import { webShapeCatalog, webShapeMarkup } from './webShapes';
+import { constrainWebShapeSize, webShapeCatalog, webShapeMarkup } from './webShapes';
 import { WebShapeAddControl } from './WebShapeAddControl';
+import { WebInsertToolButton } from './WebInsertToolButton';
+import { WebElementPlacementOverlay } from './WebElementPlacementOverlay';
+import type { PlacementGeometry, WebPlacementTool } from './webElementPlacement';
 import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
 
 const webSmallTabClass =
@@ -328,11 +331,18 @@ function TemplateMiniPreview({
               transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
             }}
           >
-            {element.kind === 'shape' ? <span className="absolute inset-0" dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }} /> : element.kind !== 'image' && (
+            {element.kind === 'shape' ? (
               <span
-                className="absolute left-[12%] right-[12%] top-1/2 h-[1px] -translate-y-1/2 rounded-full"
-                style={{ backgroundColor: element.textColor || '#ffffff' }}
+                className="absolute inset-0"
+                dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }}
               />
+            ) : (
+              element.kind !== 'image' && (
+                <span
+                  className="absolute left-[12%] right-[12%] top-1/2 h-[1px] -translate-y-1/2 rounded-full"
+                  style={{ backgroundColor: element.textColor || '#ffffff' }}
+                />
+              )
             )}
           </span>
         );
@@ -831,6 +841,11 @@ export function WebWorkspace({
   const [currentPreviewSurface, setCurrentPreviewSurface] = useState<WebPreviewSurface>(
     webSettings.showStartMenu ? 'start' : 'game',
   );
+  const [placementTool, setPlacementTool] = useState<WebPlacementTool | null>(null);
+  const cancelPlacement = useCallback(() => setPlacementTool(null), []);
+  useEffect(() => {
+    setPlacementTool(null);
+  }, [currentPreviewSurface, startMenuPreviewMode, previewRefreshKey]);
   const [dialogueSelection, setDialogueSelection] = useState<
     'scene' | 'background' | import('../video/shared/types').RenderEditableObjectKind
   >(
@@ -908,8 +923,8 @@ export function WebWorkspace({
     hasLegacyPageLayout(webSettings.settingsPageElements, legacyCurrentWideSettingsLayout) ||
     hasLegacyPageLayout(webSettings.settingsPageElements, legacyCurrentNarrowSettingsLayout) ||
     hasLegacyPageLayout(webSettings.settingsPageElements, legacyPreviousResetLayout)
-    ? defaultSettingsPageElements
-    : resolveSettingsPageElements(webSettings, language, webChoiceColor, webChoiceTextColor);
+      ? defaultSettingsPageElements
+      : resolveSettingsPageElements(webSettings, language, webChoiceColor, webChoiceTextColor);
   const resolvedToolbarElements = resolveWebToolbarElements(
     webSettings.previewToolbarElements,
     language,
@@ -1030,6 +1045,14 @@ export function WebWorkspace({
     );
   };
   const updateActivePageElement = (id: string, patch: Partial<WebMenuElement>) => {
+    const target = activePageElements.find((item) => item.id === id);
+    if (target)
+      patch = constrainWebShapeSize(
+        target,
+        patch,
+        webSettings.canvasWidth,
+        webSettings.canvasHeight,
+      );
     if (currentPreviewSurface === 'game') {
       const toolbar = resolvedToolbarElements;
       const dialogue = webSettings.dialogueOverlayElements || [];
@@ -1428,284 +1451,81 @@ export function WebWorkspace({
       )}
     </WebSurfaceInspectorPanel>
   );
-  const addStartMenuText = () => {
-    const id = `text-${Date.now()}`;
-    updateWebSettings('startMenuElements', [
-      ...(webSettings.startMenuElements || []),
-      {
-        id,
-        kind: 'text',
-        role: 'custom',
-        text: '',
-        visible: true,
-        x: 36,
-        y: 34,
-        width: 28,
-        height: 8,
-        scale: 1,
-        rotation: 0,
-        fontSize: 18,
-        fontWeight: 500,
-        textColor: '#ffffff',
-        borderRadius: 0,
-      },
-    ]);
-    setSelectedStartMenuElementId(id);
+  const selectPlacementTool = (tool: WebPlacementTool) => {
+    setPlacementTool((previous) =>
+      previous?.kind === tool.kind && previous?.shapeType === tool.shapeType ? null : tool,
+    );
+    setSelectedStartMenuElementId(null);
+    setSelectedPreviewElementIds([]);
+    setSelectedFlowCardId(null);
+    setIsDesignPanelOpen(false);
+    setImageCropEditingElementId(null);
+    setGradientEditingElement(null);
+    setGradientEditingSurface(null);
   };
-  const addStartMenuImage = () => {
-    const id = `image-${Date.now()}`;
-    updateWebSettings('startMenuElements', [
-      ...(webSettings.startMenuElements || []),
-      {
-        id,
-        kind: 'image',
-        role: 'custom',
-        text: '',
-        visible: true,
-        x: 36,
-        y: 34,
-        width: 24,
-        height: 18,
-        scale: 1,
-        rotation: 0,
-        imageUrl: '',
-        borderRadius: 12,
-      },
-    ]);
-    setSelectedStartMenuElementId(id);
-  };
-  const addDialogueOverlayText = () => {
-    const id = `dialogue-text-${Date.now()}`;
-    updateWebSettings('dialogueOverlayElements', [
-      ...(webSettings.dialogueOverlayElements || []),
-      {
-        id,
-        kind: 'text',
-        role: 'custom',
-        text: 'Text',
-        visible: true,
-        x: 18,
-        y: 62,
-        width: 24,
-        height: 7,
-        scale: 1,
-        rotation: 0,
-        fontSize: 20,
-        fontWeight: 500,
-        textColor: '#ffffff',
-        borderRadius: 0,
-      },
-    ]);
-    setSelectedStartMenuElementId(id);
-  };
-  const addDialogueOverlayImage = () => {
-    const id = `dialogue-image-${Date.now()}`;
-    updateWebSettings('dialogueOverlayElements', [
-      ...(webSettings.dialogueOverlayElements || []),
-      {
-        id,
-        kind: 'image',
-        role: 'custom',
-        text: '',
-        visible: true,
-        x: 64,
-        y: 58,
-        width: 18,
-        height: 18,
-        scale: 1,
-        rotation: 0,
-        imageUrl: '',
-        borderRadius: 12,
-      },
-    ]);
-    setSelectedStartMenuElementId(id);
-  };
-  const addCurrentSurfaceText = () => {
-    if (currentPreviewSurface === 'start') {
-      addStartMenuText();
-      return;
-    }
-    if (currentPreviewSurface === 'game') {
-      addDialogueOverlayText();
-      return;
-    }
-    if (currentPreviewSurface === 'flow') {
-      const id = `flow-text-${Date.now()}`;
-      updateWebSettings('flowOverviewElements', [
-        ...(webSettings.flowOverviewElements || []),
-        {
-          id,
-          kind: 'text',
-          role: 'custom',
-          text: '',
-          visible: true,
-          x: 18,
-          y: 12,
-          width: 28,
-          height: 7,
-          scale: 1,
-          rotation: 0,
-          fontSize: 18,
-          fontWeight: 600,
-          textColor: '#0f172a',
-          borderRadius: 0,
-        },
-      ]);
-      setSelectedStartMenuElementId(id);
-      return;
-    }
-    const id = `${currentPreviewSurface}-text-${Date.now()}`;
+  const placeCurrentSurfaceElement = (geometry: PlacementGeometry) => {
+    if (!placementTool) return;
+    const { kind, shapeType } = placementTool;
+    const id = `${currentPreviewSurface}-${kind}-${crypto.randomUUID()}`;
     const key =
-      currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
-    const source = currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
-    updateWebSettings(key, [
-      ...source,
-      {
-        id,
-        kind: 'text',
-        role: 'custom',
-        text: '',
-        visible: true,
-        x: 18,
-        y: 24,
-        width: 26,
-        height: 7,
-        scale: 1,
-        rotation: 0,
-        fontSize: 18,
-        fontWeight: 600,
-        textColor: '#ffffff',
-        borderRadius: 0,
-      },
-    ]);
-    setSelectedStartMenuElementId(id);
-  };
-  const addCurrentSurfaceShape = (shapeType: NonNullable<WebMenuElement['shapeType']>) => {
-    const id = `${currentPreviewSurface}-shape-${crypto.randomUUID()}`;
-    const key = currentPreviewSurface === 'game' ? 'dialogueOverlayElements' : activeElementSettingsKey;
-    const source = currentPreviewSurface === 'game' ? webSettings.dialogueOverlayElements || [] : activePageElements;
-    updateWebSettings(key, [...source, {
-      id, kind: 'shape', shapeType, role: 'custom', text: webShapeCatalog(language).find((shape) => shape.type === shapeType)?.label || '', visible: true,
-      x: 40, y: 36, width: 20, height: shapeType === 'line' ? 6 : 20, scale: 1, rotation: 0,
-      backgroundType: 'solid', backgroundColor: '#eef2ff', borderColor: '#625bf6', borderWidth: shapeType === 'line' ? 4 : 1,
-      borderRadius: shapeType === 'rounded' ? 20 : 0,
-      zIndex: Math.max(0, ...source.map((element) => element.zIndex || 0)) + 1,
-    }]);
-    setSelectedStartMenuElementId(id);
-  };
-  const addCurrentSurfaceImage = () => {
-    if (currentPreviewSurface === 'start') {
-      addStartMenuImage();
-      return;
-    }
-    if (currentPreviewSurface === 'game') {
-      addDialogueOverlayImage();
-      return;
-    }
-    if (currentPreviewSurface === 'flow') {
-      const id = `flow-image-${Date.now()}`;
-      updateWebSettings('flowOverviewElements', [
-        ...(webSettings.flowOverviewElements || []),
-        {
-          id,
-          kind: 'image',
-          role: 'custom',
-          text: '',
-          visible: true,
-          x: 72,
-          y: 12,
-          width: 18,
-          height: 18,
-          scale: 1,
-          rotation: 0,
-          imageUrl: '',
-          borderRadius: 12,
-        },
-      ]);
-      setSelectedStartMenuElementId(id);
-      return;
-    }
-    const id = `${currentPreviewSurface}-image-${Date.now()}`;
-    const key =
-      currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
-    const source = currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
-    updateWebSettings(key, [
-      ...source,
-      {
-        id,
-        kind: 'image',
-        role: 'custom',
-        text: '',
-        visible: true,
-        x: 58,
-        y: 24,
-        width: 18,
-        height: 18,
-        scale: 1,
-        rotation: 0,
-        imageUrl: '',
-        borderRadius: 12,
-      },
-    ]);
-    setSelectedStartMenuElementId(id);
-  };
-  const addCurrentSurfaceButton = () => {
-    const id = `${currentPreviewSurface}-button-${Date.now()}`;
-    const button: WebMenuElement = {
+      currentPreviewSurface === 'game'
+        ? kind === 'button'
+          ? 'previewToolbarElements'
+          : 'dialogueOverlayElements'
+        : activeElementSettingsKey;
+    const source =
+      key === 'dialogueOverlayElements'
+        ? webSettings.dialogueOverlayElements || []
+        : key === 'previewToolbarElements'
+          ? resolvedToolbarElements
+          : activePageElements;
+    const element: WebMenuElement = {
       id,
-      kind: 'button',
+      kind,
+      ...geometry,
       role: 'custom',
-      text: formatWebText(language, 'componentsrenderwebWebWorkspaceText1153'),
       visible: true,
-      x: 38,
-      y: 48,
-      width: 24,
-      height: 8,
       scale: 1,
-      rotation: 0,
-      fontSize: 16,
-      fontWeight: 700,
-      textColor: '#ffffff',
-      backgroundType: 'solid',
-      backgroundColor: '#4f46e5',
-      borderRadius: 9999,
+      text:
+        kind === 'text'
+          ? language === 'zh'
+            ? '文字'
+            : language === 'ja'
+              ? 'テキスト'
+              : 'Text'
+          : kind === 'button'
+            ? formatWebText(language, 'componentsrenderwebWebWorkspaceText1153')
+            : kind === 'shape'
+              ? webShapeCatalog(language).find((shape) => shape.type === shapeType)?.label || ''
+              : '',
+      zIndex: Math.max(0, ...source.map((item) => item.zIndex || 0)) + 1,
+      ...(kind === 'shape'
+        ? {
+            shapeType,
+            ...(shapeType === 'polygon' ? { polygonSides: 3 } : {}),
+            backgroundType: 'solid' as const,
+            backgroundColor: '#eef2ff',
+            borderColor: '#625bf6',
+            borderWidth: shapeType === 'line' ? 4 : 1,
+            borderRadius: shapeType === 'rounded' ? 20 : 0,
+          }
+        : kind === 'image'
+          ? { imageUrl: '', borderRadius: 12 }
+          : {
+              fontSize: kind === 'text' ? 18 : 16,
+              fontWeight: kind === 'text' ? 500 : 700,
+              textColor:
+                kind === 'text' && currentPreviewSurface === 'flow' ? '#0f172a' : '#ffffff',
+              borderRadius: kind === 'text' ? 0 : 9999,
+              ...(kind === 'button'
+                ? { backgroundType: 'solid' as const, backgroundColor: '#4f46e5' }
+                : {}),
+            }),
     };
-    if (currentPreviewSurface === 'start') {
-      updateWebSettings('startMenuElements', [...(webSettings.startMenuElements || []), button]);
-    } else if (currentPreviewSurface === 'game') {
-      updateWebSettings(
-        'previewToolbarElements',
-        arrangeToolbarRow(
-          [
-            ...resolvedToolbarElements,
-            {
-              ...button,
-              x: 2,
-              y: 10,
-              width: (4.8 * webSettings.canvasHeight) / webSettings.canvasWidth,
-              height: 4.8,
-              fontSize: 12,
-              textVisible: false,
-            },
-          ],
-          webSettings.canvasWidth,
-          webSettings.canvasHeight,
-          toolbarRowGap(resolvedToolbarElements),
-        ),
-      );
-    } else if (currentPreviewSurface === 'flow') {
-      updateWebSettings('flowOverviewElements', [
-        ...(webSettings.flowOverviewElements || []),
-        button,
-      ]);
-    } else {
-      const key =
-        currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
-      const source =
-        currentPreviewSurface === 'archive' ? archivePageElements : settingsPageElements;
-      updateWebSettings(key, [...source, button]);
-    }
+    updateWebSettings(key, [...source, element]);
     setSelectedStartMenuElementId(id);
+    setSelectedPreviewElementIds([id]);
+    setPlacementTool(null);
   };
   const copySelectedSurfaceElement = () => {
     if (!selectedStartMenuElement) return;
@@ -1945,7 +1765,10 @@ JSON schema:
             currentElements[index] ||
             currentElements[0];
           const kind =
-            element.kind === 'button' || element.kind === 'image' || element.kind === 'text' || element.kind === 'shape'
+            element.kind === 'button' ||
+            element.kind === 'image' ||
+            element.kind === 'text' ||
+            element.kind === 'shape'
               ? element.kind
               : base.kind;
           return {
@@ -2111,48 +1934,67 @@ JSON schema:
             <Play className="w-4 h-4 text-[var(--vr-accent)]" />
             <span className="truncate">测试预览窗口</span>
           </div>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             {startMenuPreviewMode === 'edit' && (
               <>
-                <AddElementButton
+                <WebInsertToolButton
                   icon={Copy}
                   label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1543')}
                   onClick={copySelectedSurfaceElement}
-                  tone="slate"
                   disabled={!selectedStartMenuElement}
                 />
-                <AddElementButton
+                <WebInsertToolButton
                   icon={ClipboardPaste}
                   label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1546')}
                   onClick={pasteSurfaceElement}
-                  tone="slate"
                   disabled={!elementClipboard}
                 />
-                <AddElementButton
-                  icon={Type}
-                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1549')}
-                  onClick={addCurrentSurfaceText}
-                  tone="indigo"
-                />
-                <AddElementButton
-                  icon={ImagePlus}
-                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1555')}
-                  onClick={addCurrentSurfaceImage}
-                  tone="emerald"
-                />
-                <WebShapeAddControl language={language} onAdd={addCurrentSurfaceShape} />
-                <AddElementButton
-                  icon={MousePointerClick}
-                  label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1561')}
-                  onClick={addCurrentSurfaceButton}
-                  tone="amber"
-                />
+                <div className="mx-1 h-5 w-px bg-[var(--vr-border)]" aria-hidden="true" />
+                <div
+                  role="toolbar"
+                  aria-label={
+                    language === 'zh'
+                      ? '画布工具'
+                      : language === 'ja'
+                        ? 'キャンバスツール'
+                        : 'Canvas tools'
+                  }
+                  className="flex items-center gap-3 rounded-xl border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 py-1"
+                >
+                  <WebInsertToolButton
+                    icon={Type}
+                    label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1549')}
+                    onClick={() => selectPlacementTool({ kind: 'text' })}
+                    active={placementTool?.kind === 'text'}
+                  />
+                  <WebInsertToolButton
+                    icon={Image}
+                    label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1555')}
+                    onClick={() => selectPlacementTool({ kind: 'image' })}
+                    active={placementTool?.kind === 'image'}
+                  />
+                  <WebShapeAddControl
+                    language={language}
+                    active={placementTool?.kind === 'shape'}
+                    onAdd={(shapeType) => selectPlacementTool({ kind: 'shape', shapeType })}
+                    onChoose={(shapeType) => {
+                      selectPlacementTool({ kind: 'shape', shapeType });
+                      setPlacementTool({ kind: 'shape', shapeType });
+                    }}
+                  />
+                  <WebInsertToolButton
+                    icon={MousePointerClick}
+                    label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1561')}
+                    onClick={() => selectPlacementTool({ kind: 'button' })}
+                    active={placementTool?.kind === 'button'}
+                  />
+                </div>
               </>
             )}
             <button
               type="button"
               onClick={() => setPreviewRefreshKey((key) => key + 1)}
-              className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]"
+              className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--vr-surface)] text-[var(--vr-text)] ring-1 ring-[var(--vr-border)] transition-colors hover:bg-[var(--vr-surface-soft)] hover:text-[var(--vr-accent)]"
               title={formatWebText(language, 'componentsrenderwebWebWorkspaceText1571')}
               aria-label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1572')}
             >
@@ -2213,6 +2055,17 @@ JSON schema:
               onTestStateChange={setTestState}
               showTestDebugInfo={testDebugInfoVisible}
             />
+            {startMenuPreviewMode === 'edit' && placementTool && (
+              <WebElementPlacementOverlay
+                key={`${currentPreviewSurface}-${placementTool.kind}-${placementTool.shapeType || ''}`}
+                tool={placementTool}
+                canvasWidth={webSettings.canvasWidth}
+                canvasHeight={webSettings.canvasHeight}
+                language={language}
+                onPlace={placeCurrentSurfaceElement}
+                onCancel={cancelPlacement}
+              />
+            )}
           </VirtualPresentationStage>
         </div>
       </section>
@@ -2887,64 +2740,6 @@ JSON schema:
 const isReactNodeIcon = (icon: LucideIcon | ReactNode): icon is ReactNode => isValidElement(icon);
 
 const createIconElement = (Icon: LucideIcon) => createElement(Icon, { className: 'h-3.5 w-3.5' });
-
-const addElementButtonToneClasses = {
-  indigo: {
-    button:
-      'border-indigo-500/25 bg-indigo-500/10 text-indigo-700 hover:border-indigo-500/45 hover:bg-indigo-500/15 dark:text-indigo-200',
-    icon: 'bg-indigo-600 text-white ring-indigo-500/30',
-  },
-  emerald: {
-    button:
-      'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/45 hover:bg-emerald-500/15 dark:text-emerald-200',
-    icon: 'bg-emerald-600 text-white ring-emerald-500/30',
-  },
-  amber: {
-    button:
-      'border-amber-500/30 bg-amber-500/10 text-amber-700 hover:border-amber-500/50 hover:bg-amber-500/15 dark:text-amber-200',
-    icon: 'bg-amber-500 text-slate-950 ring-amber-500/30',
-  },
-  slate: {
-    button:
-      'border-slate-300/80 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10',
-    icon: 'bg-slate-700 text-white ring-slate-500/30',
-  },
-} as const;
-
-function AddElementButton({
-  icon: Icon,
-  label,
-  onClick,
-  tone,
-  disabled = false,
-}: {
-  icon: LucideIcon;
-  label: string;
-  onClick: () => void;
-  tone: keyof typeof addElementButtonToneClasses;
-  disabled?: boolean;
-}) {
-  const toneClasses = addElementButtonToneClasses[tone];
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`group flex h-9 min-w-0 items-center gap-2 rounded-xl border py-1 pl-1 pr-2.5 text-[11px] font-bold transition-[transform,background-color,border-color,box-shadow] hover:-translate-y-px hover:shadow-sm active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vr-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vr-surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none ${toneClasses.button}`}
-      title={label}
-      aria-label={label}
-    >
-      <span
-        className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg shadow-sm ring-1 ring-inset transition-transform group-hover:scale-105 ${toneClasses.icon}`}
-        aria-hidden="true"
-      >
-        <Icon className="h-[17px] w-[17px] stroke-[2.25]" />
-      </span>
-      <span className="min-w-0 truncate">{label}</span>
-    </button>
-  );
-}
 
 function IconToolButton({
   icon: Icon,

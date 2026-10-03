@@ -311,7 +311,9 @@ export type WebMenuElement = {
   settingsControlForm?: 'switch' | 'segmented' | 'slider' | 'stepper' | 'select';
   id: string;
   kind: 'button' | 'text' | 'image' | 'shape';
-  shapeType?: 'rectangle' | 'rounded' | 'ellipse' | 'triangle' | 'line';
+  shapeType?: 'rectangle' | 'rounded' | 'ellipse' | 'triangle' | 'polygon' | 'line';
+  polygonSides?: number;
+  polygonCornerRadii?: number[];
   role?:
     | 'save'
     | 'continue'
@@ -856,10 +858,14 @@ export type PptManualButtonElement = PptManualElementBase & {
   targetSlideId?: string;
   url?: string;
 };
+export type PptManualShapeElement = PptManualElementBase & {
+  kind: 'shape';
+};
 export type PptManualElement =
   | PptManualImageElement
   | PptManualTextElement
-  | PptManualButtonElement;
+  | PptManualButtonElement
+  | PptManualShapeElement;
 /** Background settings are intentionally local to one PPT slide. */
 export type PptSlideBackgroundStyle = {
   appearance?: SurfaceAppearance;

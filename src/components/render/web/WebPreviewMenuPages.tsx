@@ -1,7 +1,8 @@
 import { WebInlineText } from './WebInlineText';
 import { playerControlCatalog } from './playerSettingsPanelConfig';
-import { webShapeMarkup } from './webShapes';
+import { constrainWebShapeSize, webShapeMarkup } from './webShapes';
 import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
+import { WebShapeCornerHandles } from './WebShapeCornerHandles';
 import type React from 'react';
 import type { CSSProperties } from 'react';
 import { Fragment, useRef, useState } from 'react';
@@ -272,7 +273,11 @@ export function WebPreviewMenuPages({
     // Editable elements stop propagation before this empty-canvas handler.
     // Left-drag is the normal marquee-selection gesture; a zero-size marquee
     // from a plain empty click clears the current selection.
-    if (previewMode !== 'edit' || event.button !== (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2)) return;
+    if (
+      previewMode !== 'edit' ||
+      event.button !== (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2)
+    )
+      return;
     const root = page === 'archive' ? archiveRootRef.current : settingsRootRef.current;
     const rect = root?.getBoundingClientRect();
     if (!rect) return;
@@ -438,6 +443,17 @@ export function WebPreviewMenuPages({
     }
 
     next = constrainElement(next);
+    if (drag.type === 'resize')
+      next = {
+        ...next,
+        ...constrainWebShapeSize(
+          drag.initial,
+          next,
+          settings.canvasWidth,
+          settings.canvasHeight,
+          drag.resizeHandle || 'se',
+        ),
+      };
     updatePageElement(drag.page, drag.id, next);
   };
   const endElementDrag = () => {
@@ -451,7 +467,8 @@ export function WebPreviewMenuPages({
     document.body.style.cursor = '';
   };
   const editableArchiveElements = archiveElements;
-  const activeArchiveSave = saveSlots.find((save) => save.id === selectedArchiveSaveId) || saveSlots[0] || null;
+  const activeArchiveSave =
+    saveSlots.find((save) => save.id === selectedArchiveSaveId) || saveSlots[0] || null;
   const testArchiveElements = archiveElements
     .filter(
       (element) =>
@@ -521,13 +538,55 @@ export function WebPreviewMenuPages({
           />
           <MenuPageElementLayer
             page="archive"
-            renderControl={(element) => element.role === 'slot' && previewMode === 'test' ? (
-              <div className="gw-archive-slot-list">
-                {saveSlots.length ? saveSlots.map((save, index) => <button key={save.id} type="button" className="gw-archive-slot" aria-pressed={save.id === activeArchiveSave?.id} onClick={(event) => { event.stopPropagation(); setSelectedArchiveSaveId(save.id); }}>
-                  <strong>{language === 'zh' ? `存档 ${index + 1}` : language === 'ja' ? `セーブ ${index + 1}` : `Save ${index + 1}`}</strong><span>{new Date(save.savedAt).toLocaleString()}</span>
-                </button>) : <div className="gw-archive-empty"><strong>{language === 'zh' ? '还没有存档' : language === 'ja' ? 'セーブはまだありません' : 'No saves yet'}</strong><span>{language === 'zh' ? '开始故事后，你的阅读进度会保存在这里。' : language === 'ja' ? '物語を始めると、ここに進行状況が保存されます。' : 'Your reading progress will appear here after you start.'}</span></div>}
-              </div>
-            ) : null}
+            language={language}
+            canvasWidth={settings.canvasWidth}
+            canvasHeight={settings.canvasHeight}
+            renderControl={(element) =>
+              element.role === 'slot' && previewMode === 'test' ? (
+                <div className="gw-archive-slot-list">
+                  {saveSlots.length ? (
+                    saveSlots.map((save, index) => (
+                      <button
+                        key={save.id}
+                        type="button"
+                        className="gw-archive-slot"
+                        aria-pressed={save.id === activeArchiveSave?.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedArchiveSaveId(save.id);
+                        }}
+                      >
+                        <strong>
+                          {language === 'zh'
+                            ? `存档 ${index + 1}`
+                            : language === 'ja'
+                              ? `セーブ ${index + 1}`
+                              : `Save ${index + 1}`}
+                        </strong>
+                        <span>{new Date(save.savedAt).toLocaleString()}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="gw-archive-empty">
+                      <strong>
+                        {language === 'zh'
+                          ? '还没有存档'
+                          : language === 'ja'
+                            ? 'セーブはまだありません'
+                            : 'No saves yet'}
+                      </strong>
+                      <span>
+                        {language === 'zh'
+                          ? '开始故事后，你的阅读进度会保存在这里。'
+                          : language === 'ja'
+                            ? '物語を始めると、ここに進行状況が保存されます。'
+                            : 'Your reading progress will appear here after you start.'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : null
+            }
             elements={
               previewMode === 'test'
                 ? testArchiveElements
@@ -612,6 +671,9 @@ export function WebPreviewMenuPages({
           <style>{PLAYER_SETTINGS_CSS}</style>
           <MenuPageElementLayer
             page="settings"
+            language={language}
+            canvasWidth={settings.canvasWidth}
+            canvasHeight={settings.canvasHeight}
             elements={settingsElements}
             renderControl={(element, label) =>
               playerControlCatalog(language).some((control) => control.id === element.role) ? (
@@ -670,6 +732,9 @@ export function WebPreviewMenuPages({
 }
 
 type MenuPageElementLayerProps = {
+  language: Language;
+  canvasWidth: number;
+  canvasHeight: number;
   page: 'archive' | 'settings';
   elements: WebMenuElement[];
   selectedElementId?: string | null;
@@ -696,6 +761,9 @@ type MenuPageElementLayerProps = {
 };
 
 function MenuPageElementLayer({
+  language,
+  canvasWidth,
+  canvasHeight,
   page,
   elements,
   selectedElementId,
@@ -781,14 +849,46 @@ function MenuPageElementLayer({
                 ? 'flex-end'
                 : 'center';
 
-          if (element.kind === 'shape') return (
-            <div key={element.id} data-selectable-element-id={element.id} className={`absolute ${editable ? 'pointer-events-auto cursor-move' : 'pointer-events-none'}`} style={commonStyle}
-              onPointerDown={(event) => editable && onBeginElementDrag(page, event, element, 'move')}
-              onClick={(event) => { if (editable) { event.stopPropagation(); onSelectElement?.(element.id); } }}>
-              <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }} />
-              {selected && <WebShapeSelectionOverlay element={element}><SelectedElementFrame page={page} element={element} onUpdateElement={onUpdateElement} onBeginElementDrag={onBeginElementDrag} /></WebShapeSelectionOverlay>}
-            </div>
-          );
+          if (element.kind === 'shape')
+            return (
+              <div
+                key={element.id}
+                data-selectable-element-id={element.id}
+                className={`absolute ${editable ? 'pointer-events-auto cursor-move' : 'pointer-events-none'}`}
+                style={commonStyle}
+                onPointerDown={(event) =>
+                  editable && onBeginElementDrag(page, event, element, 'move')
+                }
+                onClick={(event) => {
+                  if (editable) {
+                    event.stopPropagation();
+                    onSelectElement?.(element.id);
+                  }
+                }}
+              >
+                <div
+                  className="h-full w-full"
+                  dangerouslySetInnerHTML={{
+                    __html: webShapeMarkup(element, canvasWidth, canvasHeight),
+                  }}
+                />
+                {selected && (
+                  <WebShapeSelectionOverlay element={element}>
+                    <WebShapeCornerHandles
+                      element={element}
+                      language={language}
+                      onUpdate={onUpdateElement}
+                    />
+                    <SelectedElementFrame
+                      page={page}
+                      element={element}
+                      onUpdateElement={onUpdateElement}
+                      onBeginElementDrag={onBeginElementDrag}
+                    />
+                  </WebShapeSelectionOverlay>
+                )}
+              </div>
+            );
           if (element.kind === 'button') {
             const control = renderControl?.(element, label);
             const ButtonShell = editable || control ? 'div' : 'button';
@@ -798,7 +898,8 @@ function MenuPageElementLayer({
                 ? webElementBoxStyle({ ...element, buttonShadowMode: 'always' })
                 : elementBoxStyle;
             const { boxShadow: baseBoxShadow } = motionBoxStyle;
-            const { boxShadow: _visibleBoxShadow, ...elementBoxStyleWithoutShadow } = elementBoxStyle;
+            const { boxShadow: _visibleBoxShadow, ...elementBoxStyleWithoutShadow } =
+              elementBoxStyle;
             const buttonMotionStyle = webButtonMotionStyle(
               element,
               typeof baseBoxShadow === 'string' ? baseBoxShadow : 'none',

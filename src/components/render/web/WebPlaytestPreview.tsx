@@ -51,6 +51,7 @@ import { getSceneVisualMediaStyle } from '../../../lib/sceneVisualStyle';
 import { useRegionBackgroundMusic } from '../../../lib/useRegionBackgroundMusic';
 import { useSceneAmbientSound } from '../../../lib/useSceneAmbientSound';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import { constrainWebShapeSize } from './webShapes';
 import { getSceneBackgroundStyle, mergeSceneMediaStyle } from '../canvas/sceneCanvasStyle';
 import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
@@ -1956,12 +1957,21 @@ export function WebPlaytestPreview({
       }
       nextX = Math.max(bounds.minX, Math.min(bounds.maxX - nextWidth, nextX));
       nextY = Math.max(bounds.minY, Math.min(bounds.maxY - nextHeight, nextY));
-      updateStartMenuElement(drag.id, {
-        x: nextX,
-        y: nextY,
-        width: Math.max(6, Math.min(bounds.maxX - nextX, nextWidth)),
-        height: Math.max(4, Math.min(bounds.maxY - nextY, nextHeight)),
-      });
+      updateStartMenuElement(
+        drag.id,
+        constrainWebShapeSize(
+          drag.initial,
+          {
+            x: nextX,
+            y: nextY,
+            width: Math.max(6, Math.min(bounds.maxX - nextX, nextWidth)),
+            height: Math.max(4, Math.min(bounds.maxY - nextY, nextHeight)),
+          },
+          settings.canvasWidth,
+          settings.canvasHeight,
+          handle,
+        ),
+      );
     } else if (
       drag.centerX !== undefined &&
       drag.centerY !== undefined &&
@@ -2618,6 +2628,9 @@ export function WebPlaytestPreview({
           />
         )}
         <PreviewFloatingElementLayer
+          language={language}
+          canvasWidth={settings.canvasWidth}
+          canvasHeight={settings.canvasHeight}
           elements={toolbarLayerElements}
           onSelectElements={onSelectStartMenuElements}
           guideElements={floatingGuideElements}
@@ -2702,6 +2715,9 @@ export function WebPlaytestPreview({
         />
         <PreviewFloatingElementLayer
           elements={dialogueOverlayElements}
+          language={language}
+          canvasWidth={settings.canvasWidth}
+          canvasHeight={settings.canvasHeight}
           onAction={applySharedButtonFunction}
           guideElements={floatingGuideElements}
           selectedElementId={selectedStartMenuElementId}

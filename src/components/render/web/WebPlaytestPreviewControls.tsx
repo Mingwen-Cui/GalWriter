@@ -2,8 +2,9 @@ import { WebInlineText } from './WebInlineText';
 import { WebToolbarSelectionTools } from './WebToolbarSelectionTools';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
-import { webShapeMarkup } from './webShapes';
+import { constrainWebShapeSize, webShapeMarkup } from './webShapes';
 import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
+import { WebShapeCornerHandles } from './WebShapeCornerHandles';
 import {
   Eye,
   EyeOff,
@@ -201,22 +202,22 @@ export function ChoiceButtonsGroup({
             choice
               ? (() => {
                   const itemStyle: React.CSSProperties = {
-                  minHeight: Math.max(24, choice.height),
-                  borderRadius:
-                    choice.corners?.map((radius) => `${radius}px`).join(' ') || choice.radius,
-                  background: fillStyle,
-                  border: choice.stroke.enabled
-                    ? `${choice.stroke.width}px solid ${choice.stroke.color}`
-                    : undefined,
-                  boxShadow: shadow,
-                  color: choiceTextColor,
-                  fontFamily: choice.fontFamily,
-                  fontSize: choice.fontSize,
-                  fontWeight: choice.fontWeight,
-                  letterSpacing: choice.letterSpacing,
-                  lineHeight: choice.lineHeight,
-                  textAlign: choice.textAlign,
-                  transform: `translate(${index * (renderStyle?.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle?.choiceItemOffsetY ?? 0)}px)`,
+                    minHeight: Math.max(24, choice.height),
+                    borderRadius:
+                      choice.corners?.map((radius) => `${radius}px`).join(' ') || choice.radius,
+                    background: fillStyle,
+                    border: choice.stroke.enabled
+                      ? `${choice.stroke.width}px solid ${choice.stroke.color}`
+                      : undefined,
+                    boxShadow: shadow,
+                    color: choiceTextColor,
+                    fontFamily: choice.fontFamily,
+                    fontSize: choice.fontSize,
+                    fontWeight: choice.fontWeight,
+                    letterSpacing: choice.letterSpacing,
+                    lineHeight: choice.lineHeight,
+                    textAlign: choice.textAlign,
+                    transform: `translate(${index * (renderStyle?.choiceItemOffsetX ?? 0)}px, ${index * (renderStyle?.choiceItemOffsetY ?? 0)}px)`,
                   };
                   return choice.buttonMotion
                     ? {
@@ -322,6 +323,9 @@ export function PreviewToolbar({
           .map((element) => (
             <ToolbarElement
               key={element.id}
+              language={language}
+              canvasWidth={settings.canvasWidth}
+              canvasHeight={settings.canvasHeight}
               element={element}
               selected={selectedToolbarElementId === element.id}
               previewMode={previewMode}
@@ -455,6 +459,9 @@ export function PreviewToolbar({
 }
 
 export function PreviewFloatingElementLayer({
+  language = 'zh',
+  canvasWidth = 1920,
+  canvasHeight = 1080,
   elements,
   guideElements,
   selectedElementId,
@@ -471,6 +478,9 @@ export function PreviewFloatingElementLayer({
   onAction,
   onDoubleClickButton,
 }: {
+  language?: Language;
+  canvasWidth?: number;
+  canvasHeight?: number;
   elements: WebMenuElement[];
   guideElements?: WebMenuElement[];
   selectedElementId?: string | null;
@@ -672,6 +682,9 @@ export function PreviewFloatingElementLayer({
           .map((element) => (
             <ToolbarElement
               key={element.id}
+              language={language}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
               element={element}
               selected={effectiveSelectedIds.includes(element.id)}
               previewMode={previewMode}
@@ -713,6 +726,9 @@ export function PreviewFloatingElementLayer({
 }
 
 function ToolbarElement({
+  language,
+  canvasWidth,
+  canvasHeight,
   element,
   selected,
   previewMode,
@@ -733,6 +749,9 @@ function ToolbarElement({
   onDoubleClickButton,
   onDragEnd,
 }: {
+  language: Language;
+  canvasWidth: number;
+  canvasHeight: number;
   element: WebMenuElement;
   selected: boolean;
   previewMode: 'edit' | 'test';
@@ -760,7 +779,12 @@ function ToolbarElement({
   const [editingText, setEditingText] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const beginTextEditing = () => {
-    if (!editable || (toolbarControl && element.textVisible === false) || element.kind === 'image' || element.kind === 'shape')
+    if (
+      !editable ||
+      (toolbarControl && element.textVisible === false) ||
+      element.kind === 'image' ||
+      element.kind === 'shape'
+    )
       return;
     onSelect?.(element.id);
     setEditingText(true);
@@ -927,12 +951,18 @@ function ToolbarElement({
       x = Math.max(0, Math.min(100 - width, x));
       y = Math.max(0, Math.min(100 - height, y));
       latest = { ...initial, x, y, width, height };
-      onUpdate(element.id, {
+      const patch = {
         x: Number(x.toFixed(2)),
         y: Number(y.toFixed(2)),
         width: Number(width.toFixed(2)),
         height: Number(height.toFixed(2)),
-      });
+      };
+      const constrained =
+        type === 'resize'
+          ? constrainWebShapeSize(initial, patch, canvasWidth, canvasHeight, handle)
+          : patch;
+      latest = { ...initial, ...constrained };
+      onUpdate(element.id, constrained);
     };
     const end = () => {
       if (moved && !shouldMoveGroup && type !== 'rotate') onDragEnd?.(latest, type);
@@ -1050,7 +1080,12 @@ function ToolbarElement({
           textAlign: element.textAlign || 'center',
         }}
       >
-        {element.kind === 'shape' ? <span className="h-full w-full" dangerouslySetInnerHTML={{ __html: webShapeMarkup(element) }} /> : element.kind === 'image' ? (
+        {element.kind === 'shape' ? (
+          <span
+            className="h-full w-full"
+            dangerouslySetInnerHTML={{ __html: webShapeMarkup(element, canvasWidth, canvasHeight) }}
+          />
+        ) : element.kind === 'image' ? (
           element.imageUrl ? (
             <img
               src={resolveKnownAppAssetUrl(element.imageUrl)}
@@ -1103,18 +1138,21 @@ function ToolbarElement({
       </span>
       {selected && editable && !editingText && onUpdate && selectedElementIds.length < 2 && (
         <WebShapeSelectionOverlay element={element} enabled={element.kind === 'shape'}>
-        <WebEditableElementFrame
-          compact={toolbarControl}
-          ringClassName="ring-1 ring-indigo-500"
-          showAuxiliaryControls={!toolbarControl}
-          visible={element.visible !== false}
-          onRotatePointerDown={(event) => beginDrag(event, 'rotate')}
-          onToggleVisible={(event) => {
-            event.stopPropagation();
-            onUpdate(element.id, { visible: element.visible === false });
-          }}
-          onResizePointerDown={(event, handle) => beginDrag(event, 'resize', handle)}
-        />
+          {element.kind === 'shape' && (
+            <WebShapeCornerHandles element={element} language={language} onUpdate={onUpdate} />
+          )}
+          <WebEditableElementFrame
+            compact={toolbarControl}
+            ringClassName="ring-1 ring-indigo-500"
+            showAuxiliaryControls={!toolbarControl}
+            visible={element.visible !== false}
+            onRotatePointerDown={(event) => beginDrag(event, 'rotate')}
+            onToggleVisible={(event) => {
+              event.stopPropagation();
+              onUpdate(element.id, { visible: element.visible === false });
+            }}
+            onResizePointerDown={(event, handle) => beginDrag(event, 'resize', handle)}
+          />
         </WebShapeSelectionOverlay>
       )}
     </ElementContainer>

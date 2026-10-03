@@ -5,25 +5,120 @@ import type { Language } from '../../../lib/i18n';
 export const webShapeCatalog = (language: Language) => [
   {
     type: 'rectangle' as const,
-    label: language === 'zh' ? '矩形' : language === 'ja' ? '長方形' : 'Rectangle',
-  },
-  {
-    type: 'rounded' as const,
-    label: language === 'zh' ? '圆角矩形' : language === 'ja' ? '角丸長方形' : 'Rounded rectangle',
+    label: language === 'zh' ? '正方形' : language === 'ja' ? '正方形' : 'Square',
   },
   {
     type: 'ellipse' as const,
-    label: language === 'zh' ? '椭圆' : language === 'ja' ? '楕円' : 'Ellipse',
+    label: language === 'zh' ? '圆形' : language === 'ja' ? '円' : 'Circle',
   },
   {
-    type: 'triangle' as const,
-    label: language === 'zh' ? '三角形' : language === 'ja' ? '三角形' : 'Triangle',
+    type: 'polygon' as const,
+    label: language === 'zh' ? '多边形' : language === 'ja' ? '多角形' : 'Polygon',
   },
   {
     type: 'line' as const,
     label: language === 'zh' ? '直线' : language === 'ja' ? '直線' : 'Line',
   },
 ];
+
+export const webPolygonSides = (element: WebMenuElement) =>
+  Math.max(
+    3,
+    Math.min(60, Math.round(Number.isFinite(element.polygonSides) ? element.polygonSides! : 3)),
+  );
+
+export function webShapeAspectRatio(element: Pick<WebMenuElement, 'shapeType' | 'polygonSides'>) {
+  if (element.shapeType === 'rectangle' || element.shapeType === 'ellipse') return 1;
+  if (element.shapeType !== 'polygon' && element.shapeType !== 'triangle') return null;
+  const count = Math.max(3, Math.min(60, Math.round(element.polygonSides || 3)));
+  const points = Array.from({ length: count }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
+    return { x: Math.cos(angle), y: Math.sin(angle) };
+  });
+  return (
+    (Math.max(...points.map((p) => p.y)) - Math.min(...points.map((p) => p.y))) /
+    (Math.max(...points.map((p) => p.x)) - Math.min(...points.map((p) => p.x)))
+  );
+}
+
+export function webShapeCornerRadiusPatch(
+  element: WebMenuElement,
+  radius: number,
+): Partial<WebMenuElement> {
+  if (element.shapeType === 'polygon' || element.shapeType === 'triangle')
+    return {
+      borderRadius: radius,
+      polygonCornerRadii: Array.from({ length: webPolygonSides(element) }, () => radius),
+    };
+  return {
+    borderRadius: radius,
+    borderTopLeftRadius: radius,
+    borderTopRightRadius: radius,
+    borderBottomRightRadius: radius,
+    borderBottomLeftRadius: radius,
+  };
+}
+
+export function constrainWebShapeSize(
+  element: WebMenuElement,
+  patch: Partial<WebMenuElement>,
+  canvasWidth: number,
+  canvasHeight: number,
+  handle?: string,
+) {
+  const ratio = element.kind === 'shape' ? webShapeAspectRatio({ ...element, ...patch }) : null;
+  if (
+    ratio === null ||
+    !['width', 'height', 'shapeType', 'polygonSides'].some((key) => key in patch)
+  )
+    return patch;
+  let width = ((patch.width ?? element.width) * canvasWidth) / 100;
+  if (patch.height !== undefined)
+    width =
+      patch.width === undefined
+        ? (patch.height * canvasHeight) / 100 / ratio
+        : Math.max(width, (patch.height * canvasHeight) / 100 / ratio);
+  const height = width * ratio;
+  const next = {
+    ...patch,
+    width: (width / canvasWidth) * 100,
+    height: (height / canvasHeight) * 100,
+  };
+  if (handle?.includes('w')) next.x = element.x + element.width - next.width;
+  if (handle?.includes('n')) next.y = element.y + element.height - next.height;
+  if (
+    (patch.shapeType !== undefined && patch.shapeType !== element.shapeType) ||
+    (patch.polygonSides !== undefined && patch.polygonSides !== element.polygonSides)
+  ) {
+    next.x = element.x + (element.width - next.width) / 2;
+    next.y = element.y + (element.height - next.height) / 2;
+  }
+  return next;
+}
+
+export function webShapeVertices(element: WebMenuElement, width: number, height: number) {
+  if (element.shapeType !== 'polygon' && element.shapeType !== 'triangle')
+    return [
+      { x: 0, y: 0 },
+      { x: width, y: 0 },
+      { x: width, y: height },
+      { x: 0, y: height },
+    ];
+  const count = webPolygonSides(element);
+  const points = Array.from({ length: count }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
+    return { x: Math.cos(angle), y: Math.sin(angle) };
+  });
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const scale = Math.min(width / (maxX - minX), height / (maxY - minY));
+  return points.map((point) => ({
+    x: width / 2 + (point.x - (minX + maxX) / 2) * scale,
+    y: height / 2 + (point.y - (minY + maxY) / 2) * scale,
+  }));
+}
 
 /** Self-contained so the offline player uses exactly the same geometry and paint. */
 export function webShapeMarkup(element: WebMenuElement, canvasWidth = 1920, canvasHeight = 1080) {
@@ -77,8 +172,64 @@ export function webShapeMarkup(element: WebMenuElement, canvasWidth = 1920, canv
       h = Math.max(1, height - inset * 2);
     if (type === 'ellipse')
       return `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${w / 2}" ry="${h / 2}" ${attributes}/>`;
-    if (type === 'triangle')
-      return `<path d="M ${width / 2} ${inset} L ${width - inset} ${height - inset} L ${inset} ${height - inset} Z" ${attributes}/>`;
+    if (type === 'polygon' || type === 'triangle') {
+      // Keep this geometry self-contained: the offline export serializes this function.
+      const count = Math.max(3, Math.min(60, Math.round(number(element.polygonSides, 3))));
+      const points = Array.from({ length: count }, (_, index) => {
+        const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
+        return { x: Math.cos(angle), y: Math.sin(angle) };
+      });
+      const minX = Math.min(...points.map((point) => point.x)),
+        maxX = Math.max(...points.map((point) => point.x));
+      const minY = Math.min(...points.map((point) => point.y)),
+        maxY = Math.max(...points.map((point) => point.y));
+      const scale = Math.min(w / (maxX - minX), h / (maxY - minY));
+      const vertices = points.map((point) => ({
+        x: width / 2 + (point.x - (minX + maxX) / 2) * scale,
+        y: height / 2 + (point.y - (minY + maxY) / 2) * scale,
+      }));
+      const corners = vertices.map((vertex, index) => {
+        const previous = vertices[(index + count - 1) % count],
+          next = vertices[(index + 1) % count];
+        const before = Math.hypot(previous.x - vertex.x, previous.y - vertex.y),
+          after = Math.hypot(next.x - vertex.x, next.y - vertex.y);
+        const u = { x: (previous.x - vertex.x) / before, y: (previous.y - vertex.y) / before };
+        const v = { x: (next.x - vertex.x) / after, y: (next.y - vertex.y) / after };
+        const angle = Math.acos(Math.max(-1, Math.min(1, u.x * v.x + u.y * v.y)));
+        const tangent = Math.tan(angle / 2);
+        const radius = Math.max(
+          0,
+          number(element.polygonCornerRadii?.[index], number(element.borderRadius, 0)) - inset,
+        );
+        return { vertex, u, v, before, tangent, distance: radius / Math.max(0.0001, tangent) };
+      });
+      const factor = Math.min(
+        1,
+        ...corners.map(
+          (corner, index) =>
+            corner.before / (corner.distance + corners[(index + count - 1) % count].distance || 1),
+        ),
+      );
+      let path = '';
+      corners.forEach((corner, index) => {
+        const distance = corner.distance * factor,
+          radius = distance * corner.tangent;
+        const entry = {
+          x: corner.vertex.x + corner.u.x * distance,
+          y: corner.vertex.y + corner.u.y * distance,
+        };
+        const exit = {
+          x: corner.vertex.x + corner.v.x * distance,
+          y: corner.vertex.y + corner.v.y * distance,
+        };
+        path += `${index === 0 ? 'M' : 'L'} ${entry.x} ${entry.y} `;
+        path +=
+          radius > 0.001
+            ? `A ${radius} ${radius} 0 0 1 ${exit.x} ${exit.y} `
+            : `L ${exit.x} ${exit.y} `;
+      });
+      return `<path d="${path}Z" ${attributes}/>`;
+    }
     if (type === 'line')
       return `<path d="M ${inset} ${height / 2} H ${width - inset}" ${attributes} stroke-linecap="round"/>`;
     const baseRadius = number(element.borderRadius, type === 'rectangle' ? 0 : 16);

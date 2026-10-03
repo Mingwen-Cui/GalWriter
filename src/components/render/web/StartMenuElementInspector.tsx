@@ -1,5 +1,6 @@
 import { playerControlCatalog } from './playerSettingsPanelConfig';
-import { webShapeCatalog } from './webShapes';
+import { webPolygonSides, webShapeCatalog } from './webShapes';
+import { WebPolygonSidesControl } from './WebPolygonSidesControl';
 import {
   CornerEditor,
   getLayerOrderChanges,
@@ -70,10 +71,7 @@ import type {
 } from '../video/shared/types';
 import { formatWebText, getWebShadowOrdinal, getWebStructuredText } from './i18n';
 import { ButtonMotionPresetControl } from './WebButtonMotionPresetControl';
-import {
-  buttonMotionForPreset,
-  resolveWebButtonMotionPreset,
-} from './webButtonMotion';
+import { buttonMotionForPreset, resolveWebButtonMotionPreset } from './webButtonMotion';
 import { webImageFillBackgroundColor } from './webElementStyle';
 import { normalizeGradientStops } from './webGradientStops';
 
@@ -780,19 +778,31 @@ export function StartMenuElementInspector({
                 borderTopRightRadius: radius,
                 borderBottomRightRadius: radius,
                 borderBottomLeftRadius: radius,
+                ...(element.kind === 'shape' &&
+                (element.shapeType === 'polygon' || element.shapeType === 'triangle')
+                  ? {
+                      polygonCornerRadii: Array.from(
+                        { length: webPolygonSides(element) },
+                        () => radius,
+                      ),
+                    }
+                  : {}),
               })
             }
             action={
-              <button
-                type="button"
-                onClick={() => setRadiusPopoverOpen((current) => !current)}
-                className="property-number grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-slate-700 hover:bg-emerald-100 hover:text-slate-950"
-                title={inspectorCopy.radius}
-                aria-label={inspectorCopy.radius}
-                aria-expanded={radiusPopoverOpen}
-              >
-                <CornerRadiusIcon corner="all" />
-              </button>
+              element.kind === 'shape' &&
+              (element.shapeType === 'polygon' || element.shapeType === 'triangle') ? undefined : (
+                <button
+                  type="button"
+                  onClick={() => setRadiusPopoverOpen((current) => !current)}
+                  className="property-number grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-slate-700 hover:bg-emerald-100 hover:text-slate-950"
+                  title={inspectorCopy.radius}
+                  aria-label={inspectorCopy.radius}
+                  aria-expanded={radiusPopoverOpen}
+                >
+                  <CornerRadiusIcon corner="all" />
+                </button>
+              )
             }
           />
           {radiusPopoverOpen && (
@@ -1333,7 +1343,9 @@ export function StartMenuElementInspector({
             appearance: element.kind === 'image' ? { ...appearance, fills: [] } : appearance,
           })
         }
-        buttonShadowMode={showButtonMotion && element.kind === 'button' ? buttonShadowMode : undefined}
+        buttonShadowMode={
+          showButtonMotion && element.kind === 'button' ? buttonShadowMode : undefined
+        }
         onButtonShadowModeChange={
           showButtonMotion && element.kind === 'button'
             ? (mode) => onUpdate({ buttonShadowMode: mode })
@@ -1341,12 +1353,78 @@ export function StartMenuElementInspector({
         }
       />
 
-      {element.kind === 'shape' && <label className="flex items-center justify-between gap-3 rounded-xl bg-[var(--vr-surface-soft)] p-3 text-xs font-semibold text-[var(--vr-text)]">
-        <span>{language === 'zh' ? '图形' : language === 'ja' ? '図形' : 'Shape'}</span>
-        <select aria-label={language === 'zh' ? '图形类型' : language === 'ja' ? '図形の種類' : 'Shape type'} value={element.shapeType || 'rounded'} onChange={(event) => onUpdate({ shapeType: event.target.value as WebMenuElement['shapeType'] })} className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 py-1.5">
-          {webShapeCatalog(language).map((shape) => <option key={shape.type} value={shape.type}>{shape.label}</option>)}
-        </select>
-      </label>}
+      {element.kind === 'shape' && (
+        <div className="space-y-2 rounded-xl bg-[var(--vr-surface-soft)] p-3 text-xs font-semibold text-[var(--vr-text)]">
+          <label className="flex items-center justify-between gap-3">
+            <span>{language === 'zh' ? '图形' : language === 'ja' ? '図形' : 'Shape'}</span>
+            <select
+              aria-label={
+                language === 'zh' ? '图形类型' : language === 'ja' ? '図形の種類' : 'Shape type'
+              }
+              value={
+                element.shapeType === 'rounded'
+                  ? 'rectangle'
+                  : element.shapeType === 'triangle'
+                    ? 'polygon'
+                    : element.shapeType || 'rectangle'
+              }
+              onChange={(event) =>
+                onUpdate({ shapeType: event.target.value as WebMenuElement['shapeType'] })
+              }
+              className="rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 py-1.5"
+            >
+              {webShapeCatalog(language).map((shape) => (
+                <option key={shape.type} value={shape.type}>
+                  {shape.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {(element.shapeType === 'polygon' || element.shapeType === 'triangle') && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span>{language === 'zh' ? '边数' : language === 'ja' ? '辺の数' : 'Sides'}</span>
+                <WebPolygonSidesControl
+                  language={language}
+                  value={webPolygonSides(element)}
+                  onChange={(value) => {
+                    const polygonSides = webPolygonSides({ ...element, polygonSides: value });
+                    onUpdate({
+                      shapeType: 'polygon',
+                      polygonSides,
+                      polygonCornerRadii: Array.from(
+                        { length: polygonSides },
+                        (_, index) =>
+                          element.polygonCornerRadii?.[index] ?? element.borderRadius ?? 0,
+                      ),
+                    });
+                  }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {Array.from({ length: webPolygonSides(element) }, (_, index) => (
+                  <NumberField
+                    key={index}
+                    label={`${language === 'zh' ? '圆角' : language === 'ja' ? '角丸' : 'Corner'} ${index + 1}`}
+                    value={element.polygonCornerRadii?.[index] ?? element.borderRadius ?? 0}
+                    min={0}
+                    max={999}
+                    onChange={(radius) => {
+                      const polygonCornerRadii = Array.from(
+                        { length: webPolygonSides(element) },
+                        (_, corner) =>
+                          element.polygonCornerRadii?.[corner] ?? element.borderRadius ?? 0,
+                      );
+                      polygonCornerRadii[index] = radius;
+                      onUpdate({ polygonCornerRadii });
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {element.kind === 'image' && (
         <Group

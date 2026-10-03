@@ -1,6 +1,7 @@
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import { webShapeMarkup } from './webShapes';
 import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
+import { WebShapeCornerHandles } from './WebShapeCornerHandles';
 import type { CSSProperties, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { WebInlineText } from './WebInlineText';
@@ -350,7 +351,13 @@ export function WebPlaytestStartMenuElement({
       {element.role === 'flowMinimap' && flowMinimap ? (
         <div className="h-full w-full pointer-events-auto">{flowMinimap}</div>
       ) : element.kind === 'shape' ? (
-        <div className="h-full w-full" style={{ pointerEvents: previewMode === 'edit' ? 'auto' : 'none' }} dangerouslySetInnerHTML={{ __html: webShapeMarkup(element, settings.canvasWidth, settings.canvasHeight) }} />
+        <div
+          className="h-full w-full"
+          style={{ pointerEvents: previewMode === 'edit' ? 'auto' : 'none' }}
+          dangerouslySetInnerHTML={{
+            __html: webShapeMarkup(element, settings.canvasWidth, settings.canvasHeight),
+          }}
+        />
       ) : element.kind === 'image' ? (
         element.imageUrl ? (
           <>
@@ -748,19 +755,26 @@ export function WebPlaytestStartMenuElement({
       )}
       {previewMode === 'edit' && selected && !isEditingText && (
         <WebShapeSelectionOverlay element={element} enabled={element.kind === 'shape'}>
-        <WebEditableElementFrame
-          visible={!imageCropEditing && element.visible}
-          onRotatePointerDown={(event) => onBeginDrag(event, element, 'rotate')}
-          onToggleVisible={(event) => {
-            event.stopPropagation();
-            onUpdateElement(element.id, { visible: !element.visible });
-          }}
-          onDelete={(event) => {
-            event.stopPropagation();
-            onDeleteElement?.(element.id);
-          }}
-          onResizePointerDown={(event, handle) => onBeginDrag(event, element, 'resize', handle)}
-        />
+          {element.kind === 'shape' && (
+            <WebShapeCornerHandles
+              element={element}
+              language={language}
+              onUpdate={onUpdateElement}
+            />
+          )}
+          <WebEditableElementFrame
+            visible={!imageCropEditing && element.visible}
+            onRotatePointerDown={(event) => onBeginDrag(event, element, 'rotate')}
+            onToggleVisible={(event) => {
+              event.stopPropagation();
+              onUpdateElement(element.id, { visible: !element.visible });
+            }}
+            onDelete={(event) => {
+              event.stopPropagation();
+              onDeleteElement?.(element.id);
+            }}
+            onResizePointerDown={(event, handle) => onBeginDrag(event, element, 'resize', handle)}
+          />
         </WebShapeSelectionOverlay>
       )}
     </div>
