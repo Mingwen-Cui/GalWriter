@@ -68,6 +68,8 @@ import { PptInsertRibbon } from './PptInsertRibbon';
 import { WebElementPlacementOverlay } from '../web/WebElementPlacementOverlay';
 import type { WebPlacementTool, PlacementGeometry } from '../web/webElementPlacement';
 import { createPptShape, constrainPptShape } from './pptShapes';
+import { copyPptCoverText } from './pptElementClipboard';
+import { clearPptObjectAnimations, filterPptDisabledAnimations } from './pptAnimationReset';
 import {
   createManualButton,
   createManualImage,
@@ -470,7 +472,12 @@ export function PptWorkspace({
     const ordered = scene
       ? orderPptSceneAnimations(scene, tagAnimations, styleTextAnimations, savedAnimations)
       : [...tagAnimations, ...styleTextAnimations, ...savedAnimations];
-    return withTimelineStarts(syncNameplateAnimations(ordered, speakerCharacterId));
+    return withTimelineStarts(
+      syncNameplateAnimations(
+        ordered.filter((item) => item.effect !== 'none'),
+        speakerCharacterId,
+      ),
+    );
   }, [savedAnimations, scene, speakerCharacterId, styleTextAnimations, tagAnimations]);
   const currentTransition = transitions[selectedId] || DEFAULT_TRANSITION;
   const currentVideoLoop = scene ? (pptSettings.videoLoopByScene?.[scene.id] ?? false) : false;
@@ -684,6 +691,7 @@ export function PptWorkspace({
     });
   };
   const appendManualElement = (element: PptManualElement) => {
+    setSelectedObject(null);
     if (manualSlide) {
       saveManualSlides(
         manualSlides.map((slide) =>
@@ -706,18 +714,37 @@ export function PptWorkspace({
     setSidebarTab('style');
   };
   const copySelectedManualElement = () => {
-    if (!selectedManualElement) return;
-    setManualElementClipboard({ ...selectedManualElement });
+    if (selectedManualElement) setManualElementClipboard(structuredClone(selectedManualElement));
+    else if (selectedCoverTextBox)
+      setManualElementClipboard(
+        copyPptCoverText(
+          selectedCoverTextBox.target,
+          selectedCoverTextBox.text,
+          selectedCoverTextBox.layout,
+        ),
+      );
+  };
+  const cutSelectedElement = () => {
+    copySelectedManualElement();
+    if (selectedManualElement) deleteActiveManualElement(selectedManualElement.id);
+    else if (selectedCoverTextBox) {
+      updatePptTextBoxLayout(selectedCoverTextBox.target, { visible: false });
+      setSelectedObject(null);
+    }
   };
   const pasteManualElement = () => {
     if (!manualElementClipboard) return;
     appendManualElement({
-      ...manualElementClipboard,
+      ...structuredClone(manualElementClipboard),
+      visible: true,
       id: `manual-${manualElementClipboard.kind}-${crypto.randomUUID()}`,
-      x: Math.min(PPT_CONTENT_WIDTH - manualElementClipboard.width, manualElementClipboard.x + 40),
-      y: Math.min(
-        PPT_CONTENT_HEIGHT - manualElementClipboard.height,
-        manualElementClipboard.y + 40,
+      x: Math.max(
+        0,
+        Math.min(PPT_CONTENT_WIDTH - manualElementClipboard.width, manualElementClipboard.x + 40),
+      ),
+      y: Math.max(
+        0,
+        Math.min(PPT_CONTENT_HEIGHT - manualElementClipboard.height, manualElementClipboard.y + 40),
       ),
     });
   };
@@ -1134,7 +1161,9 @@ export function PptWorkspace({
         ]
       : [...tagAnimations, ...savedAnimations, next];
     replaceTimeline(nextTimeline);
-    return nextTimeline;
+    return filterPptDisabledAnimations(nextTimeline, nextTimeline).filter(
+      (item) => item.effect !== 'none',
+    );
   };
   const applyEffect = (effect: PptAnimationEffect) => {
     if (!selectedObject) return;
@@ -1296,8 +1325,9 @@ export function PptWorkspace({
               onInsertButton={() => appendManualElement(createManualButton(copy.button))}
               onInsertImage={(src, name) => appendManualElement(createManualImage(src, name))}
               onCopyElement={copySelectedManualElement}
+              onCutElement={cutSelectedElement}
               onPasteElement={pasteManualElement}
-              canCopyElement={Boolean(selectedManualElement)}
+              canCopyElement={Boolean(selectedManualElement || selectedCoverTextBox)}
               canPasteElement={Boolean(manualElementClipboard)}
               exportRules={
                 <PptExportRulesRibbon
@@ -1315,6 +1345,19 @@ export function PptWorkspace({
               setPhase={setSelectedPhase}
               animation={getAnimation()}
               onApply={applyEffect}
+              onClearAnimations={() => {
+                if (!selectedObject) return;
+                pausePreview();
+                setTimelinePlayheadMs(undefined);
+                replaceTimeline(
+                  clearPptObjectAnimations(
+                    savedAnimations,
+                    selectedId,
+                    selectedObject.target,
+                    selectedObject.targetId,
+                  ),
+                );
+              }}
               onApplyMiddleAction={applyMiddleAction}
               onApplyLineWipe={() => {
                 if (!selectedObject || selectedObject.target !== 'dialog-body') return;
@@ -1687,7 +1730,7 @@ export function SlideCanvas({
     if (shapeTool) return;
     if (!editable || !isConfiguredSelectionButton(event.button)) return;
     const target = event.target as HTMLElement;
-    if (target.closest('[data-editable-frame-control]')) return;
+    if (target.closest('[data-editable-frame-control],[data-shape-selection-overlay]')) return;
     const startedOnElement = Boolean(
       target.closest(
         '.ppt-selectable:not([data-ppt-selection-target="background"]),[data-ppt-manual-element-id]',

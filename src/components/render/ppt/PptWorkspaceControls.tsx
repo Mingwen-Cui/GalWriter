@@ -7,7 +7,6 @@ import {
   MousePointer2,
   Play,
   Presentation,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { type MouseEvent, type ReactNode, useEffect, useState } from 'react';
@@ -32,6 +31,7 @@ import type {
   WebExportSettings,
 } from '../video/shared/types';
 import { usePptCopy } from './pptCopyContext';
+import { PptAnimationIcon, PptTransitionIcon } from './PptEffectIcon';
 import { pptSceneColors } from './pptSceneResolver';
 import type { Scene, Selection, SlideItem } from './PptWorkspace';
 import {
@@ -55,6 +55,7 @@ export function AnimationRibbon({
   setPhase,
   animation,
   onApply,
+  onClearAnimations,
   onApplyMiddleAction,
   onApplyLineWipe,
   onPreview,
@@ -70,6 +71,7 @@ export function AnimationRibbon({
   setPhase: (phase: PptAnimationPhase) => void;
   animation?: PptObjectAnimation;
   onApply: (effect: PptAnimationEffect) => void;
+  onClearAnimations: () => void;
   onApplyMiddleAction: (action: InlinePresentationActionType) => void;
   onApplyLineWipe: () => void;
   onPreview: () => void;
@@ -81,6 +83,11 @@ export function AnimationRibbon({
 }) {
   const copy = usePptCopy();
   const disabled = !selected;
+  const [cleared, setCleared] = useState(false);
+  useEffect(() => setCleared(false), [selected?.target, selected?.targetId]);
+  useEffect(() => {
+    if (animation && animation.effect !== 'none') setCleared(false);
+  }, [animation?.id, animation?.effect]);
   return (
     <header className="ppt-ribbon-shell">
       {activeTab === 'transition' ? (
@@ -100,13 +107,29 @@ export function AnimationRibbon({
           </RibbonGroup>
           <RibbonGroup label={copy.animation}>
             <div className="flex gap-1">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  onClearAnimations();
+                  setCleared(true);
+                }}
+                className={`ppt-effect-button min-w-[64px] ${cleared ? 'is-active' : ''}`}
+              >
+                <PptAnimationIcon phase="enter" effect="none" />
+                <span>{copy.noAnimation}</span>
+              </button>
               {PHASES.map((item) => (
                 <button
                   key={item.value}
                   type="button"
-                  onClick={() => setPhase(item.value)}
-                  className={`ppt-effect-button min-w-[54px] ${phase === item.value ? 'is-active' : ''}`}
+                  onClick={() => {
+                    setCleared(false);
+                    setPhase(item.value);
+                  }}
+                  className={`ppt-effect-button min-w-[54px] ${!cleared && phase === item.value ? 'is-active' : ''}`}
                 >
+                  <PptAnimationIcon phase={item.value} />
                   <span>{copy[item.key]}</span>
                 </button>
               ))}
@@ -131,7 +154,7 @@ export function AnimationRibbon({
                     onClick={() => onApplyMiddleAction(item.action)}
                     className={`ppt-effect-button min-w-[60px] ${animation?.action === item.action || (!animation?.action && item.action === 'shake-x' && animation?.effect === item.value) ? 'is-active' : ''}`}
                   >
-                    <span className="text-lg leading-none">{item.glyph}</span>
+                    <PptAnimationIcon phase={phase} effect={item.action} />
                     <span>{copy[item.key]}</span>
                   </button>
                 ))
@@ -143,7 +166,7 @@ export function AnimationRibbon({
                     onClick={() => onApply('line')}
                     className={`ppt-effect-button min-w-[72px] ${animation?.effect === 'line' ? 'is-active' : ''}`}
                   >
-                    <span className="text-lg leading-none">↔</span>
+                    <PptAnimationIcon phase={phase} effect="line" />
                     <span>{copy.line}</span>
                   </button>
                   {selected?.target === 'dialog-body' && phase === 'enter' ? (
@@ -152,7 +175,7 @@ export function AnimationRibbon({
                       onClick={onApplyLineWipe}
                       className={`ppt-effect-button min-w-[72px] ${animation?.textBuild?.mode === 'line-wipe' ? 'is-active' : ''}`}
                     >
-                      <span className="text-lg leading-none">▤</span>
+                      <PptAnimationIcon phase={phase} effect="line-wipe" />
                       <span>逐行打字</span>
                     </button>
                   ) : null}
@@ -184,7 +207,7 @@ export function AnimationRibbon({
               }
               className="ppt-ribbon-action"
             >
-              <Sparkles className="h-5 w-5" />
+              <PptAnimationIcon phase={phase} effect="add" />
               <span>{copy.addAnimation}</span>
             </button>
             <button type="button" className="ppt-ribbon-action" title={copy.trigger} disabled>
@@ -305,7 +328,7 @@ function TransitionControls({
               onClick={() => onUpdate({ effect: item.value })}
               className={`ppt-effect-button min-w-[62px] ${transition.effect === item.value ? 'is-active' : ''}`}
             >
-              <span className="text-lg leading-none">{item.glyph}</span>
+              <PptTransitionIcon effect={item.value} />
               <span>{copy[item.key]}</span>
             </button>
           ))}
@@ -400,7 +423,7 @@ function SlideTransitionIndicator({ transition }: { transition?: PptSlideTransit
       aria-label={`${copy.transition}: ${label}`}
       className="grid h-4 w-4 shrink-0 place-items-center text-xs leading-none text-[var(--vr-text-muted)]"
     >
-      {item.glyph}
+      <PptTransitionIcon effect={item.value} className="h-4 w-4" />
     </span>
   );
 }

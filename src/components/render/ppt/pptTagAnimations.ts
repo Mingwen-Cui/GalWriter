@@ -12,8 +12,15 @@ import type {
 import { getRenderObjects } from '../video/shared/renderObjects';
 import { stripHtml } from '../video/shared/storyNodes';
 import type { PptScene } from './pptSceneResolver';
+import { filterPptDisabledAnimations } from './pptAnimationReset';
 
-type Mention = { id: string; kind: 'character' | 'scene'; name: string; start: number; end: number };
+type Mention = {
+  id: string;
+  kind: 'character' | 'scene';
+  name: string;
+  start: number;
+  end: number;
+};
 export type PptDialogueTurn = { id: string; characterId?: string; name: string; text: string };
 
 /** Keep exported typewriter text readable instead of finishing in a flash. */
@@ -148,6 +155,9 @@ export const orderPptSceneAnimations = (
   textAnimations: PptObjectAnimation[],
   savedAnimations: PptObjectAnimation[],
 ) => {
+  tagAnimations = filterPptDisabledAnimations(tagAnimations, savedAnimations);
+  textAnimations = filterPptDisabledAnimations(textAnimations, savedAnimations);
+  savedAnimations = savedAnimations.filter((item) => item.effect !== 'none');
   const mentions = mentionsInDocumentOrder(scene.rawText);
   const characterIdForMention = (mention: Mention) =>
     scene.presentation.inlineActions?.find(
@@ -170,8 +180,10 @@ export const orderPptSceneAnimations = (
     .sort((left, right) => {
       const leftIndex = dialogueCharacterOrder.indexOf(left.targetId || '');
       const rightIndex = dialogueCharacterOrder.indexOf(right.targetId || '');
-      return (leftIndex < 0 ? Number.MAX_SAFE_INTEGER : leftIndex) -
-        (rightIndex < 0 ? Number.MAX_SAFE_INTEGER : rightIndex);
+      return (
+        (leftIndex < 0 ? Number.MAX_SAFE_INTEGER : leftIndex) -
+        (rightIndex < 0 ? Number.MAX_SAFE_INTEGER : rightIndex)
+      );
     });
   const exits = [
     ...characterExitOrder,
@@ -244,15 +256,14 @@ export const orderPptSceneAnimations = (
   if (!dialogueIndex && bodyTemplates.length) {
     const exitIndex = ordered.findIndex((item) => item.phase === 'exit');
     const savedIndex = ordered.findIndex((item) => item.source !== 'tag');
-    const insertionIndex = exitIndex >= 0 ? exitIndex : savedIndex >= 0 ? savedIndex : ordered.length;
+    const insertionIndex =
+      exitIndex >= 0 ? exitIndex : savedIndex >= 0 ? savedIndex : ordered.length;
     ordered.splice(insertionIndex, 0, ...bodyTemplates);
   }
   return ordered;
 };
 
-const directionForMotion = (
-  type: PresentationAnimation,
-): PptAnimationDirection => {
+const directionForMotion = (type: PresentationAnimation): PptAnimationDirection => {
   // Keep the direction as the authored movement direction. The native PPT
   // Fly In exporter derives the opposite source edge for entrances.
   if (type === 'slide-left') return 'left';
@@ -320,18 +331,18 @@ const actionEntry = (
     action.action === 'switch'
       ? 'wipe'
       : action.action === 'shake-x' || action.action === 'shake-y' || action.action === 'translate'
-      ? 'line'
-      : action.action === 'scale'
-        ? 'growShrink'
-        : action.action === 'pulse'
-          ? 'pulse'
-          : action.action === 'rotate'
-            ? 'spin'
-            : action.action === 'opacity'
-              ? 'transparency'
-              : action.action === 'brightness'
-                ? 'darken'
-                : 'fade';
+        ? 'line'
+        : action.action === 'scale'
+          ? 'growShrink'
+          : action.action === 'pulse'
+            ? 'pulse'
+            : action.action === 'rotate'
+              ? 'spin'
+              : action.action === 'opacity'
+                ? 'transparency'
+                : action.action === 'brightness'
+                  ? 'darken'
+                  : 'fade';
   return {
     id: `tag:${scene.id}:middle:${mention.id || order}`,
     source: 'tag',

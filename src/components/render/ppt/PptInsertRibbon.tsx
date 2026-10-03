@@ -1,4 +1,13 @@
-import { ClipboardPaste, Copy, CopyPlus, ImagePlus, PlusSquare, Type, Webhook } from 'lucide-react';
+import {
+  ClipboardPaste,
+  Copy,
+  CopyPlus,
+  ImagePlus,
+  PlusSquare,
+  Type,
+  MousePointerClick,
+  Scissors,
+} from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 
 import type { PptCopy } from './i18n';
@@ -10,11 +19,11 @@ import { webShapeCatalog } from '../web/webShapes';
 
 function InsertGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="relative min-w-max border-r border-[var(--vr-border)] px-4 pb-6 pt-2 last:border-r-0">
+    <section className="relative flex min-w-max items-center border-r border-[var(--vr-border)] px-4 pb-5 pt-2 last:border-r-0">
       <div className="absolute inset-x-0 bottom-1 text-center text-[10px] font-medium text-[var(--vr-text-muted)]">
         {label}
       </div>
-      <div className="grid grid-flow-col grid-rows-2 gap-x-3 gap-y-1">{children}</div>
+      <div className="flex items-center gap-3">{children}</div>
     </section>
   );
 }
@@ -55,6 +64,7 @@ export function PptInsertRibbon({
   onInsertButton,
   onInsertImage,
   onCopyElement,
+  onCutElement,
   onPasteElement,
   canCopyElement,
   canPasteElement,
@@ -70,6 +80,7 @@ export function PptInsertRibbon({
   onInsertButton: () => void;
   onInsertImage: (dataUrl: string, name: string) => void;
   onCopyElement: () => void;
+  onCutElement: () => void;
   onPasteElement: () => void;
   canCopyElement: boolean;
   canPasteElement: boolean;
@@ -85,11 +96,33 @@ export function PptInsertRibbon({
     reader.readAsDataURL(file);
   };
   return (
-    <header className="ppt-ribbon-shell" style={{ height: 112, flexBasis: 112 }}>
+    <header className="ppt-ribbon-shell" style={{ height: 88, flexBasis: 88 }}>
       <div className="ppt-ribbon">
         <InsertGroup label={copy.slides}>
           <InsertAction label={copy.newSlide} icon={PlusSquare} onClick={onNewSlide} />
           <InsertAction label={copy.duplicateSlide} icon={CopyPlus} onClick={onDuplicateSlide} />
+        </InsertGroup>
+        <InsertGroup
+          label={language === 'zh' ? '剪贴板' : language === 'ja' ? 'クリップボード' : 'Clipboard'}
+        >
+          <InsertAction
+            label={copy.cutElement}
+            icon={Scissors}
+            onClick={onCutElement}
+            disabled={!canCopyElement}
+          />
+          <InsertAction
+            label={copy.copyElement}
+            icon={Copy}
+            onClick={onCopyElement}
+            disabled={!canCopyElement}
+          />
+          <InsertAction
+            label={copy.pasteElement}
+            icon={ClipboardPaste}
+            onClick={onPasteElement}
+            disabled={!canPasteElement}
+          />
         </InsertGroup>
         <InsertGroup label={copy.image}>
           <input
@@ -109,22 +142,14 @@ export function PptInsertRibbon({
           />
         </InsertGroup>
         <InsertGroup label={copy.text}>
-          <InsertAction
-            label={copy.copyElement}
-            icon={Copy}
-            onClick={onCopyElement}
-            disabled={!canCopyElement}
-          />
-          <InsertAction
-            label={copy.pasteElement}
-            icon={ClipboardPaste}
-            onClick={onPasteElement}
-            disabled={!canPasteElement}
-          />
           <InsertAction label={copy.insertTitle} icon={Type} onClick={onInsertText} />
         </InsertGroup>
         <InsertGroup label={copy.button}>
-          <InsertAction label={copy.insertButton} icon={Webhook} onClick={onInsertButton} />
+          <InsertAction
+            label={copy.insertButton}
+            icon={MousePointerClick}
+            onClick={onInsertButton}
+          />
         </InsertGroup>
         <InsertGroup label={language === 'zh' ? '图形' : language === 'ja' ? '図形' : 'Shapes'}>
           <>
