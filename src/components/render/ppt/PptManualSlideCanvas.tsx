@@ -1,5 +1,11 @@
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 import type React from 'react';
+import type { Language } from '../../../lib/i18n';
+import { webShapeMarkup } from '../web/webShapes';
+import { WebShapeCornerHandles } from '../web/WebShapeCornerHandles';
+import { WebShapeSelectionOverlay } from '../web/WebShapeSelectionOverlay';
+import { toPptWebInspectorElement, toPptManualElementPatch } from './pptWebInspectorAdapter';
+import { constrainPptShape } from './pptShapes';
 import { useContext, useEffect, useRef, useState } from 'react';
 
 import type {
@@ -92,7 +98,7 @@ const textAlignStyle = (align: 'left' | 'center' | 'right' | undefined) => {
 };
 
 const slideBackgroundPaint = (background?: PptSlideBackgroundStyle): React.CSSProperties => {
-  if(background?.appearance)return {background:'transparent'};
+  if (background?.appearance) return { background: 'transparent' };
   if (!background) return {};
   if (background.type === 'gradient') {
     return {
@@ -176,6 +182,8 @@ const manualTextPaint = (
 };
 
 export function PptManualElementLayer({
+  language = 'zh',
+  canvasHeight = PPT_CONTENT_HEIGHT,
   elements,
   editable = false,
   selectedElementId,
@@ -184,6 +192,8 @@ export function PptManualElementLayer({
   onDeleteElement,
   onNavigateSlide,
 }: {
+  language?: Language;
+  canvasHeight?: number;
   elements: PptManualElement[];
   editable?: boolean;
   selectedElementId?: string;
@@ -239,7 +249,12 @@ export function PptManualElementLayer({
       onUpdateElement?.(element.id, { text: nextText });
   };
   const beginMove = (event: React.PointerEvent<HTMLDivElement>, element: PptManualElement) => {
-    if (!editable || !onUpdateElement || !isConfiguredSelectionButton(event.button) || editingElementId === element.id)
+    if (
+      !editable ||
+      !onUpdateElement ||
+      !isConfiguredSelectionButton(event.button) ||
+      editingElementId === element.id
+    )
       return;
     event.preventDefault();
     event.stopPropagation();
@@ -312,12 +327,16 @@ export function PptManualElementLayer({
       height = Math.max(32, Math.min(PPT_CONTENT_HEIGHT, height));
       x = Math.max(0, Math.min(PPT_CONTENT_WIDTH - width, x));
       y = Math.max(0, Math.min(PPT_CONTENT_HEIGHT - height, y));
-      onUpdateElement(element.id, {
+      const patch = {
         x: Math.round(x),
         y: Math.round(y),
         width: Math.round(width),
         height: Math.round(height),
-      });
+      };
+      onUpdateElement(
+        element.id,
+        element.kind === 'shape' ? constrainPptShape(element, patch, canvasHeight, handle) : patch,
+      );
     };
     const end = () => {
       window.removeEventListener('pointermove', move);
@@ -359,7 +378,11 @@ export function PptManualElementLayer({
       window.open(element.url, '_blank', 'noopener,noreferrer');
   };
   return (
-    <div className={`absolute inset-0 z-30 ${editable ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+    <div
+      data-presentation-width={PPT_CONTENT_WIDTH}
+      data-presentation-height={canvasHeight}
+      className={`absolute inset-0 z-30 ${editable ? 'pointer-events-auto' : 'pointer-events-none'}`}
+    >
       {elements.map((element) => {
         if (element.visible === false && !editable) return null;
         const selected =
@@ -375,7 +398,12 @@ export function PptManualElementLayer({
           height: `${(element.height / PPT_CONTENT_HEIGHT) * 100}%`,
           transform: `rotate(${element.rotation || 0}deg)`,
           transformOrigin: 'center',
-          ...manualElementPaint(element),
+          ...(element.kind === 'shape'
+            ? {
+                zIndex: element.webStyle?.zIndex,
+                mixBlendMode: element.webStyle?.blendMode as React.CSSProperties['mixBlendMode'],
+              }
+            : manualElementPaint(element)),
           opacity:
             element.visible === false && editable
               ? Math.min(0.3, (element.webStyle?.opacity ?? 100) / 100)
@@ -401,8 +429,24 @@ export function PptManualElementLayer({
               if (editable) onSelectElement?.(element.id);
             }}
           >
-            <SurfaceLayers value={element.webStyle?.appearance} radius={element.webStyle?.borderRadius || 0}/>
-            {element.kind === 'image' ? (
+            {element.kind !== 'shape' && (
+              <SurfaceLayers
+                value={element.webStyle?.appearance}
+                radius={element.webStyle?.borderRadius || 0}
+              />
+            )}
+            {element.kind === 'shape' ? (
+              <span
+                className="pointer-events-none absolute inset-0"
+                dangerouslySetInnerHTML={{
+                  __html: webShapeMarkup(
+                    toPptWebInspectorElement(element),
+                    PPT_CONTENT_WIDTH,
+                    canvasHeight,
+                  ),
+                }}
+              />
+            ) : element.kind === 'image' ? (
               <img
                 src={element.src}
                 alt={element.alt || ''}
@@ -457,7 +501,15 @@ export function PptManualElementLayer({
                 contentEditable
                 suppressContentEditableWarning
                 className={`h-full w-full cursor-text px-8 outline-none transition ${buttonClass(element.variant)}`}
-                style={{ ...manualElementPaint(element), ...manualTextPaint(element),position:'relative',zIndex:1,...(element.webStyle?.appearance?{background:'transparent',border:0,boxShadow:'none'}:{}) }}
+                style={{
+                  ...manualElementPaint(element),
+                  ...manualTextPaint(element),
+                  position: 'relative',
+                  zIndex: 1,
+                  ...(element.webStyle?.appearance
+                    ? { background: 'transparent', border: 0, boxShadow: 'none' }
+                    : {}),
+                }}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
                 onInput={(event) => setDraftText(event.currentTarget.innerText)}
@@ -480,25 +532,47 @@ export function PptManualElementLayer({
                 type="button"
                 onClick={() => runButtonAction(element)}
                 className={`h-full w-full px-8 transition ${editable ? 'cursor-grab active:cursor-grabbing' : ''} ${buttonClass(element.variant)}`}
-                style={{ ...manualElementPaint(element), ...manualTextPaint(element),position:'relative',zIndex:1,...(element.webStyle?.appearance?{background:'transparent',border:0,boxShadow:'none'}:{}) }}
+                style={{
+                  ...manualElementPaint(element),
+                  ...manualTextPaint(element),
+                  position: 'relative',
+                  zIndex: 1,
+                  ...(element.webStyle?.appearance
+                    ? { background: 'transparent', border: 0, boxShadow: 'none' }
+                    : {}),
+                }}
               >
                 {element.text}
               </button>
             )}
             {selected ? (
-              <WebEditableElementFrame
-                visible={element.visible !== false}
-                onToggleVisible={(event) => {
-                  event.stopPropagation();
-                  onUpdateElement?.(element.id, { visible: element.visible === false });
-                }}
-                onDelete={(event) => {
-                  event.stopPropagation();
-                  onDeleteElement?.(element.id);
-                }}
-                onRotatePointerDown={(event) => beginRotate(event, element)}
-                onResizePointerDown={(event, handle) => beginResize(event, element, handle)}
-              />
+              <WebShapeSelectionOverlay
+                element={toPptWebInspectorElement(element)}
+                enabled={element.kind === 'shape'}
+              >
+                <WebEditableElementFrame
+                  visible={element.visible !== false}
+                  onToggleVisible={(event) => {
+                    event.stopPropagation();
+                    onUpdateElement?.(element.id, { visible: element.visible === false });
+                  }}
+                  onDelete={(event) => {
+                    event.stopPropagation();
+                    onDeleteElement?.(element.id);
+                  }}
+                  onRotatePointerDown={(event) => beginRotate(event, element)}
+                  onResizePointerDown={(event, handle) => beginResize(event, element, handle)}
+                />
+                {element.kind === 'shape' && onUpdateElement && (
+                  <WebShapeCornerHandles
+                    element={toPptWebInspectorElement(element)}
+                    language={language}
+                    onUpdate={(_, patch) =>
+                      onUpdateElement(element.id, toPptManualElementPatch(element, patch))
+                    }
+                  />
+                )}
+              </WebShapeSelectionOverlay>
             ) : null}
           </div>
         );
@@ -508,6 +582,9 @@ export function PptManualElementLayer({
 }
 
 export function PptManualSlideCanvas({
+  language,
+  canvasHeight,
+  placement,
   slide,
   editable = false,
   selectedElementId,
@@ -517,6 +594,9 @@ export function PptManualSlideCanvas({
   onNavigateSlide,
   onSelectBackground,
 }: {
+  language?: Language;
+  canvasHeight?: number;
+  placement?: React.ReactNode;
   slide: PptManualSlide;
   editable?: boolean;
   selectedElementId?: string;
@@ -537,8 +617,12 @@ export function PptManualSlideCanvas({
         if (event.target === event.currentTarget) onSelectBackground?.();
       }}
     >
-      {slide.backgroundStyle?.appearance && <SurfaceLayers value={slide.backgroundStyle.appearance}/>}
-      {!slide.backgroundStyle?.appearance && slide.backgroundStyle?.type === 'video' && slide.backgroundStyle.videoUrl ? (
+      {slide.backgroundStyle?.appearance && (
+        <SurfaceLayers value={slide.backgroundStyle.appearance} />
+      )}
+      {!slide.backgroundStyle?.appearance &&
+      slide.backgroundStyle?.type === 'video' &&
+      slide.backgroundStyle.videoUrl ? (
         <video
           className="pointer-events-none absolute inset-0 h-full w-full"
           src={slide.backgroundStyle.videoUrl}
@@ -550,6 +634,8 @@ export function PptManualSlideCanvas({
         />
       ) : null}
       <PptManualElementLayer
+        language={language}
+        canvasHeight={canvasHeight}
         elements={slide.elements}
         editable={editable}
         selectedElementId={selectedElementId}
@@ -558,6 +644,7 @@ export function PptManualSlideCanvas({
         onDeleteElement={onDeleteElement}
         onNavigateSlide={onNavigateSlide}
       />
+      {placement}
     </div>
   );
 }

@@ -2,14 +2,19 @@ import { ClipboardPaste, Copy, CopyPlus, ImagePlus, PlusSquare, Type, Webhook } 
 import { type ReactNode, useRef } from 'react';
 
 import type { PptCopy } from './i18n';
+import type { Language } from '../../../lib/i18n';
+import type { WebMenuElement } from '../video/shared/types';
+import { WebShapeIcon } from '../web/WebShapeAddControl';
+import { webInsertToolClass, webInsertToolStateClass } from '../web/WebInsertToolButton';
+import { webShapeCatalog } from '../web/webShapes';
 
 function InsertGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="relative flex min-w-max items-center gap-1 border-r border-[var(--vr-border)] px-3 pb-5 pt-2 last:border-r-0">
+    <section className="relative min-w-max border-r border-[var(--vr-border)] px-4 pb-6 pt-2 last:border-r-0">
       <div className="absolute inset-x-0 bottom-1 text-center text-[10px] font-medium text-[var(--vr-text-muted)]">
         {label}
       </div>
-      {children}
+      <div className="grid grid-flow-col grid-rows-2 gap-x-3 gap-y-1">{children}</div>
     </section>
   );
 }
@@ -30,16 +35,20 @@ function InsertAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="ppt-ribbon-action min-w-[66px] disabled:cursor-not-allowed disabled:opacity-40"
+      aria-label={label}
+      title={label}
+      className={`${webInsertToolClass} ${webInsertToolStateClass()}`}
     >
-      <Icon className="h-5 w-5" />
-      <span>{label}</span>
+      <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
     </button>
   );
 }
 
 export function PptInsertRibbon({
   copy,
+  language,
+  onInsertShape,
+  selectedShape,
   onNewSlide,
   onDuplicateSlide,
   onInsertText,
@@ -52,6 +61,9 @@ export function PptInsertRibbon({
   exportRules,
 }: {
   copy: PptCopy;
+  language: Language;
+  onInsertShape: (type: NonNullable<WebMenuElement['shapeType']>) => void;
+  selectedShape?: WebMenuElement['shapeType'];
   onNewSlide: () => void;
   onDuplicateSlide: () => void;
   onInsertText: () => void;
@@ -73,7 +85,7 @@ export function PptInsertRibbon({
     reader.readAsDataURL(file);
   };
   return (
-    <header className="ppt-ribbon-shell">
+    <header className="ppt-ribbon-shell" style={{ height: 112, flexBasis: 112 }}>
       <div className="ppt-ribbon">
         <InsertGroup label={copy.slides}>
           <InsertAction label={copy.newSlide} icon={PlusSquare} onClick={onNewSlide} />
@@ -90,7 +102,11 @@ export function PptInsertRibbon({
               event.target.value = '';
             }}
           />
-          <InsertAction label={copy.insertImage} icon={ImagePlus} onClick={() => imageInputRef.current?.click()} />
+          <InsertAction
+            label={copy.insertImage}
+            icon={ImagePlus}
+            onClick={() => imageInputRef.current?.click()}
+          />
         </InsertGroup>
         <InsertGroup label={copy.text}>
           <InsertAction
@@ -109,6 +125,23 @@ export function PptInsertRibbon({
         </InsertGroup>
         <InsertGroup label={copy.button}>
           <InsertAction label={copy.insertButton} icon={Webhook} onClick={onInsertButton} />
+        </InsertGroup>
+        <InsertGroup label={language === 'zh' ? '图形' : language === 'ja' ? '図形' : 'Shapes'}>
+          <>
+            {webShapeCatalog(language).map(({ type, label }) => (
+              <button
+                key={type}
+                type="button"
+                aria-label={label}
+                title={label}
+                aria-pressed={selectedShape === type}
+                className={`${webInsertToolClass} ${webInsertToolStateClass(selectedShape === type)}`}
+                onClick={() => onInsertShape(type)}
+              >
+                <WebShapeIcon type={type} />
+              </button>
+            ))}
+          </>
         </InsertGroup>
       </div>
       {exportRules}

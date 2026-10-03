@@ -26,6 +26,7 @@ import type {
 import { syncNameplateAnimations } from './pptAnimationPreview';
 import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
 import { renderPptGradientPng } from './pptGradient';
+import { addPptShape } from './pptShapes';
 import {
   getPptImageDimensions,
   toPptImageData,
@@ -264,12 +265,35 @@ export async function buildPptxBuffer({
     items.push(slide);
     manualByAnchor.set(anchor, items);
   });
-  const addSlideElements = async (slide: PptxGenJS.Slide, elements: PptManualElement[]) => {
+  const addSlideElements = async (
+    slide: PptxGenJS.Slide,
+    elements: PptManualElement[],
+    manual = false,
+  ) => {
     for (const element of [...elements].sort(
       (left, right) => (left.webStyle?.zIndex || 0) - (right.webStyle?.zIndex || 0),
     )) {
       if (element.visible === false) continue;
       const webStyle = element.webStyle || {};
+      if (element.kind === 'shape') {
+        const outer = manual || pptSettings.layoutContentMode !== 'fit';
+        const standard = pptSettings.layout === 'LAYOUT_STANDARD';
+        const frame = outer
+          ? {
+              x: (element.x / 1920) * (standard ? 10 : WIDE_PAGE_WIDTH),
+              y: (element.y / 1080) * WIDE_PAGE_HEIGHT,
+              w: (element.width / 1920) * (standard ? 10 : WIDE_PAGE_WIDTH),
+              h: (element.height / 1080) * WIDE_PAGE_HEIGHT,
+            }
+          : page.frame(
+              (element.x / 1920) * WIDE_PAGE_WIDTH,
+              (element.y / 1080) * WIDE_PAGE_HEIGHT,
+              (element.width / 1920) * WIDE_PAGE_WIDTH,
+              (element.height / 1080) * WIDE_PAGE_HEIGHT,
+            );
+        addPptShape(slide, element, frame, outer && standard ? 1440 : 1080);
+        continue;
+      }
       const frame = page.frame(
         (element.x / 1920) * WIDE_PAGE_WIDTH,
         (element.y / 1080) * WIDE_PAGE_HEIGHT,
@@ -375,7 +399,7 @@ export async function buildPptxBuffer({
     slide.background = { color: hex(backgroundColorFor(manual.id, manual.backgroundColor)) };
     slide.hidden = hiddenSlideIds.has(manual.id);
     await addBackgroundImage(slide, manual.backgroundStyle, manual.title || manual.id);
-    await addSlideElements(slide, manual.elements);
+    await addSlideElements(slide, manual.elements, true);
   };
   const appendManualSlides = async (anchorId: string) => {
     for (const manual of manualByAnchor.get(anchorId) || []) {

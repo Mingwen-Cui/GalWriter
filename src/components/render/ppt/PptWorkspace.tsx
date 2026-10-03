@@ -65,6 +65,9 @@ import {
 } from './pptCoverTemplate';
 import { PptExportRulesRibbon } from './PptExportRulesRibbon';
 import { PptInsertRibbon } from './PptInsertRibbon';
+import { WebElementPlacementOverlay } from '../web/WebElementPlacementOverlay';
+import type { WebPlacementTool, PlacementGeometry } from '../web/webElementPlacement';
+import { createPptShape, constrainPptShape } from './pptShapes';
 import {
   createManualButton,
   createManualImage,
@@ -371,6 +374,9 @@ export function PptWorkspace({
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
   const [slideClipboard, setSlideClipboard] = useState<PptManualSlide>();
   const [manualElementClipboard, setManualElementClipboard] = useState<PptManualElement>();
+  const [shapeTool, setShapeTool] = useState<WebPlacementTool | null>(null);
+  const cancelShapePlacement = useCallback(() => setShapeTool(null), []);
+  useEffect(() => setShapeTool(null), [selectedId, ribbonTab, viewMode, isPlaying, isPreviewing]);
   const [boxSelectedKeys, setBoxSelectedKeys] = useState<Set<string>>(() => new Set());
   const [videoDurationByScene, setVideoDurationByScene] = useState<Record<string, number>>({});
   const playerRef = useRef<HTMLDivElement>(null);
@@ -716,6 +722,17 @@ export function PptWorkspace({
     });
   };
   const updateActiveManualElement = (elementId: string, patch: Partial<PptManualElement>) => {
+    const element = (manualSlide?.elements || activeSlideElements).find(
+      (item) => item.id === elementId,
+    );
+    if (element?.kind === 'shape')
+      patch = constrainPptShape(
+        element,
+        patch,
+        manualSlide || pptSettings.layoutContentMode !== 'fit'
+          ? pptCanvasContentHeight(pptSettings.layout)
+          : PPT_CONTENT_HEIGHT,
+      );
     if (manualSlide) {
       saveManualSlides(
         manualSlides.map((slide) =>
@@ -1264,6 +1281,14 @@ export function PptWorkspace({
         {!ribbonCollapsed &&
           (ribbonTab === 'insert' ? (
             <PptInsertRibbon
+              language={language}
+              selectedShape={shapeTool?.shapeType}
+              onInsertShape={(shapeType) => {
+                setSelectedManualElementId(undefined);
+                setSelectedObject(null);
+                setBoxSelectedKeys(new Set());
+                setShapeTool({ kind: 'shape', shapeType });
+              }}
               copy={copy}
               onNewSlide={() => addManualSlide()}
               onDuplicateSlide={duplicateCurrentManualSlide}
@@ -1419,6 +1444,14 @@ export function PptWorkspace({
                           previewAtMs={timelinePlayheadMs}
                           onVideoDurationChange={updateCurrentVideoDuration}
                           editable
+                          language={language}
+                          shapeTool={shapeTool}
+                          onCancelShape={cancelShapePlacement}
+                          onPlaceShape={(geometry) => {
+                            if (shapeTool)
+                              appendManualElement(createPptShape(shapeTool.shapeType, geometry));
+                            setShapeTool(null);
+                          }}
                           onSelect={selectObject}
                           onUpdateObject={updatePptObject}
                           onUpdateText={updatePptText}
@@ -1550,6 +1583,10 @@ export function PptWorkspace({
 }
 
 export function SlideCanvas({
+  language = 'zh',
+  shapeTool,
+  onPlaceShape,
+  onCancelShape,
   selectedId,
   isChoiceSlide = false,
   scene,
@@ -1585,6 +1622,10 @@ export function SlideCanvas({
   onBoxSelectionChange,
   onSelectBackground,
 }: {
+  language?: Language;
+  shapeTool?: WebPlacementTool | null;
+  onPlaceShape?: (geometry: PlacementGeometry) => void;
+  onCancelShape?: () => void;
   selectedId: string;
   isChoiceSlide?: boolean;
   scene?: Scene;
@@ -1643,6 +1684,7 @@ export function SlideCanvas({
   const suppressMarqueeContextMenuRef = useRef(false);
   const suppressMarqueeClickRef = useRef(false);
   const beginSlideMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (shapeTool) return;
     if (!editable || !isConfiguredSelectionButton(event.button)) return;
     const target = event.target as HTMLElement;
     if (target.closest('[data-editable-frame-control]')) return;
@@ -1755,11 +1797,25 @@ export function SlideCanvas({
     ? { background: 'transparent' }
     : pptBackgroundCss(backgroundStyle);
   const shouldFitContent = layout === 'LAYOUT_STANDARD' && layoutContentMode === 'fit';
+  const shapeCanvasHeight =
+    manualSlide || !shouldFitContent ? pptCanvasContentHeight(layout) : PPT_CONTENT_HEIGHT;
+  const placement =
+    editable && shapeTool && onPlaceShape && onCancelShape ? (
+      <WebElementPlacementOverlay
+        key={`${selectedId}:${shapeTool.shapeType}`}
+        tool={shapeTool}
+        language={language}
+        canvasWidth={PPT_CONTENT_WIDTH}
+        canvasHeight={shapeCanvasHeight}
+        onPlace={onPlaceShape}
+        onCancel={onCancelShape}
+      />
+    ) : null;
   return (
     <PptBoxSelectionContext.Provider value={boxSelectedKeys}>
       <div
-        data-presentation-width={webSettings.canvasWidth}
-        data-presentation-height={webSettings.canvasHeight}
+        data-presentation-width={PPT_CONTENT_WIDTH}
+        data-presentation-height={pptCanvasContentHeight(layout)}
         className={`ppt-slide-canvas ppt-transition-${transition.effect} relative w-full overflow-hidden border border-white/15 bg-slate-950 shadow-2xl ${pptCanvasViewportClass(layout)}`}
         ref={slideCanvasRef}
         style={{
@@ -1815,6 +1871,9 @@ export function SlideCanvas({
         ) : null}
         {manualSlide ? (
           <PptManualSlideCanvas
+            language={language}
+            canvasHeight={shapeCanvasHeight}
+            placement={placement}
             slide={manualSlide}
             editable={editable}
             selectedElementId={selectedManualElementId}
@@ -1826,6 +1885,8 @@ export function SlideCanvas({
           />
         ) : (
           <div
+            data-presentation-width={PPT_CONTENT_WIDTH}
+            data-presentation-height={shapeCanvasHeight}
             className={
               shouldFitContent
                 ? 'absolute inset-x-0 top-1/2 aspect-video -translate-y-1/2 overflow-hidden'
@@ -1885,6 +1946,8 @@ export function SlideCanvas({
             ) : null}
             {slideElements?.length ? (
               <PptManualElementLayer
+                language={language}
+                canvasHeight={shapeCanvasHeight}
                 elements={slideElements}
                 editable={editable}
                 selectedElementId={selectedManualElementId}
@@ -1894,6 +1957,7 @@ export function SlideCanvas({
                 onNavigateSlide={onChoose}
               />
             ) : null}
+            {placement}
           </div>
         )}
         {marquee &&
@@ -2496,8 +2560,7 @@ function ScenePreview({
             // each character's height here makes labels drift vertically.
             const labelTop = Math.max(
               2,
-              (panelLayout.y - (renderStyle.nameplateInside ? -12 : nameplate.height + 14)) /
-                10.8 +
+              (panelLayout.y - (renderStyle.nameplateInside ? -12 : nameplate.height + 14)) / 10.8 +
                 (renderStyle.nameplateOffsetY || 0) / 10.8,
             );
             const characterAnimations = findAnimation(
