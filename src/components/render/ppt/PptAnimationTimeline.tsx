@@ -5,7 +5,13 @@ import type { PptObjectAnimation } from '../video/shared/types';
 import { targetLabel } from './pptAnimationLabels';
 import { usePptCopy } from './pptCopyContext';
 import { pptDirectionArrow } from './PptDirectionControl';
-import { movePptTimelineAnimations, pptTimelineStarts } from './pptTimelineEdits';
+import {
+  canDeletePptTimelineAnimation,
+  movePptTimelineAnimations,
+  pptTimelineMarqueeIds,
+  pptTimelineStarts,
+  resizePptTimelineAnimation,
+} from './pptTimelineEdits';
 import type { VideoTimelineTrack } from './PptWorkspace';
 import { effectLabel, startLabel } from './PptWorkspace';
 import { PPT_TIMELINE_MIN_DURATION_MS } from './pptWorkspaceModel';
@@ -21,6 +27,7 @@ export function AnimationTimeline({
   onDelete,
   onDeleteAnimations,
   onMoveAnimations,
+  onResizeAnimation,
   onPreview,
   previewing,
   loopPreview,
@@ -38,6 +45,7 @@ export function AnimationTimeline({
   onDelete: (id: string) => void;
   onDeleteAnimations: (ids: string[]) => void;
   onMoveAnimations: (ids: string[], deltaMs: number) => void;
+  onResizeAnimation: (id: string, edge: 'left' | 'right', deltaMs: number) => void;
   onPreview: () => void;
   previewing: boolean;
   loopPreview: boolean;
@@ -52,15 +60,34 @@ export function AnimationTimeline({
     width: number;
     duration: number;
     ids: string[];
+    mode: 'move' | 'left' | 'right';
+    id: string;
     animations: PptObjectAnimation[];
     deltaMs: number;
     moved: boolean;
   } | null>(null);
   const suppressClipClickRef = useRef(false);
+  const suppressMarqueeClickRef = useRef(false);
+  const marqueeRef = useRef<{
+    x: number;
+    y: number;
+    initial: Set<string>;
+    additive: boolean;
+    moved: boolean;
+  } | null>(null);
+  const [marquee, setMarquee] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const visibleAnimations = dragPreview || animations;
   const starts = pptTimelineStarts(visibleAnimations);
   const selectedAnimationIds = animations
     .filter((item) => selectedIds.has(item.id))
+    .map((item) => item.id);
+  const deletableSelectedIds = animations
+    .filter((item) => selectedIds.has(item.id) && canDeletePptTimelineAnimation(item))
     .map((item) => item.id);
   const toggleSelection = (id: string) =>
     setSelectedIds((previous) => {
@@ -69,10 +96,82 @@ export function AnimationTimeline({
       else next.add(id);
       return next;
     });
+  const selectClip = (event: React.MouseEvent, item: PptObjectAnimation) => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey) toggleSelection(item.id);
+    else setSelectedIds(new Set([item.id]));
+    onSelect(item);
+  };
+  const beginMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || (event.target as HTMLElement).closest('[data-ppt-animation-clip]'))
+      return;
+    const button = (event.target as HTMLElement).closest('button');
+    if (button && !button.hasAttribute('data-ppt-timeline-track')) return;
+    event.preventDefault();
+    event.currentTarget.focus({ preventScroll: true });
+    marqueeRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      initial: new Set(selectedIds),
+      additive: event.ctrlKey || event.metaKey || event.shiftKey,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (button) {
+      const item = animations.find((entry) => entry.id === button.dataset.pptTimelineTrack);
+      if (item) {
+        setSelectedIds(new Set([item.id]));
+        onSelect(item);
+      }
+    } else if (!marqueeRef.current.additive) setSelectedIds(new Set());
+  };
+  const updateMarquee = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = marqueeRef.current;
+    if (!drag || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 3 && !drag.moved) return;
+    drag.moved = true;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const box = {
+      left: Math.min(drag.x, event.clientX),
+      right: Math.max(drag.x, event.clientX),
+      top: Math.min(drag.y, event.clientY),
+      bottom: Math.max(drag.y, event.clientY),
+    };
+    setMarquee({
+      left: box.left - bounds.left,
+      top: box.top - bounds.top,
+      width: box.right - box.left,
+      height: box.bottom - box.top,
+    });
+    const clips = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>('[data-ppt-animation-clip]'),
+    ].map((clip) => ({
+      id: clip.dataset.pptAnimationClip!,
+      ...(() => {
+        const rect = clip.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      })(),
+    }));
+    setSelectedIds(
+      new Set([...(drag.additive ? drag.initial : []), ...pptTimelineMarqueeIds(box, clips)]),
+    );
+  };
+  const endMarquee = (event: React.PointerEvent<HTMLDivElement>, cancel = false) => {
+    const drag = marqueeRef.current;
+    if (!drag) return;
+    marqueeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (cancel) setSelectedIds(drag.initial);
+    suppressMarqueeClickRef.current = drag.moved;
+    setMarquee(null);
+  };
   const beginClipDrag = (event: React.PointerEvent<HTMLSpanElement>, item: PptObjectAnimation) => {
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget
+      .closest<HTMLElement>('[data-ppt-timeline-tracks]')
+      ?.focus({ preventScroll: true });
     if (event.ctrlKey || event.metaKey || event.shiftKey) {
       toggleSelection(item.id);
       return;
@@ -87,6 +186,10 @@ export function AnimationTimeline({
       width,
       duration: viewportDurationMs,
       ids,
+      mode:
+        ((event.target as HTMLElement).closest<HTMLElement>('[data-ppt-animation-resize]')?.dataset
+          .pptAnimationResize as 'left' | 'right' | undefined) || 'move',
+      id: item.id,
       animations,
       deltaMs: 0,
       moved: false,
@@ -100,7 +203,11 @@ export function AnimationTimeline({
     drag.moved = true;
     drag.deltaMs =
       Math.round((((event.clientX - drag.x) / Math.max(1, drag.width)) * drag.duration) / 50) * 50;
-    setDragPreview(movePptTimelineAnimations(drag.animations, drag.ids, drag.deltaMs));
+    setDragPreview(
+      drag.mode === 'move'
+        ? movePptTimelineAnimations(drag.animations, drag.ids, drag.deltaMs)
+        : resizePptTimelineAnimation(drag.animations, drag.id, drag.mode, drag.deltaMs),
+    );
   };
   const endClipDrag = (event: React.PointerEvent<HTMLSpanElement>, cancel = false) => {
     const drag = clipDragRef.current;
@@ -109,7 +216,10 @@ export function AnimationTimeline({
       event.currentTarget.releasePointerCapture(event.pointerId);
     setDragPreview(null);
     suppressClipClickRef.current = Boolean(drag?.moved);
-    if (!cancel && drag?.moved) onMoveAnimations(drag.ids, drag.deltaMs);
+    if (!cancel && drag?.moved) {
+      if (drag.mode === 'move') onMoveAnimations(drag.ids, drag.deltaMs);
+      else onResizeAnimation(drag.id, drag.mode, drag.deltaMs);
+    }
   };
   const totalMs = Math.max(
     videoTrack?.durationMs || 0,
@@ -223,7 +333,7 @@ export function AnimationTimeline({
     if (visibleEnd <= visibleStart) return { display: 'none' as const };
     return {
       left: `${((visibleStart - viewportStartMs) / viewportDurationMs) * 100}%`,
-      width: `${Math.max(3, ((visibleEnd - visibleStart) / viewportDurationMs) * 100)}%`,
+      width: `max(24px, ${((visibleEnd - visibleStart) / viewportDurationMs) * 100}%)`,
     };
   };
   const animationFrameStyle = (item: PptObjectAnimation, frame: number): React.CSSProperties => {
@@ -291,30 +401,17 @@ export function AnimationTimeline({
       </div>
       {animations.length ? (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--vr-text-muted)]">
-          <label className="flex items-center gap-1">
-            <input
-              type="checkbox"
-              aria-label={copy.selectAllAnimations}
-              checked={selectedAnimationIds.length === animations.length}
-              onChange={(event) =>
-                setSelectedIds(
-                  new Set(event.target.checked ? animations.map((item) => item.id) : []),
-                )
-              }
-            />
-            {copy.selectAllAnimations}
-          </label>
           <span>{copy.dragAnimationDelay}</span>
-          {selectedAnimationIds.length ? (
+          {deletableSelectedIds.length ? (
             <button
               type="button"
               className="ppt-mini-button ml-auto text-rose-500"
               onClick={() => {
-                onDeleteAnimations(selectedAnimationIds);
+                onDeleteAnimations(deletableSelectedIds);
                 setSelectedIds(new Set());
               }}
             >
-              {copy.delete} ({selectedAnimationIds.length})
+              {copy.delete} ({deletableSelectedIds.length})
             </button>
           ) : null}
         </div>
@@ -362,7 +459,40 @@ export function AnimationTimeline({
                     </span>
                   </div>
                 </div>
-                <div className="relative space-y-1.5 pt-2">
+                <div
+                  className="relative select-none space-y-1.5 pb-3 pt-2 outline-none"
+                  data-ppt-timeline-tracks
+                  tabIndex={0}
+                  aria-label={copy.animation}
+                  onPointerDownCapture={beginMarquee}
+                  onPointerMove={updateMarquee}
+                  onPointerUp={(event) => endMarquee(event)}
+                  onPointerCancel={(event) => endMarquee(event, true)}
+                  onClickCapture={(event) => {
+                    if (suppressMarqueeClickRef.current) {
+                      suppressMarqueeClickRef.current = false;
+                      event.stopPropagation();
+                      event.preventDefault();
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      (event.key === 'Delete' || event.key === 'Backspace') &&
+                      deletableSelectedIds.length
+                    ) {
+                      event.preventDefault();
+                      onDeleteAnimations(deletableSelectedIds);
+                      setSelectedIds(new Set());
+                    }
+                  }}
+                >
+                  {marquee ? (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute z-40 border border-[var(--vr-accent)] bg-[var(--vr-accent-soft)]"
+                      style={marquee}
+                    />
+                  ) : null}
                   <span className="pointer-events-none absolute bottom-0 left-[116px] right-0 top-0 z-20">
                     <span
                       className="absolute inset-y-0 w-0.5 bg-[var(--vr-accent)]/90 shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"
@@ -424,17 +554,10 @@ export function AnimationTimeline({
                       key={item.id}
                       className="grid grid-cols-[108px_minmax(0,1fr)] items-center gap-2"
                     >
-                      <div className="flex min-w-0 items-center gap-1">
-                        <input
-                          type="checkbox"
-                          className="shrink-0"
-                          aria-label={`${copy.selectAnimation} ${index + 1}`}
-                          checked={selectedIds.has(item.id)}
-                          onChange={() => toggleSelection(item.id)}
-                        />
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_20px] items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => onSelect(item)}
+                          onClick={(event) => selectClip(event, item)}
                           className="flex min-w-0 items-center gap-1.5 text-left text-[11px] font-bold text-[var(--vr-text)]"
                           title={`${targetLabel(copy, item)} · ${effectLabel(copy, item.effect, item.action)} · ${startLabel(copy, item.start)} · 开始于 ${(starts[index] / 1000).toFixed(1)}s`}
                           aria-label={`${targetLabel(copy, item)} · ${copy[item.phase || 'enter']} · ${effectLabel(copy, item.effect, item.action)} · 开始于 ${(starts[index] / 1000).toFixed(1)} 秒`}
@@ -455,27 +578,34 @@ export function AnimationTimeline({
                             </span>
                           </span>
                         </button>
-                        <button
-                          type="button"
-                          className="shrink-0 rounded p-1 text-rose-500 hover:bg-rose-500/10"
-                          title={copy.delete}
-                          aria-label={`${copy.delete} ${copy.animation} ${index + 1}`}
-                          onClick={() => onDelete(item.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                        {canDeletePptTimelineAnimation(item) ? (
+                          <button
+                            type="button"
+                            className="grid h-5 w-5 place-items-center rounded text-rose-500 hover:bg-rose-500/10"
+                            title={copy.delete}
+                            aria-label={`${copy.delete} ${copy.animation} ${index + 1}`}
+                            onClick={() => onDelete(item.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <span aria-hidden="true" />
+                        )}
                       </div>
                       <button
                         type="button"
+                        data-ppt-timeline-track={item.id}
+                        aria-pressed={selectedIds.has(item.id)}
                         onClick={(event) => {
                           if (suppressClipClickRef.current) {
                             suppressClipClickRef.current = false;
                             return;
                           }
                           if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+                          setSelectedIds(new Set([item.id]));
                           onSelect(item);
                         }}
-                        className={`relative h-8 overflow-hidden rounded border text-left ${
+                        className={`relative h-8 overflow-hidden rounded border text-left ${selectedIds.has(item.id) ? 'ring-2 ring-[var(--vr-accent)]' : ''} ${
                           selectedIds.has(item.id) ||
                           (playheadMs >= starts[index] &&
                             playheadMs <= starts[index] + item.durationMs)
@@ -486,13 +616,32 @@ export function AnimationTimeline({
                       >
                         <span
                           data-ppt-animation-clip={item.id}
-                          className={`absolute inset-y-1 cursor-ew-resize touch-none overflow-hidden rounded ${phaseMarkerClass(item)} text-white`}
+                          className={`absolute inset-y-1 cursor-grab touch-none overflow-hidden rounded active:cursor-grabbing ${phaseMarkerClass(item)} text-white`}
                           onPointerDown={(event) => beginClipDrag(event, item)}
                           onPointerMove={moveClipDrag}
                           onPointerUp={(event) => endClipDrag(event)}
                           onPointerCancel={(event) => endClipDrag(event, true)}
                           style={clipStyle(starts[index], item.durationMs)}
                         >
+                          {starts[index] >= viewportStartMs ? (
+                            <span
+                              data-ppt-animation-resize="left"
+                              className="absolute inset-y-0 left-0 z-30 flex w-2 cursor-ew-resize items-center justify-center bg-black/10 hover:bg-black/25"
+                              title={copy.resizeAnimationStart}
+                            >
+                              <i className="h-3 w-0.5 rounded bg-white/90" />
+                            </span>
+                          ) : null}
+                          {starts[index] + item.durationMs <=
+                          viewportStartMs + viewportDurationMs ? (
+                            <span
+                              data-ppt-animation-resize="right"
+                              className="absolute inset-y-0 right-0 z-30 flex w-2 cursor-ew-resize items-center justify-center bg-black/10 hover:bg-black/25"
+                              title={copy.resizeAnimationEnd}
+                            >
+                              <i className="h-3 w-0.5 rounded bg-white/90" />
+                            </span>
+                          ) : null}
                           <span className="absolute inset-x-1 bottom-1 grid h-1.5 grid-cols-8 gap-px opacity-65">
                             {Array.from({ length: 8 }, (_, frame) => (
                               <i
@@ -502,7 +651,7 @@ export function AnimationTimeline({
                               />
                             ))}
                           </span>
-                          <strong className="relative z-10 block truncate px-2 text-[10px] leading-5 text-white">
+                          <strong className="relative z-10 block truncate px-3 text-[10px] leading-5 text-white">
                             {effectLabel(copy, item.effect, item.action)}
                           </strong>
                         </span>
@@ -601,15 +750,17 @@ export function AnimationTimeline({
                       </small>
                     </span>
                   </button>
-                  <div className="mt-2 flex justify-end gap-1">
-                    <button
-                      type="button"
-                      className="ppt-mini-button text-rose-500"
-                      onClick={() => onDelete(item.id)}
-                    >
-                      {copy.delete}
-                    </button>
-                  </div>
+                  {canDeletePptTimelineAnimation(item) ? (
+                    <div className="mt-2 flex justify-end gap-1">
+                      <button
+                        type="button"
+                        className="ppt-mini-button text-rose-500"
+                        onClick={() => onDelete(item.id)}
+                      >
+                        {copy.delete}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

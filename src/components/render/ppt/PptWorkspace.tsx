@@ -97,8 +97,10 @@ import {
 } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
 import {
+  canDeletePptTimelineAnimation,
   deletePptTimelineAnimations,
   movePptTimelineAnimations,
+  resizePptTimelineAnimation,
   savePptTimelineOverrides,
 } from './pptTimelineEdits';
 import { normalizePptTransition, pptTransitionPreviewStyle } from './pptTransitions';
@@ -1144,6 +1146,10 @@ export function PptWorkspace({
     });
   };
   const deleteTimelineAnimations = (ids: string[]) => {
+    ids = ids.filter((id) =>
+      currentAnimations.some((item) => item.id === id && canDeletePptTimelineAnimation(item)),
+    );
+    if (!ids.length) return;
     pausePreview();
     setTimelinePlayheadMs(undefined);
     replaceTimeline(
@@ -1168,6 +1174,17 @@ export function PptWorkspace({
     const moved = movePptTimelineAnimations(currentAnimations, ids, deltaMs);
     const changes = moved.filter(
       (item, index) => item.delayMs !== currentAnimations[index].delayMs,
+    );
+    if (changes.length) replaceTimeline(savePptTimelineOverrides(savedAnimations, changes));
+  };
+  const resizeTimelineAnimation = (id: string, edge: 'left' | 'right', deltaMs: number) => {
+    pausePreview();
+    setTimelinePlayheadMs(undefined);
+    const resized = resizePptTimelineAnimation(currentAnimations, id, edge, deltaMs);
+    const changes = resized.filter(
+      (item, index) =>
+        item.durationMs !== currentAnimations[index].durationMs ||
+        item.delayMs !== currentAnimations[index].delayMs,
     );
     if (changes.length) replaceTimeline(savePptTimelineOverrides(savedAnimations, changes));
   };
@@ -1672,6 +1689,7 @@ export function PptWorkspace({
               onDelete={(id) => deleteTimelineAnimations([id])}
               onDeleteAnimations={deleteTimelineAnimations}
               onMoveAnimations={moveTimelineAnimations}
+              onResizeAnimation={resizeTimelineAnimation}
               onPreview={previewCurrentSlide}
               previewing={isPreviewing}
               loopPreview={loopPreview}

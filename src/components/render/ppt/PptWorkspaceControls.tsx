@@ -129,62 +129,66 @@ export function AnimationRibbon({
               ))}
             </div>
           </RibbonGroup>
-          <RibbonGroup
-            label={
-              phase === 'emphasis'
-                ? copy.emphasisEffects
-                : phase === 'enter'
-                  ? copy.entrancePath
-                  : copy.exitPath
-            }
-          >
-            <div className="flex gap-1">
-              {phase === 'emphasis' ? (
-                PPT_MIDDLE_ACTIONS.map((item) => (
-                  <button
-                    key={item.action}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onApplyMiddleAction(item.action)}
-                    className={`ppt-effect-button min-w-[60px] ${animation?.action === item.action || (!animation?.action && item.action === 'shake-x' && animation?.effect === item.value) ? 'is-active' : ''}`}
-                  >
-                    <PptAnimationIcon phase={phase} effect={item.action} muted={disabled} />
-                    <span>{copy[item.key]}</span>
-                  </button>
-                ))
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onApply('line')}
-                    className={`ppt-effect-button min-w-[72px] ${animation?.effect === 'line' ? 'is-active' : ''}`}
-                  >
-                    <PptAnimationIcon phase={phase} effect="line" muted={disabled} />
-                    <span>{copy.line}</span>
-                  </button>
-                  {selected?.target === 'dialog-body' && phase === 'enter' ? (
-                    <button
-                      type="button"
-                      onClick={onApplyLineWipe}
-                      className={`ppt-effect-button min-w-[72px] ${animation?.textBuild?.mode === 'line-wipe' ? 'is-active' : ''}`}
-                    >
-                      <PptAnimationIcon phase={phase} effect="line-wipe" />
-                      <span>逐行打字</span>
-                    </button>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </RibbonGroup>
-          <RibbonGroup label={copy.effectOptions}>
-            <PptDirectionControl
-              disabled={disabled || !hasAnimation || phase === 'emphasis'}
-              value={animation?.direction || 'left'}
-              phase={phase}
-              onChange={(direction) => onUpdate({ direction })}
-            />
-          </RibbonGroup>
+          {hasAnimation ? (
+            <>
+              <RibbonGroup
+                label={
+                  phase === 'emphasis'
+                    ? copy.emphasisEffects
+                    : phase === 'enter'
+                      ? copy.entrancePath
+                      : copy.exitPath
+                }
+              >
+                <div className="flex gap-1">
+                  {phase === 'emphasis' ? (
+                    PPT_MIDDLE_ACTIONS.map((item) => (
+                      <button
+                        key={item.action}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onApplyMiddleAction(item.action)}
+                        className={`ppt-effect-button min-w-[60px] ${animation?.action === item.action || (!animation?.action && item.action === 'shake-x' && animation?.effect === item.value) ? 'is-active' : ''}`}
+                      >
+                        <PptAnimationIcon phase={phase} effect={item.action} muted={disabled} />
+                        <span>{copy[item.key]}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onApply('line')}
+                        className={`ppt-effect-button min-w-[72px] ${animation?.effect === 'line' ? 'is-active' : ''}`}
+                      >
+                        <PptAnimationIcon phase={phase} effect="line" muted={disabled} />
+                        <span>{copy.line}</span>
+                      </button>
+                      {selected?.target === 'dialog-body' && phase === 'enter' ? (
+                        <button
+                          type="button"
+                          onClick={onApplyLineWipe}
+                          className={`ppt-effect-button min-w-[72px] ${animation?.textBuild?.mode === 'line-wipe' ? 'is-active' : ''}`}
+                        >
+                          <PptAnimationIcon phase={phase} effect="line-wipe" />
+                          <span>逐行打字</span>
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              </RibbonGroup>
+              <RibbonGroup label={copy.effectOptions}>
+                <PptDirectionControl
+                  disabled={disabled || !hasAnimation || phase === 'emphasis'}
+                  value={animation?.direction || 'left'}
+                  phase={phase}
+                  onChange={(direction) => onUpdate({ direction })}
+                />
+              </RibbonGroup>
+            </>
+          ) : null}
           <RibbonGroup label={copy.timing}>
             <div
               className={`grid ${animation?.textBuild?.mode === 'line-wipe' ? 'grid-cols-[auto_84px_auto_84px]' : 'grid-cols-[auto_84px]'} items-center gap-x-2 gap-y-1 text-[11px] text-[var(--vr-text-muted)]`}

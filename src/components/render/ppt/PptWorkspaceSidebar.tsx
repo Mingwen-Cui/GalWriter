@@ -84,6 +84,7 @@ export function PptSidebar({
   onDelete,
   onDeleteAnimations,
   onMoveAnimations,
+  onResizeAnimation,
   onPreview,
   previewing,
   loopPreview,
@@ -128,6 +129,7 @@ export function PptSidebar({
   onDelete: (id: string) => void;
   onDeleteAnimations: (ids: string[]) => void;
   onMoveAnimations: (ids: string[], deltaMs: number) => void;
+  onResizeAnimation: (id: string, edge: 'left' | 'right', deltaMs: number) => void;
   onPreview: () => void;
   previewing: boolean;
   loopPreview: boolean;
@@ -400,6 +402,7 @@ export function PptSidebar({
                   onDelete={onDelete}
                   onDeleteAnimations={onDeleteAnimations}
                   onMoveAnimations={onMoveAnimations}
+                  onResizeAnimation={onResizeAnimation}
                   onPreview={onPreview}
                   previewing={previewing}
                   loopPreview={loopPreview}
@@ -419,6 +422,7 @@ export function PptSidebar({
                   onDelete={onDelete}
                   onDeleteAnimations={onDeleteAnimations}
                   onMoveAnimations={onMoveAnimations}
+                  onResizeAnimation={onResizeAnimation}
                   onPreview={onPreview}
                   previewing={previewing}
                   loopPreview={loopPreview}
