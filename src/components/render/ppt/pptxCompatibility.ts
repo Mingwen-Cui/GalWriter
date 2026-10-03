@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import type { RenderCustomFont } from '../video/shared/types';
 import type { PptObjectAnimation } from '../video/shared/types';
 import { embedCustomFontsInPptx } from './pptFontEmbedding';
+import { addNativePptTransitions, type PptTransitionExportTarget } from './pptTransitionExport';
 
 const CONTENT_TYPES_PATH = '[Content_Types].xml';
 
@@ -343,12 +344,14 @@ export async function finalizePptxForPowerPoint(
   animationTargets: PptAnimationExportTarget[] = [],
   videoTargets: PptVideoPlaybackTarget[] = [],
   customFonts: RenderCustomFont[] = [],
+  transitionTargets: PptTransitionExportTarget[] = [],
 ): Promise<ArrayBuffer> {
   const archive = await JSZip.loadAsync(buffer);
   const contentTypes = await archive.file(CONTENT_TYPES_PATH)?.async('string');
   if (!contentTypes) throw new Error('PPTX export is missing [Content_Types].xml');
   archive.file(CONTENT_TYPES_PATH, removeMissingSlideMasterOverrides(contentTypes));
   await addNativeAnimations(archive, animationTargets, videoTargets);
+  await addNativePptTransitions(archive, transitionTargets);
   await embedCustomFontsInPptx(archive, customFonts);
   return archive.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
 }

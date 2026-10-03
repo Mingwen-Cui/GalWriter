@@ -20,11 +20,13 @@ export function PptDirectionControl({
   value,
   phase = 'enter',
   disabled = false,
+  allowedDirections = directions,
   onChange,
 }: {
   value: PptAnimationDirection;
   phase?: PptAnimationPhase;
   disabled?: boolean;
+  allowedDirections?: readonly PptAnimationDirection[];
   onChange: (direction: PptAnimationDirection) => void;
 }) {
   const copy = usePptCopy();
@@ -40,16 +42,17 @@ export function PptDirectionControl({
       <span aria-hidden="true" className="ppt-direction-origin" />
       {directions.map((direction) => {
         const position = arrowPositions[pptDirectionArrow(direction, phase)];
+        const unavailable = disabled || !allowedDirections.includes(direction);
         return (
           <button
             key={direction}
             type="button"
-            disabled={disabled}
+            disabled={unavailable}
             title={labels[direction]}
             aria-label={labels[direction]}
-            aria-pressed={!disabled && value === direction}
+            aria-pressed={!unavailable && value === direction}
             onClick={() => onChange(direction)}
-            className={`ppt-direction-button ${!disabled && value === direction ? 'is-active' : ''}`}
+            className={`ppt-direction-button ${!unavailable && value === direction ? 'is-active' : ''}`}
             style={{ gridRow: position.row, gridColumn: position.column }}
           >
             <svg

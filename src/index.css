@@ -829,7 +829,9 @@ html.canvas-selection-dragging * {
   background: #fff;
   padding: 0.7rem 0.8rem;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.045);
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .assistant-story-outline__node:focus-within {
@@ -911,7 +913,8 @@ html.canvas-selection-dragging * {
   width: 100vw;
   height: 100dvh;
   background: #f8fafc;
-  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   box-shadow: 0 0 0 100vmax rgba(15, 23, 42, 0.46);
 }
 
@@ -1583,10 +1586,8 @@ html.canvas-selection-dragging * {
   stroke: #111827 !important;
 }
 
-.interactive-segment-minimap--icon-only
-  .react-flow__controls-button:hover:not(:disabled) svg,
-.interactive-segment-minimap--icon-only
-  .react-flow__controls-button:hover:not(:disabled) svg path {
+.interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) svg,
+.interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) svg path {
   fill: #000000 !important;
   stroke: #000000 !important;
 }
@@ -2473,7 +2474,10 @@ html.canvas-selection-dragging * {
   font-size: 16px;
   font-weight: 750;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
 }
 
 .assistant-agent-connect-action:hover {
@@ -2507,7 +2511,10 @@ html.canvas-selection-dragging * {
   font-size: 14px;
   font-weight: 700;
   text-align: center;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .assistant-agent-connect-connection-indicator {
@@ -2567,7 +2574,9 @@ html.canvas-selection-dragging * {
 .glass-toolbar-ai.mcp-connection-just-completed {
   isolation: isolate;
   animation: mcp-connection-pop 720ms cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
-  box-shadow: 0 0 0 4px rgb(34 197 94 / 16%), 0 0 22px rgb(34 197 94 / 42%);
+  box-shadow:
+    0 0 0 4px rgb(34 197 94 / 16%),
+    0 0 22px rgb(34 197 94 / 42%);
 }
 
 .glass-toolbar-ai.mcp-connection-just-completed::after {
@@ -2594,15 +2603,29 @@ html.canvas-selection-dragging * {
 }
 
 @keyframes mcp-connection-pop {
-  0% { transform: scale(0.78) rotate(-12deg); }
-  48% { transform: scale(1.2) rotate(7deg); }
-  72% { transform: scale(0.96) rotate(-2deg); }
-  100% { transform: scale(1) rotate(0); }
+  0% {
+    transform: scale(0.78) rotate(-12deg);
+  }
+  48% {
+    transform: scale(1.2) rotate(7deg);
+  }
+  72% {
+    transform: scale(0.96) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
 }
 
 @keyframes mcp-connection-halo {
-  0% { opacity: 0.75; transform: scale(0.85); }
-  100% { opacity: 0; transform: scale(1.45); }
+  0% {
+    opacity: 0.75;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2993,14 +3016,25 @@ html.canvas-selection-dragging * {
   border: 2px solid rgb(255 255 255 / 90%);
   border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, #c4b5fd 0 12%, #6d5cf6 42%, #4338ca 100%);
-  box-shadow: 0 0 0 5px rgb(99 102 241 / 15%), 0 0 20px rgb(99 102 241 / 55%);
+  box-shadow:
+    0 0 0 5px rgb(99 102 241 / 15%),
+    0 0 20px rgb(99 102 241 / 55%);
   pointer-events: none;
 }
 
 @keyframes assistant-agent-option-depart {
-  0% { opacity: 1; transform: scale(1); }
-  22% { opacity: 1; transform: scale(0.98); }
-  100% { opacity: 0; transform: scale(0.88); }
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
 }
 
 .assistant-welcome-option--profile .assistant-welcome-option-title {
@@ -3774,25 +3808,35 @@ html.canvas-selection-dragging * {
   background: rgba(15, 23, 42, 0.52) !important;
 }
 
-[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface::before {
+[data-theme='dark']
+  .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface::before {
   opacity: 1;
 }
 
-.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-panel-header {
+.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface
+  .assistant-panel-header {
   background: #f8fafc !important;
 }
 
-.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-message-area,
-.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-input-panel {
+.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface
+  .assistant-message-area,
+.assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface
+  .assistant-input-panel {
   background: rgba(255, 255, 255, 0.04) !important;
 }
 
-[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-panel-header {
+[data-theme='dark']
+  .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface
+  .assistant-panel-header {
   background: #0f172a !important;
 }
 
-[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-message-area,
-[data-theme='dark'] .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface .assistant-input-panel {
+[data-theme='dark']
+  .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface
+  .assistant-message-area,
+[data-theme='dark']
+  .assistant-panel-shell.assistant-panel-transparent-gradient.assistant-panel-chat-surface
+  .assistant-input-panel {
   background: rgba(15, 23, 42, 0.52) !important;
 }
 
@@ -6907,5 +6951,191 @@ button.web-segment-button:last-child {
   to {
     opacity: 1;
     clip-path: inset(0);
+  }
+}
+
+/* Direction-aware previews share the native transition's valid options. */
+@keyframes ppt-transition-push-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes ppt-transition-push-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes ppt-transition-push-up {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes ppt-transition-push-down {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes ppt-transition-wipe-left {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes ppt-transition-wipe-right {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes ppt-transition-wipe-up {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes ppt-transition-wipe-down {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes ppt-transition-reveal-left {
+  from {
+    opacity: 0;
+    transform: translateX(8%) scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+@keyframes ppt-transition-reveal-right {
+  from {
+    opacity: 0;
+    transform: translateX(-8%) scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+@keyframes ppt-transition-split-horizontal-out {
+  from {
+    clip-path: inset(50% 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes ppt-transition-split-vertical-out {
+  from {
+    clip-path: inset(0 50%);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@keyframes ppt-transition-split-horizontal-in {
+  from {
+    clip-path: polygon(0 0, 100% 0, 100% 0, 0 0, 0 100%, 100% 100%, 100% 100%, 0 100%);
+  }
+  to {
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%, 0 50%, 100% 50%, 100% 100%, 0 100%);
+  }
+}
+@keyframes ppt-transition-split-vertical-in {
+  from {
+    clip-path: polygon(0 0, 0 0, 0 100%, 0 100%, 100% 100%, 100% 100%, 100% 0, 100% 0);
+  }
+  to {
+    clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%, 50% 100%, 100% 100%, 100% 0, 50% 0);
+  }
+}
+@keyframes ppt-transition-bars-horizontal {
+  from {
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% 0,
+      0 0,
+      0 35%,
+      100% 35%,
+      100% 35%,
+      0 35%,
+      0 70%,
+      100% 70%,
+      100% 70%,
+      0 70%
+    );
+  }
+  to {
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% 35%,
+      0 35%,
+      0 35%,
+      100% 35%,
+      100% 70%,
+      0 70%,
+      0 70%,
+      100% 70%,
+      100% 100%,
+      0 100%
+    );
+  }
+}
+@keyframes ppt-transition-bars-vertical {
+  from {
+    clip-path: polygon(
+      0 0,
+      0 100%,
+      0 100%,
+      0 0,
+      35% 0,
+      35% 100%,
+      35% 100%,
+      35% 0,
+      70% 0,
+      70% 100%,
+      70% 100%,
+      70% 0
+    );
+  }
+  to {
+    clip-path: polygon(
+      0 0,
+      0 100%,
+      35% 100%,
+      35% 0,
+      35% 0,
+      35% 100%,
+      70% 100%,
+      70% 0,
+      70% 0,
+      70% 100%,
+      100% 100%,
+      100% 0
+    );
   }
 }

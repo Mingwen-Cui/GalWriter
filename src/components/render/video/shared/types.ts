@@ -800,6 +800,9 @@ export type PptSlideTransition = {
   effect: PptTransitionEffect;
   durationMs: number;
   direction: PptAnimationDirection;
+  /** Split and random bars use an axis rather than a source edge. */
+  orientation?: 'horizontal' | 'vertical';
+  splitDirection?: 'in' | 'out';
   advanceOnClick: boolean;
   advanceAfterMs?: number;
 };

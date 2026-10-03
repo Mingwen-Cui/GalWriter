@@ -96,6 +96,7 @@ import {
   resolvePptTagAnimations,
 } from './pptTagAnimations';
 import { resolvePptTextBoxLayout } from './pptTextBoxes';
+import { normalizePptTransition, pptTransitionPreviewStyle } from './pptTransitions';
 import { AnimationRibbon, SlideList, SlideSorter } from './PptWorkspaceControls';
 import { PlayerOverlay, PptFooterBar } from './PptWorkspaceFooter';
 import {
@@ -365,7 +366,12 @@ export function PptWorkspace({
   const [selectedId, setSelectedId] = useState(() => slides[0]?.id || 'cover');
   const [selectedObject, setSelectedObject] = useState<Selection | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<PptAnimationPhase>('enter');
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('style');
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>(
+    ribbonTab === 'animation' ? 'timeline' : 'style',
+  );
+  useEffect(() => {
+    setSidebarTab(ribbonTab === 'animation' ? 'timeline' : 'style');
+  }, [ribbonTab]);
   const [viewMode, setViewMode] = useState<ViewMode>('normal');
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesHeight, setNotesHeight] = useState(150);
@@ -485,7 +491,7 @@ export function PptWorkspace({
       ),
     );
   }, [savedAnimations, scene, speakerCharacterId, styleTextAnimations, tagAnimations]);
-  const currentTransition = transitions[selectedId] || DEFAULT_TRANSITION;
+  const currentTransition = normalizePptTransition(transitions[selectedId] || DEFAULT_TRANSITION);
   const currentVideoLoop = scene ? (pptSettings.videoLoopByScene?.[scene.id] ?? false) : false;
   const currentVideoTrack: VideoTimelineTrack | undefined = scene?.backgroundVideoUrl
     ? { durationMs: videoDurationByScene[scene.id] || 5000, loop: currentVideoLoop }
@@ -514,17 +520,20 @@ export function PptWorkspace({
     [],
   );
 
-  const selectSlide = useCallback((id: string) => {
-    setSelectedId(id);
-    setSelectedObject(null);
-    setSidebarTab('style');
-    if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
-    previewFrameRef.current = null;
-    setIsPreviewing(false);
-    setTimelinePlayheadMs(undefined);
-    setSelectedManualElementId(undefined);
-    setBoxSelectedKeys(new Set());
-  }, []);
+  const selectSlide = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      setSelectedObject(null);
+      setSidebarTab(ribbonTab === 'animation' ? 'timeline' : 'style');
+      if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
+      previewFrameRef.current = null;
+      setIsPreviewing(false);
+      setTimelinePlayheadMs(undefined);
+      setSelectedManualElementId(undefined);
+      setBoxSelectedKeys(new Set());
+    },
+    [ribbonTab],
+  );
   const saveManualSlides = (nextSlides: PptManualSlide[], nextOrder?: string[]) =>
     updatePptSettings({
       manualSlides: nextSlides,
@@ -1068,7 +1077,9 @@ export function PptWorkspace({
   const selectObject = (selection: Selection) => {
     setSelectedManualElementId(undefined);
     setSelectedObject(selection);
-    setSidebarTab('style');
+    const objectAnimations = findAnimation(currentAnimations, selection.target, selection.targetId);
+    setSelectedPhase(objectAnimations[0]?.phase || 'enter');
+    setSidebarTab(ribbonTab === 'animation' ? 'timeline' : 'style');
     const renderObject = (
       {
         'dialog-panel': 'dialogBox',
@@ -1125,9 +1136,18 @@ export function PptWorkspace({
     });
   };
   const updateTransition = (patch: Partial<PptSlideTransition>) => {
+    const nextTransition = normalizePptTransition({ ...currentTransition, ...patch });
     updatePptSettings({
-      transitions: { ...transitions, [selectedId]: { ...currentTransition, ...patch } },
+      transitions: { ...transitions, [selectedId]: nextTransition },
     });
+    if (
+      patch.effect !== undefined ||
+      patch.direction !== undefined ||
+      patch.orientation !== undefined ||
+      patch.splitDirection !== undefined
+    ) {
+      preview(currentAnimations, true, nextTransition);
+    }
   };
   const applyTransitionToAll = () => {
     updatePptSettings({
@@ -1143,7 +1163,10 @@ export function PptWorkspace({
             (item.phase || 'enter') === phase,
         )
       : undefined;
-  const updateSelectedAnimation = (patch: Partial<PptObjectAnimation>) => {
+  const updateSelectedAnimation = (
+    patch: Partial<PptObjectAnimation>,
+    phase: PptAnimationPhase = selectedPhase,
+  ) => {
     if (!selectedObject) return undefined;
     // A PPT edit is an explicit local override. Never mutate the projected
     // tag entry, otherwise a later tag edit could leave stale copies behind.
@@ -1151,14 +1174,14 @@ export function PptWorkspace({
       (item) =>
         animationKey(item.target, item.targetId) ===
           animationKey(selectedObject.target, selectedObject.targetId) &&
-        (item.phase || 'enter') === selectedPhase,
+        (item.phase || 'enter') === phase,
     );
     const base: PptObjectAnimation = existing || {
-      id: `${selectedId}-${animationKey(selectedObject.target, selectedObject.targetId)}-${selectedPhase}`,
+      id: `${selectedId}-${animationKey(selectedObject.target, selectedObject.targetId)}-${phase}`,
       target: selectedObject.target,
       targetId: selectedObject.targetId,
-      phase: selectedPhase,
-      effect: selectedPhase === 'emphasis' ? 'pulse' : 'line',
+      phase,
+      effect: phase === 'emphasis' ? 'pulse' : 'line',
       source: 'manual',
       start: currentAnimations.length ? 'afterPrevious' : 'withPrevious',
       durationMs: 500,
@@ -1177,42 +1200,67 @@ export function PptWorkspace({
       (item) => item.effect !== 'none',
     );
   };
+  const applyPhase = (phase: PptAnimationPhase) => {
+    if (!selectedObject) return;
+    setSelectedPhase(phase);
+    setSidebarTab('timeline');
+    const existing = getAnimation(selectedObject, phase);
+    const nextTimeline = existing
+      ? currentAnimations
+      : updateSelectedAnimation(
+          phase === 'emphasis'
+            ? { phase, effect: 'line', action: 'shake-x' }
+            : { phase, effect: 'line' },
+          phase,
+        );
+    if (nextTimeline) preview(nextTimeline, true);
+  };
   const applyEffect = (effect: PptAnimationEffect) => {
     if (!selectedObject) return;
+    setSidebarTab('timeline');
     const existing = getAnimation(undefined, selectedPhase);
     if (effect === 'none') {
       if (existing) replaceTimeline(currentAnimations.filter((item) => item.id !== existing.id));
       return;
     }
     const nextTimeline = updateSelectedAnimation({ effect });
-    if (nextTimeline) preview(nextTimeline);
+    if (nextTimeline) preview(nextTimeline, true);
   };
   const applyMiddleAction = (action: InlinePresentationActionType) => {
     if (!selectedObject || selectedPhase !== 'emphasis') return;
     const item = PPT_MIDDLE_ACTIONS.find((entry) => entry.action === action);
     if (!item) return;
+    setSidebarTab('timeline');
     const nextTimeline = updateSelectedAnimation({
       action: item.action,
       effect: item.value,
       phase: 'emphasis',
     });
-    if (nextTimeline) preview(nextTimeline);
+    if (nextTimeline) preview(nextTimeline, true);
   };
-  const preview = (timeline: PptObjectAnimation[] = currentAnimations) => {
+  const preview = (
+    timeline: PptObjectAnimation[] = currentAnimations,
+    once = false,
+    transition = currentTransition,
+  ) => {
     if (previewTimerRef.current) window.clearTimeout(previewTimerRef.current);
     if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
     setIsPreviewing(false);
     setTimelinePlayheadMs(undefined);
     setPreviewRunId((value) => value + 1);
-    const duration = getTimelineDuration(timeline, currentVideoTrack?.durationMs);
+    const duration = Math.max(
+      getTimelineDuration(timeline, currentVideoTrack?.durationMs),
+      transition.effect === 'none' ? 0 : transition.durationMs,
+    );
     const startedAt = performance.now();
     let previousCycle = 0;
     const tick = (now: number) => {
       const elapsed = Math.max(0, now - startedAt);
       const cycle = Math.floor(elapsed / duration);
       const position = elapsed % duration;
-      if (cycle > previousCycle && !loopPreviewRef.current) {
-        setTimelinePlayheadMs(duration);
+      if (cycle > previousCycle && (once || !loopPreviewRef.current)) {
+        // Return to the editable object after playback, including exit effects.
+        setTimelinePlayheadMs(undefined);
         setIsPreviewing(false);
         previewFrameRef.current = null;
         return;
@@ -1360,7 +1408,7 @@ export function PptWorkspace({
               activeTab={ribbonTab}
               selected={selectedObject}
               phase={selectedPhase}
-              setPhase={setSelectedPhase}
+              setPhase={applyPhase}
               animation={getAnimation()}
               onApply={applyEffect}
               onClearAnimations={() => {
@@ -1380,19 +1428,25 @@ export function PptWorkspace({
               onApplyLineWipe={() => {
                 if (!selectedObject || selectedObject.target !== 'dialog-body') return;
                 setSelectedPhase('enter');
-                const nextTimeline = updateSelectedAnimation({
-                  phase: 'enter',
-                  effect: 'wipe',
-                  start: currentAnimations.length ? 'afterPrevious' : 'onClick',
-                  durationMs: 1200,
-                  delayMs: 0,
-                  direction: 'left',
-                  textBuild: { mode: 'line-wipe', lineGapMs: 350 },
-                });
-                if (nextTimeline) preview(nextTimeline);
+                const nextTimeline = updateSelectedAnimation(
+                  {
+                    phase: 'enter',
+                    effect: 'wipe',
+                    start: currentAnimations.length ? 'afterPrevious' : 'onClick',
+                    durationMs: 1200,
+                    delayMs: 0,
+                    direction: 'left',
+                    textBuild: { mode: 'line-wipe', lineGapMs: 350 },
+                  },
+                  'enter',
+                );
+                if (nextTimeline) preview(nextTimeline, true);
               }}
               onPreview={previewCurrentSlide}
-              onUpdate={updateSelectedAnimation}
+              onUpdate={(patch) => {
+                const nextTimeline = updateSelectedAnimation(patch);
+                if (nextTimeline) preview(nextTimeline, true);
+              }}
               transition={currentTransition}
               onUpdateTransition={updateTransition}
               onApplyTransitionToAll={applyTransitionToAll}
@@ -1863,8 +1917,7 @@ export function SlideCanvas({
       onSelectBackground?.();
     }
   };
-  const transitionStyle =
-    transition.effect === 'none' ? undefined : { animationDuration: `${transition.durationMs}ms` };
+  const transitionStyle = pptTransitionPreviewStyle(transition);
   const canvasBackgroundColor =
     backgroundColor ||
     (selectedId === 'cover' ? webSettings.startMenuBackgroundColor : colors.background);
@@ -2383,7 +2436,6 @@ function PptCoverTextBox({
           layout.visible === false
             ? Math.min(0.3, (webStyle.opacity ?? 100) / 100)
             : (webStyle.opacity ?? 100) / 100,
-        ...previewStyle(animation, previewing, previewAtMs),
       }}
       onClick={(event) => {
         event.stopPropagation();
@@ -2402,7 +2454,7 @@ function PptCoverTextBox({
           contentEditable
           suppressContentEditableWarning
           className={`grid h-full w-full cursor-text place-items-center whitespace-pre-wrap outline-none ${textClass}`}
-          style={textPaint}
+          style={{ ...textPaint, ...previewStyle(animation, previewing, previewAtMs) }}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
           onInput={(event) => setDraftText(event.currentTarget.innerText)}
@@ -2423,7 +2475,7 @@ function PptCoverTextBox({
       ) : (
         <div
           className={`grid h-full w-full place-items-center whitespace-pre-wrap ${textClass}`}
-          style={textPaint}
+          style={{ ...textPaint, ...previewStyle(animation, previewing, previewAtMs) }}
         >
           {text}
         </div>

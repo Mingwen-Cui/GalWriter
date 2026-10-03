@@ -26,7 +26,6 @@ import type {
 import { syncNameplateAnimations } from './pptAnimationPreview';
 import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
 import { renderPptGradientPng } from './pptGradient';
-import { addPptShape } from './pptShapes';
 import {
   getPptImageDimensions,
   toPptImageData,
@@ -34,6 +33,7 @@ import {
   toPptVideoLastFrameData,
 } from './pptMedia';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
+import { addPptShape } from './pptShapes';
 import { reorderPptSlides } from './pptSlideOrder';
 import {
   createPptStyleTextAnimations,
@@ -1224,5 +1224,9 @@ export async function buildPptxBuffer({
     orderPptAnimationTargets(animationTargets, sceneAnimationOrderBySlide),
     videoPlaybackTargets,
     style.customFonts,
+    orderedSlideIds.flatMap((id, index) => {
+      const transition = pptSettings.transitions?.[id];
+      return transition ? [{ slideNumber: index + 1, transition }] : [];
+    }),
   );
 }

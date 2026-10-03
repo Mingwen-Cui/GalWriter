@@ -33,6 +33,7 @@ import { PptDirectionControl } from './PptDirectionControl';
 import { PptAnimationIcon, PptTransitionIcon } from './PptEffectIcon';
 import { PptNumberInput } from './PptNumberInput';
 import { pptSceneColors } from './pptSceneResolver';
+import { PptTransitionOptions } from './PptTransitionOptions';
 import type { Scene, Selection, SlideItem } from './PptWorkspace';
 import {
   DEFAULT_TRANSITION,
@@ -83,11 +84,7 @@ export function AnimationRibbon({
 }) {
   const copy = usePptCopy();
   const disabled = !selected;
-  const [cleared, setCleared] = useState(false);
-  useEffect(() => setCleared(false), [selected?.target, selected?.targetId]);
-  useEffect(() => {
-    if (animation && animation.effect !== 'none') setCleared(false);
-  }, [animation?.id, animation?.effect]);
+  const hasAnimation = Boolean(animation && animation.effect !== 'none');
   return (
     <header className="ppt-ribbon-shell">
       {activeTab === 'transition' ? (
@@ -110,12 +107,9 @@ export function AnimationRibbon({
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => {
-                  onClearAnimations();
-                  setCleared(true);
-                }}
-                aria-pressed={disabled || cleared}
-                className={`ppt-effect-button min-w-[64px] ${disabled || cleared ? 'is-active' : ''}`}
+                onClick={onClearAnimations}
+                aria-pressed={!hasAnimation}
+                className={`ppt-effect-button min-w-[64px] ${!hasAnimation ? 'is-active' : ''}`}
               >
                 <PptAnimationIcon phase="enter" effect="none" />
                 <span>{copy.noAnimation}</span>
@@ -125,12 +119,9 @@ export function AnimationRibbon({
                   key={item.value}
                   type="button"
                   disabled={disabled}
-                  onClick={() => {
-                    setCleared(false);
-                    setPhase(item.value);
-                  }}
-                  aria-pressed={!disabled && !cleared && phase === item.value}
-                  className={`ppt-effect-button min-w-[54px] ${!disabled && !cleared && phase === item.value ? 'is-active' : ''}`}
+                  onClick={() => setPhase(item.value)}
+                  aria-pressed={!disabled && hasAnimation && phase === item.value}
+                  className={`ppt-effect-button min-w-[54px] ${!disabled && hasAnimation && phase === item.value ? 'is-active' : ''}`}
                 >
                   <PptAnimationIcon phase={item.value} muted={disabled} />
                   <span>{copy[item.key]}</span>
@@ -188,7 +179,7 @@ export function AnimationRibbon({
           </RibbonGroup>
           <RibbonGroup label={copy.effectOptions}>
             <PptDirectionControl
-              disabled={disabled || phase === 'emphasis'}
+              disabled={disabled || !hasAnimation || phase === 'emphasis'}
               value={animation?.direction || 'left'}
               phase={phase}
               onChange={(direction) => onUpdate({ direction })}
@@ -302,11 +293,7 @@ function TransitionControls({
         </div>
       </RibbonGroup>
       <RibbonGroup label={copy.effectOptions}>
-        <PptDirectionControl
-          disabled={transition.effect === 'none' || transition.effect === 'fade'}
-          value={transition.direction}
-          onChange={(direction) => onUpdate({ direction })}
-        />
+        <PptTransitionOptions transition={transition} onChange={onUpdate} />
       </RibbonGroup>
       <RibbonGroup label={copy.timing}>
         <div className="grid gap-2 text-[11px] text-[var(--vr-text-muted)]">

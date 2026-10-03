@@ -74,7 +74,7 @@ export function PptSidebar({
   updateRenderStyle,
   activeTab,
   setActiveTab,
-  selected: _selected,
+  selected,
   animation: _animation,
   animations,
   videoTrack,
@@ -378,9 +378,18 @@ export function PptSidebar({
               </div>
             )}
             <div className="mt-3">
+              {selected &&
+              !animations.some(
+                (item) => item.target === selected.target && item.targetId === selected.targetId,
+              ) ? (
+                <p className="mb-3 text-xs text-[var(--vr-text-muted)]">
+                  {selected.label} · {copy.noAnimation}
+                </p>
+              ) : null}
               {animationPage === 'timeline' ? (
                 <AnimationTimeline
                   mode="overview"
+                  emptyLabel={selected ? copy.noAnimation : undefined}
                   animations={animations}
                   videoTrack={videoTrack}
                   playheadMs={playheadMs}
@@ -397,6 +406,7 @@ export function PptSidebar({
               ) : (
                 <AnimationTimeline
                   mode="list"
+                  emptyLabel={selected ? copy.noAnimation : undefined}
                   animations={animations}
                   videoTrack={videoTrack}
                   playheadMs={playheadMs}
@@ -669,6 +679,7 @@ export function PptSidebar({
 }
 function AnimationTimeline({
   mode,
+  emptyLabel,
   animations,
   videoTrack,
   playheadMs,
@@ -683,6 +694,7 @@ function AnimationTimeline({
   onPausePreview,
 }: {
   mode: 'overview' | 'list';
+  emptyLabel?: string;
   animations: PptObjectAnimation[];
   videoTrack?: VideoTimelineTrack;
   playheadMs: number;
@@ -1145,7 +1157,7 @@ function AnimationTimeline({
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-[var(--vr-border)] px-4 py-8 text-center text-xs leading-5 text-[var(--vr-text-muted)]">
-          {copy.noAnimationsHint}
+          {emptyLabel || copy.noAnimationsHint}
         </div>
       )}
     </>
