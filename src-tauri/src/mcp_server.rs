@@ -299,7 +299,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
   }
 
-  #[tool(description = "List story, character, scene, and plot-structure cards in the currently open GalWriter project without returning full story text. The isRoot field identifies the protected root story card.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "List story, setting, plot-structure, background-region, and dynamic-group nodes in the currently open GalWriter project without returning full story text. Dynamic-group entries include childIds so you can inspect true membership. The isRoot field identifies the protected root story card.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
   async fn list_project_cards(&self) -> Result<CallToolResult, McpError> {
     *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) =
       Some(timestamp_now());
@@ -337,9 +337,10 @@ impl GalWriterMcpServer {
             "cardCount": data.get("cardCount"),
             "detailLevel": data.get("detailLevel"),
             "direction": data.get("direction"),
-            "choiceInterval": data.get("choiceInterval"),
-            "prefetchCount": data.get("prefetchCount"),
-          }
+          "choiceInterval": data.get("choiceInterval"),
+          "prefetchCount": data.get("prefetchCount"),
+          "childIds": if node.get("type").and_then(Value::as_str) == Some("groupNode") { data.get("childIds") } else { None },
+        }
         })
       })
       .collect();
@@ -514,7 +515,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Move an existing canvas node to an absolute canvas position. Routine, undoable layout update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  #[tool(description = "Move an existing canvas node to an absolute canvas position. For a groupNode, this moves all member cards together; use move_dynamic_group for an explicit group operation. Routine, undoable layout update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
   async fn move_story_node(&self, Parameters(input): Parameters<MoveStoryNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("move_story_node", input).await?;
@@ -616,6 +617,62 @@ impl GalWriterMcpServer {
   async fn delete_background_region(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("delete_background_region", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Create a true dynamic group around existing cards. node_ids become the editable childIds membership; the hull follows the member cards. Groups and background regions cannot be nested. Optional title, color, and gap set its appearance. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn create_dynamic_group(&self, Parameters(input): Parameters<CreateDynamicGroupInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("create_dynamic_group", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Edit the title, color, or hull gap of an existing groupNode. Membership is controlled by add_dynamic_group_members and remove_dynamic_group_members.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  async fn update_dynamic_group(&self, Parameters(input): Parameters<UpdateDynamicGroupInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_dynamic_group", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Add existing cards to a groupNode's real childIds membership. The group's dynamic hull will include them, and moving the group moves all of its members together.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn add_dynamic_group_members(&self, Parameters(input): Parameters<DynamicGroupMembersInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("add_dynamic_group_members", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Remove existing cards from a groupNode's childIds membership while keeping those cards in the project.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn remove_dynamic_group_members(&self, Parameters(input): Parameters<DynamicGroupMembersInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("remove_dynamic_group_members", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Delete a dynamic group wrapper but keep every member card. Use only for an existing groupNode ID.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  async fn delete_dynamic_group(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("delete_dynamic_group", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Convert a backgroundNode rectangle to a true dynamic group. Cards whose centers are inside the rectangle become members; the wrapper then tracks those cards.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn convert_background_to_dynamic_group(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("convert_background_to_dynamic_group", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Convert a dynamic group to a static background rectangle around its current members. Cards stay in place and remain in the project.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn convert_dynamic_group_to_background(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("convert_dynamic_group_to_background", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Move one dynamic group to an absolute canvas position by translating all member cards as a rigid set. node_id must be a groupNode ID from get_current_project/list_project_cards.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  async fn move_dynamic_group(&self, Parameters(input): Parameters<MoveStoryNodeInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("move_dynamic_group", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
@@ -875,6 +932,27 @@ struct CreateBackgroundRegionInput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct CreateDynamicGroupInput {
+  node_id: Option<String>,
+  node_ids: Vec<String>,
+  title: Option<String>,
+  color: Option<String>,
+  gap: Option<f64>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct UpdateDynamicGroupInput {
+  node_id: String,
+  fields: std::collections::BTreeMap<String, Value>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct DynamicGroupMembersInput {
+  node_id: String,
+  node_ids: Vec<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct UpdateBackgroundRegionInput {
   node_id: String,
   fields: std::collections::BTreeMap<String, Value>,
@@ -983,6 +1061,14 @@ enum StoryChangeOperation {
   CreateBackgroundRegion { node_id: Option<String>, node_ids: Vec<String>, title: Option<String>, color: Option<String>, padding: Option<f64> },
   UpdateBackgroundRegion { node_id: String, fields: std::collections::BTreeMap<String, Value> },
   DeleteBackgroundRegion { node_id: String },
+  CreateDynamicGroup { node_id: Option<String>, node_ids: Vec<String>, title: Option<String>, color: Option<String>, gap: Option<f64> },
+  UpdateDynamicGroup { node_id: String, fields: std::collections::BTreeMap<String, Value> },
+  AddDynamicGroupMembers { node_id: String, node_ids: Vec<String> },
+  RemoveDynamicGroupMembers { node_id: String, node_ids: Vec<String> },
+  DeleteDynamicGroup { node_id: String },
+  ConvertBackgroundToDynamicGroup { node_id: String },
+  ConvertDynamicGroupToBackground { node_id: String },
+  MoveDynamicGroup { node_id: String, position: StoryNodePosition },
   DeleteStoryNode { node_id: String },
   DeleteProjectNode { node_id: String },
   MoveNode { node_id: String, position: StoryNodePosition },

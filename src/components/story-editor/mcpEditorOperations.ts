@@ -23,6 +23,7 @@ const resolveMentionNode = (kind: 'character' | 'scene', name: string, nodes: No
   if (matches.length > 1) throw new Error(`The ${kind} name '${name}' is ambiguous; rename one of the matching setting cards before tagging it.`);
   return matches[0];
 };
+const isDynamicGroupMember = (node: Node) => node.type !== 'backgroundNode' && node.type !== 'groupNode';
 const booleanFields: Record<string, string[]> = {
   storyNode: ['hideTitleInPlayback', 'showTextOverlay'],
   characterNode: ['isGlobal', 'showPersonality', 'showFeatures', 'showBackground', 'showOther'],
@@ -335,7 +336,7 @@ export const applyMcpOperations = (
   let nextEdges = [...edges];
   const created: string[] = [];
   const deleted: string[] = [];
-  const changes: Array<{ type: string; nodeId?: string; sourceId?: string; targetId?: string; storyId?: string; settingId?: string; settingType?: string; assetType?: string; field?: string; mimeType?: string; mediaType?: string; bytes?: number }> = [];
+  const changes: Array<{ type: string; nodeId?: string; sourceId?: string; targetId?: string; storyId?: string; settingId?: string; settingType?: string; assetType?: string; field?: string; mimeType?: string; mediaType?: string; memberCount?: number; bytes?: number }> = [];
   const storyTextChangedIds = new Set<string>();
   let changedCount = 0;
 
@@ -421,6 +422,142 @@ export const applyMcpOperations = (
       nextNodes = nextNodes.filter((node) => node.id !== nodeId);
       nextEdges = nextEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
       deleted.push(nodeId);
+      changes.push({ type: operation.type, nodeId });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'create_dynamic_group') {
+      if (!Array.isArray(operation.node_ids) || operation.node_ids.length < 1 || operation.node_ids.length > 100) throw new Error('node_ids must contain between 1 and 100 card IDs.');
+      const childIds = operation.node_ids.filter((id): id is string => typeof id === 'string');
+      if (childIds.length !== operation.node_ids.length || new Set(childIds).size !== childIds.length) throw new Error('node_ids must contain unique string IDs.');
+      const children = childIds.map((id) => nextNodes.find((node) => node.id === id));
+      if (children.some((node) => !node || !isDynamicGroupMember(node))) throw new Error('Every group member must be an existing canvas card; background regions and other groups cannot be nested.');
+      const id = typeof operation.node_id === 'string' && operation.node_id.trim() ? operation.node_id.trim() : uuidv4();
+      if (id.length > 128 || nextNodes.some((node) => node.id === id)) throw new Error(`Node ID '${id}' is empty, too long, or already in use.`);
+      const title = typeof operation.title === 'string' && operation.title.trim() ? operation.title.trim() : '动态包裹';
+      if (title.length > 200) throw new Error('title must be a string of at most 200 characters.');
+      const color = operation.color ?? '#6366f1';
+      if (typeof color !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(color)) throw new Error('color must be a 3- or 6-digit hex color.');
+      if (operation.gap !== undefined && (typeof operation.gap !== 'number' || !Number.isFinite(operation.gap) || operation.gap < 0 || operation.gap > 500)) throw new Error('gap must be between 0 and 500.');
+      const groupNode: Node = {
+        id,
+        type: 'groupNode',
+        position: { x: 0, y: 0 },
+        selectable: true,
+        draggable: true,
+        style: { width: 100, height: 100, zIndex: -2 },
+        data: { id, title, color, childIds, ...(operation.gap === undefined ? {} : { gap: operation.gap }) },
+      };
+      nextNodes.push(groupNode);
+      created.push(id);
+      changes.push({ type: operation.type, nodeId: id, memberCount: childIds.length });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'update_dynamic_group') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
+      const group = nextNodes.find((node) => node.id === nodeId && node.type === 'groupNode');
+      if (!group) throw new Error(`Dynamic group '${nodeId}' was not found.`);
+      if (!operation.fields || typeof operation.fields !== 'object' || Array.isArray(operation.fields)) throw new Error('fields must be an object.');
+      const fields = operation.fields as Record<string, unknown>;
+      if (!Object.keys(fields).length || Object.keys(fields).some((key) => !['title', 'color', 'gap'].includes(key))) throw new Error('Dynamic-group fields may include title, color, or gap only. Change membership with the group-member tools.');
+      const data = { ...group.data } as Record<string, unknown>;
+      for (const [key, value] of Object.entries(fields)) {
+        if (key === 'title') {
+          if (typeof value !== 'string' || value.length > 200) throw new Error('title must be a string of at most 200 characters.');
+          data.title = value;
+        } else if (key === 'color') {
+          if (typeof value !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) throw new Error('color must be a 3- or 6-digit hex color.');
+          data.color = value;
+        } else {
+          if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 500) throw new Error('gap must be between 0 and 500.');
+          data.gap = value;
+        }
+      }
+      nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data } : node);
+      changes.push({ type: operation.type, nodeId });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'add_dynamic_group_members' || operation.type === 'remove_dynamic_group_members') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must identify a dynamic group.');
+      const group = nextNodes.find((node) => node.id === nodeId && node.type === 'groupNode');
+      if (!group) throw new Error(`Dynamic group '${nodeId}' was not found.`);
+      if (!Array.isArray(operation.node_ids) || operation.node_ids.length < 1 || operation.node_ids.length > 100) throw new Error('node_ids must contain between 1 and 100 card IDs.');
+      const requestedIds = operation.node_ids.filter((id): id is string => typeof id === 'string');
+      if (requestedIds.length !== operation.node_ids.length || new Set(requestedIds).size !== requestedIds.length) throw new Error('node_ids must contain unique string IDs.');
+      const requestedNodes = requestedIds.map((id) => nextNodes.find((node) => node.id === id));
+      if (requestedNodes.some((node) => !node || !isDynamicGroupMember(node))) throw new Error('Every member must be an existing card; background regions and other groups cannot be nested.');
+      const currentIds = Array.isArray(group.data.childIds) ? group.data.childIds.filter((id): id is string => typeof id === 'string') : [];
+      const nextIds = operation.type === 'add_dynamic_group_members'
+        ? Array.from(new Set([...currentIds, ...requestedIds]))
+        : currentIds.filter((id) => !requestedIds.includes(id));
+      if (operation.type === 'remove_dynamic_group_members' && nextIds.length === 0) throw new Error('A dynamic group must retain at least one member. Remove the group wrapper with delete_dynamic_group instead.');
+      if (nextIds.length > 100) throw new Error('A dynamic group can contain at most 100 cards.');
+      nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, childIds: nextIds } } : node);
+      changes.push({ type: operation.type, nodeId, memberCount: requestedIds.length });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'delete_dynamic_group') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
+      if (!nextNodes.some((node) => node.id === nodeId && node.type === 'groupNode')) throw new Error(`Dynamic group '${nodeId}' was not found.`);
+      nextNodes = nextNodes.filter((node) => node.id !== nodeId);
+      nextEdges = nextEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+      deleted.push(nodeId);
+      changes.push({ type: operation.type, nodeId });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'convert_background_to_dynamic_group') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
+      const background = nextNodes.find((node) => node.id === nodeId && node.type === 'backgroundNode');
+      if (!background) throw new Error(`Background region '${nodeId}' was not found.`);
+      const width = typeof background.style?.width === 'number' ? background.style.width : 600;
+      const height = typeof background.style?.height === 'number' ? background.style.height : 400;
+      const children = nextNodes.filter((node) => {
+        if (!isDynamicGroupMember(node)) return false;
+        const nodeWidth = node.measured?.width || (typeof node.style?.width === 'number' ? node.style.width : 300);
+        const nodeHeight = node.measured?.height || (typeof node.style?.height === 'number' ? node.style.height : 200);
+        const centerX = node.position.x + nodeWidth / 2;
+        const centerY = node.position.y + nodeHeight / 2;
+        return centerX >= background.position.x && centerX <= background.position.x + width && centerY >= background.position.y && centerY <= background.position.y + height;
+      });
+      if (!children.length) throw new Error('No cards are inside this background region.');
+      nextNodes = nextNodes.map((node) => node.id === nodeId ? {
+        ...node, type: 'groupNode', position: { x: 0, y: 0 }, draggable: true, dragHandle: undefined,
+        style: { ...node.style, width: 100, height: 100, zIndex: -2 },
+        data: { ...node.data, childIds: children.map((child) => child.id) },
+      } : node);
+      changes.push({ type: operation.type, nodeId, memberCount: children.length });
+      changedCount += 1;
+      continue;
+    }
+
+    if (operation.type === 'convert_dynamic_group_to_background') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
+      const group = nextNodes.find((node) => node.id === nodeId && node.type === 'groupNode');
+      if (!group) throw new Error(`Dynamic group '${nodeId}' was not found.`);
+      const childIds = Array.isArray(group.data.childIds) ? group.data.childIds.filter((id): id is string => typeof id === 'string') : [];
+      const children = nextNodes.filter((node) => childIds.includes(node.id) && isDynamicGroupMember(node));
+      if (!children.length) throw new Error(`Dynamic group '${nodeId}' has no valid member cards.`);
+      const bounds = children.reduce((result, child) => {
+        const width = child.measured?.width || (typeof child.style?.width === 'number' ? child.style.width : 300);
+        const height = child.measured?.height || (typeof child.style?.height === 'number' ? child.style.height : 200);
+        return { left: Math.min(result.left, child.position.x), top: Math.min(result.top, child.position.y), right: Math.max(result.right, child.position.x + width), bottom: Math.max(result.bottom, child.position.y + height) };
+      }, { left: Number.POSITIVE_INFINITY, top: Number.POSITIVE_INFINITY, right: 0, bottom: 0 });
+      const padding = 60;
+      const { childIds: _childIds, hullPoints: _hullPoints, ...data } = group.data as Record<string, unknown>;
+      nextNodes = nextNodes.map((node) => node.id === nodeId ? {
+        ...node, type: 'backgroundNode', position: { x: bounds.left - padding, y: bounds.top - padding }, dragHandle: '.custom-drag-handle',
+        style: { ...node.style, width: Math.max(200, bounds.right - bounds.left + padding * 2), height: Math.max(150, bounds.bottom - bounds.top + padding * 2), zIndex: -3 },
+        data,
+      } : node);
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
       continue;
@@ -754,6 +891,11 @@ export const applyMcpOperations = (
       if ((current.data as Record<string, unknown>).isRoot === true) throw new Error('The root story card cannot be deleted.');
       nextNodes = nextNodes.filter((node) => node.id !== nodeId);
       nextEdges = nextEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+      nextNodes = nextNodes.map((node) => node.type === 'groupNode' && Array.isArray(node.data.childIds)
+        ? { ...node, data: { ...node.data, childIds: node.data.childIds.filter((id) => id !== nodeId) } }
+        : node);
+      deleted.push(...nextNodes.filter((node) => node.type === 'groupNode' && Array.isArray(node.data.childIds) && node.data.childIds.length === 0).map((node) => node.id));
+      nextNodes = nextNodes.filter((node) => node.type !== 'groupNode' || (Array.isArray(node.data.childIds) && node.data.childIds.length > 0));
       deleted.push(nodeId);
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
@@ -772,17 +914,40 @@ export const applyMcpOperations = (
       }
       nextNodes = nextNodes.filter((node) => node.id !== nodeId);
       nextEdges = nextEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+      nextNodes = nextNodes.map((node) => node.type === 'groupNode' && Array.isArray(node.data.childIds)
+        ? { ...node, data: { ...node.data, childIds: node.data.childIds.filter((id) => id !== nodeId) } }
+        : node);
+      deleted.push(...nextNodes.filter((node) => node.type === 'groupNode' && Array.isArray(node.data.childIds) && node.data.childIds.length === 0).map((node) => node.id));
+      nextNodes = nextNodes.filter((node) => node.type !== 'groupNode' || (Array.isArray(node.data.childIds) && node.data.childIds.length > 0));
       deleted.push(nodeId);
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
       continue;
     }
 
-    if (operation.type === 'move_node') {
+    if (operation.type === 'move_node' || operation.type === 'move_dynamic_group') {
       if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
       const position = positionOf(operation.position);
       if (!nextNodes.some((node) => node.id === nodeId)) throw new Error(`Node '${nodeId}' was not found.`);
-      nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, position } : node);
+      const current = nextNodes.find((node) => node.id === nodeId)!;
+      if (operation.type === 'move_dynamic_group' && current.type !== 'groupNode') throw new Error(`Node '${nodeId}' is not a dynamic group.`);
+      if (current.type === 'groupNode') {
+        const childIds = Array.isArray(current.data.childIds) ? current.data.childIds.filter((id): id is string => typeof id === 'string') : [];
+        if (!childIds.length) throw new Error(`Dynamic group '${nodeId}' has no member cards to move.`);
+        const childIdSet = new Set(childIds);
+        const children = nextNodes.filter((node) => childIdSet.has(node.id));
+        const groupOrigin = {
+          x: Math.min(...children.map((node) => node.position.x)) - 20,
+          y: Math.min(...children.map((node) => node.position.y)) - 20,
+        };
+        const deltaX = position.x - groupOrigin.x;
+        const deltaY = position.y - groupOrigin.y;
+        nextNodes = nextNodes.map((node) => childIdSet.has(node.id)
+          ? { ...node, position: { x: node.position.x + deltaX, y: node.position.y + deltaY } }
+          : node.id === nodeId ? { ...node, position } : node);
+      } else {
+        nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, position } : node);
+      }
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
       continue;

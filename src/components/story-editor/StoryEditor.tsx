@@ -1574,6 +1574,14 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             create_background_region: 'create_background_region',
             update_background_region: 'update_background_region',
             delete_background_region: 'delete_background_region',
+            create_dynamic_group: 'create_dynamic_group',
+            update_dynamic_group: 'update_dynamic_group',
+            add_dynamic_group_members: 'add_dynamic_group_members',
+            remove_dynamic_group_members: 'remove_dynamic_group_members',
+            delete_dynamic_group: 'delete_dynamic_group',
+            convert_background_to_dynamic_group: 'convert_background_to_dynamic_group',
+            convert_dynamic_group_to_background: 'convert_dynamic_group_to_background',
+            move_dynamic_group: 'move_dynamic_group',
             connect_story_nodes: 'connect_story_nodes',
             connect_story_setting: 'connect_story_setting',
             disconnect_story_setting: 'disconnect_story_setting',
@@ -1589,7 +1597,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             if (!Array.isArray(payload.input.operations)) throw new Error('operations must be an array.');
             operations = payload.input.operations as Array<Record<string, unknown>>;
             operations.forEach((operation, index) => {
-              if (['create_story_node', 'create_character_node', 'create_scene_node', 'create_plot_structure_node', 'create_background_region'].includes(String(operation.type)) && (typeof operation.node_id !== 'string' || !operation.node_id.trim())) {
+              if (['create_story_node', 'create_character_node', 'create_scene_node', 'create_plot_structure_node', 'create_background_region', 'create_dynamic_group'].includes(String(operation.type)) && (typeof operation.node_id !== 'string' || !operation.node_id.trim())) {
                 throw new Error(`operations[${index}].node_id is required for batch creates so preview and apply use the same node IDs.`);
               }
             });
