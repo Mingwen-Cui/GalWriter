@@ -1,9 +1,3 @@
-import { presentationPointerDelta } from '../shared/presentationPointer';
-import { PresentationText, useDialogueTextLayout, textBlockCss } from '../shared/PresentationText';
-import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
-import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
-import { themeRenderPatch } from '../experienceThemes';
-import { appearanceStyle } from '../shared/paint/appearanceStyle';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import {
   type ReactNode,
@@ -15,11 +9,18 @@ import {
   useState,
 } from 'react';
 
-import type { Language } from '../../../lib/i18n';
 import type { InlinePresentationActionType } from '../../../domain/project';
+import type { Language } from '../../../lib/i18n';
+import { getKeyboardMouseSettings, getWheelDelta } from '../../../lib/keyboardMouseSettings';
 import { getCharacterStageBounds } from '../../../lib/presentation';
 import { VirtualPresentationStage } from '../../VirtualPresentationStage';
+import { themeRenderPatch } from '../experienceThemes';
 import { homepageCoverTemplates } from '../homepageCoverTemplates';
+import type { LayerChange } from '../shared/inspectors/GeometryPopovers';
+import { appearanceStyle } from '../shared/paint/appearanceStyle';
+import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
+import { presentationPointerDelta } from '../shared/presentationPointer';
+import { PresentationText, textBlockCss, useDialogueTextLayout } from '../shared/PresentationText';
 import {
   resolvePresentationDialogueLayout,
   resolvePresentationDialogueOffsets,
@@ -52,24 +53,23 @@ import {
   WebEditableElementFrame,
   type WebEditableResizeHandle,
 } from '../web/WebEditableElementFrame';
+import type { PlacementGeometry, WebPlacementTool } from '../web/webElementPlacement';
+import { WebElementPlacementOverlay } from '../web/WebElementPlacementOverlay';
 import { gradientFromStops, normalizeGradientStops } from '../web/webGradientStops';
 import { getPptCopy, type PptCopy } from './i18n';
 import { getPptWorkspaceCopy, type PptWorkspaceCopy } from './i18n/index';
 import { targetLabel } from './pptAnimationLabels';
 import { findAnimation, previewStyle, syncNameplateAnimations } from './pptAnimationPreview';
+import { clearPptObjectAnimations, filterPptDisabledAnimations } from './pptAnimationReset';
 import { PptCopyContext, type PptCopyContextValue } from './pptCopyContext';
 import {
   getPptCoverText,
   getPptCoverTitle,
   PPT_DEFAULT_COVER_DESCRIPTION,
 } from './pptCoverTemplate';
+import { copyPptCoverText } from './pptElementClipboard';
 import { PptExportRulesRibbon } from './PptExportRulesRibbon';
 import { PptInsertRibbon } from './PptInsertRibbon';
-import { WebElementPlacementOverlay } from '../web/WebElementPlacementOverlay';
-import type { WebPlacementTool, PlacementGeometry } from '../web/webElementPlacement';
-import { createPptShape, constrainPptShape } from './pptShapes';
-import { copyPptCoverText } from './pptElementClipboard';
-import { clearPptObjectAnimations, filterPptDisabledAnimations } from './pptAnimationReset';
 import {
   createManualButton,
   createManualImage,
@@ -79,10 +79,15 @@ import {
   updateManualElement,
 } from './pptManualContent';
 import { PptManualElementLayer, PptManualSlideCanvas } from './PptManualSlideCanvas';
-import { getKeyboardMouseSettings, getWheelDelta } from '../../../lib/keyboardMouseSettings';
+import { constrainPptShape, createPptShape } from './pptShapes';
 
 const isConfiguredSelectionButton = (button: number) =>
   button === (getKeyboardMouseSettings().selectionButton === 'left' ? 0 : 2);
+import {
+  PptBoxSelectionContext,
+  pptBoxSelectionKey,
+  pptManualBoxSelectionKey,
+} from './PptBoxSelectionContext';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import {
   createPptStyleTextAnimations,
@@ -99,20 +104,15 @@ import {
   insertPptSlideOrder,
   PPT_CONTENT_HEIGHT,
   PPT_CONTENT_WIDTH,
+  PPT_TIMELINE_MIN_DURATION_MS,
   pptCanvasContentHeight,
   pptCanvasViewportClass,
-  PPT_TIMELINE_MIN_DURATION_MS,
   type PptSelection,
   type PptSlideItem,
   type PptWorkspaceSidebarTab,
   type PptWorkspaceViewMode,
 } from './pptWorkspaceModel';
 import { NotesPanel, PptSidebar } from './PptWorkspaceSidebar';
-import {
-  PptBoxSelectionContext,
-  pptBoxSelectionKey,
-  pptManualBoxSelectionKey,
-} from './PptBoxSelectionContext';
 
 type ViewMode = PptWorkspaceViewMode;
 type SidebarTab = PptWorkspaceSidebarTab;
@@ -365,13 +365,19 @@ export function PptWorkspace({
   const [selectedId, setSelectedId] = useState(() => slides[0]?.id || 'cover');
   const [selectedObject, setSelectedObject] = useState<Selection | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<PptAnimationPhase>('enter');
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('timeline');
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('style');
   const [viewMode, setViewMode] = useState<ViewMode>('normal');
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesHeight, setNotesHeight] = useState(150);
   const [zoom, setZoom] = useState(100);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [loopPreview, setLoopPreview] = useState(false);
+  const loopPreviewRef = useRef(false);
+  const toggleLoopPreview = () => {
+    loopPreviewRef.current = !loopPreviewRef.current;
+    setLoopPreview(loopPreviewRef.current);
+  };
   const [previewRunId, setPreviewRunId] = useState(0);
   const [timelinePlayheadMs, setTimelinePlayheadMs] = useState<number>();
   const [slideClipboard, setSlideClipboard] = useState<PptManualSlide>();
@@ -511,7 +517,9 @@ export function PptWorkspace({
   const selectSlide = useCallback((id: string) => {
     setSelectedId(id);
     setSelectedObject(null);
-    setSidebarTab('timeline');
+    setSidebarTab('style');
+    if (previewFrameRef.current) window.cancelAnimationFrame(previewFrameRef.current);
+    previewFrameRef.current = null;
     setIsPreviewing(false);
     setTimelinePlayheadMs(undefined);
     setSelectedManualElementId(undefined);
@@ -973,9 +981,13 @@ export function PptWorkspace({
     setSelectedObject({ target: 'background', label: copy.background });
     setSidebarTab('style');
   };
-  const selectBackground = () => {
+  const clearObjectSelection = () => {
     setSelectedManualElementId(undefined);
-    setSelectedObject({ target: 'background', label: copy.background });
+    setSelectedObject(null);
+    setBoxSelectedKeys(new Set());
+  };
+  const selectBackground = () => {
+    clearObjectSelection();
     setSidebarTab('style');
   };
   const deleteActiveManualElement = (elementId: string) => {
@@ -1194,11 +1206,17 @@ export function PptWorkspace({
     setPreviewRunId((value) => value + 1);
     const duration = getTimelineDuration(timeline, currentVideoTrack?.durationMs);
     const startedAt = performance.now();
-    let previousCycle = -1;
+    let previousCycle = 0;
     const tick = (now: number) => {
       const elapsed = Math.max(0, now - startedAt);
       const cycle = Math.floor(elapsed / duration);
       const position = elapsed % duration;
+      if (cycle > previousCycle && !loopPreviewRef.current) {
+        setTimelinePlayheadMs(duration);
+        setIsPreviewing(false);
+        previewFrameRef.current = null;
+        return;
+      }
       if (cycle !== previousCycle) {
         previousCycle = cycle;
         // Remount the slide at each loop boundary so CSS preview animations
@@ -1450,7 +1468,16 @@ export function PptWorkspace({
               <div
                 className={`flex h-full min-h-0 flex-col ${viewMode === 'reading' ? 'bg-slate-950' : ''}`}
               >
-                <div className="min-h-0 flex-1 overflow-auto p-6 lg:p-10">
+                <div
+                  className="min-h-0 flex-1 overflow-auto p-6 lg:p-10"
+                  onPointerDown={(event) => {
+                    if (
+                      isConfiguredSelectionButton(event.button) &&
+                      !(event.target as HTMLElement).closest('.ppt-slide-canvas')
+                    )
+                      clearObjectSelection();
+                  }}
+                >
                   <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center">
                     <div
                       className={`relative w-full shrink-0 overflow-hidden bg-slate-950 transition-transform duration-150 ${pptCanvasViewportClass(pptSettings.layout)}`}
@@ -1555,13 +1582,18 @@ export function PptWorkspace({
               onDelete={(id) => replaceTimeline(currentAnimations.filter((item) => item.id !== id))}
               onPreview={previewCurrentSlide}
               previewing={isPreviewing}
+              loopPreview={loopPreview}
+              onToggleLoopPreview={toggleLoopPreview}
               onPausePreview={pausePreview}
               onUpdate={updateSelectedAnimation}
               manualSlide={inspectorSlide}
               selectedManualElementId={selectedManualElementId}
               coverTextBox={selectedCoverTextBox}
               slides={slides}
-              backgroundSelected={selectedObject?.target === 'background'}
+              backgroundSelected={
+                selectedObject?.target === 'background' ||
+                (!selectedObject && !selectedManualElementId)
+              }
               coverSelected={selectedId === 'cover'}
               homepageCoverTemplates={homepageCoverTemplates}
               onApplyHomepageCoverPreset={applyHomepageCoverPreset}

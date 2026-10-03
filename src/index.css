@@ -6019,7 +6019,7 @@ button.web-segment-button:last-child {
 
 /* PPT animation workspace: compact ribbon and object-level editing affordances. */
 .ppt-ribbon-shell {
-  --ppt-ribbon-height: 136px;
+  --ppt-ribbon-height: 112px;
   display: flex;
   flex: 0 0 var(--ppt-ribbon-height);
   height: var(--ppt-ribbon-height);
@@ -6141,6 +6141,109 @@ button.web-segment-button:last-child {
   border-color: var(--vr-accent);
   background: var(--vr-accent-soft);
   color: var(--vr-accent-strong);
+}
+
+.ppt-transition-gallery {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(86px, auto));
+  gap: 4px;
+}
+
+.ppt-effect-button.ppt-transition-effect {
+  min-width: 0;
+  height: 32px;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.ppt-direction-control {
+  position: relative;
+  display: grid;
+  grid-template: repeat(3, 20px) / repeat(3, 20px);
+  gap: 2px;
+}
+
+.ppt-direction-pad {
+  position: absolute;
+  inset: 0;
+  width: 64px;
+  height: 64px;
+  fill: var(--vr-surface-soft);
+  stroke: var(--vr-border);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.ppt-direction-origin {
+  z-index: 1;
+  grid-area: 2 / 2;
+  align-self: center;
+  justify-self: center;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--vr-text-muted);
+}
+
+.ppt-direction-button {
+  z-index: 1;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 5px;
+  color: var(--vr-text-muted);
+}
+
+.ppt-direction-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ppt-direction-button:hover:not(:disabled),
+.ppt-direction-button.is-active {
+  color: var(--vr-accent-strong);
+}
+
+.ppt-direction-button:hover:not(:disabled),
+.ppt-direction-button.is-active {
+  background: var(--vr-accent-soft);
+}
+
+.ppt-direction-button:focus-visible {
+  outline: 2px solid var(--vr-accent);
+  outline-offset: 2px;
+}
+
+.ppt-direction-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.ppt-number-field {
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--vr-border);
+  border-radius: 5px;
+  background: var(--vr-surface-soft);
+  color: var(--vr-text);
+}
+
+.ppt-number-field:focus-within {
+  border-color: var(--vr-accent);
+}
+
+.ppt-number-field--inspector {
+  height: 32px;
 }
 
 .ppt-selectable {

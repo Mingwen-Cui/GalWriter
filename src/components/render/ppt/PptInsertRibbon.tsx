@@ -3,19 +3,19 @@ import {
   Copy,
   CopyPlus,
   ImagePlus,
-  PlusSquare,
-  Type,
   MousePointerClick,
+  PlusSquare,
   Scissors,
+  Type,
 } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 
-import type { PptCopy } from './i18n';
 import type { Language } from '../../../lib/i18n';
 import type { WebMenuElement } from '../video/shared/types';
-import { WebShapeIcon } from '../web/WebShapeAddControl';
 import { webInsertToolClass, webInsertToolStateClass } from '../web/WebInsertToolButton';
+import { WebShapeIcon } from '../web/WebShapeAddControl';
 import { webShapeCatalog } from '../web/webShapes';
+import type { PptCopy } from './i18n';
 
 function InsertGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -96,7 +96,7 @@ export function PptInsertRibbon({
     reader.readAsDataURL(file);
   };
   return (
-    <header className="ppt-ribbon-shell" style={{ height: 88, flexBasis: 88 }}>
+    <header className="ppt-ribbon-shell">
       <div className="ppt-ribbon">
         <InsertGroup label={copy.slides}>
           <InsertAction label={copy.newSlide} icon={PlusSquare} onClick={onNewSlide} />

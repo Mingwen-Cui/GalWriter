@@ -11,6 +11,7 @@ export function DraggableNumberInput({
   disabled = false,
   containerClassName = '',
   inputClassName = '',
+  label,
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -22,8 +23,14 @@ export function DraggableNumberInput({
   disabled?: boolean;
   containerClassName?: string;
   inputClassName?: string;
+  label?: string;
 }) {
-  const dragRef = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startValue: number;
+    moved: boolean;
+  } | null>(null);
   const resolvedDecimals =
     decimals ?? (step.toString().includes('.') ? step.toString().split('.')[1]?.length || 0 : 0);
   const commitValue = (nextValue: number) => {
@@ -36,6 +43,7 @@ export function DraggableNumberInput({
     <div className={`flex w-full items-center rounded-lg bg-[var(--app-bg)] ${containerClassName}`}>
       <input
         type="number"
+        aria-label={label}
         min={min}
         max={max}
         step={step}
@@ -49,6 +57,7 @@ export function DraggableNumberInput({
             pointerId: event.pointerId,
             startX: event.clientX,
             startValue: value,
+            moved: false,
           };
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
@@ -56,7 +65,8 @@ export function DraggableNumberInput({
           const drag = dragRef.current;
           if (!drag || drag.pointerId !== event.pointerId) return;
           const delta = Math.round((event.clientX - drag.startX) / 4);
-          if (delta !== 0) {
+          if (delta !== 0 || drag.moved) {
+            drag.moved = true;
             event.preventDefault();
             commitValue(drag.startValue + delta * step);
           }
@@ -64,9 +74,13 @@ export function DraggableNumberInput({
         onPointerUp={(event) => {
           if (dragRef.current?.pointerId !== event.pointerId) return;
           dragRef.current = null;
-          event.currentTarget.releasePointerCapture(event.pointerId);
+          if (event.currentTarget.hasPointerCapture(event.pointerId))
+            event.currentTarget.releasePointerCapture(event.pointerId);
         }}
         onPointerCancel={() => {
+          dragRef.current = null;
+        }}
+        onLostPointerCapture={() => {
           dragRef.current = null;
         }}
         className={`min-w-0 flex-1 cursor-ew-resize border-0 bg-transparent p-2 text-right outline-none disabled:cursor-not-allowed disabled:opacity-40 focus:border-0 focus:outline-none focus-visible:outline-none ${inputClassName}`}

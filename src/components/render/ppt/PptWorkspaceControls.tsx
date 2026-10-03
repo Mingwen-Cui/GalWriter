@@ -4,7 +4,6 @@ import {
   Eye,
   EyeOff,
   FilePlus2,
-  MousePointer2,
   Play,
   Presentation,
   Trash2,
@@ -12,10 +11,9 @@ import {
 import { type MouseEvent, type ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import type { InlinePresentationActionType } from '../../../domain/project';
+import { VirtualPresentationStage } from '../../VirtualPresentationStage';
 import type {
-  PptAnimationDirection,
   PptAnimationEffect,
   PptAnimationPhase,
   PptAnimationStart,
@@ -31,13 +29,15 @@ import type {
   WebExportSettings,
 } from '../video/shared/types';
 import { usePptCopy } from './pptCopyContext';
+import { PptDirectionControl } from './PptDirectionControl';
 import { PptAnimationIcon, PptTransitionIcon } from './PptEffectIcon';
+import { PptNumberInput } from './PptNumberInput';
 import { pptSceneColors } from './pptSceneResolver';
 import type { Scene, Selection, SlideItem } from './PptWorkspace';
 import {
   DEFAULT_TRANSITION,
-  PPT_MIDDLE_ACTIONS,
   PHASES,
+  PPT_MIDDLE_ACTIONS,
   SlideCanvas,
   TRANSITIONS,
 } from './PptWorkspace';
@@ -114,7 +114,8 @@ export function AnimationRibbon({
                   onClearAnimations();
                   setCleared(true);
                 }}
-                className={`ppt-effect-button min-w-[64px] ${cleared ? 'is-active' : ''}`}
+                aria-pressed={disabled || cleared}
+                className={`ppt-effect-button min-w-[64px] ${disabled || cleared ? 'is-active' : ''}`}
               >
                 <PptAnimationIcon phase="enter" effect="none" />
                 <span>{copy.noAnimation}</span>
@@ -123,13 +124,15 @@ export function AnimationRibbon({
                 <button
                   key={item.value}
                   type="button"
+                  disabled={disabled}
                   onClick={() => {
                     setCleared(false);
                     setPhase(item.value);
                   }}
-                  className={`ppt-effect-button min-w-[54px] ${!cleared && phase === item.value ? 'is-active' : ''}`}
+                  aria-pressed={!disabled && !cleared && phase === item.value}
+                  className={`ppt-effect-button min-w-[54px] ${!disabled && !cleared && phase === item.value ? 'is-active' : ''}`}
                 >
-                  <PptAnimationIcon phase={item.value} />
+                  <PptAnimationIcon phase={item.value} muted={disabled} />
                   <span>{copy[item.key]}</span>
                 </button>
               ))}
@@ -154,7 +157,7 @@ export function AnimationRibbon({
                     onClick={() => onApplyMiddleAction(item.action)}
                     className={`ppt-effect-button min-w-[60px] ${animation?.action === item.action || (!animation?.action && item.action === 'shake-x' && animation?.effect === item.value) ? 'is-active' : ''}`}
                   >
-                    <PptAnimationIcon phase={phase} effect={item.action} />
+                    <PptAnimationIcon phase={phase} effect={item.action} muted={disabled} />
                     <span>{copy[item.key]}</span>
                   </button>
                 ))
@@ -166,7 +169,7 @@ export function AnimationRibbon({
                     onClick={() => onApply('line')}
                     className={`ppt-effect-button min-w-[72px] ${animation?.effect === 'line' ? 'is-active' : ''}`}
                   >
-                    <PptAnimationIcon phase={phase} effect="line" />
+                    <PptAnimationIcon phase={phase} effect="line" muted={disabled} />
                     <span>{copy.line}</span>
                   </button>
                   {selected?.target === 'dialog-body' && phase === 'enter' ? (
@@ -184,100 +187,63 @@ export function AnimationRibbon({
             </div>
           </RibbonGroup>
           <RibbonGroup label={copy.effectOptions}>
-            <select
+            <PptDirectionControl
               disabled={disabled || phase === 'emphasis'}
               value={animation?.direction || 'left'}
-              onChange={(event) =>
-                onUpdate({ direction: event.target.value as PptAnimationDirection })
-              }
-              className="render-field min-w-24 text-xs"
-            >
-              <option value="left">{copy.fromLeft}</option>
-              <option value="right">{copy.fromRight}</option>
-              <option value="up">{copy.fromTop}</option>
-              <option value="down">{copy.fromBottom}</option>
-            </select>
-          </RibbonGroup>
-          <RibbonGroup label={copy.addAnimation}>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() =>
-                onApply(animation?.effect || (phase === 'emphasis' ? 'pulse' : 'line'))
-              }
-              className="ppt-ribbon-action"
-            >
-              <PptAnimationIcon phase={phase} effect="add" />
-              <span>{copy.addAnimation}</span>
-            </button>
-            <button type="button" className="ppt-ribbon-action" title={copy.trigger} disabled>
-              <MousePointer2 className="h-5 w-5" />
-              <span>{copy.trigger}</span>
-            </button>
+              phase={phase}
+              onChange={(direction) => onUpdate({ direction })}
+            />
           </RibbonGroup>
           <RibbonGroup label={copy.timing}>
-            <div className="grid grid-cols-[auto_84px] items-center gap-x-2 gap-y-1.5 text-[11px] text-[var(--vr-text-muted)]">
+            <div
+              className={`grid ${animation?.textBuild?.mode === 'line-wipe' ? 'grid-cols-[auto_84px_auto_84px]' : 'grid-cols-[auto_84px]'} items-center gap-x-2 gap-y-1 text-[11px] text-[var(--vr-text-muted)]`}
+            >
               <label>{copy.start}</label>
               <select
                 disabled={disabled}
                 value={animation?.start || 'onClick'}
                 onChange={(event) => onUpdate({ start: event.target.value as PptAnimationStart })}
-                className="render-field h-7 text-[11px]"
+                className="render-field h-6 text-[11px]"
               >
                 <option value="onClick">{copy.onClick}</option>
                 <option value="withPrevious">{copy.withPrevious}</option>
                 <option value="afterPrevious">{copy.afterPrevious}</option>
               </select>
               <label>{copy.duration}</label>
-              <input
+              <PptNumberInput
+                label={copy.duration}
                 disabled={disabled}
-                type="number"
-                min="0.1"
-                max="10"
-                step="0.1"
+                min={0.1}
+                max={10}
                 value={(animation?.durationMs || 500) / 1000}
-                onChange={(event) =>
-                  onUpdate({
-                    durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.5)) * 1000),
-                  })
-                }
-                className="render-field h-7 text-[11px]"
+                onChange={(value) => onUpdate({ durationMs: Math.round(value * 1000) })}
               />
               <label>{copy.delay}</label>
-              <input
+              <PptNumberInput
+                label={copy.delay}
                 disabled={disabled}
-                type="number"
-                min="0"
-                max="10"
-                step="0.1"
+                min={0}
+                max={10}
                 value={(animation?.delayMs || 0) / 1000}
-                onChange={(event) =>
-                  onUpdate({
-                    delayMs: Math.round(Math.max(0, Number(event.target.value || 0)) * 1000),
-                  })
-                }
-                className="render-field h-7 text-[11px]"
+                onChange={(value) => onUpdate({ delayMs: Math.round(value * 1000) })}
               />
               {animation?.textBuild?.mode === 'line-wipe' ? (
                 <>
                   <label>行间停顿</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="10"
-                    step="0.1"
+                  <PptNumberInput
+                    label="行间停顿"
+                    disabled={disabled}
+                    min={0}
+                    max={10}
                     value={animation.textBuild.lineGapMs / 1000}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       onUpdate({
                         textBuild: {
                           ...animation.textBuild,
-                          lineGapMs: Math.round(
-                            Math.max(0, Number(event.target.value || 0)) * 1000,
-                          ),
+                          lineGapMs: Math.round(value * 1000),
                         },
                       })
                     }
-                    className="render-field h-7 text-[11px]"
                   />
                 </>
               ) : null}
@@ -320,54 +286,53 @@ function TransitionControls({
         </button>
       </RibbonGroup>
       <RibbonGroup label={copy.transitionToSlide}>
-        <div className="flex gap-1">
+        <div className="ppt-transition-gallery">
           {TRANSITIONS.map((item) => (
             <button
               key={item.value}
               type="button"
               onClick={() => onUpdate({ effect: item.value })}
-              className={`ppt-effect-button min-w-[62px] ${transition.effect === item.value ? 'is-active' : ''}`}
+              aria-pressed={transition.effect === item.value}
+              className={`ppt-effect-button ppt-transition-effect ${transition.effect === item.value ? 'is-active' : ''}`}
             >
-              <PptTransitionIcon effect={item.value} />
+              <PptTransitionIcon effect={item.value} className="h-5 w-5 shrink-0" />
               <span>{copy[item.key]}</span>
             </button>
           ))}
         </div>
       </RibbonGroup>
       <RibbonGroup label={copy.effectOptions}>
-        <select
+        <PptDirectionControl
           disabled={transition.effect === 'none' || transition.effect === 'fade'}
           value={transition.direction}
-          onChange={(event) => onUpdate({ direction: event.target.value as PptAnimationDirection })}
-          className="render-field min-w-24 text-xs"
-        >
-          <option value="left">{copy.fromLeft}</option>
-          <option value="right">{copy.fromRight}</option>
-          <option value="up">{copy.fromTop}</option>
-          <option value="down">{copy.fromBottom}</option>
-        </select>
+          onChange={(direction) => onUpdate({ direction })}
+        />
       </RibbonGroup>
       <RibbonGroup label={copy.timing}>
-        <div className="grid grid-cols-[auto_94px] items-center gap-x-2 gap-y-1.5 text-[11px] text-[var(--vr-text-muted)]">
-          <label>{copy.sound}</label>
-          <select disabled className="render-field h-7 text-[11px]">
-            <option>{copy.noSound}</option>
-          </select>
-          <label>{copy.duration}</label>
-          <input
-            type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
-            value={(transition.durationMs / 1000).toFixed(1)}
-            onChange={(event) =>
-              onUpdate({
-                durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.7)) * 1000),
-              })
-            }
-            className="render-field h-7 text-[11px]"
-          />
-          <label className="col-span-2 flex items-center gap-1.5">
+        <div className="grid gap-2 text-[11px] text-[var(--vr-text-muted)]">
+          <label className="grid gap-1">
+            <span>{copy.duration}</span>
+            <div className="flex items-center gap-1.5">
+              <PptNumberInput
+                label={copy.duration}
+                min={0.1}
+                max={10}
+                value={transition.durationMs / 1000}
+                onChange={(value) => onUpdate({ durationMs: Math.round(value * 1000) })}
+                className="!w-20"
+              />
+              <span>{copy.seconds}</span>
+            </div>
+          </label>
+          <div className="flex items-center gap-2">
+            <span>{copy.sound}</span>
+            <span>{copy.noSound}</span>
+          </div>
+        </div>
+      </RibbonGroup>
+      <RibbonGroup label={copy.advanceSlide}>
+        <div className="grid gap-3 text-[11px] text-[var(--vr-text-muted)]">
+          <label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={transition.advanceOnClick}
@@ -375,34 +340,32 @@ function TransitionControls({
             />
             {copy.clickMouse}
           </label>
-          <label className="col-span-2 flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={transition.advanceAfterMs !== undefined}
-              onChange={(event) =>
-                onUpdate({ advanceAfterMs: event.target.checked ? 0 : undefined })
-              }
-            />
-            {copy.autoAdvance}
-          </label>
-          {transition.advanceAfterMs !== undefined ? (
-            <>
-              <label>{copy.autoTime}</label>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 whitespace-nowrap">
               <input
-                type="number"
-                min="0"
-                max="3600"
-                step="0.1"
-                value={(transition.advanceAfterMs / 1000).toFixed(1)}
+                type="checkbox"
+                checked={transition.advanceAfterMs !== undefined}
                 onChange={(event) =>
-                  onUpdate({ advanceAfterMs: Math.max(0, Number(event.target.value || 0) * 1000) })
+                  onUpdate({ advanceAfterMs: event.target.checked ? 0 : undefined })
                 }
-                className="render-field h-7 text-[11px]"
               />
-            </>
-          ) : null}
+              {copy.autoAdvance}
+            </label>
+            <PptNumberInput
+              label={copy.autoTime}
+              disabled={transition.advanceAfterMs === undefined}
+              min={0}
+              max={3600}
+              value={(transition.advanceAfterMs ?? 0) / 1000}
+              onChange={(value) => onUpdate({ advanceAfterMs: Math.round(value * 1000) })}
+              className="!w-20"
+            />
+            <span>{copy.seconds}</span>
+          </div>
         </div>
-        <button type="button" onClick={onApplyToAll} className="ppt-ribbon-action ml-1">
+      </RibbonGroup>
+      <RibbonGroup label={copy.applyAll}>
+        <button type="button" onClick={onApplyToAll} className="ppt-ribbon-action">
           <Presentation className="h-5 w-5" />
           <span>{copy.applyAll}</span>
         </button>

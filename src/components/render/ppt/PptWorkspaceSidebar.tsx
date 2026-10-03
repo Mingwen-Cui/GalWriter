@@ -4,6 +4,7 @@ import {
   ListOrdered,
   Pause,
   Play,
+  Repeat2,
   Save,
   Settings,
   Settings2,
@@ -22,7 +23,6 @@ import { downloadTemplateArchive } from '../templateArchive';
 import { RenderObjectInspector } from '../video/objectInspector/RenderObjectInspector';
 import { registerCustomRenderFonts, renderFontOptions } from '../video/shared/customFonts';
 import type {
-  PptAnimationDirection,
   PptAnimationStart,
   PptExportSettings,
   PptManualElement,
@@ -37,10 +37,12 @@ import type {
 import { targetLabel } from './pptAnimationLabels';
 import { usePptCopy } from './pptCopyContext';
 import { PptCoverTextInspector } from './PptCoverTextInspector';
+import { pptDirectionArrow, PptDirectionControl } from './PptDirectionControl';
 import { PptManualInspector } from './PptManualInspector';
+import { PptNumberInput } from './PptNumberInput';
 import { PptSlideBackgroundInspector } from './PptSlideBackgroundInspector';
 import type { Selection, VideoTimelineTrack } from './PptWorkspace';
-import { directionLabel, effectLabel, startLabel } from './PptWorkspace';
+import { effectLabel, startLabel } from './PptWorkspace';
 import { PPT_TIMELINE_MIN_DURATION_MS, type PptWorkspaceSidebarTab } from './pptWorkspaceModel';
 
 type SidebarTab = PptWorkspaceSidebarTab;
@@ -85,6 +87,8 @@ export function PptSidebar({
   onDelete,
   onPreview,
   previewing,
+  loopPreview,
+  onToggleLoopPreview,
   onPausePreview,
   onUpdate: _onUpdate,
   manualSlide,
@@ -125,6 +129,8 @@ export function PptSidebar({
   onDelete: (id: string) => void;
   onPreview: () => void;
   previewing: boolean;
+  loopPreview: boolean;
+  onToggleLoopPreview: () => void;
   onPausePreview: () => void;
   onUpdate: (patch: Partial<PptObjectAnimation>) => void;
   manualSlide?: PptManualSlide;
@@ -182,17 +188,16 @@ export function PptSidebar({
   const coverDesignTriggerRef = useRef<HTMLButtonElement>(null);
   const coverDesignPopoverRef = useRef<HTMLDivElement>(null);
   const showParameterDescriptions = false;
-  // Template presets are temporarily hidden while PPT export is being stabilized.
   const [coverDesignMode, setCoverDesignMode] = useState<'background' | 'preset'>('background');
   const [savedPptCoverTemplates, setSavedPptCoverTemplates] = useState(readPptCoverTemplateLibrary);
   const [selectedPptCoverTemplateId, setSelectedPptCoverTemplateId] = useState<string | null>(null);
   const [isPptTemplateEditing, setIsPptTemplateEditing] = useState(false);
   const coverDesignCopy =
     language === 'zh'
-      ? { background: '背景样式', preset: '预设' }
+      ? { background: '背景样式', preset: '模板' }
       : language === 'ja'
-        ? { background: '背景スタイル', preset: 'プリセット' }
-        : { background: 'Background', preset: 'Presets' };
+        ? { background: '背景スタイル', preset: 'テンプレート' }
+        : { background: 'Background', preset: 'Templates' };
   const coverTemplateActionCopy =
     language === 'zh'
       ? { export: '导出模板', download: '下载模板', save: '保存模板', edit: '编辑模板' }
@@ -256,8 +261,8 @@ export function PptSidebar({
     if (selectedPptCoverTemplateId === templateId) setSelectedPptCoverTemplateId(null);
   };
   const tabs = [
-    { id: 'timeline', label: copy.animation, icon: ListOrdered },
     { id: 'style', label: copy.design, icon: Settings2 },
+    { id: 'timeline', label: copy.animation, icon: ListOrdered },
   ] as const;
   const activeTabConfig = tabs.find((tab) => tab.id === activeTab) || tabs[0];
 
@@ -348,7 +353,7 @@ export function PptSidebar({
               <div ref={animationPagePopoverRef} className="relative -mt-1 h-10">
                 <span
                   aria-hidden="true"
-                  className="absolute left-[75%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                  className="absolute right-6 top-[-7px] z-20 h-3.5 w-3.5 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
                 />
                 <div className="relative flex justify-end">
                   <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
@@ -385,6 +390,8 @@ export function PptSidebar({
                   onDelete={onDelete}
                   onPreview={onPreview}
                   previewing={previewing}
+                  loopPreview={loopPreview}
+                  onToggleLoopPreview={onToggleLoopPreview}
                   onPausePreview={onPausePreview}
                 />
               ) : (
@@ -399,6 +406,8 @@ export function PptSidebar({
                   onDelete={onDelete}
                   onPreview={onPreview}
                   previewing={previewing}
+                  loopPreview={loopPreview}
+                  onToggleLoopPreview={onToggleLoopPreview}
                   onPausePreview={onPausePreview}
                 />
               )}
@@ -412,16 +421,25 @@ export function PptSidebar({
                 <div ref={coverDesignPopoverRef} className="relative -mt-1 h-10">
                   <span
                     aria-hidden="true"
-                    className="absolute left-[87.5%] top-[-7px] z-20 h-3.5 w-3.5 -translate-x-1/2 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
+                    className="absolute right-[88px] top-[-7px] z-20 h-3.5 w-3.5 rotate-45 border-l border-t border-[var(--vr-border)] bg-white"
                   />
                   <div className="relative flex justify-end">
                     <div className="flex overflow-hidden rounded-xl border border-[var(--vr-border)] bg-white p-1 shadow-sm">
                       <button
                         type="button"
                         onClick={() => setCoverDesignMode('background')}
+                        aria-pressed={coverDesignMode === 'background'}
                         className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'background' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
                       >
                         {coverDesignCopy.background}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCoverDesignMode('preset')}
+                        aria-pressed={coverDesignMode === 'preset'}
+                        className={`relative z-30 h-8 rounded-lg px-3 text-[11px] font-black transition-colors ${coverDesignMode === 'preset' ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-[var(--vr-text-soft)] hover:bg-white/5 hover:text-[var(--vr-text)]'}`}
+                      >
+                        {coverDesignCopy.preset}
                       </button>
                     </div>
                   </div>
@@ -660,6 +678,8 @@ function AnimationTimeline({
   onDelete,
   onPreview,
   previewing,
+  loopPreview,
+  onToggleLoopPreview,
   onPausePreview,
 }: {
   mode: 'overview' | 'list';
@@ -672,6 +692,8 @@ function AnimationTimeline({
   onDelete: (id: string) => void;
   onPreview: () => void;
   previewing: boolean;
+  loopPreview: boolean;
+  onToggleLoopPreview: () => void;
   onPausePreview: () => void;
 }) {
   const copy = usePptCopy();
@@ -829,21 +851,32 @@ function AnimationTimeline({
   const isOverview = mode === 'overview';
   return (
     <>
-      {isOverview ? (
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-black text-[var(--vr-text)]">{copy.animation}</h2>
-          </div>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-black text-[var(--vr-text)]">{copy.animation}</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleLoopPreview}
+            aria-pressed={loopPreview}
+            title={copy.loopPreview}
+            className={`flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-bold ${loopPreview ? 'bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]' : 'text-[var(--vr-text-muted)] hover:bg-[var(--vr-surface-soft)]'}`}
+          >
+            <Repeat2 className="h-4 w-4" />
+            {copy.loopPreview}
+          </button>
           <button
             type="button"
             onClick={previewing ? onPausePreview : onPreview}
             className="render-icon-button"
-            title={previewing ? '暂停预览' : copy.playCurrentSlide}
+            title={previewing ? copy.pausePreview : copy.playCurrentSlide}
+            aria-label={previewing ? copy.pausePreview : copy.playCurrentSlide}
           >
             {previewing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
         </div>
-      ) : null}
+      </div>
       {hasTracks ? (
         <div className="space-y-3">
           {isOverview ? (
@@ -1089,7 +1122,8 @@ function AnimationTimeline({
                         {effectLabel(copy, item.effect, item.action)} · {targetLabel(copy, item)}
                       </strong>
                       <small className="mt-1 block text-[10px] text-[var(--vr-text-muted)]">
-                        {startLabel(copy, item.start)} · {directionLabel(copy, item.direction)} ·{' '}
+                        {startLabel(copy, item.start)} ·{' '}
+                        {pptDirectionArrow(item.direction, item.phase)} ·{' '}
                         {(item.durationMs / 1000).toFixed(1)} {copy.seconds}
                       </small>
                     </span>
@@ -1172,52 +1206,38 @@ function _ObjectProperties({
               <option value="afterPrevious">{copy.afterPrevious}</option>
             </select>
           </label>
-          <label className="mb-4 block text-xs font-bold text-[var(--vr-text-muted)]">
+          <div className="mb-4 text-xs font-bold text-[var(--vr-text-muted)]">
             {copy.effectOptions}
-            <select
-              value={animation?.direction || 'left'}
-              onChange={(event) =>
-                onUpdate({ direction: event.target.value as PptAnimationDirection })
-              }
-              className="render-field mt-1.5 w-full"
-            >
-              <option value="left">{copy.fromLeft}</option>
-              <option value="right">{copy.fromRight}</option>
-              <option value="up">{copy.fromTop}</option>
-              <option value="down">{copy.fromBottom}</option>
-            </select>
-          </label>
+            <div className="mt-1.5">
+              <PptDirectionControl
+                value={animation?.direction || 'left'}
+                phase={animation?.phase}
+                disabled={animation?.phase === 'emphasis'}
+                onChange={(direction) => onUpdate({ direction })}
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs font-bold text-[var(--vr-text-muted)]">
               {copy.duration}
-              <input
-                type="number"
-                min="0.1"
-                max="10"
-                step="0.1"
+              <PptNumberInput
+                label={copy.duration}
+                min={0.1}
+                max={10}
                 value={(animation?.durationMs || 500) / 1000}
-                onChange={(event) =>
-                  onUpdate({
-                    durationMs: Math.round(Math.max(0.1, Number(event.target.value || 0.5)) * 1000),
-                  })
-                }
-                className="render-field mt-1.5 w-full"
+                onChange={(value) => onUpdate({ durationMs: Math.round(value * 1000) })}
+                className="ppt-number-field--inspector mt-1.5"
               />
             </label>
             <label className="text-xs font-bold text-[var(--vr-text-muted)]">
               {copy.delay}
-              <input
-                type="number"
-                min="0"
-                max="10"
-                step="0.1"
+              <PptNumberInput
+                label={copy.delay}
+                min={0}
+                max={10}
                 value={(animation?.delayMs || 0) / 1000}
-                onChange={(event) =>
-                  onUpdate({
-                    delayMs: Math.round(Math.max(0, Number(event.target.value || 0)) * 1000),
-                  })
-                }
-                className="render-field mt-1.5 w-full"
+                onChange={(value) => onUpdate({ delayMs: Math.round(value * 1000) })}
+                className="ppt-number-field--inspector mt-1.5"
               />
             </label>
           </div>

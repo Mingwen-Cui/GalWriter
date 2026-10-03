@@ -1,4 +1,5 @@
 import { useId } from 'react';
+
 import type { PptAnimationPhase, PptTransitionEffect } from '../video/shared/types';
 
 const star = '14,3 17.2,10.1 25,11 19.2,16.2 20.8,24 14,20 7.2,24 8.8,16.2 3,11 10.8,10.1';
@@ -12,14 +13,17 @@ const phaseColors = {
 export function PptAnimationIcon({
   phase,
   effect = 'phase',
+  muted = false,
   className = 'h-7 w-7',
 }: {
   phase: PptAnimationPhase;
   effect?: string;
+  muted?: boolean;
   className?: string;
 }) {
   const id = useId().replace(/:/g, '');
-  const color = effect === 'none' ? { stroke: '#94a3b8', fill: '#f1f5f9' } : phaseColors[phase];
+  const color =
+    muted || effect === 'none' ? { stroke: '#94a3b8', fill: '#f1f5f9' } : phaseColors[phase];
   const vertical = effect === 'shake-y';
   return (
     <svg
