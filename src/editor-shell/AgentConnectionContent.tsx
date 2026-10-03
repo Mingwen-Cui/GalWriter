@@ -144,7 +144,8 @@ export function AgentConnectionContent({
               <span className="assistant-agent-connect-connection-indicator" aria-hidden="true">
                 {isConnected && <Check className="h-4 w-4" />}
               </span>
-              {isConnected && onShowConnectionIndicatorChange ? (
+              <span>{isConnected ? ui.agentConnectConnected : ui.agentConnectWaiting}</span>
+              {isConnected && onShowConnectionIndicatorChange && (
                 <label className="assistant-agent-connect-toggle">
                   <input
                     type="checkbox"
@@ -153,8 +154,6 @@ export function AgentConnectionContent({
                   />
                   <span>{ui.agentConnectShowIndicator}</span>
                 </label>
-              ) : (
-                <span>{isConnected ? ui.agentConnectConnected : ui.agentConnectWaiting}</span>
               )}
             </div>
           </div>

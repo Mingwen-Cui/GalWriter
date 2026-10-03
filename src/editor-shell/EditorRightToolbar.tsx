@@ -269,6 +269,7 @@ export function EditorRightToolbar({
           }`}
         >
           <button
+            data-mcp-settings-target="true"
             onClick={() => setShowSettings(true)}
             className={`relative flex items-center justify-center rounded-xl p-2.5 text-[var(--icon-color)] transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${
               settingsAttention ? 'settings-attention-pulse' : ''

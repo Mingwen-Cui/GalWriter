@@ -3748,6 +3748,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
         <SettingsModal
           showSettings={showSettings}
           setShowSettings={setShowSettings}
+          mcpConnected={mcpConnected}
+          showMcpConnectionIndicator={showMcpConnectionIndicator}
+          onShowMcpConnectionIndicatorChange={handleShowMcpConnectionIndicator}
           missingTextApiKey={missingTextApiKey}
           language={language}
           setLanguage={onAppLanguageChange}

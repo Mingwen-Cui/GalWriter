@@ -647,6 +647,16 @@ export function AssistantPanel({
   );
   const [documentDragActive, setDocumentDragActive] = useState(false);
   const agentConnectionDialogOpenedRef = useRef(false);
+  const agentConnectionStartedWhileConnectedRef = useRef(false);
+  const agentWelcomeOptionRef = useRef<HTMLButtonElement | null>(null);
+  const [agentWelcomeFlight, setAgentWelcomeFlight] = useState<{
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+    id: number;
+  } | null>(null);
+  const agentWelcomeFlightTimerRef = useRef<number | null>(null);
   const [cardGenerateOpen, setCardGenerateOpen] = useState(false);
   const [suggestMenuOpen, setSuggestMenuOpen] = useState(false);
   const [welcomeGradientState, setWelcomeGradientState] = useState<
@@ -686,18 +696,65 @@ export function AssistantPanel({
 
   useEffect(() => {
     if (agentConnectionOpen) {
-      agentConnectionDialogOpenedRef.current = true;
+      if (!agentConnectionDialogOpenedRef.current) {
+        agentConnectionDialogOpenedRef.current = true;
+        agentConnectionStartedWhileConnectedRef.current = mcpConnected;
+      }
       return;
     }
     if (!agentConnectionDialogOpenedRef.current || !mcpConnected) return;
     agentConnectionDialogOpenedRef.current = false;
+    const shouldAnimateWelcomeOption = !agentConnectionStartedWhileConnectedRef.current;
+    agentConnectionStartedWhileConnectedRef.current = false;
     if (showMcpConnectionIndicator) onMcpConnectionReadyToAnimate();
+    if (!shouldAnimateWelcomeOption || reduceMotion) return;
+    const source = agentWelcomeOptionRef.current?.querySelector<HTMLElement>(
+      '.assistant-welcome-option-icon',
+    );
+    const target = document.querySelector<HTMLElement>('[data-mcp-settings-target="true"] svg');
+    if (!source || !target) return;
+    const sourceRect = source.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const x = sourceRect.left + sourceRect.width / 2 - 12;
+    const y = sourceRect.top + sourceRect.height / 2 - 12;
+    setAgentWelcomeFlight({
+      x,
+      y,
+      dx: targetRect.left + targetRect.width / 2 - (x + 12),
+      dy: targetRect.top + targetRect.height / 2 - (y + 12),
+      id: Date.now(),
+    });
+    if (agentWelcomeFlightTimerRef.current !== null) {
+      window.clearTimeout(agentWelcomeFlightTimerRef.current);
+    }
+    agentWelcomeFlightTimerRef.current = window.setTimeout(() => {
+      setAgentWelcomeFlight(null);
+      agentWelcomeFlightTimerRef.current = null;
+    }, 760);
   }, [
     agentConnectionOpen,
     mcpConnected,
     onMcpConnectionReadyToAnimate,
+    reduceMotion,
     showMcpConnectionIndicator,
   ]);
+
+  useEffect(
+    () => () => {
+      if (agentWelcomeFlightTimerRef.current !== null) {
+        window.clearTimeout(agentWelcomeFlightTimerRef.current);
+      }
+    },
+    [],
+  );
+  useEffect(() => {
+    if (mcpConnected || !agentWelcomeFlight) return;
+    if (agentWelcomeFlightTimerRef.current !== null) {
+      window.clearTimeout(agentWelcomeFlightTimerRef.current);
+      agentWelcomeFlightTimerRef.current = null;
+    }
+    setAgentWelcomeFlight(null);
+  }, [agentWelcomeFlight, mcpConnected]);
   useEffect(() => {
     if (closeAnimationTimerRef.current) {
       window.clearTimeout(closeAnimationTimerRef.current);
@@ -1592,19 +1649,27 @@ export function AssistantPanel({
                     </span>
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => setAgentConnectionOpen(true)}
-                  className="assistant-welcome-option assistant-welcome-option--agent"
-                >
-                  <span className="assistant-welcome-option-icon" aria-hidden="true">
-                    <img src={getAppAssetUrl('/assistant/welcome/external-agent.png')} alt="" />
-                  </span>
-                  <span className="assistant-welcome-option-copy">
-                    <span className="assistant-welcome-option-title">{ui.agentConnectTitle}</span>
-                    <span className="assistant-welcome-option-desc">{ui.agentConnectDescription}</span>
-                  </span>
-                </button>
+                {(!mcpConnected ||
+                  (agentConnectionDialogOpenedRef.current &&
+                    !agentConnectionStartedWhileConnectedRef.current) ||
+                  agentWelcomeFlight) && (
+                  <button
+                    ref={agentWelcomeOptionRef}
+                    type="button"
+                    onClick={() => setAgentConnectionOpen(true)}
+                    className={`assistant-welcome-option assistant-welcome-option--agent ${agentWelcomeFlight ? 'is-mcp-connecting-away' : ''}`}
+                  >
+                    <span className="assistant-welcome-option-icon" aria-hidden="true">
+                      <img src={getAppAssetUrl('/assistant/welcome/external-agent.png')} alt="" />
+                    </span>
+                    <span className="assistant-welcome-option-copy">
+                      <span className="assistant-welcome-option-title">{ui.agentConnectTitle}</span>
+                      <span className="assistant-welcome-option-desc">
+                        {ui.agentConnectDescription}
+                      </span>
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
           </section>
@@ -2541,6 +2606,24 @@ export function AssistantPanel({
               onClose={() => setAgentConnectionOpen(false)}
             />
           </div>,
+          document.body,
+        )}
+      {agentWelcomeFlight &&
+        createPortal(
+          <motion.span
+            key={agentWelcomeFlight.id}
+            className="assistant-welcome-mcp-flight"
+            aria-hidden="true"
+            initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+            animate={{
+              x: agentWelcomeFlight.dx,
+              y: agentWelcomeFlight.dy,
+              scale: 0.16,
+              opacity: 0.15,
+            }}
+            transition={{ duration: 0.72, ease: [0.22, 0.75, 0.25, 1] }}
+            style={{ left: agentWelcomeFlight.x, top: agentWelcomeFlight.y }}
+          />,
           document.body,
         )}
     </aside>

@@ -2980,6 +2980,29 @@ html.canvas-selection-dragging * {
   transform: translateY(-50%) scale(0.75);
 }
 
+.assistant-welcome-option--agent.is-mcp-connecting-away {
+  pointer-events: none;
+  animation: assistant-agent-option-depart 720ms ease-in both;
+}
+
+.assistant-welcome-mcp-flight {
+  position: fixed;
+  z-index: 10060;
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgb(255 255 255 / 90%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #c4b5fd 0 12%, #6d5cf6 42%, #4338ca 100%);
+  box-shadow: 0 0 0 5px rgb(99 102 241 / 15%), 0 0 20px rgb(99 102 241 / 55%);
+  pointer-events: none;
+}
+
+@keyframes assistant-agent-option-depart {
+  0% { opacity: 1; transform: scale(1); }
+  22% { opacity: 1; transform: scale(0.98); }
+  100% { opacity: 0; transform: scale(0.88); }
+}
+
 .assistant-welcome-option--profile .assistant-welcome-option-title {
   color: #ea580c;
 }

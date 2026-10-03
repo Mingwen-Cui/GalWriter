@@ -881,6 +881,9 @@ const getProfileKindMeta = (kind: ProfileKind, language: Language) => {
 
 interface AISettingsPanelProps {
   language: Language;
+  mcpConnected: boolean;
+  showMcpConnectionIndicator: boolean;
+  onShowMcpConnectionIndicatorChange: (checked: boolean) => void;
   savedAIProfiles: SavedAIProfile[];
   activeTextProfileId: string | null;
   activeImageProfileId: string | null;
@@ -928,6 +931,9 @@ interface AISettingsPanelProps {
 
 export function AISettingsPanel({
   language,
+  mcpConnected,
+  showMcpConnectionIndicator,
+  onShowMcpConnectionIndicatorChange,
   savedAIProfiles,
   activeTextProfileId,
   activeImageProfileId,
@@ -2104,7 +2110,13 @@ export function AISettingsPanel({
               <h3 className="text-base font-black text-[var(--text-primary)]">{ai.mcpConnectionTitle}</h3>
             </div>
           </div>
-          <AgentConnectionContent language={language} inline />
+          <AgentConnectionContent
+            language={language}
+            connected={mcpConnected}
+            showConnectionIndicator={showMcpConnectionIndicator}
+            onShowConnectionIndicatorChange={onShowMcpConnectionIndicatorChange}
+            inline
+          />
         </section>
         {editorState ? (
           renderProfileForm()

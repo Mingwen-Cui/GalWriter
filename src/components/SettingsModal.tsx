@@ -141,6 +141,9 @@ function FloatingHint({
 interface SettingsModalProps {
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
+  mcpConnected: boolean;
+  showMcpConnectionIndicator: boolean;
+  onShowMcpConnectionIndicatorChange: (checked: boolean) => void;
   missingTextApiKey: boolean;
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -366,6 +369,9 @@ const SETTINGS_BACKGROUND_WATERMARK = String.raw`                               
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   showSettings,
   setShowSettings,
+  mcpConnected,
+  showMcpConnectionIndicator,
+  onShowMcpConnectionIndicatorChange,
   missingTextApiKey,
   language,
   setLanguage,
@@ -2790,6 +2796,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="space-y-6">
                   <AISettingsPanel
                     language={language}
+                    mcpConnected={mcpConnected}
+                    showMcpConnectionIndicator={showMcpConnectionIndicator}
+                    onShowMcpConnectionIndicatorChange={onShowMcpConnectionIndicatorChange}
                     savedAIProfiles={savedAIProfiles}
                     activeTextProfileId={activeTextProfileId}
                     activeImageProfileId={activeImageProfileId}
