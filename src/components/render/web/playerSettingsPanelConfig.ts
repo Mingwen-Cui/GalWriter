@@ -6,6 +6,8 @@ export type PlayerControlId =
   | 'textSize'
   | 'auto'
   | 'animationSpeed'
+  | 'musicVolume'
+  | 'voiceVolume'
   | 'sound'
   | 'controls'
   | 'preview'
@@ -33,6 +35,8 @@ export const playbackSettingButtonRoles: readonly string[] = [
   'auto',
   'animationSpeed',
   'sound',
+  'musicVolume',
+  'voiceVolume',
   'controls',
   'preview',
   'reset',
@@ -52,6 +56,8 @@ export function playbackSettingButtonConfig(
     'controls',
     'preview',
     'reset',
+    'musicVolume',
+    'voiceVolume',
   ];
   return {
     ...config,
@@ -80,6 +86,8 @@ export const playerControlCatalog = (language: Language) => {
           'Show toolbar',
           'Reading preview',
           'Restore story defaults',
+          'Background music',
+          'Character voice',
         ]
       : language === 'ja'
         ? [
@@ -92,6 +100,8 @@ export const playerControlCatalog = (language: Language) => {
             '操作バーを表示',
             '読み方のプレビュー',
             '作品の初期設定に戻す',
+            '背景音楽',
+            'キャラクターボイス',
           ]
         : [
             '文字显示',
@@ -103,6 +113,8 @@ export const playerControlCatalog = (language: Language) => {
             '显示操作栏',
             '阅读效果预览',
             '恢复作品默认',
+            '背景音乐',
+            '人物声音',
           ];
   const ids: PlayerControlId[] = [
     'mode',
@@ -114,6 +126,8 @@ export const playerControlCatalog = (language: Language) => {
     'controls',
     'preview',
     'reset',
+    'musicVolume',
+    'voiceVolume',
   ];
   return ids.map((id, index) => ({
     id,
@@ -122,7 +136,7 @@ export const playerControlCatalog = (language: Language) => {
       ? ['segmented', 'select']
       : ['auto', 'sound', 'controls'].includes(id)
         ? ['switch', 'segmented']
-        : ['speed', 'textSize', 'animationSpeed'].includes(id)
+        : ['speed', 'textSize', 'animationSpeed', 'musicVolume', 'voiceVolume'].includes(id)
           ? ['slider', 'stepper']
           : []) as NonNullable<PlayerControlConfig['form']>[],
   }));

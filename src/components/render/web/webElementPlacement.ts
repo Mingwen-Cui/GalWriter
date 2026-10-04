@@ -8,6 +8,25 @@ export type WebPlacementTool = {
 export type PlacementPoint = { x: number; y: number };
 export type PlacementGeometry = Pick<WebMenuElement, 'x' | 'y' | 'width' | 'height' | 'rotation'>;
 
+export function snapLineEnd(start: PlacementPoint, end: PlacementPoint, canvasWidth: number, canvasHeight: number): PlacementPoint {
+  const dx = (end.x - start.x) * canvasWidth / 100;
+  const dy = (end.y - start.y) * canvasHeight / 100;
+  const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4;
+  let length = Math.hypot(dx, dy);
+  const ux = Math.cos(angle), uy = Math.sin(angle);
+  if (Math.abs(ux) > 1e-8) length = Math.min(length, (ux > 0 ? 100 - start.x : start.x) * canvasWidth / 100 / Math.abs(ux));
+  if (Math.abs(uy) > 1e-8) length = Math.min(length, (uy > 0 ? 100 - start.y : start.y) * canvasHeight / 100 / Math.abs(uy));
+  return { x: start.x + Math.cos(angle) * length / canvasWidth * 100, y: start.y + Math.sin(angle) * length / canvasHeight * 100 };
+}
+
+export function webLineEndpoints(element: WebMenuElement, canvasWidth: number, canvasHeight: number): [PlacementPoint, PlacementPoint] {
+  const angle = (element.rotation || 0) * Math.PI / 180;
+  const half = element.width * canvasWidth / 200 * (element.scale || 1);
+  const center = { x: element.x + element.width / 2, y: element.y + element.height / 2 };
+  const dx = Math.cos(angle) * half / canvasWidth * 100, dy = Math.sin(angle) * half / canvasHeight * 100;
+  return [{ x: center.x - dx, y: center.y - dy }, { x: center.x + dx, y: center.y + dy }];
+}
+
 export function placementGeometry(
   tool: WebPlacementTool,
   start: PlacementPoint,

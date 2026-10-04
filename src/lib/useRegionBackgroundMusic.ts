@@ -37,10 +37,14 @@ export const useRegionBackgroundMusic = (
   currentNode: Node | null | undefined,
   enabled = true,
   muted = false,
+  volumeScale = 1,
 ) => {
   const match = useMemo(
-    () => (enabled ? resolveRegionBackgroundMusic(nodes, currentNode) : null),
-    [currentNode, enabled, nodes],
+    () => {
+      const resolved = enabled ? resolveRegionBackgroundMusic(nodes, currentNode) : null;
+      return resolved ? { ...resolved, music: { ...resolved.music, volume: resolved.music.volume * Math.max(0, Math.min(1, volumeScale)) } } : null;
+    },
+    [currentNode, enabled, nodes, volumeScale],
   );
   const activeRef = useRef<{
     key: string;
@@ -95,6 +99,7 @@ export const useRegionBackgroundMusic = (
     };
 
     if (active?.key === nextKey && match) {
+      active.cancelFade?.();
       active.audio.loop = match.music.loop;
       active.audio.volume = match.music.volume;
       active.fadeOut = match.music.fadeOut;

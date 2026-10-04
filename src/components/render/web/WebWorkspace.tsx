@@ -1,3 +1,4 @@
+import { combineWebSelection, webSelectionMode } from './webCanvasSelection';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { resolveWebToolbarElements } from './webExperienceTemplates';
 import {
@@ -487,7 +488,7 @@ export function WebWorkspace({
   const [aiStartMenuDesignError, setAiStartMenuDesignError] = useState('');
   const [savedTemplateLibrary, setSavedTemplateLibrary] = useState(readWebTemplateLibrary);
   const [selectedSavedTemplateId, setSelectedSavedTemplateId] = useState<string | null>(null);
-  const [elementClipboard, setElementClipboard] = useState<WebMenuElement | null>(null);
+  const [elementClipboard, setElementClipboard] = useState<Array<{ element: WebMenuElement; overlay: boolean }>>([]);
   const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState(false);
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
   const [isTemplateEditing, setIsTemplateEditing] = useState(false);
@@ -1543,8 +1544,9 @@ export function WebWorkspace({
             ...(shapeType === 'polygon' ? { polygonSides: 3 } : {}),
             backgroundType: 'solid' as const,
             backgroundColor: '#eef2ff',
-            borderColor: '#625bf6',
-            borderWidth: shapeType === 'line' ? 4 : 1,
+            borderColor: shapeType === 'line' ? '#c4c8dc' : '#625bf6',
+            borderWidth: shapeType === 'line' ? 2 : 1,
+            ...(shapeType === 'line' ? { fillEnabled: false } : {}),
             borderRadius: shapeType === 'rounded' ? 20 : 0,
           }
         : kind === 'image'
@@ -1566,48 +1568,63 @@ export function WebWorkspace({
     setPlacementTool(null);
   };
   const copySelectedSurfaceElement = () => {
-    if (!selectedStartMenuElement) return;
-    setElementClipboard({ ...selectedStartMenuElement });
+    const ids = selectedPreviewElementIds.length ? selectedPreviewElementIds : selectedStartMenuElementId ? [selectedStartMenuElementId] : [];
+    const selected = activePageElements.filter((element) => ids.includes(element.id));
+    if (!selected.length) return;
+    setElementClipboard(selected.map((element) => ({
+      element: structuredClone(element),
+      overlay: (webSettings.dialogueOverlayElements || []).some((item) => item.id === element.id),
+    })));
   };
   const pasteSurfaceElement = () => {
-    if (!elementClipboard) return;
-    const id = `${currentPreviewSurface}-${elementClipboard.kind}-${Date.now()}`;
-    const pasted: WebMenuElement = {
-      ...elementClipboard,
-      id,
-      role:
-        elementClipboard.kind === 'button' &&
-        protectedStartMenuElementRoles.has(elementClipboard.role || '')
-          ? 'custom'
-          : elementClipboard.role,
-      x: Math.min(94, Math.max(0, elementClipboard.x + 2)),
-      y: Math.min(94, Math.max(0, elementClipboard.y + 2)),
-      visible: true,
-    };
-    if (currentPreviewSurface === 'start') {
-      updateWebSettings('startMenuElements', [...(webSettings.startMenuElements || []), pasted]);
-    } else if (currentPreviewSurface === 'game') {
-      const dialogueElements = webSettings.dialogueOverlayElements || [];
-      const sourceKey = dialogueElements.some((element) => element.id === elementClipboard.id)
-        ? 'dialogueOverlayElements'
-        : 'previewToolbarElements';
-      updateWebSettings(sourceKey, [
-        ...(sourceKey === 'previewToolbarElements'
-          ? resolvedToolbarElements
-          : webSettings[sourceKey] || []),
-        pasted,
-      ]);
-    } else if (currentPreviewSurface === 'flow') {
-      updateWebSettings('flowOverviewElements', [
-        ...(webSettings.flowOverviewElements || []),
-        pasted,
-      ]);
+    if (!elementClipboard.length) return;
+    const dx = Math.max(-Math.min(...elementClipboard.map(({ element }) => element.x)), Math.min(2, 100 - Math.max(...elementClipboard.map(({ element }) => element.x + element.width))));
+    const dy = Math.max(-Math.min(...elementClipboard.map(({ element }) => element.y)), Math.min(2, 100 - Math.max(...elementClipboard.map(({ element }) => element.y + element.height))));
+    const copies = elementClipboard.map(({ element, overlay }) => ({ overlay, element: {
+      ...structuredClone(element), id: `${currentPreviewSurface}-${element.kind}-${crypto.randomUUID()}`,
+      role: element.kind === 'button' && protectedStartMenuElementRoles.has(element.role || '') ? 'custom' as const : element.role,
+      x: element.x + dx, y: element.y + dy, visible: true, locked: false,
+    } }));
+    if (currentPreviewSurface === 'game') {
+      const toolbar = copies.filter((item) => !item.overlay).map((item) => item.element);
+      const overlay = copies.filter((item) => item.overlay).map((item) => item.element);
+      updateWebSettingsBulk({
+        ...(toolbar.length ? { previewToolbarElements: [...resolvedToolbarElements, ...toolbar] } : {}),
+        ...(overlay.length ? { dialogueOverlayElements: [...(webSettings.dialogueOverlayElements || []), ...overlay] } : {}),
+      });
     } else {
-      const sourceKey =
-        currentPreviewSurface === 'archive' ? 'archivePageElements' : 'settingsPageElements';
-      updateWebSettings(sourceKey, [...(webSettings[sourceKey] || []), pasted]);
+      updateWebSettings(activeElementSettingsKey, [...activePageElements, ...copies.map((item) => item.element)]);
     }
-    setSelectedStartMenuElementId(id);
+    const ids = copies.map((item) => item.element.id);
+    setSelectedStartMenuElementId(ids[ids.length - 1]);
+    setSelectedPreviewElementIds(ids);
+  };
+  useEffect(() => {
+    const handleClipboardKey = (event: KeyboardEvent) => {
+      if (startMenuPreviewMode !== 'edit' || !(event.ctrlKey || event.metaKey) || event.altKey || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'c' && key !== 'v') return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (key === 'c') copySelectedSurfaceElement();
+      else pasteSurfaceElement();
+    };
+    document.addEventListener('keydown', handleClipboardKey, true);
+    return () => document.removeEventListener('keydown', handleClipboardKey, true);
+  });
+  const modifyCanvasSelection = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (startMenuPreviewMode !== 'edit' || event.button !== 0 || webSelectionMode(event) === 'replace') return;
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest('input, textarea, [contenteditable="true"]')) return;
+    const id = target.closest('[data-selectable-element-id]')?.getAttribute('data-selectable-element-id');
+    if (!id || !activePageElements.some((element) => element.id === id && !element.locked)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const ids = combineWebSelection(selectedPreviewElementIds, [id], webSelectionMode(event));
+    setSelectedPreviewElementIds(ids);
+    setSelectedStartMenuElementId(ids[ids.length - 1] || null);
   };
   const generateStartMenuDesignWithAI = async () => {
     if (!callAIForTextResult || aiStartMenuDesigning) return;
@@ -1961,6 +1978,7 @@ JSON schema:
 
   return (
     <main
+      data-web-history-scope="true"
       className="min-h-0 grid bg-[var(--vr-bg)]"
       style={{
         gridTemplateColumns: `minmax(0, 1fr) minmax(280px, ${testToolsWidth}px)`,
@@ -1985,7 +2003,7 @@ JSON schema:
                   icon={ClipboardPaste}
                   label={formatWebText(language, 'componentsrenderwebWebWorkspaceText1546')}
                   onClick={pasteSurfaceElement}
-                  disabled={!elementClipboard}
+                  disabled={elementClipboard.length === 0}
                 />
                 <div className="mx-1 h-5 w-px bg-[var(--vr-border)]" aria-hidden="true" />
                 <div
@@ -2030,7 +2048,6 @@ JSON schema:
               </>
             )}
             {startMenuPreviewMode === 'edit' && <>
-              <WebInsertToolButton icon={Save} label={language === 'zh' ? '存为模板' : language === 'ja' ? 'テンプレートを保存' : 'Save template'} onClick={() => { setSelectedSavedTemplateId(null); setTemplateNameDraft(webProjectName || 'Web'); setTemplateSaveScope('current'); setIsSaveTemplateDialogOpen(true); }} />
               <WebInsertToolButton icon={Download} label={language === 'zh' ? '保存网页模板文件' : language === 'ja' ? 'テンプレートファイルを保存' : 'Save web template file'} onClick={() => void exportCurrentTemplate()} />
               <WebInsertToolButton icon={Upload} label={language === 'zh' ? '导入网页模板' : language === 'ja' ? 'テンプレートを読み込む' : 'Import web template'} onClick={() => templateFileInputRef.current?.click()} />
               <input ref={templateFileInputRef} type="file" accept=".json,.zip" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importWebTemplate(file); }} />
@@ -2047,7 +2064,16 @@ JSON schema:
           </div>
         </div>
         {templateFileError && <p role="alert" className="px-4 py-2 text-xs text-rose-600">{templateFileError}</p>}
-        <div className="min-h-0 flex-1 p-4 xl:p-5">
+        <div className="min-h-0 flex-1 p-4 xl:p-5"
+          data-web-edit-canvas={startMenuPreviewMode === 'edit' ? 'true' : undefined}
+          onPointerDownCapture={modifyCanvasSelection}
+          onClickCapture={(event) => {
+            if (startMenuPreviewMode === 'edit' && webSelectionMode(event) !== 'replace' &&
+                event.target instanceof Element && event.target.closest('[data-selectable-element-id]')) {
+              event.preventDefault(); event.stopPropagation();
+            }
+          }}
+        >
           <VirtualPresentationStage
             className="h-full w-full"
             width={webSettings.canvasWidth}
@@ -2066,6 +2092,7 @@ JSON schema:
               previewMode={startMenuPreviewMode}
               requestedSurface={editPreviewSurface}
               selectedStartMenuElementId={selectedStartMenuElementId}
+              selectedStartMenuElementIds={selectedPreviewElementIds}
               selectedFlowCardId={selectedFlowCardId}
               flowRegionSelected={flowRegionSelected}
               onSelectFlowRegion={() => {

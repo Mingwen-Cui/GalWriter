@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Language } from '../../../lib/i18n';
 import { WebShapeIcon } from './WebShapeAddControl';
 import { webShapeMarkup } from './webShapes';
-import { placementGeometry } from './webElementPlacement';
+import { placementGeometry, snapLineEnd } from './webElementPlacement';
 import type { PlacementGeometry, PlacementPoint, WebPlacementTool } from './webElementPlacement';
 
 export function WebElementPlacementOverlay({
@@ -56,7 +56,7 @@ export function WebElementPlacementOverlay({
     : geometry || (point && placementGeometry(tool, point, null, canvasWidth, canvasHeight));
   const hint = isLine
     ? language === 'zh'
-      ? `${lineStart ? '点击确定终点' : '点击确定起点'} · Esc 取消`
+      ? `${lineStart ? '点击确定终点' : '点击确定起点'} · Ctrl 吸附 45° · Esc 取消`
       : language === 'ja'
         ? `${lineStart ? '終点をクリック' : '始点をクリック'} · Esc で取消`
         : `${lineStart ? 'Click the end point' : 'Click the start point'} · Esc to cancel`
@@ -114,8 +114,9 @@ export function WebElementPlacementOverlay({
         const next = position(event);
         setPoint(next);
         if (isLine) {
+          const end = lineStart && (event.ctrlKey || event.metaKey) ? snapLineEnd(lineStart, next, canvasWidth, canvasHeight) : next;
           setGeometry(
-            lineStart ? placementGeometry(tool, lineStart, next, canvasWidth, canvasHeight) : null,
+            lineStart ? placementGeometry(tool, lineStart, end, canvasWidth, canvasHeight) : null,
           );
           return;
         }
@@ -186,7 +187,8 @@ export function WebElementPlacementOverlay({
           ) < 1
         )
           return;
-        onPlace(placementGeometry(tool, lineStart, next, canvasWidth, canvasHeight));
+        const end = event.ctrlKey || event.metaKey ? snapLineEnd(lineStart, next, canvasWidth, canvasHeight) : next;
+        onPlace(placementGeometry(tool, lineStart, end, canvasWidth, canvasHeight));
       }}
     >
       {preview && (
@@ -215,8 +217,8 @@ export function WebElementPlacementOverlay({
                     visible: true,
                     scale: 1,
                     backgroundColor: '#eef2ff',
-                    borderColor: '#625bf6',
-                    borderWidth: tool.shapeType === 'line' ? 4 : 1,
+                    borderColor: tool.shapeType === 'line' ? '#c4c8dc' : '#625bf6',
+                    borderWidth: tool.shapeType === 'line' ? 2 : 1,
                     borderRadius: tool.shapeType === 'rounded' ? 20 : 0,
                   },
                   canvasWidth,

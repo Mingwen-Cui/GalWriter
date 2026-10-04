@@ -1,3 +1,4 @@
+import { combineWebSelection, webSelectionMode, webMarqueeHits, type WebSelectionMode } from './webCanvasSelection';
 import { WebInlineText } from './WebInlineText';
 import { webThemeCssVariables } from './webThemeVisuals';
 import { playerControlCatalog } from './playerSettingsPanelConfig';
@@ -66,6 +67,7 @@ type WebPreviewMenuPagesProps = {
   renderStyle?: RenderStyle;
   previewMode: 'edit' | 'test';
   selectedStartMenuElementId?: string | null;
+  selectedElementIds?: string[];
   archiveOpen: boolean;
   settingsOpen: boolean;
   backgroundClass: string;
@@ -110,6 +112,7 @@ export function WebPreviewMenuPages({
   renderStyle,
   previewMode,
   selectedStartMenuElementId,
+  selectedElementIds: controlledSelectedIds,
   archiveOpen,
   settingsOpen,
   backgroundClass,
@@ -151,6 +154,8 @@ export function WebPreviewMenuPages({
     textScale: settings.textScale,
     animationSpeed: settings.animationSpeed,
     soundEnabled: settings.soundEnabled,
+    musicVolume: settings.musicVolume ?? 100,
+    voiceVolume: settings.voiceVolume ?? 100,
     controlsVisible: !previewControlsHidden,
   };
   const playerDefaults = useRef(playerValues);
@@ -159,9 +164,12 @@ export function WebPreviewMenuPages({
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
   const [archiveShowsSaveExample, setArchiveShowsSaveExample] = useState(false);
   const [selectedArchiveSaveId, setSelectedArchiveSaveId] = useState<string | null>(null);
-  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const [localSelectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const selectedElementIds = controlledSelectedIds ?? localSelectedElementIds;
   const marqueeRef = useRef<{
     page: 'archive' | 'settings';
+    mode: WebSelectionMode;
+    initialIds: string[];
     startClientX: number;
     startClientY: number;
     rect: DOMRect;
@@ -218,6 +226,12 @@ export function WebPreviewMenuPages({
   };
   const getPageElements = (page: 'archive' | 'settings') =>
     page === 'archive' ? archiveElements : settingsElements;
+  const selectPageElement = (id: string | null) => {
+    const ids = id && selectedElementIds.includes(id) ? selectedElementIds : id ? [id] : [];
+    setSelectedElementIds(ids);
+    onSelectElement?.(id);
+    onSelectElements?.(ids);
+  };
   const beginElementDrag = (
     page: 'archive' | 'settings',
     event: React.PointerEvent<HTMLElement>,
@@ -233,13 +247,12 @@ export function WebPreviewMenuPages({
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
-    onSelectElement?.(element.id);
     const shouldMoveGroup =
       type === 'move' && selectedElementIds.length > 1 && selectedElementIds.includes(element.id);
     const groupIds = shouldMoveGroup ? selectedElementIds : [element.id];
     const pageElements = getPageElements(page);
     const groupInitial = pageElements.filter((item) => groupIds.includes(item.id) && !item.locked);
-    if (!shouldMoveGroup) setSelectedElementIds([element.id]);
+    selectPageElement(element.id);
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
     const startAngle =
@@ -284,7 +297,8 @@ export function WebPreviewMenuPages({
     if (!rect) return;
     event.preventDefault();
     event.stopPropagation();
-    marqueeRef.current = { page, startClientX: event.clientX, startClientY: event.clientY, rect };
+    marqueeRef.current = { page, mode: webSelectionMode(event), initialIds: [...selectedElementIds], startClientX: event.clientX, startClientY: event.clientY, rect };
+    root?.setPointerCapture?.(event.pointerId);
     const nextBox = {
       x: ((event.clientX - rect.left) / rect.width) * 100,
       y: ((event.clientY - rect.top) / rect.height) * 100,
@@ -322,17 +336,12 @@ export function WebPreviewMenuPages({
     if (!marquee || !box) return;
     event?.preventDefault();
     event?.stopPropagation();
-    const nextIds = getPageElements(marquee.page)
+    const hits = getPageElements(marquee.page)
       .filter((element) => !element.locked)
       .filter((element) => previewMode === 'edit' || element.visible !== false)
-      .filter(
-        (element) =>
-          element.x < box.x + box.width &&
-          element.x + element.width > box.x &&
-          element.y < box.y + box.height &&
-          element.y + element.height > box.y,
-      )
+      .filter((element) => webMarqueeHits(element, box))
       .map((element) => element.id);
+    const nextIds = combineWebSelection(marquee.initialIds, hits, marquee.mode);
     marqueeRef.current = null;
     marqueeBoxRef.current = null;
     setMarqueeBox(null);
@@ -368,7 +377,7 @@ export function WebPreviewMenuPages({
         width: next.width,
         height: next.height,
         rect: drag.rect,
-        elements: getPageElements(drag.page),
+        elements: getPageElements(drag.page).filter((item) => !drag.groupIds?.includes(item.id)),
         movingId: drag.id,
       });
       next.x = snapped.x;
@@ -434,7 +443,7 @@ export function WebPreviewMenuPages({
         height: next.height,
         handle,
         rect: drag.rect,
-        elements: getPageElements(drag.page),
+        elements: getPageElements(drag.page).filter((item) => !drag.groupIds?.includes(item.id)),
         movingId: drag.id,
       });
       next.x = snapped.x;
@@ -604,7 +613,7 @@ export function WebPreviewMenuPages({
             gradientEditingElement={gradientEditingElement}
             choiceColor={choiceColor}
             choiceTextColor={choiceTextColor}
-            onSelectElement={onSelectElement}
+            onSelectElement={selectPageElement}
             onUpdateElement={onUpdateArchiveElement}
             onDeleteElement={(id) => onDeletePageElement?.('archive', id)}
             onBeginElementDrag={beginElementDrag}
@@ -701,6 +710,8 @@ export function WebPreviewMenuPages({
                       onUpdateSettings('textScale', patch.textScale);
                     if (patch.animationSpeed !== undefined)
                       onUpdateSettings('animationSpeed', patch.animationSpeed);
+                    if (patch.musicVolume !== undefined) onUpdateSettings('musicVolume', patch.musicVolume);
+                    if (patch.voiceVolume !== undefined) onUpdateSettings('voiceVolume', patch.voiceVolume);
                     if (patch.soundEnabled !== undefined)
                       onUpdateSettings('soundEnabled', patch.soundEnabled);
                     if (
@@ -718,7 +729,7 @@ export function WebPreviewMenuPages({
             gradientEditingElement={gradientEditingElement}
             choiceColor={choiceColor}
             choiceTextColor={choiceTextColor}
-            onSelectElement={onSelectElement}
+            onSelectElement={selectPageElement}
             onUpdateElement={onUpdateSettingsElement}
             onDeleteElement={(id) => onDeletePageElement?.('settings', id)}
             onBeginElementDrag={beginElementDrag}
@@ -916,6 +927,8 @@ function MenuPageElementLayer({
                       onUpdate={onUpdateElement}
                     />}
                     <SelectedElementFrame
+                      canvasWidth={canvasWidth}
+                      canvasHeight={canvasHeight}
                       page={page}
                       element={element}
                       onUpdateElement={onUpdateElement}
@@ -972,6 +985,7 @@ function MenuPageElementLayer({
                 <style>{WEB_BUTTON_MOTION_CSS}</style>
                 <ButtonShell
                   key={element.id}
+                  data-selectable-element-id={element.id}
                   type="button"
                   data-gw-button-motion="true"
                   data-gw-button-motion-editing={editable ? 'true' : undefined}
@@ -1071,6 +1085,8 @@ function MenuPageElementLayer({
                   )}
                   {selected && !isRenaming && (
                     <SelectedElementFrame
+                      canvasWidth={canvasWidth}
+                      canvasHeight={canvasHeight}
                       page={page}
                       element={element}
                       onUpdateElement={onUpdateElement}
@@ -1117,6 +1133,7 @@ function MenuPageElementLayer({
             return (
               <button
                 key={element.id}
+                data-selectable-element-id={element.id}
                 type="button"
                 className="pointer-events-auto absolute border-0 bg-transparent p-0"
                 style={{
@@ -1181,6 +1198,8 @@ function MenuPageElementLayer({
                 </span>
                 {selected && (
                   <SelectedElementFrame
+                      canvasWidth={canvasWidth}
+                      canvasHeight={canvasHeight}
                     page={page}
                     element={element}
                     onUpdateElement={onUpdateElement}
@@ -1201,6 +1220,7 @@ function MenuPageElementLayer({
             <Fragment key={element.id}>
               <div
                 className="pointer-events-auto absolute flex items-center border-0 bg-transparent p-0 font-black"
+                data-selectable-element-id={element.id}
                 style={{
                   ...commonStyle,
                   ...contentStyle,
@@ -1231,6 +1251,8 @@ function MenuPageElementLayer({
                 {label}
                 {selected && !isRenaming && (
                   <SelectedElementFrame
+                      canvasWidth={canvasWidth}
+                      canvasHeight={canvasHeight}
                     page={page}
                     element={element}
                     onUpdateElement={onUpdateElement}
@@ -1269,6 +1291,7 @@ function MenuPageElementLayer({
 }
 
 function SelectedElementFrame({
+  canvasWidth, canvasHeight,
   page,
   element,
   onUpdateElement,
@@ -1277,6 +1300,7 @@ function SelectedElementFrame({
   slotPreviewActive,
   onDelete,
 }: {
+  canvasWidth: number; canvasHeight: number;
   page: 'archive' | 'settings';
   element: WebMenuElement;
   onUpdateElement: (id: string, patch: Partial<WebMenuElement>) => void;
@@ -1293,6 +1317,7 @@ function SelectedElementFrame({
 }) {
   return (
     <WebEditableElementFrame
+      line={element.shapeType === 'line' ? { element, canvasWidth, canvasHeight, onUpdate: onUpdateElement } : undefined}
       visible={element.visible !== false}
       locked={element.locked}
       onToggleLocked={(event) => {

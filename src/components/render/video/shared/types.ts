@@ -351,6 +351,8 @@ export type WebMenuElement = {
     | 'controlsToggle'
     | 'history'
     | 'link'
+    | 'musicVolume'
+    | 'voiceVolume'
     | 'volume';
   text: string;
   visible: boolean;
@@ -629,6 +631,8 @@ export type WebExportSettings = {
   textScale: number;
   animationSpeed: number;
   soundEnabled: boolean;
+  musicVolume?: number;
+  voiceVolume?: number;
   videoAutoPlay: boolean;
   hideCharacterTags: boolean;
   hideSceneTags: boolean;

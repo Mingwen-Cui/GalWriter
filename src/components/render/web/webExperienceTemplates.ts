@@ -1,4 +1,6 @@
+import { placementGeometry } from './webElementPlacement';
 import { playerControlCatalog } from './playerSettingsPanelConfig';
+import { buttonMotionForPreset } from './webButtonMotion';
 import { formatWebText } from './i18n';
 import type { Language } from '../../../lib/i18n';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
@@ -219,15 +221,17 @@ export const buildRehearsalSettingsPageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const positions: Record<string, [number, number, number, number]> = {
-    preview: [8, 25, 84, 17],
-    mode: [8, 52, 40, 10],
-    speed: [8, 66, 40, 13],
-    textSize: [8, 82, 40, 17],
-    auto: [56, 52, 36, 10],
-    sound: [56, 64, 36, 10],
-    controls: [56, 76, 36, 10],
-    animationSpeed: [56, 88, 36, 11],
-    reset: [70, 9, 12, 7],
+    preview: [8, 25, 66, 14],
+    mode: [8, 52, 26, 10],
+    speed: [8, 66, 26, 13],
+    textSize: [8, 82, 26, 17],
+    auto: [68, 52, 24, 10],
+    sound: [38, 52, 26, 10],
+    controls: [68, 64, 24, 10],
+    animationSpeed: [68, 76, 24, 13],
+    reset: [76, 92, 16, 7],
+    musicVolume: [38, 66, 26, 13],
+    voiceVolume: [38, 82, 26, 13],
   };
   return decorateWebPageElements([
     {
@@ -261,11 +265,14 @@ export const buildRehearsalSettingsPageElements = (
       textColor: '#59637d',
       textAlign: 'left' as const,
     },
-    ...(['reading', 'playback'] as const).map((group, index) => ({
-      ...text(`settings-${group}-heading`, 'custom', language === 'zh' ? (index === 0 ? '文字与阅读' : '声音与操作') : language === 'ja' ? (index === 0 ? '文字と読み方' : 'サウンドと操作') : (index === 0 ? 'Text & reading' : 'Audio & controls'), index === 0 ? 8 : 56, 46, 36, 4, 22),
-      textColor: '#252a59',
-      fontWeight: 700,
-      textAlign: 'left' as const,
+    ...(['reading', 'playback', 'effects'] as const).map((group, index) => ({
+      ...text(`settings-${group}-heading`, 'custom', language === 'zh' ? ['文字', '语音', '动效'][index] : language === 'ja' ? ['文字', '音声', '演出'][index] : ['Text', 'Audio', 'Effects'][index], [8, 38, 68][index], 46, 26, 4, 22),
+      textColor: '#252a59', fontWeight: 700, textAlign: 'left' as const,
+    })),
+    ...[36, 66].map((x, index): WebMenuElement => ({
+      id: `settings-divider-${index}`, kind: 'shape', shapeType: 'line', role: 'custom', text: '', visible: true, scale: 1,
+      ...placementGeometry({ kind: 'shape', shapeType: 'line' }, { x, y: 46 }, { x, y: 98 }, 1920, 1080),
+      fillEnabled: false, strokeEnabled: true, borderColor: '#c4c8dc', borderWidth: 1.5, shadowEnabled: false,
     })),
     ...playerControlCatalog(language).map(({ id, label, forms }) => ({
       ...button(`settings-${id}`, id, label, ...positions[id], choiceColor, choiceTextColor),
@@ -286,11 +293,12 @@ export const buildRehearsalSettingsPageElements = (
     element.role === 'title' ? { ...element, textColor: '#252a59', textAlign: 'left' } : element.role === 'back' ? { ...element, textColor: '#4338ca', backgroundColor: '#eef2ff', borderColor: '#c7d2fe', fontSize: 18, textAlign: 'center' } : element,
   ), defaultWebTheme).map((element) => ({
     ...element,
-    settingsLayoutVersion: 6,
+    settingsLayoutVersion: 8,
     borderRadius: element.kind === 'button' && ['back', 'reset'].includes(element.role || '') ? defaultWebTheme.radius : 0,
     ...(element.id === 'settings-background' ? SETTINGS_BACKGROUND_STYLE : {}),
+    ...(element.shapeType === 'line' ? { fillEnabled: false, strokeEnabled: true, borderColor: '#c4c8dc', borderWidth: 1.5, shadowEnabled: false } : {}),
     ...(element.kind === 'button' && !['back', 'reset'].includes(element.role || '')
-      ? { fillEnabled: false, strokeEnabled: false, shadowEnabled: false, borderWidth: 0,
+      ? { buttonMotion: buttonMotionForPreset('none'), fillEnabled: false, strokeEnabled: false, shadowEnabled: false, borderWidth: 0,
           backgroundType: 'solid' as const, backgroundColor: 'transparent', appearance: undefined }
       : {}),
   }));

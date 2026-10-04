@@ -50,7 +50,7 @@ test('settings upgrade the previous built-in layout once while preserving edited
     settingsPageElements: [...previous, custom],
   };
   const next = resolveSettingsPageElements(settings, 'zh', '#625bf6', '#fff');
-  assert.equal(next.find((element) => element.role === 'speed')?.width, 40);
+  assert.equal(next.find((element) => element.role === 'speed')?.width, 30);
   assert.equal(next.find((element) => element.role === 'animationSpeed')?.text, '转场与动效速度');
   assert.equal(
     next.find((element) => element.role === 'sound')?.settingsDescription,

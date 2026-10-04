@@ -1,3 +1,5 @@
+import { WebLineEndpointHandles } from './WebLineEndpointHandles';
+import type { WebMenuElement } from '../video/shared/types';
 import { Eye, EyeOff, List, Lock, Unlock, RotateCw, Trash2 } from 'lucide-react';
 import type React from 'react';
 
@@ -29,6 +31,7 @@ const cursorByHandle: Record<WebEditableResizeHandle, string> = {
 
 export function WebEditableElementFrame({
   visible,
+  line,
   ringClassName = 'ring-1 ring-indigo-500',
   onToggleVisible,
   onDelete,
@@ -43,6 +46,7 @@ export function WebEditableElementFrame({
   onToggleLocked,
 }: {
   compact?: boolean;
+  line?: { element: WebMenuElement; canvasWidth: number; canvasHeight: number; onUpdate: (id: string, patch: Partial<WebMenuElement>) => void };
   visible: boolean;
   ringClassName?: string;
   onToggleVisible: (event: React.MouseEvent<HTMLElement>) => void;
@@ -63,7 +67,7 @@ export function WebEditableElementFrame({
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
-      {showAuxiliaryControls && !locked && (
+      {showAuxiliaryControls && !locked && !line && (
         <span
           tabIndex={-1}
           className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
@@ -159,7 +163,8 @@ export function WebEditableElementFrame({
           {locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
         </span>
       )}
-      {showResizeHandles && !locked &&
+      {line && !locked && <WebLineEndpointHandles {...line} />}
+      {showResizeHandles && !locked && !line &&
         webEditableResizeHandles.map((handle) => (
           <span
             key={handle}

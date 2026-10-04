@@ -1883,7 +1883,9 @@ export function VideoRenderModal({
         target instanceof HTMLTextAreaElement ||
         target instanceof HTMLSelectElement ||
         !!target?.isContentEditable;
-      if (isEditingText) return;
+      const isWebNumericControl = workspaceMode === 'web' && target instanceof HTMLInputElement &&
+        (target.type === 'range' || target.type === 'number');
+      if (isEditingText && !isWebNumericControl) return;
 
       if (event.code === 'Space' && !modifier && !event.altKey && !event.shiftKey) {
         if (workspaceMode !== 'video') return;

@@ -1,3 +1,4 @@
+import { combineWebSelection, webSelectionMode, type WebSelectionMode } from './webCanvasSelection';
 import { WebInlineText } from './WebInlineText';
 import { WebToolbarSelectionTools } from './WebToolbarSelectionTools';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
@@ -465,6 +466,7 @@ export function PreviewFloatingElementLayer({
   elements,
   guideElements,
   selectedElementId,
+  selectedElementIds: controlledSelectedIds,
   previewMode,
   className = '',
   onSelectElement,
@@ -484,6 +486,7 @@ export function PreviewFloatingElementLayer({
   elements: WebMenuElement[];
   guideElements?: WebMenuElement[];
   selectedElementId?: string | null;
+  selectedElementIds?: string[];
   previewMode: 'edit' | 'test';
   className?: string;
   onSelectElement?: (id: string | null) => void;
@@ -499,8 +502,11 @@ export function PreviewFloatingElementLayer({
 }) {
   const keyboardMouse = useKeyboardMouseSettings();
   const [activeGuideLines, setActiveGuideLines] = useState<WebAlignmentGuideLine[]>([]);
-  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const [localSelectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const selectedElementIds = controlledSelectedIds ?? localSelectedElementIds;
   const marqueeRef = useRef<{
+    mode: WebSelectionMode;
+    initialIds: string[];
     startClientX: number;
     startClientY: number;
     rect: DOMRect;
@@ -567,13 +573,10 @@ export function PreviewFloatingElementLayer({
   const handleLayerPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (previewMode !== 'edit' || event.currentTarget !== event.target) return;
     if (event.button !== (keyboardMouse.selectionButton === 'left' ? 0 : 2)) return;
-    setSelectedElementIds([]);
-    onSelectElement?.(null);
-    onSelectElements?.([]);
     const rect = event.currentTarget.getBoundingClientRect();
     event.preventDefault();
     event.stopPropagation();
-    marqueeRef.current = { startClientX: event.clientX, startClientY: event.clientY, rect };
+    marqueeRef.current = { mode: webSelectionMode(event), initialIds: [...effectiveSelectedIds], startClientX: event.clientX, startClientY: event.clientY, rect };
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const nextBox = {
       x: ((event.clientX - rect.left) / rect.width) * 100,
@@ -611,8 +614,8 @@ export function PreviewFloatingElementLayer({
     if (!marqueeRef.current || !box) return;
     event?.preventDefault();
     event?.stopPropagation();
-    const nextIds = elements
-      .filter((element) => previewMode === 'edit' || element.visible !== false)
+    const hits = elements
+      .filter((element) => !element.locked && (previewMode === 'edit' || element.visible !== false))
       .filter(
         (element) =>
           element.x < box.x + box.width &&
@@ -621,6 +624,7 @@ export function PreviewFloatingElementLayer({
           element.y + element.height > box.y,
       )
       .map((element) => element.id);
+    const nextIds = combineWebSelection(marqueeRef.current.initialIds, hits, marqueeRef.current.mode);
     marqueeRef.current = null;
     marqueeBoxRef.current = null;
     setMarqueeBox(null);
@@ -819,7 +823,7 @@ function ToolbarElement({
     type: 'move' | 'resize' | 'rotate',
     handle?: WebEditableResizeHandle,
   ) => {
-    if (!editable || !onUpdate) return;
+    if (!editable || !onUpdate || element.locked) return;
     if (event.button === 2) return;
     event.preventDefault();
     event.stopPropagation();
@@ -1038,6 +1042,7 @@ function ToolbarElement({
             : {}),
         } as React.CSSProperties
       }
+      data-selectable-element-id={element.id}
       onPointerDown={(event) => {
         if (editingText) event.stopPropagation();
         else beginDrag(event, 'move');
@@ -1142,6 +1147,7 @@ function ToolbarElement({
             <WebShapeCornerHandles element={element} language={language} onUpdate={onUpdate} />
           )}
           <WebEditableElementFrame
+            line={element.shapeType === 'line' ? { element, canvasWidth, canvasHeight, onUpdate } : undefined}
             compact={toolbarControl}
             ringClassName="ring-1 ring-indigo-500"
             showAuxiliaryControls={!toolbarControl}

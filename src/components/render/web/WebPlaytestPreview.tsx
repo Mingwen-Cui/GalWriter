@@ -1,3 +1,4 @@
+import { combineWebSelection, webSelectionMode, type WebSelectionMode } from './webCanvasSelection';
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../lib/typewriterTiming';
 import { webThemeCssVariables } from './webThemeVisuals';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
@@ -140,6 +141,7 @@ type WebPlaytestPreviewProps = {
   previewMode?: 'edit' | 'test';
   requestedSurface?: WebPreviewSurface;
   selectedStartMenuElementId?: string | null;
+  selectedStartMenuElementIds?: string[];
   selectedFlowCardId?: string | null;
   flowRegionSelected?: boolean;
   onSelectFlowRegion?: () => void;
@@ -192,6 +194,7 @@ export function WebPlaytestPreview({
   previewMode = 'test',
   requestedSurface,
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
+  selectedStartMenuElementIds: controlledSelectedIds,
   selectedFlowCardId,
   flowRegionSelected = false,
   onSelectFlowRegion,
@@ -236,6 +239,8 @@ export function WebPlaytestPreview({
     textScale: settings.textScale,
     animationSpeed: settings.animationSpeed,
     soundEnabled: settings.soundEnabled,
+    musicVolume: settings.musicVolume ?? 100,
+    voiceVolume: settings.voiceVolume ?? 100,
     controlsVisible: true,
   };
   const playbackSettingsDefaults = useRef(playbackSettingsValues);
@@ -318,6 +323,8 @@ export function WebPlaytestPreview({
     startClientX: number;
     startClientY: number;
     rect: DOMRect;
+    mode: WebSelectionMode;
+    initialIds: string[];
   } | null>(null);
   const startMenuMarqueeBoxRef = useRef<{
     x: number;
@@ -330,7 +337,7 @@ export function WebPlaytestPreview({
     string | null
   >(null);
   const [editingStartMenuElementId, setEditingStartMenuElementId] = useState<string | null>(null);
-  const [selectedStartMenuElementIds, setSelectedStartMenuElementIds] = useState<string[]>([]);
+  const [localSelectedStartMenuElementIds, setSelectedStartMenuElementIds] = useState<string[]>([]);
   const [startMenuMarqueeBox, setStartMenuMarqueeBox] = useState<{
     x: number;
     y: number;
@@ -340,6 +347,7 @@ export function WebPlaytestPreview({
   const [activeStartMenuGuideLines, setActiveStartMenuGuideLines] = useState<
     WebAlignmentGuideLine[]
   >([]);
+  const selectedStartMenuElementIds = controlledSelectedIds ?? localSelectedStartMenuElementIds;
   const selectedStartMenuElementId =
     controlledSelectedStartMenuElementId !== undefined
       ? controlledSelectedStartMenuElementId
@@ -347,11 +355,13 @@ export function WebPlaytestPreview({
   const setSelectedStartMenuElementId = React.useCallback(
     (id: string | null) => {
       setLocalSelectedStartMenuElementId(id);
-      setSelectedStartMenuElementIds(id ? [id] : []);
+      const ids = id && selectedStartMenuElementIds.includes(id) ? selectedStartMenuElementIds : id ? [id] : [];
+      setSelectedStartMenuElementIds(ids);
       if (id) _onUpdateRenderStyle('selectedRenderObject', undefined);
       onSelectStartMenuElement?.(id);
+      onSelectStartMenuElements?.(ids);
     },
-    [_onUpdateRenderStyle, onSelectStartMenuElement],
+    [_onUpdateRenderStyle, onSelectStartMenuElement, onSelectStartMenuElements, selectedStartMenuElementIds],
   );
   const selectRenderObject = React.useCallback(
     (kind: RenderEditableObjectKind) => {
@@ -409,6 +419,12 @@ export function WebPlaytestPreview({
 
   React.useEffect(() => {
     const audio = startMenuAudioRef.current;
+    if (audio) audio.volume = (Number(audio.dataset.musicLevel) || 0) * Math.max(0, Math.min(100, settings.musicVolume ?? 100)) / 100;
+  }, [settings.musicVolume]);
+  const menuMusicGainRef = useRef(1);
+  menuMusicGainRef.current = Math.max(0, Math.min(100, settings.musicVolume ?? 100)) / 100;
+  React.useEffect(() => {
+    const audio = startMenuAudioRef.current;
     if (!audio) return;
     const fadeAudio = (from: number, to: number, seconds: number, done?: () => void) => {
       if (startMenuAudioFadeFrameRef.current !== null) {
@@ -416,14 +432,17 @@ export function WebPlaytestPreview({
       }
       const duration = Math.max(0, Number(seconds) || 0) * 1000;
       if (!duration) {
-        audio.volume = to;
+        audio.dataset.musicLevel = String(to);
+        audio.volume = to * menuMusicGainRef.current;
         done?.();
         return;
       }
       const started = performance.now();
       const tick = (now: number) => {
         const progress = Math.min(1, (now - started) / duration);
-        audio.volume = from + (to - from) * progress;
+        const level = from + (to - from) * progress;
+        audio.dataset.musicLevel = String(level);
+        audio.volume = level * menuMusicGainRef.current;
         if (progress < 1) startMenuAudioFadeFrameRef.current = window.requestAnimationFrame(tick);
         else done?.();
       };
@@ -449,12 +468,13 @@ export function WebPlaytestPreview({
       (isPreviewStartSettingsOpen && !settings.startMenuMusicApplyToSettings);
     if ((isPreviewStartMenuOpen || isFlowMusic) && musicUrl && !overlayStopsMusic) {
       audio.loop = musicLoop !== false;
-      audio.volume = Number(musicFadeIn) > 0 ? 0 : targetVolume;
+      audio.dataset.musicLevel = String(Number(musicFadeIn) > 0 ? 0 : targetVolume);
+      audio.volume = Number(audio.dataset.musicLevel) * menuMusicGainRef.current;
       audio.play().catch(() => undefined);
-      fadeAudio(audio.volume, targetVolume, musicFadeIn);
+      fadeAudio(Number(audio.dataset.musicLevel) || 0, targetVolume, musicFadeIn);
       return;
     }
-    fadeAudio(audio.volume, 0, musicFadeOut, () => audio.pause());
+    fadeAudio(Number(audio.dataset.musicLevel) || 0, 0, musicFadeOut, () => audio.pause());
   }, [
     isPreviewArchiveOpen,
     isPreviewFlowOverviewOpen,
@@ -626,6 +646,7 @@ export function WebPlaytestPreview({
     storyPlaybackActive ? currentNode : null,
     storyPlaybackActive && currentNodeId !== 'THE_END',
     !settings.soundEnabled,
+    Math.max(0, Math.min(100, settings.musicVolume ?? 100)) / 100,
   );
   useSceneAmbientSound(
     nodes,
@@ -637,6 +658,11 @@ export function WebPlaytestPreview({
   const imageUrl = typeof currentNode?.data?.imageUrl === 'string' ? currentNode.data.imageUrl : '';
   const videoUrl = typeof currentNode?.data?.videoUrl === 'string' ? currentNode.data.videoUrl : '';
   const audioUrl = typeof currentNode?.data?.audioUrl === 'string' ? currentNode.data.audioUrl : '';
+  React.useEffect(() => {
+    const volume = Math.max(0, Math.min(100, settings.voiceVolume ?? 100)) / 100;
+    if (currentAudioRef.current) currentAudioRef.current.volume = volume;
+    if (playlistAudioRef.current) playlistAudioRef.current.volume = volume;
+  }, [settings.voiceVolume, audioUrl, currentNodeId, storySurfaceActive, showAudioPlaylist, playlistAudioUrl]);
   const audioTitle =
     webStoryTitle(getNodeDisplayTitle(currentNode)) ||
     stripHtml(getNodeDisplayText(currentNode)).trim().replace(/\s+/g, ' ').slice(0, 42) ||
@@ -1175,6 +1201,8 @@ export function WebPlaytestPreview({
         textScale: settings.textScale,
         animationSpeed: settings.animationSpeed,
         soundEnabled: settings.soundEnabled,
+        musicVolume: settings.musicVolume ?? 100,
+        voiceVolume: settings.voiceVolume ?? 100,
       },
       controlsHidden: previewControlsHidden,
       playedAudios: playedAudios.map((audio) => audio.url),
@@ -1200,6 +1228,8 @@ export function WebPlaytestPreview({
     onUpdateSettings('textScale', save.settings.textScale);
     onUpdateSettings('animationSpeed', save.settings.animationSpeed);
     onUpdateSettings('soundEnabled', save.settings.soundEnabled);
+    onUpdateSettings('musicVolume', save.settings.musicVolume ?? 100);
+    onUpdateSettings('voiceVolume', save.settings.voiceVolume ?? 100);
     setPreviewControlsHidden(save.controlsHidden);
     setActivePreviewSaveId(save.id);
     setPreviewGameStarted(true);
@@ -1754,6 +1784,7 @@ export function WebPlaytestPreview({
     if (shouldMoveGroup) {
       setLocalSelectedStartMenuElementId(element.id);
       onSelectStartMenuElement?.(element.id);
+      onSelectStartMenuElements?.(groupIds);
     } else {
       setSelectedStartMenuElementId(element.id);
     }
@@ -1798,6 +1829,8 @@ export function WebPlaytestPreview({
     event.stopPropagation();
     startMenuMarqueeRef.current = {
       pointerId: event.pointerId,
+      mode: webSelectionMode(event),
+      initialIds: [...selectedStartMenuElementIds],
       startClientX: event.clientX,
       startClientY: event.clientY,
       rect,
@@ -1840,7 +1873,7 @@ export function WebPlaytestPreview({
     if (!marquee || !box) return;
     event?.preventDefault();
     event?.stopPropagation();
-    const selectedIds = editableSurfaceElements
+    const hits = editableSurfaceElements
       .filter((element) => {
         if (element.locked) return false;
         if (!element.visible && previewMode !== 'edit') return false;
@@ -1852,6 +1885,7 @@ export function WebPlaytestPreview({
         );
       })
       .map((element) => element.id);
+    const selectedIds = combineWebSelection(marquee.initialIds, hits, marquee.mode);
     startMenuMarqueeRef.current = null;
     startMenuMarqueeBoxRef.current = null;
     setStartMenuMarqueeBox(null);
@@ -1882,7 +1916,7 @@ export function WebPlaytestPreview({
         width: drag.initial.width,
         height: drag.initial.height,
         rect: drag.rect,
-        elements: editableSurfaceElements,
+        elements: editableSurfaceElements.filter((item) => !drag.groupIds?.includes(item.id)),
         movingId: drag.id,
       });
       setActiveStartMenuGuideLines(snapped.lines);
@@ -1948,7 +1982,7 @@ export function WebPlaytestPreview({
         height: nextHeight,
         handle,
         rect: drag.rect,
-        elements: editableSurfaceElements,
+        elements: editableSurfaceElements.filter((item) => !drag.groupIds?.includes(item.id)),
         movingId: drag.id,
       });
       nextX = snapped.x;
@@ -2223,15 +2257,16 @@ export function WebPlaytestPreview({
           renderStyle={renderStyle}
           previewMode={previewMode}
           selectedStartMenuElementId={selectedStartMenuElementId}
+          selectedElementIds={selectedStartMenuElementIds}
           archiveOpen={isPreviewArchiveOpen}
           settingsOpen={isPreviewStartSettingsOpen}
           backgroundClass={startMenuBackgroundClass}
           archiveBackgroundStyle={archiveBackgroundStyle}
           settingsBackgroundStyle={settingsBackgroundStyle}
-          boundsMinX={boundsMinX}
-          boundsMinY={boundsMinY}
-          boundsMaxX={boundsMaxX}
-          boundsMaxY={boundsMaxY}
+          boundsMinX={0}
+          boundsMinY={0}
+          boundsMaxX={100}
+          boundsMaxY={100}
           archiveElements={archivePageElements}
           settingsElements={settingsPageElements}
           choiceColor={choiceColor}
@@ -2637,6 +2672,8 @@ export function WebPlaytestPreview({
               if (patch.textScale !== undefined) onUpdateSettings('textScale', patch.textScale);
               if (patch.animationSpeed !== undefined)
                 onUpdateSettings('animationSpeed', patch.animationSpeed);
+              if (patch.musicVolume !== undefined) onUpdateSettings('musicVolume', patch.musicVolume);
+              if (patch.voiceVolume !== undefined) onUpdateSettings('voiceVolume', patch.voiceVolume);
               if (patch.soundEnabled !== undefined)
                 onUpdateSettings('soundEnabled', patch.soundEnabled);
             }}
@@ -2650,6 +2687,7 @@ export function WebPlaytestPreview({
           onSelectElements={onSelectStartMenuElements}
           guideElements={floatingGuideElements}
           selectedElementId={selectedStartMenuElementId}
+          selectedElementIds={selectedStartMenuElementIds}
           previewMode={previewMode}
           onSelectElement={(id) => {
             if (id && !settings.previewToolbarElements?.length) {
@@ -2736,6 +2774,7 @@ export function WebPlaytestPreview({
           onAction={applySharedButtonFunction}
           guideElements={floatingGuideElements}
           selectedElementId={selectedStartMenuElementId}
+          selectedElementIds={selectedStartMenuElementIds}
           previewMode={previewMode}
           onSelectElement={(id) => {
             setSelectedStartMenuElementId(id);

@@ -9,6 +9,8 @@ export type PlayerSettingsValues = {
   textScale: number;
   animationSpeed: number;
   soundEnabled: boolean;
+  musicVolume?: number;
+  voiceVolume?: number;
   controlsVisible: boolean;
 };
 
@@ -20,6 +22,8 @@ export const PLAYER_SETTINGS_ROLES = [
   'textSize',
   'animationSpeed',
   'sound',
+  'musicVolume',
+  'voiceVolume',
   'controls',
 ];
 
@@ -28,7 +32,7 @@ const copy = {
     title: '播放设置',
     intro: '按照你的节奏，享受这个故事。',
     back: '完成',
-    reading: '文字与阅读',
+    reading: '文字', voice: '语音', effects: '动效', musicVolume: '背景音乐', voiceVolume: '人物声音', musicHint: '调整菜单和故事背景音乐的音量。', voiceHint: '调整人物语音和语音回听的音量。', testVolume: '测试音量',
     playback: '声音与操作',
     mode: '文字显示',
     immediate: '全部显示',
@@ -70,7 +74,7 @@ const copy = {
     title: 'Playback settings',
     intro: 'Enjoy the story at your own pace.',
     back: 'Done',
-    reading: 'Text & reading',
+    reading: 'Text', voice: 'Audio', effects: 'Effects', musicVolume: 'Background music', voiceVolume: 'Character voice', musicHint: 'Adjust menu and story background music.', voiceHint: 'Adjust character voice and voice playback.', testVolume: 'Test volume',
     playback: 'Audio & controls',
     mode: 'Text display',
     immediate: 'Instant',
@@ -112,7 +116,7 @@ const copy = {
     title: '再生設定',
     intro: '自分のペースで物語を楽しもう。',
     back: '完了',
-    reading: '文字と読み方',
+    reading: '文字', voice: '音声', effects: '演出', musicVolume: '背景音楽', voiceVolume: 'キャラクターボイス', musicHint: 'メニューと物語の背景音楽の音量。', voiceHint: 'ボイスと音声履歴の音量。', testVolume: '音量テスト',
     playback: 'サウンドと操作',
     mode: '文字の表示',
     immediate: '即時表示',
@@ -158,7 +162,7 @@ export function playerSettingsDescription(language: Language, element: Pick<WebM
   const hints: Record<string, string> = {
     speed: element.settingsControlForm === 'stepper' ? t.intervalHint : t.speedHint,
     textSize: t.sizeHint, auto: t.autoHint, animationSpeed: t.animationHint,
-    sound: t.soundHint, controls: t.controlsHint,
+    sound: t.soundHint, controls: t.controlsHint, musicVolume: t.musicHint, voiceVolume: t.voiceHint,
   };
   return hints[element.role || ''];
 }
@@ -211,6 +215,7 @@ export function playerSettingsMarkup(
       <label><span class="gw-ps-label"><span data-role-label>${label}</span><output data-value="${key}" data-unit="${unit}" ${stepper ? 'hidden' : ''}></output></span>
       <span class="gw-ps-hint" data-role-hint>${role === 'speed' && stepper ? t.intervalHint : hint}</span>${stepper ? '' : input + `<span class="gw-ps-scale" aria-hidden="true"><span>${low}</span><span>${high}</span></span>`}</label>
       ${stepper ? `<div class="gw-ps-stepper"><button type="button" data-step-setting="${key}" data-delta="-1" aria-label="${label} − ${step}">−</button>${input}<span>${unit}</span><button type="button" data-step-setting="${key}" data-delta="1" aria-label="${label} + ${step}">+</button></div>` : ''}
+      ${['musicVolume', 'voiceVolume'].includes(role) ? `<button type="button" class="gw-ps-test-volume" data-test-volume="${key}">${t.testVolume}</button>` : ''}
       ${role === 'textSize' ? `<div class="gw-ps-presets" role="group" aria-label="${label}">${[[85, t.presetSmall], [100, t.standard], [130, t.presetLarge]].map(([value, text]) => `<button type="button" data-text-scale="${value}" aria-pressed="false">${text}</button>`).join('')}</div>` : ''}
     </div>`;
   };
@@ -252,6 +257,8 @@ export function playerSettingsMarkup(
       t.half,
       t.double,
     ),
+    musicVolume: range('musicVolume', 'musicVolume', t.musicVolume, t.musicHint, 0, 100, 1, '%', '0%', '100%'),
+    voiceVolume: range('voiceVolume', 'voiceVolume', t.voiceVolume, t.voiceHint, 0, 100, 1, '%', '0%', '100%'),
     auto: toggle('auto', 'autoAdvance', t.auto, t.autoHint),
     sound: toggle('sound', 'soundEnabled', t.sound, t.soundHint),
     controls: toggle('controls', 'controlsVisible', t.controls, t.controlsHint),
@@ -263,17 +270,21 @@ export function playerSettingsMarkup(
     : 'soft';
   return `<section class="gw-ps-panel" data-appearance="${appearance}" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-height:${height}px;--ps-size:${fontSize}px;--ps-radius:${radius}px;" aria-label="${t.title}" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">
     <div class="gw-ps-head"><div><span class="gw-ps-eyebrow">PREFERENCES</span><h2 data-setting-role="title"><span data-role-label>${t.title}</span></h2><p>${t.intro}</p></div><button class="gw-ps-done" type="button" data-action="close" data-setting-role="back"><span data-role-label>${t.back}</span><span aria-hidden="true">✓</span></button></div>
-    <div class="gw-ps-columns"><section class="gw-ps-group"><h3><span aria-hidden="true">Aa</span>${t.reading}</h3>
-      ${previewMarkup}
+    ${previewMarkup}
+    <div class="gw-ps-columns"><section class="gw-ps-group"><h3>${t.reading}</h3>
       ${modeMarkup}
-      ${range('speed', 'typewriterSpeed', t.speed, t.speedHint, 10, 200, 5, ' ms', t.slow, t.fast)}
-      ${range('textSize', 'textScale', t.size, t.sizeHint, 85, 130, 5, '%', t.small, t.large)}
-    </section><section class="gw-ps-group"><h3><span aria-hidden="true">▷</span>${t.playback}</h3>
-      ${toggle('auto', 'autoAdvance', t.auto, t.autoHint)}
-      ${range('animationSpeed', 'animationSpeed', t.animation, t.animationHint, 0.5, 2, 0.25, '×', t.half, t.double)}
-      ${toggle('sound', 'soundEnabled', t.sound, t.soundHint)}
-      ${toggle('controls', 'controlsVisible', t.controls, t.controlsHint)}
-    </section></div><div class="gw-ps-footer">${resetMarkup}<span>${t.saved}</span></div>
+      ${widgets.speed}
+      ${widgets.textSize}
+    </section><section class="gw-ps-group"><h3>${t.voice}</h3>
+      ${widgets.sound}
+      ${widgets.musicVolume}
+      ${widgets.voiceVolume}
+    </section><section class="gw-ps-group"><h3>${t.effects}</h3>
+      ${widgets.auto}
+      ${widgets.controls}
+      ${widgets.animationSpeed}
+      ${resetMarkup}
+    </section></div>
   </section>`;
 }
 
@@ -287,7 +298,8 @@ export function mountPlayerSettings(
   elements: Array<{ role?: string; text: string; visible?: boolean; disabled?: boolean; settingsDescription?: string }> = [],
   readingStyle?: Partial<RenderStyle>,
 ) {
-  let values = { ...initial };
+  let values = { musicVolume: 100, voiceVolume: 100, ...initial };
+  let testContext: AudioContext | undefined;
   let beforeReset: PlayerSettingsValues | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const panel = root.querySelector<HTMLElement>('.gw-ps-panel')!;
@@ -368,7 +380,7 @@ export function mountPlayerSettings(
   };
   const sync = (next: PlayerSettingsValues) => {
     const readingChanged = values.interactionMode !== next.interactionMode || values.typewriterSpeed !== next.typewriterSpeed;
-    values = { ...next };
+    values = { musicVolume: 100, voiceVolume: 100, ...next };
     panel
       .querySelectorAll<HTMLInputElement | HTMLButtonElement>('[data-setting]')
       .forEach((control) => {
@@ -423,6 +435,7 @@ export function mountPlayerSettings(
           ? current <= Number(field.min)
           : current >= Number(field.max));
     });
+    panel.querySelectorAll<HTMLButtonElement>('[data-test-volume]').forEach((button) => { button.disabled = locks.has(button) || !values.soundEnabled; });
     panel.querySelectorAll<HTMLButtonElement>('[data-text-scale]').forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.textScale) === values.textScale)));
     if (sample) sample.style.fontSize = `${(1.05 * values.textScale) / 100}em`;
     if (readingChanged) replay();
@@ -462,6 +475,25 @@ export function mountPlayerSettings(
     if (!button || button.disabled) return;
     if (button.dataset.action === 'close') onClose();
     else if (button.dataset.action === 'replay') replay();
+    else if (button.dataset.testVolume) {
+      testContext ??= new AudioContext();
+      void testContext.resume().then(() => {
+        const context = testContext!;
+        const oscillator = context.createOscillator(), gain = context.createGain();
+        const now = context.currentTime;
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(button.dataset.testVolume === 'voiceVolume' ? 440 : 262, now);
+        oscillator.frequency.setValueAtTime(button.dataset.testVolume === 'voiceVolume' ? 440 : 330, now + 0.3);
+        const volume = Math.max(0, Math.min(100, Number(values[button.dataset.testVolume as 'musicVolume' | 'voiceVolume']) || 0)) / 100;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(volume * 0.15, now + 0.04);
+        gain.gain.setValueAtTime(volume * 0.15, now + 0.55);
+        gain.gain.linearRampToValueAtTime(0, now + 0.65);
+        oscillator.connect(gain); gain.connect(context.destination);
+        oscillator.start(now); oscillator.stop(now + 0.7);
+        oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+      }).catch(() => undefined);
+    }
     else if (button.dataset.action === 'reset') {
       beforeReset = { ...values };
       change({ ...defaults });
@@ -510,6 +542,8 @@ export function mountPlayerSettings(
     sync,
     destroy: () => {
       clearTimeout(timer);
+      if (testContext) void testContext.close();
+      testContext = undefined;
       root.removeEventListener('input', input);
       root.removeEventListener('change', input);
       root.removeEventListener('click', click);
@@ -541,7 +575,7 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-head p { margin:0; color:#a9b7cc; }
 .gw-ps-done { display:flex; align-items:center; gap:24px; border:1px solid #ffffff30; border-radius:12px; background:#ffffff0d; padding:12px 20px; flex-shrink:0; }
 .gw-ps-panel button:hover:not(:disabled) { filter:brightness(1.18); background-color:#ffffff20; }
-.gw-ps-columns { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+.gw-ps-columns { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; }
 .gw-ps-group { min-width:0; padding:22px; border:1px solid #ffffff16; border-radius:18px; background:#ffffff04; }
 .gw-ps-group h3 { display:flex; align-items:center; gap:10px; margin:0 0 8px; font-size:18px; font-weight:650; }
 .gw-ps-group h3>span { display:grid; place-items:center; width:32px; height:32px; background:#86b4ff1c; color:#b7d1ff; border-radius:9px; font-size:16px; }
@@ -664,5 +698,7 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-widget button:focus-visible,.gw-ps-widget input:focus-visible,.gw-ps-widget select:focus-visible { outline-color:var(--gw-accent,#7169d8); }
 @container (max-width:700px) { .gw-ps-panel { padding:20px; border-radius:18px; } .gw-ps-columns { grid-template-columns:1fr; } .gw-ps-head h2 { font-size:24px; } .gw-ps-group { padding:16px; } .gw-ps-footer { flex-wrap:wrap; } }
 .gw-ps-panel,.gw-ps-group,.gw-ps-preview { border-radius:0; }
+.gw-ps-test-volume { margin-top:4px; padding:4px 10px; border:1px solid #94a3b840; border-radius:8px; background:transparent; color:inherit; font-size:.75em!important; }
+.gw-ps-group .gw-ps-reset { height:auto; margin-top:20px; padding:12px 16px; border:1px solid #ffffff26; border-radius:12px; }
 @media (prefers-reduced-motion:reduce) { .gw-ps-toggle i::after { transition:none; } }
 `;

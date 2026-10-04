@@ -1,4 +1,5 @@
 import type { PlayerControlId } from './playerSettingsPanelConfig';
+import { buttonMotionForPreset } from './webButtonMotion';
 import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { webAppearance } from '../shared/paint/appearance';
@@ -36,7 +37,7 @@ export const resolveArchivePageElements = (settings: Partial<WebExportSettings>,
 };
 
 /** Resolve old grouped-page settings once; authored element arrays (including empty ones) are authoritative. */
-export const resolveSettingsPageElements = (
+const resolveSettingsPageElementsBeforeInteractionUpgrade = (
   settings: Partial<WebExportSettings>,
   language: Language,
   choiceColor: string,
@@ -164,4 +165,32 @@ export const resolveSettingsPageElements = (
       },
     ];
   });
+};
+
+/** Apply this revision once so later user edits remain authoritative. */
+export const resolveSettingsPageElements = (
+  settings: Partial<WebExportSettings>, language: Language, choiceColor: string, choiceTextColor: string,
+): WebMenuElement[] => {
+  const source = resolveSettingsPageElementsBeforeInteractionUpgrade(settings, language, choiceColor, choiceTextColor);
+  const interactionUpgrade = source.map((element) => element.kind === 'button' && (element.settingsLayoutVersion || 0) < 7 && !['back', 'reset'].includes(element.role || '')
+    ? { ...element, settingsLayoutVersion: 7, buttonMotion: buttonMotionForPreset('none'), ...(element.role === 'preview' ? {} : { width: 30 }) }
+    : element);
+  const defaults = buildSettingsPageElements(language, choiceColor, choiceTextColor);
+  const isBuiltIn = source.some((element) => element.id === 'settings-intro') && source.some((element) => element.id === 'settings-reading-heading');
+  if (!isBuiltIn || !source.some((element) => (element.settingsLayoutVersion || 0) < 8 && defaults.some((fallback) => fallback.id === element.id))) {
+    return interactionUpgrade.every((element, index) => element === source[index]) ? source : interactionUpgrade;
+  }
+  const upgraded = interactionUpgrade.map((element) => {
+    const fallback = defaults.find((item) => item.id === element.id);
+    if (!fallback || (element.settingsLayoutVersion || 0) >= 8) return element;
+    return { ...element, x: fallback.x, y: fallback.y, width: fallback.width, height: fallback.height, settingsLayoutVersion: 8,
+      ...(element.id.endsWith('-heading') ? { text: fallback.text } : {}),
+    };
+  });
+  const newIds = ['settings-effects-heading', 'settings-divider-0', 'settings-divider-1', 'settings-musicVolume', 'settings-voiceVolume'];
+  const removed = new Set(settings.settingsPageRemovedElements?.map((element) => element.id) || []);
+  defaults.forEach((element) => {
+    if (newIds.includes(element.id) && !upgraded.some((item) => item.id === element.id) && !removed.has(element.id)) upgraded.push(element);
+  });
+  return upgraded;
 };

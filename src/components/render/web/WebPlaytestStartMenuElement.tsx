@@ -777,6 +777,7 @@ export function WebPlaytestStartMenuElement({
             />
           )}
           <WebEditableElementFrame
+            line={element.shapeType === 'line' ? { element, canvasWidth: settings.canvasWidth, canvasHeight: settings.canvasHeight, onUpdate: onUpdateElement } : undefined}
             visible={!imageCropEditing && element.visible}
             locked={element.locked}
             onToggleLocked={(event) => {

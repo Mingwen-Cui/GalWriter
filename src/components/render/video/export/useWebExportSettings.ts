@@ -1,4 +1,5 @@
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
+import { WebHistoryGesture } from '../../web/webHistoryGesture';
 import { normalizeWebFlowView } from '../../web/webFlowView';
 import { resolveSettingsPageElements, resolveArchivePageElements } from '../../web/webMenuPageElements';
 import { useEffect, useState, useRef } from 'react';
@@ -98,6 +99,8 @@ const DEFAULT_WEB_SETTINGS: WebExportSettings = {
   textScale: 100,
   animationSpeed: 1,
   soundEnabled: true,
+  musicVolume: 100,
+  voiceVolume: 100,
   videoAutoPlay: false,
   hideCharacterTags: true,
   hideSceneTags: true,
@@ -649,18 +652,52 @@ export const useWebExportSettings = (
   };
 
   const historyQueued = useRef(false);
+  const historyGesture = useRef(new WebHistoryGesture<WebHistoryState>());
+  const captureWebStateRef = useRef(captureWebState);
+  captureWebStateRef.current = captureWebState;
+  useEffect(() => {
+    let gestureSequence = 0;
+    const begin = (event: PointerEvent) => {
+      if (event.button !== 0 || !(event.target instanceof Element) ||
+          !(event.target.closest('[data-web-history-scope="true"]') ||
+            (document.querySelector('[data-web-history-scope="true"]') && event.target.closest('[data-web-style-popover]'))) ||
+          event.target.closest('textarea, [contenteditable="true"], input:not([type="range"]):not([type="number"])')) return;
+      gestureSequence += 1;
+      historyGesture.current.end();
+      historyGesture.current.begin(structuredClone(captureWebStateRef.current()));
+    };
+    const end = () => historyGesture.current.end();
+    const endAfterDispatch = () => {
+      const sequence = gestureSequence;
+      setTimeout(() => { if (sequence === gestureSequence) end(); }, 0);
+    };
+    document.addEventListener('pointerdown', begin, true);
+    window.addEventListener('pointerup', endAfterDispatch, true);
+    window.addEventListener('pointercancel', endAfterDispatch, true);
+    window.addEventListener('blur', end);
+    return () => {
+      document.removeEventListener('pointerdown', begin, true);
+      window.removeEventListener('pointerup', endAfterDispatch, true);
+      window.removeEventListener('pointercancel', endAfterDispatch, true);
+      window.removeEventListener('blur', end);
+      end();
+    };
+  }, []);
   const pushWebHistory = () => {
     if (historyQueued.current) return;
+    const snapshot = historyGesture.current.record(captureWebState());
+    if (!snapshot) return;
     historyQueued.current = true;
     queueMicrotask(() => {
       historyQueued.current = false;
     });
-    setWebPast((prev) => [...prev.slice(-49), captureWebState()]);
+    setWebPast((prev) => [...prev.slice(-49), snapshot]);
     setWebFuture([]);
   };
 
   const undoWeb = () => {
     if (webPast.length === 0 || isLocked) return;
+    historyGesture.current.cancel();
     const previous = webPast[webPast.length - 1];
     setWebPast((prev) => prev.slice(0, -1));
     setWebFuture((prev) => [captureWebState(), ...prev]);
@@ -669,6 +706,7 @@ export const useWebExportSettings = (
 
   const redoWeb = () => {
     if (webFuture.length === 0 || isLocked) return;
+    historyGesture.current.cancel();
     const next = webFuture[0];
     setWebFuture((prev) => prev.slice(1));
     setWebPast((prev) => [...prev, captureWebState()]);
@@ -676,7 +714,9 @@ export const useWebExportSettings = (
   };
 
   const updateWebRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => {
+    if (historyGesture.current.cancelled) return;
     if (webRenderStyle[key] === value) return;
+    if (key === 'selectedRenderObject') { styleBinding.update(key, value); return; }
     pushWebHistory();
     styleBinding.update(key, value);
   };
@@ -708,6 +748,7 @@ export const useWebExportSettings = (
     key: K,
     value: WebExportSettings[K],
   ) => {
+    if (historyGesture.current.cancelled) return;
     if (webSettings[key] === value) return;
     if (key === 'layoutMode') rememberWebLayoutModeChoice(workspaceKey);
     pushWebHistory();
@@ -717,6 +758,7 @@ export const useWebExportSettings = (
   };
 
   const updateWebSettingsBulk = (patch: Partial<WebExportSettings>) => {
+    if (historyGesture.current.cancelled) return;
     const entries = Object.entries(patch) as Array<
       [keyof WebExportSettings, WebExportSettings[keyof WebExportSettings]]
     >;
@@ -730,12 +772,14 @@ export const useWebExportSettings = (
   };
 
   const updateWebChoiceColor = (value: string) => {
+    if (historyGesture.current.cancelled) return;
     if (webChoiceColor === value) return;
     pushWebHistory();
     setWebChoiceColor(value);
   };
 
   const updateWebChoiceTextColor = (value: string) => {
+    if (historyGesture.current.cancelled) return;
     if (webChoiceTextColor === value) return;
     pushWebHistory();
     setWebChoiceTextColor(value);
