@@ -278,7 +278,8 @@ export function WebPlaytestPreview({
   // The editor's surface picker is controlled by the workspace. Do not let a
   // transient runtime page state hide that surface while applying a preset.
   const controlledEditSurface =
-    previewMode === 'edit' && (settings.showStartMenu || requestedSurface === 'flow')
+    previewMode === 'edit' &&
+    (settings.showStartMenu || requestedSurface === 'flow' || requestedSurface === 'game')
       ? requestedSurface
       : undefined;
   const isPreviewFlowOverviewOpen = controlledEditSurface
@@ -548,7 +549,9 @@ export function WebPlaytestPreview({
     const enteringTest = previewMode === 'test' && previousPreviewMode.current !== 'test';
     previousPreviewMode.current = previewMode;
     if (!enteringTest) return;
-    const surface = settings.showStartMenu ? requestedSurface || 'start' : 'game';
+    const surface = requestedSurface === 'flow'
+      ? 'flow'
+      : settings.showStartMenu ? requestedSurface || 'start' : 'game';
     setPreviewStartMenuOpen(surface !== 'game' && surface !== 'flow');
     setPreviewStartSettingsOpen(surface === 'settings');
     setPreviewArchiveOpen(surface === 'archive');
@@ -559,7 +562,7 @@ export function WebPlaytestPreview({
   React.useEffect(() => {
     if (
       previewMode !== 'edit' ||
-      (!settings.showStartMenu && requestedSurface !== 'flow') ||
+      (!settings.showStartMenu && requestedSurface !== 'flow' && requestedSurface !== 'game') ||
       !requestedSurface
     )
       return;
@@ -1561,6 +1564,15 @@ export function WebPlaytestPreview({
   ].filter((action): action is StartMenuAction => Boolean(action));
   const startMenuActionMap = new Map(startMenuActions.map((action) => [action.key, action]));
   const getStartMenuElementAction = (element: StartMenuElement): StartMenuAction | null => {
+    if (isPreviewFlowOverviewOpen && element.role === 'mainMenu') {
+      return {
+        key: element.role,
+        label: language === 'zh' ? '主菜单' : language === 'ja' ? 'メニュー' : 'Menu',
+        disabled: !settings.showStartMenu,
+        primary: false,
+        onClick: returnToStartMenu,
+      };
+    }
     const existing = element.role ? startMenuActionMap.get(element.role) : null;
     if (existing) return existing;
     if (isPreviewFlowOverviewOpen && element.role === 'flowDirection') {
@@ -2509,7 +2521,10 @@ export function WebPlaytestPreview({
               ))}
             </div>
           )}
-          {flowOverviewElements.filter((element) => element.visible !== false || (element.role !== 'flowDirection' && element.role !== 'flowFitView')).map((element) => (
+          {flowOverviewElements.filter((element) =>
+            !(previewMode === 'test' && !settings.showStartMenu && element.role === 'mainMenu') &&
+            (element.visible !== false || (element.role !== 'flowDirection' && element.role !== 'flowFitView'))
+          ).map((element) => (
             <WebPlaytestStartMenuElement
               key={element.id}
               element={element}

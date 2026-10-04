@@ -1,4 +1,4 @@
-import { Bot, Check, Copy, Download, X } from 'lucide-react';
+import { Bot, Check, Copy, Download, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { FULL_BUILD_DOWNLOAD_URL } from '../lib/appAssets';
@@ -23,9 +23,28 @@ export function AgentConnectionContent({
 }) {
   const ui = assistantPanelCopy(language);
   const [status, setStatus] = useState('');
+  const [selectedThemeIndex, setSelectedThemeIndex] = useState(0);
   const titleId = inline ? 'assistant-agent-connect-settings-title' : 'assistant-agent-connect-title';
   const canObserveConnection = isTauriRuntime() || import.meta.env.DEV;
   const isConnected = connected;
+  const promptThemes = [
+    {
+      title: ui.agentConnectThemeMatrixTitle,
+      description: ui.agentConnectThemeMatrixDescription,
+      prompt: ui.agentConnectThemeMatrixPrompt,
+    },
+    {
+      title: ui.agentConnectThemeCyberMysteryTitle,
+      description: ui.agentConnectThemeCyberMysteryDescription,
+      prompt: ui.agentConnectThemeCyberMysteryPrompt,
+    },
+    {
+      title: ui.agentConnectThemeAndroidTitle,
+      description: ui.agentConnectThemeAndroidDescription,
+      prompt: ui.agentConnectThemeAndroidPrompt,
+    },
+  ];
+  const selectedTheme = promptThemes[selectedThemeIndex % promptThemes.length];
 
   const content = (
     <section
@@ -158,6 +177,41 @@ export function AgentConnectionContent({
             </div>
           </div>
         )}
+        <div className="assistant-agent-connect-step assistant-agent-connect-template-step">
+          <span className="assistant-agent-connect-step-label">{ui.agentConnectStepThree}</span>
+          <p className="assistant-agent-connect-templates-intro">{ui.agentConnectTemplatesIntro}</p>
+          <div className="assistant-agent-connect-template-picker">
+            <button
+              type="button"
+              className="assistant-agent-connect-template"
+              aria-label={ui.agentConnectCopyTemplate.replace('{title}', selectedTheme.title)}
+              onClick={async () => {
+                try {
+                  if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+                  await navigator.clipboard.writeText(selectedTheme.prompt);
+                  setStatus(ui.agentConnectTemplateCopied.replace('{title}', selectedTheme.title));
+                } catch {
+                  setStatus(ui.agentConnectCopyFailed);
+                }
+              }}
+            >
+              <span className="assistant-agent-connect-template-copy"><Copy className="h-4 w-4" /></span>
+              <span className="assistant-agent-connect-template-text">
+                <strong>{selectedTheme.title}</strong>
+                <span>{selectedTheme.description}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="assistant-agent-connect-template-switch"
+              aria-label={ui.agentConnectSwitchTheme}
+              onClick={() => setSelectedThemeIndex((index) => (index + 1) % promptThemes.length)}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>{ui.agentConnectSwitchTheme}</span>
+            </button>
+          </div>
+        </div>
       </div>
       {status && (
         <div className="assistant-agent-connect-status" role="status">

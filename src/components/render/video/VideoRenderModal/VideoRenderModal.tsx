@@ -1,4 +1,4 @@
-import type { Node as FlowNode } from '@xyflow/react';
+import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import React, { Suspense, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
@@ -30,6 +30,7 @@ import {
 import { InteractiveSegmentExportWorkspace } from '../interactive/InteractiveSegmentExportWorkspace';
 import {
   buildInteractiveSegments,
+  sanitizeExportName,
   type InteractiveSegmentDraft,
 } from '../interactive/interactiveSegments';
 import { exportInteractiveSegmentZip } from '../interactive/interactiveSegmentZipExport';
@@ -62,6 +63,7 @@ import { getVideoRenderObjects } from '../shared/renderObjects';
 import { getNodeDisplayTitle, getOrderedStoryNodes, stripHtml } from '../shared/storyNodes';
 import type { RenderStyle } from '../shared/types';
 import type {
+  McpRenderWorkspaceApi,
   AssetCardLayout,
   ExportFormat,
   ExportSettingsMode,
@@ -149,6 +151,7 @@ export function VideoRenderModal({
   callAIForTextResult,
   voiceTtsConfig,
   launchIntent,
+  onMcpWorkspaceApiChange,
   fullscreenHostRef,
 }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
@@ -2146,9 +2149,14 @@ export function VideoRenderModal({
       );
     }
   };
-  const exportPptProject = async (requestedTitle?: string, skipFontPreflight = false) => {
-    if (status === 'rendering') return;
-    if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
+  const exportPptProject = async (
+    requestedTitle?: string,
+    skipFontPreflight = false,
+    exportNodes: FlowNode[] = nodes,
+    exportEdges: FlowEdge[] = edges,
+  ) => {
+    if (status === 'rendering') return { exported: false, error: 'Another render operation is already running.' };
+    if (!exportNodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
       setStatus('error');
       setError(
         getVideoTextForChinesePreference(
@@ -2156,7 +2164,7 @@ export function VideoRenderModal({
           'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText1960',
         ),
       );
-      return;
+      return { exported: false, error: 'No visible story cards are available to export.' };
     }
     const customFonts = renderStyle.customFonts || [];
     if (!skipFontPreflight && customFonts.length) {
@@ -2184,10 +2192,10 @@ export function VideoRenderModal({
         secondaryLabel: formatVideoText(language, 'exportPreflightCancel'),
         onPrimary: () => {
           setNoticeModal(null);
-          void exportPptProject(requestedTitle, true);
+          void exportPptProject(requestedTitle, true, exportNodes, exportEdges);
         },
       });
-      return;
+      return { exported: false, needsAttention: true, error: 'PowerPoint font preflight needs attention.' };
     }
     const exportTitle =
       requestedTitle?.trim() ||
@@ -2207,8 +2215,8 @@ export function VideoRenderModal({
     try {
       const { buildPptxBuffer } = await import('../../ppt/pptExport');
       const buffer = await buildPptxBuffer({
-        nodes,
-        edges,
+        nodes: exportNodes,
+        edges: exportEdges,
         projectName: exportTitle,
         settings: webSettings,
         style: renderStyle,
@@ -2216,12 +2224,14 @@ export function VideoRenderModal({
         language,
       });
       setProgressValue(80);
+      let exportPath: string;
       if (isTauriRuntime()) {
         const result = await saveRenderedPptx({
           fileName: `${exportTitle}-ppt`,
           bytes: Array.from(new Uint8Array(buffer)),
           outputDir: webOutputDir,
         });
+        exportPath = result.path;
         setSavedPath(result.path);
       } else {
         const blob = new Blob([buffer], {
@@ -2236,7 +2246,8 @@ export function VideoRenderModal({
         anchor.click();
         anchor.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-        setSavedPath(`${exportTitle}-ppt.pptx`);
+        exportPath = `${exportTitle}-ppt.pptx`;
+        setSavedPath(exportPath);
       }
       setStatus('done');
       setProgressValue(100);
@@ -2271,6 +2282,7 @@ export function VideoRenderModal({
           'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2022',
         ),
       );
+      return { exported: true, filePath: exportPath, projectName: exportTitle, slideCount: pptSettings.slideOrder?.length || exportNodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length };
     } catch (exportError) {
       setStatus('error');
       setError(
@@ -2303,8 +2315,151 @@ export function VideoRenderModal({
         ),
         onPrimary: () => setNoticeModal(null),
       });
+      return { exported: false, error: exportError instanceof Error ? exportError.message : 'PowerPoint export failed.' };
     }
   };
+
+  const buildMcpStoryExportScope = (input: Record<string, unknown>) => {
+    const requestedIds = input.story_node_ids;
+    if (requestedIds === undefined || requestedIds === null) return { storyNodeIds: null as string[] | null, exportNodes: nodes, exportEdges: edges };
+    if (!Array.isArray(requestedIds) || requestedIds.length === 0 || requestedIds.some((id) => typeof id !== 'string' || !id.trim())) {
+      throw new Error('story_node_ids must be a non-empty ordered list of visible story-card IDs.');
+    }
+    const storyNodeIds = requestedIds as string[];
+    if (new Set(storyNodeIds).size !== storyNodeIds.length) throw new Error('story_node_ids must not contain duplicates.');
+    const pathNodes = storyNodeIds.map((id) => storyNodeById.get(id));
+    const missingIndex = pathNodes.findIndex((node) => !node);
+    if (missingIndex >= 0) throw new Error(`Visible story card '${storyNodeIds[missingIndex]}' was not found.`);
+    for (let index = 0; index < storyNodeIds.length - 1; index += 1) {
+      if (!edges.some((edge) => edge.source === storyNodeIds[index] && edge.target === storyNodeIds[index + 1])) {
+        throw new Error(`The selected story path has no directed link from '${storyNodeIds[index]}' to '${storyNodeIds[index + 1]}'.`);
+      }
+    }
+    const settingIds = new Set<string>();
+    pathNodes.forEach((node) => {
+      const presentation = node?.data.presentation as Record<string, unknown> | undefined;
+      const scene = presentation?.scene as Record<string, unknown> | undefined;
+      if (typeof scene?.sourceNodeId === 'string') settingIds.add(scene.sourceNodeId);
+      const characters = Array.isArray(presentation?.characters) ? presentation.characters : [];
+      characters.forEach((item) => {
+        const sourceNodeId = (item as Record<string, unknown>)?.sourceNodeId;
+        if (typeof sourceNodeId === 'string') settingIds.add(sourceNodeId);
+      });
+    });
+    const includedIds = new Set([...storyNodeIds, ...settingIds]);
+    const exportNodes = nodes.filter((node) => includedIds.has(node.id));
+    const exportEdges = edges.filter((edge) => includedIds.has(edge.source) && includedIds.has(edge.target));
+    return { storyNodeIds, exportNodes, exportEdges };
+  };
+
+  React.useEffect(() => {
+    if (!onMcpWorkspaceApiChange) return;
+    const api: McpRenderWorkspaceApi = {
+      openWorkspace: (intent) => {
+        if (intent.workspaceMode !== workspaceMode) switchWorkspaceMode(intent.workspaceMode);
+        if (intent.workspaceMode === 'video') setVideoWorkspaceMode(intent.videoWorkspaceMode);
+        if (intent.workspaceMode === 'ppt' && intent.entryMode === 'manual') setPptRibbonTab('insert');
+        if (intent.workspaceMode === 'web') updateWebSettings('showStartMenu', intent.showStartMenu);
+        if (intent.workspaceMode === 'code') setCodeTarget(intent.codeTarget);
+      },
+      getState: () => ({
+        workspaceMode,
+        videoWorkspaceMode,
+        status,
+        progress,
+        error,
+        savedPath,
+        timelineStoryNodeIds: timelineNodes.filter((node) => node.type === 'storyNode').map((node) => timelineSourceById[node.id] || node.id),
+        selectedStoryNodeIds: selectedNodes.filter((node) => node.type === 'storyNode').map((node) => timelineSourceById[node.id] || node.id),
+        storyLinks: edges
+          .filter((edge) => storyNodeById.has(edge.source) && storyNodeById.has(edge.target))
+          .map((edge) => ({
+            source: edge.source,
+            target: edge.target,
+            label: typeof edge.label === 'string' ? edge.label : null,
+            branch: edge.data?.branch ?? null,
+          })),
+        storyCards: Array.from(storyNodeById.values()).map((node) => ({
+          id: node.id,
+          title: getNodeDisplayTitle(node),
+          text: stripHtml(String(node.data.text || '')).slice(0, 1200),
+          hasSceneTag: Boolean((node.data.presentation as Record<string, unknown> | undefined)?.scene),
+          characterCount: Array.isArray((node.data.presentation as Record<string, unknown> | undefined)?.characters)
+            ? ((node.data.presentation as Record<string, unknown>).characters as unknown[]).length
+            : 0,
+        })),
+        interactiveSegments: interactiveSegments.map(({ id, name, enabled, nodeIds, choices }) => ({ id, name, enabled, nodeIds, choices })),
+        ppt: {
+          branchMode: pptSettings.branchMode,
+          density: pptSettings.density,
+          layout: pptSettings.layout,
+          includeCover: pptSettings.includeCover,
+          includeNotes: pptSettings.includeNotes,
+          slideOrder: pptSettings.slideOrder || [],
+          hiddenSlideIds: pptSettings.hiddenSlideIds || [],
+          deletedSlideIds: pptSettings.deletedSlideIds || [],
+          manualSlides: pptSettings.manualSlides || [],
+          animations: pptSettings.animations || {},
+          transitions: pptSettings.transitions || {},
+          textOverrides: pptSettings.textOverrides || {},
+          slideElements: pptSettings.slideElements || {},
+          slideBackgroundStyles: pptSettings.slideBackgroundStyles || {},
+        },
+      }),
+      exportVideo: async (input) => {
+        if (workspaceMode !== 'video' || videoWorkspaceMode !== 'timeline') {
+          throw new Error('Open the video timeline workspace before exporting an MP4/MOV/MKV.');
+        }
+        const scope = buildMcpStoryExportScope(input);
+        const requestedNodes = scope.storyNodeIds
+          ? scope.storyNodeIds.map((id) => timelineNodes.find((node) => (timelineSourceById[node.id] || node.id) === id) || storyNodeById.get(id)!)
+          : selectedNodes;
+        if (!requestedNodes.length) throw new Error('No timeline story cards are selected. Provide story_node_ids as an ordered connected path.');
+        const resolvedExportFormat = input.export_format === undefined || input.export_format === null ? exportFormat : input.export_format;
+        if (!['mp4', 'mov', 'mkv'].includes(String(resolvedExportFormat))) throw new Error('export_format must be mp4, mov, or mkv.');
+        const frameRate = input.frame_rate === undefined || input.frame_rate === null ? undefined : Number(input.frame_rate);
+        if (frameRate !== undefined && (!Number.isInteger(frameRate) || frameRate < 12 || frameRate > 60)) throw new Error('frame_rate must be an integer from 12 to 60.');
+        const fileName = typeof input.file_name === 'string' ? sanitizeExportName(input.file_name) : undefined;
+        if (status === 'rendering') throw new Error('Another render operation is already running.');
+        let filePath: string | null = null;
+        const selectedPathIds = scope.storyNodeIds ? new Set(scope.storyNodeIds) : null;
+        const bytes = await renderVideo({
+          fileName,
+          nodes: requestedNodes,
+          audioSegments: selectedPathIds
+            ? activeAudioSegments.filter((segment) => selectedPathIds.has(timelineSourceById[segment.node.id] || segment.node.id))
+            : activeAudioSegments,
+          exportFormat: resolvedExportFormat as ExportFormat,
+          frameRate,
+          onSavedPath: (path) => { filePath = path; },
+        });
+        if (!bytes || !filePath) throw new Error('Video render did not complete. Read render workspace status for details.');
+        return { exported: true, filePath, format: resolvedExportFormat, storyNodeIds: scope.storyNodeIds || requestedNodes.map((node) => timelineSourceById[node.id] || node.id) };
+      },
+      exportWebProject: async (input) => {
+        if (workspaceMode !== 'web') throw new Error('Open the Web workspace before exporting a standalone Web package.');
+        const scope = buildMcpStoryExportScope(input);
+        const projectName = typeof input.project_name === 'string' ? sanitizeExportName(input.project_name) : undefined;
+        const result = await exportWebProject({
+          format: 'web-zip',
+          projectName,
+          exportNodes: scope.exportNodes,
+          exportEdges: scope.exportEdges,
+        });
+        return { ...result, storyNodeIds: scope.storyNodeIds, exportScope: scope.storyNodeIds ? 'selected_story_path' : 'entire_project' };
+      },
+      exportPptx: async (input) => {
+        if (workspaceMode !== 'ppt') throw new Error('Open the PPT workspace before exporting a PowerPoint file.');
+        const scope = buildMcpStoryExportScope(input);
+        const projectName = typeof input.project_name === 'string' ? sanitizeExportName(input.project_name) : undefined;
+        const result = await exportPptProject(projectName, true, scope.exportNodes, scope.exportEdges);
+        if (!result || result.exported !== true) return result || { exported: false, error: 'PowerPoint export did not complete.' };
+        return { ...result, storyNodeIds: scope.storyNodeIds, exportScope: scope.storyNodeIds ? 'selected_story_path' : 'entire_project' };
+      },
+    };
+    onMcpWorkspaceApiChange(api);
+    return () => onMcpWorkspaceApiChange(null);
+  });
 
   usePreviewPlayback({
     focusedPreviewNode,

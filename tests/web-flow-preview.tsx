@@ -60,6 +60,9 @@ function App() {
       <div className="flex gap-3 p-2 text-xs">
         <button onClick={exportPreview}>生成导出预览</button>
         <button onClick={() => setHtml('')}>返回编辑</button>
+        <button onClick={() => state.updateWebSettings('showStartMenu', !state.webSettings.showStartMenu)}>
+          {state.webSettings.showStartMenu ? '无界面' : '主界面'}
+        </button>
         <button onClick={state.undoWeb}>撤销</button>
         <button onClick={state.redoWeb}>重做</button>
         <output data-flow-view>{JSON.stringify(state.webSettings.flowOverviewView)}</output>

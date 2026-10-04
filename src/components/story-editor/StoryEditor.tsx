@@ -77,7 +77,7 @@ import { type ProjectExampleTemplate, ProjectPickerModal } from '../ProjectPicke
 import { useSharedCanvasSettings } from '../render/canvas/canvasSettings';
 import type { PlayTestDisplayMode, PlaytestMcpControls, PlaytestWindowLayer } from '../render/playtest/types';
 import { RenderWorkspaceBootSkeleton } from '../render/video/RenderWorkspaceSkeleton';
-import type { RenderWorkspaceLaunchIntent } from '../render/video/shared/types';
+import type { McpRenderWorkspaceApi, RenderWorkspaceLaunchIntent } from '../render/video/shared/types';
 import {
   buildDefaultImageProfile,
   buildDefaultTextProfile,
@@ -223,6 +223,28 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   const [showVideoRender, setShowVideoRender] = useState(false);
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
   const [renderLaunchIntent, setRenderLaunchIntent] = useState<RenderWorkspaceLaunchIntent>();
+  const mcpRenderWorkspaceApiRef = useRef<McpRenderWorkspaceApi | null>(null);
+  const mcpRenderWorkspaceReadyResolverRef = useRef<((api: McpRenderWorkspaceApi) => void) | null>(null);
+  const setMcpRenderWorkspaceApi = useCallback((api: McpRenderWorkspaceApi | null) => {
+    mcpRenderWorkspaceApiRef.current = api;
+    if (api && mcpRenderWorkspaceReadyResolverRef.current) {
+      mcpRenderWorkspaceReadyResolverRef.current(api);
+      mcpRenderWorkspaceReadyResolverRef.current = null;
+    }
+  }, []);
+  const waitForMcpRenderWorkspaceApi = useCallback(async () => {
+    if (mcpRenderWorkspaceApiRef.current) return mcpRenderWorkspaceApiRef.current;
+    return new Promise<McpRenderWorkspaceApi>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        mcpRenderWorkspaceReadyResolverRef.current = null;
+        reject(new Error('The render workspace did not finish opening. Retry open_render_workspace.'));
+      }, 30_000);
+      mcpRenderWorkspaceReadyResolverRef.current = (api) => {
+        window.clearTimeout(timeoutId);
+        resolve(api);
+      };
+    });
+  }, []);
   const [canvasBg, setCanvasBg] = useState<string>('#F9FAFB');
   const [characterTagColor, setCharacterTagColor] = useState('#7c3aed');
   const [sceneTagColor, setSceneTagColor] = useState('#2563eb');
@@ -1395,6 +1417,60 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             if (!mcpProjectIdRef.current || mcpProjectIdRef.current === previousProjectId) throw new Error('The new project did not finish opening.');
             await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
             await resolveSuccess({ created: true, projectId: mcpProjectIdRef.current, projectTitle: mcpProjectTitleRef.current }, true);
+            return;
+          }
+
+          if (payload.operation === 'open_render_workspace') {
+            if (!canRenderVideo) throw new Error('The render workspace is unavailable in this editor build.');
+            const workspaceMode = payload.input.workspace_mode;
+            let intent: RenderWorkspaceLaunchIntent;
+            if (workspaceMode === 'video') {
+              intent = { workspaceMode, videoWorkspaceMode: payload.input.video_workspace_mode === 'interactive' ? 'interactive' : 'timeline' };
+            } else if (workspaceMode === 'web') {
+              intent = { workspaceMode, showStartMenu: payload.input.show_start_menu !== false };
+            } else if (workspaceMode === 'ppt') {
+              intent = { workspaceMode, entryMode: payload.input.entry_mode === 'manual' ? 'manual' : 'story' };
+            } else if (workspaceMode === 'code') {
+              const codeTarget = payload.input.code_target;
+              if (codeTarget !== undefined && codeTarget !== null && !['renpy', 'tyrano', 'dialogic'].includes(String(codeTarget))) throw new Error('code_target must be renpy, tyrano, or dialogic.');
+              intent = { workspaceMode, codeTarget: (codeTarget as 'renpy' | 'tyrano' | 'dialogic') || 'renpy' };
+            } else {
+              throw new Error('workspace_mode must be video, web, ppt, or code.');
+            }
+            const existingApi = mcpRenderWorkspaceApiRef.current;
+            if (showVideoRender && existingApi) {
+              existingApi.openWorkspace(intent);
+            } else {
+              setRenderLaunchIntent(intent);
+              setShowVideoRender(true);
+            }
+            const workspaceApi = await waitForMcpRenderWorkspaceApi();
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+            const refreshedWorkspaceApi = mcpRenderWorkspaceApiRef.current || workspaceApi;
+            await resolveSuccess({ opened: true, workspaceMode: intent.workspaceMode, state: refreshedWorkspaceApi.getState() });
+            return;
+          }
+          if (payload.operation === 'get_render_workspace_state') {
+            const workspaceApi = await waitForMcpRenderWorkspaceApi();
+            await resolveSuccess(workspaceApi.getState());
+            return;
+          }
+          if (payload.operation === 'export_video') {
+            const workspaceApi = await waitForMcpRenderWorkspaceApi();
+            const result = await workspaceApi.exportVideo(payload.input);
+            await resolveSuccess(result);
+            return;
+          }
+          if (payload.operation === 'export_web_project') {
+            const workspaceApi = await waitForMcpRenderWorkspaceApi();
+            const result = await workspaceApi.exportWebProject(payload.input);
+            await resolveSuccess(result);
+            return;
+          }
+          if (payload.operation === 'export_pptx') {
+            const workspaceApi = await waitForMcpRenderWorkspaceApi();
+            const result = await workspaceApi.exportPptx(payload.input);
+            await resolveSuccess(result);
             return;
           }
 
@@ -3937,6 +4013,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             nodes={nodes}
             edges={edges}
             launchIntent={renderLaunchIntent}
+            onMcpWorkspaceApiChange={setMcpRenderWorkspaceApi}
             onClose={() => setShowVideoRender(false)}
             onUpdateNodeData={handleUpdateNode}
             language={language}

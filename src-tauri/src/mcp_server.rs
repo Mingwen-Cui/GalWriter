@@ -416,7 +416,7 @@ impl GalWriterMcpServer {
       return Err(McpError::internal_error(format!("Could not deliver write request to the editor: {error}"), None));
     }
 
-    let timeout = std::time::Duration::from_secs(if matches!(operation, "generate_project_node_image" | "generate_story_audio" | "generate_text" | "capture_playtest_screen" | "capture_editor_canvas" | "open_project" | "create_project") { 180 } else if matches!(operation, "import_project_node_image" | "import_project_media") { 60 } else { 20 });
+    let timeout = std::time::Duration::from_secs(if operation == "export_video" { 1800 } else if matches!(operation, "export_web_project" | "export_pptx") { 900 } else if matches!(operation, "generate_project_node_image" | "generate_story_audio" | "generate_text" | "capture_playtest_screen" | "capture_editor_canvas" | "open_project" | "create_project" | "open_render_workspace") { 180 } else if matches!(operation, "import_project_node_image" | "import_project_media") { 60 } else { 20 });
     match tokio::time::timeout(timeout, receiver).await {
       Ok(Ok(Ok(result))) => {
         *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) = Some(timestamp_now());
@@ -696,7 +696,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Connect story-flow cards. Endpoints may be story or number-condition cards. When source_id is a number-condition card, set branch to greater_equal, less, or range:<rangeId> for a configured custom range; duplicate and self-links are rejected. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "Connect story-flow cards. For an ordinary story-card source, omit branch entirely. When source_id is a number-condition card, set branch to greater_equal, less, or range:<rangeId> for a configured custom range. Duplicate and self-links are rejected. For several new cards and their links, use apply_story_changes to create and connect them in one undoable batch.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
   async fn connect_story_nodes(&self, Parameters(input): Parameters<ConnectStoryNodesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("connect_story_nodes", input).await?;
@@ -759,7 +759,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Edit an existing scene setting card. Writable fields: sceneName, description, location, items, atmosphere, time, weather, visual, sound, notes, other, isGlobal, showLocation, showItems, showAtmosphere, showOther, scenePresetEnabled, sceneEnvironment, visualStyle. Use camelCase field names from the project. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  #[tool(description = "Edit an existing scene setting card. Writable fields: sceneName, description, location, items, atmosphere, time, weather, visual, sound, notes, other, isGlobal, showLocation, showItems, showAtmosphere, showOther, scenePresetEnabled, sceneEnvironment, visualStyle. visualStyle must be an object with lighting (natural-daylight|warm-lamp|cool-fluorescent|neon-side-light|golden-hour|overcast-rain|night-street), filter (none|clear|warm-film|cool-cinematic|neon|muted-rain|night-blue), backgroundBlur (number 0-100), and intensity (number 0-100); do not pass it as plain text. Use camelCase field names. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
   async fn update_scene_node(&self, Parameters(input): Parameters<UpdateSceneNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("update_scene_node", input).await?;
@@ -989,7 +989,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Apply a validated list of supported story, setting, and number-condition card edits and flow links as one undoable change. Keep MCP-generated story text to about 3 visible lines per card and never more than 5; give each card one readable beat and move extra details to following cards. Optional layout_direction ('up', 'down', 'left', 'right') controls the story-flow layout for newly created cards. Multi-card creation groups story, character, and scene cards and creates fitting background regions. Apply clearly requested routine edits directly; use preview_story_changes for large or ambiguous batches where a review would help.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  #[tool(description = "Apply a validated list of supported story, setting, and number-condition card edits and flow links as one undoable change. Prefer this batch for creating multiple story cards and their links together; reference the supplied or generated node IDs in connect_story_nodes operations. For ordinary story-card links, omit branch entirely; set branch only for a number-condition source (greater_equal, less, or range:<rangeId>). Image generation remains a separate per-card operation. Keep MCP-generated story text to about 3 visible lines per card and never more than 5; give each card one readable beat and move extra details to following cards. Optional layout_direction ('up', 'down', 'left', 'right') controls story-flow layout for newly created cards. Multi-card creation groups story, character, and scene cards and creates fitting background regions. Apply clearly requested routine edits directly; use preview_story_changes for large or ambiguous batches where a review would help.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
   async fn apply_story_changes(&self, Parameters(input): Parameters<StoryChangesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("apply_story_changes", input).await?;
@@ -1007,9 +1007,43 @@ impl GalWriterMcpServer {
     let result = self.request_editor_write("export_current_project", json!({})).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
+
+  #[tool(description = "Open the render workspace directly in video, Web, PowerPoint, or code mode. For video, video_workspace_mode may be timeline or interactive. The workspace stays open so you can inspect settings before exporting.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn open_render_workspace(&self, Parameters(input): Parameters<OpenRenderWorkspaceInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("open_render_workspace", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Read the open render workspace: available story cards and paths, selected timeline cards, Web segment choices, and PowerPoint slide order, animations, transitions, text overrides, notes, and manual slide operations. Use this data to review the rendering setup and give concrete feedback before export.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  async fn get_render_workspace_state(&self) -> Result<CallToolResult, McpError> {
+    let result = self.request_editor_write("get_render_workspace_state", json!({})).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Render and save one video file from an ordered, directed story-card path. story_node_ids is required; obtain valid paths from get_render_workspace_state. Optional file_name, export_format (mp4, mov, mkv), and frame_rate (12-60) override workspace defaults. Uses the configured render settings and output directory, and returns the saved file path only after export completes.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn export_video(&self, Parameters(input): Parameters<ExportVideoInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("export_video", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Export a standalone Web ZIP package. If story_node_ids is supplied, it must be an ordered, directed path and the package includes those story cards plus their referenced character and scene settings; omit it to export the full interactive project. Optional project_name sets the package name. Returns the saved file path after completion.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn export_web_project(&self, Parameters(input): Parameters<ExportStoryPathInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("export_web_project", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Export the current PowerPoint arrangement as a PPTX. If story_node_ids is supplied, it must be an ordered, directed path and the deck includes those story cards while preserving the current slide layout, animations, transitions, notes, and manual slide operations; omit it to export the full deck. Use get_render_workspace_state to read those operations and give feedback. Optional project_name sets the file name. Returns the saved file path after completion.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn export_pptx(&self, Parameters(input): Parameters<ExportStoryPathInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("export_pptx", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
 }
 
-  #[tool_handler(name = "galwriter", version = "1.7.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Read full card details with get_project_node when needed; it excludes private media URLs and includes safe media asset references. Run validate_project_structure to inspect graph integrity and unreachable story cards. Numeric logic uses number-condition cards: create/update these directly and call connect_story_nodes with branch=greater_equal or less when the source is a condition card. Image fallback: if generate_project_node_image returns HTTP 403, explain the configured image API denied access and ask once whether the user permits the assistant's own image generator. Do not generate a fallback before approval. If approved, generate from the target card's setting and call import_project_node_image with the same node ID and asset type; report insertion only after it succeeds. Read the current GalWriter desktop project before editing. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Before delete_project, ask unless the user explicitly requested deleting that exact project; do not infer permission from a general request to manage projects. Only use import_project_media with a local path explicitly supplied or selected by the user; never guess paths or read other files. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Use connect_story_setting for explicit story-to-character/scene presentation links and connect_story_nodes only for story-flow choices. Edit character, scene, plot-structure, and number-condition settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation.")]
+  #[tool_handler(name = "galwriter", version = "1.7.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Read full card details with get_project_node when needed; it excludes private media URLs and includes safe media asset references. Run validate_project_structure to inspect graph integrity and unreachable story cards. Numeric logic uses number-condition cards: create/update these directly and call connect_story_nodes with branch=greater_equal or less when the source is a condition card. Image fallback: if generate_project_node_image returns HTTP 403, explain the configured image API denied access and ask once whether the user permits the assistant's own image generator. Do not generate a fallback before approval. If approved, generate from the target card's setting and call import_project_node_image with the same node ID and asset type; report insertion only after it succeeds. Read the current GalWriter desktop project before editing. For new or extended story content, first create or update character and scene setting cards, then generate a transparent full-body tag-sprite for every onstage character before writing story dialogue; tag-sprite is the primary in-game art, while portrait is only a secondary thumbnail/reference and three-view is optional. Generate requested scene backgrounds on their setting cards. Then create story cards and place mention tags in each card: when characters are present, include the scene and every present character together on that same story card; when no character appears, scene-only is appropriate. Use set_story_text mention segments with existing characterNode/sceneNode IDs so tags remain editable and synchronize presentation associations. If tags or images are completed after story text, revisit each affected card and add missing tags without losing dialogue. Use set_story_presentation to give characters clear entrance and exit motions, varying them to fit the scene, and preserve existing presentation entries because the object is replaced as a whole. Prefer apply_story_changes to create multiple story cards and story-flow links in one batch; image generation remains one card per call. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Before delete_project, ask unless the user explicitly requested deleting that exact project; do not infer permission from a general request to manage projects. Only use import_project_media with a local path explicitly supplied or selected by the user; never guess paths or read other files. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Use connect_story_setting for explicit story-to-character/scene presentation links and connect_story_nodes only for story-flow choices. Edit character, scene, plot-structure, and number-condition settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation. For video, Web, or PowerPoint output, open_render_workspace first, then call get_render_workspace_state to inspect story paths, render settings, slide order, animations, transitions, text edits, and manual slide operations; use that state to give specific feedback before exporting with export_video, export_web_project, or export_pptx. Read the returned file path and export status before reporting completion.")]
 impl ServerHandler for GalWriterMcpServer {}
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -1046,6 +1080,8 @@ struct ConnectStoryNodesInput {
   source_id: String,
   target_id: String,
   label: Option<String>,
+  /// Omit for ordinary story-card sources. Required only for number-condition sources.
+  #[serde(skip_serializing_if = "Option::is_none")]
   branch: Option<String>,
 }
 
@@ -1065,6 +1101,68 @@ struct StoryNodeIdInput {
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
 struct ProjectIdInput {
   project_id: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum RenderWorkspaceModeInput {
+  Video,
+  Web,
+  Ppt,
+  Code,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum VideoWorkspaceModeInput {
+  Timeline,
+  Interactive,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum PptEntryModeInput {
+  Story,
+  Manual,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum CodeExportTargetInput {
+  Renpy,
+  Tyrano,
+  Dialogic,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+enum VideoOutputFormatInput {
+  Mp4,
+  Mov,
+  Mkv,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct OpenRenderWorkspaceInput {
+  workspace_mode: RenderWorkspaceModeInput,
+  video_workspace_mode: Option<VideoWorkspaceModeInput>,
+  show_start_menu: Option<bool>,
+  entry_mode: Option<PptEntryModeInput>,
+  code_target: Option<CodeExportTargetInput>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct ExportVideoInput {
+  story_node_ids: Vec<String>,
+  file_name: Option<String>,
+  export_format: Option<VideoOutputFormatInput>,
+  frame_rate: Option<u8>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct ExportStoryPathInput {
+  story_node_ids: Option<Vec<String>>,
+  project_name: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -1293,8 +1391,8 @@ enum StoryChangeOperation {
   DeleteStoryNode { node_id: String },
   DeleteProjectNode { node_id: String },
   MoveNode { node_id: String, position: StoryNodePosition },
-  ConnectStoryNodes { source_id: String, target_id: String, label: Option<String>, branch: Option<String> },
-  DisconnectStoryNodes { source_id: String, target_id: String, branch: Option<String> },
+  ConnectStoryNodes { source_id: String, target_id: String, label: Option<String>, #[serde(skip_serializing_if = "Option::is_none")] branch: Option<String> },
+  DisconnectStoryNodes { source_id: String, target_id: String, #[serde(skip_serializing_if = "Option::is_none")] branch: Option<String> },
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]

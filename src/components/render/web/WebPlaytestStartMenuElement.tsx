@@ -5,7 +5,7 @@ import { WebShapeCornerHandles } from './WebShapeCornerHandles';
 import type { CSSProperties, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { WebInlineText } from './WebInlineText';
-import { ArrowRight, RotateCw } from 'lucide-react';
+import { ArrowRight, House, RotateCw } from 'lucide-react';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
@@ -247,7 +247,9 @@ export function WebPlaytestStartMenuElement({
     onSetEditingElement(element.id);
   };
   const functionLabel =
-    element.role === 'continue'
+    element.role === 'mainMenu'
+      ? language === 'zh' ? '主菜单' : language === 'ja' ? 'メニュー' : 'Menu'
+      : element.role === 'continue'
       ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText230')
       : element.role === 'save'
         ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText232')
@@ -305,7 +307,9 @@ export function WebPlaytestStartMenuElement({
       ? ArrowRight
       : element.role === 'flowFitView'
         ? RotateCw
-        : null;
+        : element.role === 'mainMenu'
+          ? House
+          : null;
   const isFlowIconControl = Boolean(FlowControlIcon && element.textVisible === false);
   const ButtonShell = previewMode === 'edit' ? 'div' : 'button';
 
@@ -427,6 +431,8 @@ export function WebPlaytestStartMenuElement({
         )
       ) : element.kind === 'button' ? (
         <ButtonShell
+          aria-label={isFlowIconControl ? action?.label || functionLabel : undefined}
+          title={isFlowIconControl ? action?.label || functionLabel : undefined}
           onPointerDown={(event) => {
             if (previewMode === 'edit' && (element.locked || event.button === 2)) {
               event.stopPropagation();

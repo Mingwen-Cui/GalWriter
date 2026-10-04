@@ -27,6 +27,13 @@ export type RenderWorkspaceLaunchIntent =
   | { workspaceMode: 'web'; showStartMenu: boolean }
   | { workspaceMode: 'ppt'; entryMode: 'story' | 'manual' }
   | { workspaceMode: 'code'; codeTarget: 'renpy' | 'tyrano' | 'dialogic' };
+export type McpRenderWorkspaceApi = {
+  openWorkspace: (intent: RenderWorkspaceLaunchIntent) => void;
+  getState: () => Record<string, unknown>;
+  exportVideo: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  exportWebProject: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  exportPptx: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+};
 export type VideoTextScaleMode = 'literal' | 'webRatio';
 export type VideoCoverSourceType = 'videoFrame' | 'image' | 'gradient';
 export type VideoCoverLogoPosition = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
@@ -93,6 +100,7 @@ export type VideoRenderModalProps = {
   voiceTtsConfig?: TTSConfig;
   callAIForTextResult?: (prompt: string) => Promise<{ content: string; reasoning?: string }>;
   launchIntent?: RenderWorkspaceLaunchIntent;
+  onMcpWorkspaceApiChange?: (api: McpRenderWorkspaceApi | null) => void;
   fullscreenHostRef?: RefObject<HTMLElement | null>;
 };
 

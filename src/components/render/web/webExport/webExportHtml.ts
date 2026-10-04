@@ -147,7 +147,7 @@ ${SCENE_SWITCH_CSS}</style>
   <div class="flow-overview-backdrop" id="flowOverviewBackdrop" role="dialog" aria-modal="true" aria-label="Flow overview">
     <div class="flow-overview-panel" id="flowOverviewPanel">
       <div class="flow-overview-viewport" id="flowOverviewViewport">
-        <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
+        <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="${language === 'zh' ? '返回菜单' : language === 'ja' ? 'メニューに戻る' : 'Return to menu'}">← ${language === 'zh' ? '返回菜单' : language === 'ja' ? 'メニューに戻る' : 'Return to menu'}</button>
         <div class="flow-overview-graph-region" id="flowOverviewGraphRegion"><div class="flow-overview-canvas" id="flowOverviewCanvas"></div></div>
         <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
         <div class="flow-overview-minimap" id="flowOverviewMinimap" aria-label="Flow chart navigator">
@@ -825,6 +825,9 @@ ${SCENE_SWITCH_CSS}</style>
     const flowOverviewBackdrop = document.getElementById("flowOverviewBackdrop");
     const flowOverviewPanel = document.getElementById("flowOverviewPanel");
     const flowOverviewClose = document.getElementById("flowOverviewClose");
+    flowOverviewClose.hidden = settings.showStartMenu && settings.flowOverviewElements.some(
+      (element) => element.kind === 'button' && element.role === 'mainMenu' && element.visible !== false,
+    );
     const flowOverviewViewport = document.getElementById("flowOverviewViewport");
     const flowOverviewCanvas = document.getElementById("flowOverviewCanvas");
     const flowOverviewCustomLayer = document.getElementById("flowOverviewCustomLayer");
@@ -1215,6 +1218,7 @@ ${SCENE_SWITCH_CSS}</style>
       if (!element || element.visible === false) return;
       if (layer === archiveCustomLayer && !save && ['slotContinue', 'slotDelete'].includes(element.role)) return;
       const isToolbar = layer === playbackToolbar;
+      if (layer === flowOverviewCustomLayer && !settings.showStartMenu && element.role === 'mainMenu') return;
       if (isToolbar && ((!settings.showStartMenu && element.role === 'mainMenu') || (controlsHidden && element.role !== 'controlsToggle'))) return;
       const actionByRole = {
         history: { label: playbackCopy.history, onClick: openDialogueHistory },
@@ -1228,7 +1232,7 @@ ${SCENE_SWITCH_CSS}</style>
           openSaveList(); updateStartMenu();
         } },
         return: { label: labels.back, disabled: isToolbar && history.length === 0, onClick: isToolbar ? () => backButton.click() : closeSettingsPanel },
-        mainMenu: { label: labels.mainMenu, onClick: () => { closeSettingsPanel(); returnToMainMenu(); } },
+        mainMenu: { label: labels.mainMenu, onClick: () => { closeSettingsPanel(); if (layer === flowOverviewCustomLayer) closeFlowOverview(); returnToMainMenu(); } },
         fullscreen: { label: "Fullscreen", onClick: () => { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); else document.documentElement.requestFullscreen?.().catch(() => {}); } },
         controlsToggle: { label: labels.controls, onClick: () => changePlayerSettings({ controlsVisible: controlsHidden }) },
         audio: { label: labels.playlist, onClick: () => { if (!isToolbar) closeSettingsPanel(); playlistButton.click(); } },
@@ -1367,6 +1371,14 @@ ${SCENE_SWITCH_CSS}</style>
               ? flowOverviewBranchLabel || element.text || action?.label || ''
               : element.text || action?.label || '';
           button.textContent = "";
+          if (!isToolbar && element.textVisible === false && element.role === "mainMenu") {
+            button.innerHTML = playbackToolbarIcon('mainMenu');
+            button.setAttribute('aria-label', action?.label || labels.mainMenu);
+            button.title = action?.label || labels.mainMenu;
+            const icon = button.firstElementChild;
+            icon.style.width = '45%';
+            icon.style.height = '45%';
+          }
           if (!isToolbar && element.textVisible === false && (element.role === "flowDirection" || element.role === "flowFitView")) {
             const icon = document.createElement("span");
             icon.setAttribute("aria-hidden", "true");

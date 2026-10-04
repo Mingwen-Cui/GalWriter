@@ -47,16 +47,22 @@ export const useWebProjectExport = ({
 }) => {
   const exportWebProject = async ({
     format = 'web-zip',
+    projectName,
+    exportNodes = nodes,
+    exportEdges = edges,
   }: {
     format?: 'web-zip' | 'windows-installer';
+    projectName?: string;
+    exportNodes?: FlowNode[];
+    exportEdges?: FlowEdge[];
   } = {}) => {
-    if (status === 'rendering') return;
+    if (status === 'rendering') return { exported: false, error: 'Another render operation is already running.' };
     if (format === 'windows-installer' && !isTauriRuntime()) {
       setStatus('error');
       setError(getVideoTextForChinesePreference(isZh, 'webExportWindowsInstallerDesktopRequired'));
-      return;
+      return { exported: false, error: 'Windows player export requires the desktop app.' };
     }
-    if (!nodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
+    if (!exportNodes.some((node) => node.type === 'storyNode' && !node.data?.hidden)) {
       setStatus('error');
       setError(
         getVideoTextForChinesePreference(
@@ -64,9 +70,9 @@ export const useWebProjectExport = ({
           'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText55',
         ),
       );
-      return;
+      return { exported: false, error: 'No visible story cards are available to export.' };
     }
-    const exportTitle = webProjectName.trim() || defaultWebProjectName || 'galwriter-web';
+    const exportTitle = projectName?.trim() || webProjectName.trim() || defaultWebProjectName || 'galwriter-web';
     setStatus('rendering');
     setError('');
     setSavedPath('');
@@ -92,7 +98,7 @@ export const useWebProjectExport = ({
         settings: webSettings,
       };
       if (isTauriRuntime()) {
-        const blob = await buildInteractiveWebZipBlob(nodes, edges, options);
+        const blob = await buildInteractiveWebZipBlob(exportNodes, exportEdges, options);
         setProgressValue(70);
         setProgress(
           getVideoTextForChinesePreference(
@@ -112,20 +118,31 @@ export const useWebProjectExport = ({
             ? await saveRenderedWebPlayer(input)
             : await saveRenderedWebZip(input);
         setSavedPath(result.path);
+        setStatus('done');
+        setProgressValue(100);
+        setProgress(
+          getVideoTextForChinesePreference(
+            isZh,
+            format === 'windows-installer'
+              ? 'webExportWindowsPlayerDone'
+              : 'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92',
+          ),
+        );
+        return { exported: true, filePath: result.path, projectName: exportTitle, format };
       } else {
-        await exportInteractiveWebZip(nodes, edges, options);
-        setSavedPath(`${exportTitle}-web.zip`);
+        await exportInteractiveWebZip(exportNodes, exportEdges, options);
+        const filePath = `${exportTitle}-web.zip`;
+        setSavedPath(filePath);
+        setStatus('done');
+        setProgressValue(100);
+        setProgress(
+          getVideoTextForChinesePreference(
+            isZh,
+            'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92',
+          ),
+        );
+        return { exported: true, filePath, projectName: exportTitle, format };
       }
-      setStatus('done');
-      setProgressValue(100);
-      setProgress(
-        getVideoTextForChinesePreference(
-          isZh,
-          format === 'windows-installer'
-            ? 'webExportWindowsPlayerDone'
-            : 'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText92',
-        ),
-      );
     } catch (error: any) {
       console.error('Web export failed:', error);
       setStatus('error');
@@ -138,6 +155,7 @@ export const useWebProjectExport = ({
               : 'componentsrendervideoVideoRenderModaluseWebProjectExportIsZhText96',
           ),
       );
+      return { exported: false, error: error?.message || 'Web export failed.' };
     }
   };
 

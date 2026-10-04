@@ -271,6 +271,7 @@ export const buildRehearsalSettingsPageElements = (
 
 export const buildRehearsalFlowPageElements = (language: Language): WebMenuElement[] =>
   decorateWebPageElements([
+    buildFlowOverviewHomeElement(),
     { ...text('flow-title', 'custom', language === 'zh' ? '流程图总览' : language === 'ja' ? 'フロー概要' : 'Story overview', 8, 5, 44, 7, 36), textAlign: 'left', fontWeight: 700 },
     { ...text('flow-subtitle', 'subtitle', language === 'zh' ? '循着故事的线索，回看每一次选择' : language === 'ja' ? '物語の道をたどり、選択を振り返ろう' : 'Trace your journey and revisit each choice', 8, 13, 58, 4, 18), textAlign: 'left' },
     ...(['flowDirection', 'flowFitView'] as const).map((role, index) => ({
@@ -306,6 +307,21 @@ export const isPreviousRehearsalArchiveLayout = (elements: WebMenuElement[] | un
 };
 
 import { arrangeToolbarRow } from './webToolbarLayout';
+
+export const buildFlowOverviewHomeElement = (
+  canvasWidth = 1920,
+  canvasHeight = 1080,
+): WebMenuElement => ({
+  ...buildRehearsalToolbarElements('en', canvasWidth, canvasHeight).find(
+    (element) => element.role === 'mainMenu',
+  )!,
+  id: 'flow-main-menu',
+  text: '',
+  x: 2,
+  y: 2.4,
+  backgroundColor: '#f1f5f9',
+  textColor: '#475569',
+});
 
 export const buildRehearsalToolbarElements = (
   language: Language,

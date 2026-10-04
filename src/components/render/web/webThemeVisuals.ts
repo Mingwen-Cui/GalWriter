@@ -100,7 +100,7 @@ export function decorateWebPageElements(items: WebMenuElement[], theme = default
       backgroundGradientEnd: primary ? theme.accentEnd : theme.panelEnd,
       backgroundGradientAngle: panel ? 155 : 135,
       backgroundGradientShape: 'linear', backgroundGradientStops: undefined,
-      borderColor: theme.edge, borderWidth: 1, borderRadius: element.settingsLayoutVersion ? (element.kind === 'button' && ['back', 'reset'].includes(element.role || '') ? theme.radius : 0) : element.role === 'flowDirection' || element.role === 'flowFitView' ? 999 : panel ? theme.radius + 8 : theme.radius,
+      borderColor: theme.edge, borderWidth: 1, borderRadius: element.settingsLayoutVersion ? (element.kind === 'button' && ['back', 'reset'].includes(element.role || '') ? theme.radius : 0) : ['flowDirection', 'flowFitView', 'mainMenu'].includes(element.role || '') ? 999 : panel ? theme.radius + 8 : theme.radius,
       shadowEnabled: element.shadowEnabled !== false, shadowColor: theme.dark ? '#000000' : '#34344f',
       shadowOpacity: panel ? 10 : primary ? 16 : 5, shadowBlur: panel ? 40 : primary ? 22 : 12,
       shadowOffsetX: 0, shadowOffsetY: panel ? 14 : primary ? 6 : 3,

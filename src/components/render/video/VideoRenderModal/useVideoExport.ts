@@ -99,6 +99,7 @@ export const useVideoExport = ({
     outputDir?: string;
     progressPrefix?: string;
     returnBytes?: boolean;
+    onSavedPath?: (path: string) => void;
   }) => {
     const resolvedFrameRate = options?.frameRate ?? frameRate;
     const resolvedFormat = options?.exportFormat ?? exportFormat;
@@ -322,6 +323,7 @@ export const useVideoExport = ({
             height: videoCover.canvasSettings?.canvasHeight || resolution.height,
           })
         : null;
+      let exportedPath: string;
 
       if (isDesktopApp) {
         const result = await saveRenderedVideo({
@@ -331,6 +333,7 @@ export const useVideoExport = ({
           outputDir: resolvedOutputDir,
           videoBitrate: String(resolvedVideoBitrate),
         });
+        exportedPath = result.path;
         if (coverBytes) {
           const coverResult = await saveRenderedImage({
             fileName: `${baseFileName}-cover`,
@@ -338,6 +341,7 @@ export const useVideoExport = ({
             outputDir: resolvedOutputDir,
           });
           setSavedPath(`${result.path}\n${coverResult.path}`);
+          exportedPath = `${result.path}\n${coverResult.path}`;
         } else {
           setSavedPath(result.path);
         }
@@ -356,6 +360,7 @@ export const useVideoExport = ({
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
+        exportedPath = `${baseFileName}.${resolvedFormat}`;
         if (coverBytes) {
           const coverUrl = URL.createObjectURL(new Blob([coverBytes], { type: 'image/png' }));
           const coverLink = document.createElement('a');
@@ -366,10 +371,12 @@ export const useVideoExport = ({
           coverLink.remove();
           URL.revokeObjectURL(coverUrl);
           setSavedPath(`${baseFileName}.${resolvedFormat}\n${baseFileName}-cover.png`);
+          exportedPath = `${baseFileName}.${resolvedFormat}\n${baseFileName}-cover.png`;
         } else {
           setSavedPath(`${baseFileName}.${resolvedFormat}`);
         }
       }
+      options?.onSavedPath?.(exportedPath);
       setStatus('done');
       setProgressValue(100);
       setProgress(

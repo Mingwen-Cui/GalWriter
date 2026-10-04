@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import defaultMainInterfaceBackgroundUrl from '../../../../assets/common/default-main-interface-background.jpg';
 import type { Language } from '../../../../lib/i18n';
 import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
-import { buildRehearsalTemplate } from '../../web/webExperienceTemplates';
+import { buildFlowOverviewHomeElement, buildRehearsalTemplate } from '../../web/webExperienceTemplates';
 import type {
   RenderStyle,
   WebExportSettings,
@@ -528,7 +528,7 @@ const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSetti
     const isDefaultControl = (element.id === 'flow-direction-control' && element.x === 84 && element.y === 4) || (element.id === 'flow-fit-view-control' && element.x === 88 && element.y === 4);
     return isDefaultControl ? { ...element, visible: false } : element;
   });
-  const controls = defaultFlowOverviewElements.filter(
+  const controls = [buildFlowOverviewHomeElement(settings.canvasWidth, settings.canvasHeight), ...defaultFlowOverviewElements].filter(
     (defaultElement) => !elements.some((element) => element.role === defaultElement.role),
   );
   return { ...normalizedSettings, flowOverviewControlsInitialized: true, flowOverviewElements: [...controls, ...elements] };

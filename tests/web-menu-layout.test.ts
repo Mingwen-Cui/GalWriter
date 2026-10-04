@@ -79,12 +79,14 @@ test('archive migrates the previous default without overwriting a moved layout',
     'archive-slot-delete': [30, 60, 8, 7],
     'archive-new': [8, 70, 30, 9],
   };
-  const previous = buildArchivePageElements('zh', '#625bf6', '#fff')
-    .filter((element) => positions[element.id])
-    .map((element) => {
-      const [x, y, width, height] = positions[element.id];
-      return { ...element, x, y, width, height };
-    });
+  const defaults = buildArchivePageElements('zh', '#625bf6', '#fff');
+  // Keep the complete legacy fixture even when the current page drops old controls.
+  const legacyRoles = { 'archive-slot-continue': 'slotContinue', 'archive-slot-delete': 'slotDelete', 'archive-new': 'new' } as const;
+  const previous = Object.entries(positions).map(([id, [x, y, width, height]]) => {
+    const element = defaults.find((item) => item.id === id) || defaults.find((item) => item.role === 'slot')!;
+    return { ...element, id, role: legacyRoles[id as keyof typeof legacyRoles] || element.role,
+      x, y, width, height, archiveLayoutVersion: undefined };
+  });
   const migrated = resolveArchivePageElements(
     { archivePageElements: previous },
     'zh',
@@ -92,7 +94,8 @@ test('archive migrates the previous default without overwriting a moved layout',
     '#fff',
   );
   assert.equal(migrated.find((element) => element.id === 'archive-panel')?.kind, 'shape');
-  assert.equal(migrated.find((element) => element.role === 'slot')?.width, 56);
+  assert.equal(migrated.find((element) => element.role === 'slot')?.width, 84);
+  assert.equal(migrated.some((element) => element.role === 'slotContinue' || element.role === 'slotDelete' || element.role === 'new'), false);
   const authored = previous.map((element) =>
     element.role === 'slot' ? { ...element, width: 40 } : element,
   );

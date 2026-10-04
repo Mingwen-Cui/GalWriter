@@ -9,6 +9,25 @@ import { WebFlowViewInspector } from '../src/components/render/web/WebFlowViewIn
 import type { WebExportSettings } from '../src/components/render/video/shared/types';
 import { readWebTemplateFile } from '../src/components/render/web/webTemplateFiles';
 import { splitWebExperienceTemplate } from '../src/components/render/web/webTemplateBundle';
+import { buildFlowOverviewHomeElement, buildRehearsalFlowPageElements, buildRehearsalToolbarElements } from '../src/components/render/web/webExperienceTemplates';
+import { decorateWebPageElements } from '../src/components/render/web/webThemeVisuals';
+
+test('flow Home keeps the dialogue button diameter and remains circular after theming', () => {
+  for (const [width, height] of [[1920, 1080], [1080, 1920], [1080, 1080]]) {
+    const home = buildFlowOverviewHomeElement(width, height);
+    const dialogueHome = buildRehearsalToolbarElements('zh', width, height).find(
+      (element) => element.role === 'mainMenu',
+    )!;
+    assert.equal(home.height, dialogueHome.height);
+    assert.equal(home.width, dialogueHome.width);
+    assert.ok(Math.abs(home.width * width - home.height * height) < 0.001);
+    assert.equal(home.x, 2);
+    assert.equal(home.y, 2.4);
+    assert.equal(home.textVisible, false);
+    assert.ok(decorateWebPageElements([home])[0].borderRadius! >= 999);
+  }
+  assert.equal(buildRehearsalFlowPageElements('zh').filter((element) => element.role === 'mainMenu').length, 1);
+});
 
 test('the transparent region moves and resizes from every edge without leaving the canvas', () => {
   const initial = { ...defaultWebFlowView, x: 10, y: 15, width: 60, height: 50 };

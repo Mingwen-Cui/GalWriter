@@ -561,7 +561,7 @@ export const useMediaActions = ({
           if (selectedAssetTypes.includes('tag-sprite')) {
             reportProgress(language === 'zh' ? '透明标签立绘' : 'Transparent tag sprite');
             const tagSpriteUrl = await requestGeneratedImage(
-              `Create exactly ONE polished visual novel character sprite of the SAME character as the attached card portrait. Show one single front-facing full-body figure, head to toe. This is NOT a character sheet or turnaround. Do not generate side views, back views, duplicate figures, multiple poses, panels, scenery, floor, cast shadow, text, labels, UI, or frame. Use a clean transparent background.\n\n${characterSetting}`,
+              `Create exactly ONE polished visual novel character sprite matching the character setting below. If a reference portrait is provided, preserve that character's face, hair, outfit, proportions, and colors. Show one single front-facing full-body figure, head to toe. This is NOT a character sheet or turnaround. Do not generate side views, back views, duplicate figures, multiple poses, panels, scenery, floor, cast shadow, text, labels, UI, or frame. Use a clean transparent background.\n\n${characterSetting}`,
               {
                 transparentBackground: true,
                 negativePromptOverride:
