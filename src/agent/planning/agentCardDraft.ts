@@ -72,6 +72,8 @@ export type AssistantCardPlacementOptions = {
   targetNodeIds?: string[];
   /** Mark the first generated story card as the playtest starting point. */
   setFirstStoryAsRoot?: boolean;
+  /** Select and arrange the completed article flow by chapter and connection depth. */
+  organizeArticleCards?: boolean;
   /**
    * Existing character and scene cards that belong to a staged assistant
    * generation. When the story cards arrive, they are reflowed into their

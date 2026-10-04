@@ -69,6 +69,7 @@ import {
   selectCreativeChoice,
 } from './creativeChoiceHistory';
 import { createCreativeStorySessionHandlers } from './creativeStorySession';
+import { prepareArticleGalgameCards } from './articleGalgameCards';
 
 type ArticleRoleLibraryCandidate = {
   node: Node;
@@ -1024,6 +1025,9 @@ ${jsonRule}
 ${documentContext}`);
           updateArticleAnalysisStep(2, {
             status: 'done',
+            items: Array.isArray(chapters.items)
+              ? chapters.items.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).slice(0, 6)
+              : [],
             detail: String(chapters.detail || articleCopy.steps.chapters.fallback),
             evidence: String(
               chapters.evidence ||
@@ -2253,6 +2257,15 @@ The previous streaming response did not complete every placeholder card. Return 
         placementOptions = { targetNodeId: workflow.targetNodeId };
         assistantWorkflowRef.current = { type: 'idle' };
       } else if (workflow.type === 'article-teach-generate') {
+        placementOptions = {
+          skipAnimation: true,
+          setFirstStoryAsRoot: true,
+          organizeArticleCards: true,
+          setupNodeIds: [workflow.characterNodeId, workflow.sceneNodeId].filter(
+            (id): id is string => Boolean(id),
+          ),
+        };
+        forcedMode = 'append';
         const modeInstruction =
           workflow.teachingMode === 'interactive'
             ? '教学方式：对话式教学。强调交互和反馈，把内容拆成提问、用户回应、AI 点评/补充、下一步引导的节拍。每一章都要安排可演出的问答和确认点。'
@@ -2270,8 +2283,12 @@ ${templateInstruction}
 1. 你必须先自行理清文章的主题、章节结构、关键概念、论证顺序和读者学习路径。
 2. 按文章结构拆成 3 到 6 个章节；每张剧情卡都必须带 chapterTitle 字段，chapterTitle 是所属章节标题。
 3. 为每个章节生成一组连续 story 卡，落到画布后系统会按 chapterTitle 自动画出对应背景框。
-4. 适量生成人物卡和场景卡；人物用于教学者/学习者或旁白角色，场景用于课堂、书桌、资料室等教学空间。
+4. 复用已经确认的教学人物，生成实际使用的教学场景卡，场景用于课堂、书桌、资料室等教学空间。
 5. 剧情卡要适合 galgame 演出，短句、分步、可交互，不要把整篇文章直接塞进单张卡。
+6. 严格按学习路径连续推进：导入目标 → 概念解释 → 具体例子 → 理解确认 → 章节小结 → 下一章过渡 → 全文回顾。每段先承接上一段，再引出下一段；不要跳章、重复开场或突然切换话题。
+7. 每张 story 必须有唯一 key。普通卡用 connectTo 指向下一张；对话式教学可用带清楚选项 label 的 branchTargets，反馈卡必须汇合到同一后续讲解。卡片按可播放的拓扑顺序返回，所有卡从第一张可达，不要回连，不要孤立卡，也不要为普通确认问题虚构数值判断。
+已完成的文章分析（必须沿用章节和学习路径）：
+${assistantArticleAnalysis.steps.slice(0, 5).map((step) => `${step.title}：${step.detail}\n${step.evidence || ''}`).join('\n')}
 用户补充要求：${userText}`;
         assistantWorkflowRef.current = { type: 'idle' };
       }
@@ -2320,13 +2337,15 @@ ${shortDramaLibraryReferenceContext}
             workflow.templateInstruction || 'Use the selected character card as the teaching style.'
           }
 - Use exactly this one character in all story cards. Do not create or mention a second teacher, student, narrator, assistant, partner, or extra character.
-- Do not return any character cards. The character card already exists on the canvas.
+- Do not return any character cards. The selected character has been placed on the canvas. Mention its exact name in each story card so its portrait is bound to the story.
 - ${
             workflow.useScene && workflow.sceneName
               ? `The selected scene is "${workflow.sceneName}". Use this scene name naturally in story card text. Do not return any scene cards.`
-              : 'The user chose not to add a scene card. Do not return any scene cards.'
+              : workflow.useScene === false
+                ? 'The user explicitly chose not to add a scene card. Do not return any scene cards.'
+                : 'Return at least one scene card with sceneEnvironment=indoor or outdoor, and mention its exact sceneName in the story text. Use a coherent teaching setting throughout.'
           }
-- For this workflow, the JSON cards array must contain story cards only.\n`
+- Return only story cards and any required scene cards. Do not claim to have generated portraits or backgrounds: the app uses local visual presets unless images are actually generated.\n`
         : '';
 
       if (articleTeachingSelectionInstruction) {
@@ -2520,7 +2539,7 @@ ${availableSettingLibraryContext || '无'}`;
           };
         }
 
-        let cards = orderAssistantCardsForCreation(
+        let cards: AssistantCardDraft[] = orderAssistantCardsForCreation(
           alignAssistantCardsToPlaceholders(
             Array.isArray(parsed.cards)
               ? parsed.cards.map((card) =>
@@ -2536,7 +2555,12 @@ ${availableSettingLibraryContext || '无'}`;
           cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
         }
         if (isArticleTeachingWorkflow) {
-          cards = cards.filter((card) => getAssistantDraftType(card) === 'story');
+          cards = prepareArticleGalgameCards(cards, {
+            characterName: workflow.characterName || '教学角色',
+            sceneName: workflow.sceneName,
+            useScene: workflow.useScene,
+            chapters: assistantArticleAnalysis.steps[2]?.items,
+          });
         }
         if (isProfileOutlineGeneration) {
           const stageTitleByKey = new Map(
@@ -2613,7 +2637,9 @@ ${availableSettingLibraryContext || '无'}`;
           placement.count > 0
             ? isProfileOutlineGeneration
               ? `\n\n已先放置 ${profileOutlineRegions.length} 个阶段背景卡，再将 ${placement.count} 张人物、场景和剧情卡归入对应阶段。`
-              : `\n\n已在画布上处理 ${placement.count} 张卡片。`
+              : isArticleTeachingWorkflow
+                ? `\n\n已放置 ${cards.filter((card) => getAssistantDraftType(card) === 'story').length} 张剧情卡，关联「${workflow.characterName || '教学角色'}」${cards.some((card) => getAssistantDraftType(card) === 'scene') || workflow.sceneNodeId ? '和场景背景' : ''}，已将第一张剧情卡标记为起点，并全选、整理本次转换的卡片。`
+                : `\n\n已在画布上处理 ${placement.count} 张卡片。`
             : '';
 
         const visualNodeIds = (placement.nodeIds || []).filter((_, index) => {
@@ -2633,7 +2659,7 @@ ${availableSettingLibraryContext || '无'}`;
         const assistantMessage: AssistantMessage = {
           id: uuidv4(),
           role: 'assistant',
-          content: `${parsed.reply || raw}${actionText}${
+          content: `${isArticleTeachingWorkflow ? '文章已按章节转成连续的教学剧情。人物立绘与场景背景使用现有图片或内置预设。' : parsed.reply || raw}${actionText}${
             visualizationRequestId
               ? language === 'zh'
                 ? '\n\n要继续为这批人物和场景生成对应图片，完成可视化搭建吗？'
@@ -2694,6 +2720,7 @@ ${availableSettingLibraryContext || '无'}`;
       assistantLoading,
       activeAssistantTask,
       assistantDocuments,
+      assistantArticleAnalysis,
       assistantMessages,
       callAIForTextResult,
       callAIForTextStream,
@@ -2791,6 +2818,22 @@ options 必须正好有 3 项。`);
 
   const continueArticleTeachingWithRole = useCallback(
     async (selectedRole: Node, candidateNodeIds: string[] = []) => {
+      let characterNodeId = selectedRole.id;
+      if (!nodes.some((node) => node.id === selectedRole.id && node.type === 'characterNode')) {
+        const placement = await createAssistantCards([
+          {
+            ...(selectedRole.data as CharacterNodeData),
+            type: 'character',
+            avatarUrl: String(selectedRole.data.avatarUrl || selectedRole.data.imageUrl || '') || undefined,
+            generateImage: false,
+          },
+        ], 'append', { skipAnimation: true, placeLibraryReferencesDirectly: true });
+        if (!placement.nodeIds?.[0]) throw new Error('人物卡未能放到画布，请重试。');
+        characterNodeId = placement.nodeIds[0];
+        // The next callback still belongs to this render. Wait for React Flow's
+        // live store so story mentions bind to the real placed card, not its library ID.
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      }
       const removedIds = candidateNodeIds.filter((candidateId) => candidateId !== selectedRole.id);
       if (removedIds.length > 0) removeAssistantNodes?.(removedIds);
 
@@ -2814,9 +2857,8 @@ options 必须正好有 3 项。`);
       assistantWorkflowRef.current = {
         type: 'article-teach-generate',
         teachingMode: templateTeachingMode,
-        characterNodeId: selectedRole.id,
+        characterNodeId,
         characterName,
-        useScene: false,
         templateInstruction,
         templateIsUserOwned,
       };
@@ -2827,13 +2869,13 @@ options 必须正好有 3 项。`);
           id: uuidv4(),
           role: 'assistant',
           content: `已选择「${characterName}」作为文章改写模板。我会按这张人物卡的设定和教学风格继续生成 Galgame 教学内容。`,
-          cardNodeIds: [selectedRole.id],
+          cardNodeIds: [characterNodeId],
         },
       ]);
 
       await handleAssistantSend(`请根据已选择的人物模板「${characterName}」开始改写文章。`);
     },
-    [handleAssistantSend, removeAssistantNodes, setAssistantMessages],
+    [createAssistantCards, handleAssistantSend, nodes, removeAssistantNodes, setAssistantMessages],
   );
 
   const handleStartAssistantFlow = useCallback(

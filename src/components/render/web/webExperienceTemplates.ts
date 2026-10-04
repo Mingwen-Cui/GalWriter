@@ -317,10 +317,14 @@ export const buildFlowOverviewHomeElement = (
   )!,
   id: 'flow-main-menu',
   text: '',
-  x: 2,
-  y: 2.4,
+  x: 92,
+  y: 4,
+  width: Math.round(((4.6 * canvasHeight) / canvasWidth) * 1000) / 1000,
+  height: 4.6,
   backgroundColor: '#f1f5f9',
   textColor: '#475569',
+  shadowEnabled: false,
+  shadows: [],
 });
 
 export const buildRehearsalToolbarElements = (

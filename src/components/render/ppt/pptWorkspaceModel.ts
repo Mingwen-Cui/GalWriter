@@ -27,6 +27,7 @@ export const DEFAULT_PPT_TRANSITION: PptSlideTransition = {
   durationMs: 700,
   direction: 'left',
   advanceOnClick: true,
+  advanceAfterMs: 2000,
 };
 
 export const composePptSlides = (

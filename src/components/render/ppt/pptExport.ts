@@ -28,6 +28,7 @@ import { filterPptDisabledAnimations } from './pptAnimationReset';
 import { getPptCoverTitle, getPptCoverSubtitle, getPptCoverDescription } from './pptCoverTemplate';
 import { resolvePptCoverElements } from './pptCoverDesign';
 import { renderPptGradientPng } from './pptGradient';
+import { DEFAULT_PPT_TRANSITION } from './pptWorkspaceModel';
 import {
   getPptImageDimensions,
   toPptImageData,
@@ -1274,8 +1275,8 @@ export async function buildPptxBuffer({
     videoPlaybackTargets,
     style.customFonts,
     orderedSlideIds.flatMap((id, index) => {
-      const transition = pptSettings.transitions?.[id];
-      return transition ? [{ slideNumber: index + 1, transition }] : [];
+      const transition = pptSettings.transitions?.[id] || DEFAULT_PPT_TRANSITION;
+      return [{ slideNumber: index + 1, transition }];
     }),
   );
 }

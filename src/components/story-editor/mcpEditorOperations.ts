@@ -16,6 +16,9 @@ const textFields: Record<string, string[]> = {
   ],
   sceneNode: ['sceneName', 'description', 'location', 'items', 'atmosphere', 'time', 'weather', 'visual', 'sound', 'notes', 'other'],
   plotStructureNode: ['direction'],
+  aiNode: ['title'],
+  batchReplaceNode: ['findText', 'replaceText'],
+  textNode: ['content', 'fontFamily'],
 };
 
 const resolveMentionNode = (kind: 'character' | 'scene', name: string, nodes: Node[]) => {
@@ -25,10 +28,14 @@ const resolveMentionNode = (kind: 'character' | 'scene', name: string, nodes: No
 };
 const isDynamicGroupMember = (node: Node) => node.type !== 'backgroundNode' && node.type !== 'groupNode';
 const booleanFields: Record<string, string[]> = {
-  storyNode: ['hideTitleInPlayback', 'showTextOverlay'],
+  storyNode: ['hideTitleInPlayback', 'showTextOverlay', 'hidden'],
   characterNode: ['isGlobal', 'showPersonality', 'showFeatures', 'showBackground', 'showOther'],
   sceneNode: ['isGlobal', 'showLocation', 'showItems', 'showAtmosphere', 'showOther', 'scenePresetEnabled'],
   plotStructureNode: ['isMinimized'],
+  aiNode: ['isMinimized', 'hidden'],
+  batchReplaceNode: ['isMinimized', 'hidden'],
+  textNode: ['isBold', 'hidden'],
+  summaryNode: ['isMinimized', 'hidden'],
 };
 
 const getSceneMedia = (node: Node) => {
@@ -336,13 +343,44 @@ export const applyMcpOperations = (
   let nextEdges = [...edges];
   const created: string[] = [];
   const deleted: string[] = [];
-  const changes: Array<{ type: string; nodeId?: string; sourceId?: string; targetId?: string; storyId?: string; settingId?: string; settingType?: string; assetType?: string; field?: string; mimeType?: string; mediaType?: string; memberCount?: number; bytes?: number }> = [];
+  const changes: Array<{ type: string; nodeId?: string; sourceId?: string; targetId?: string; storyId?: string; settingId?: string; settingType?: string; assetType?: string; field?: string; mimeType?: string; mediaType?: string; memberCount?: number; matchedCount?: number; updatedCount?: number; bytes?: number }> = [];
   const storyTextChangedIds = new Set<string>();
   let changedCount = 0;
 
   for (const operation of operations) {
     if (!operation || typeof operation !== 'object' || typeof operation.type !== 'string') throw new Error('Each operation must have a supported type.');
     const nodeId = operation.node_id;
+    if (operation.type === 'execute_batch_replace') {
+      if (typeof nodeId !== 'string') throw new Error('node_id must identify a batch-replace card.');
+      const toolNode = nextNodes.find((node) => node.id === nodeId && node.type === 'batchReplaceNode');
+      if (!toolNode) throw new Error(`Batch-replace card '${nodeId}' was not found.`);
+      const findText = typeof toolNode.data.findText === 'string' ? toolNode.data.findText : '';
+      const replaceText = typeof toolNode.data.replaceText === 'string' ? toolNode.data.replaceText : '';
+      if (!findText) throw new Error(`Batch-replace card '${nodeId}' has no findText value.`);
+      let targets: Node[];
+      if (operation.target_node_ids === undefined) {
+        targets = nextNodes.filter((node) => node.type === 'storyNode');
+      } else {
+        if (!Array.isArray(operation.target_node_ids) || operation.target_node_ids.length > 1000) throw new Error('target_node_ids must be an array of at most 1000 card IDs.');
+        const ids = operation.target_node_ids.filter((id): id is string => typeof id === 'string');
+        if (ids.length !== operation.target_node_ids.length || new Set(ids).size !== ids.length) throw new Error('target_node_ids must contain unique string IDs.');
+        targets = ids.map((id) => nextNodes.find((node) => node.id === id)!).filter(Boolean);
+        if (targets.length !== ids.length || targets.some((node) => node.type !== 'storyNode')) throw new Error('Every target_node_id must identify an existing story card.');
+      }
+      let matchedCount = 0;
+      const updatedIds = new Set<string>();
+      nextNodes = nextNodes.map((node) => {
+        if (!targets.some((target) => target.id === node.id) || node.type !== 'storyNode' || typeof node.data.text !== 'string' || !node.data.text.includes(findText)) return node;
+        const occurrences = node.data.text.split(findText).length - 1;
+        matchedCount += occurrences;
+        updatedIds.add(node.id);
+        storyTextChangedIds.add(node.id);
+        return { ...node, data: { ...node.data, text: node.data.text.replaceAll(findText, replaceText) } };
+      });
+      changes.push({ type: operation.type, nodeId, matchedCount, updatedCount: updatedIds.size });
+      changedCount += updatedIds.size > 0 ? 1 : 0;
+      continue;
+    }
     if (operation.type === 'create_background_region') {
       if (!Array.isArray(operation.node_ids) || operation.node_ids.length < 1 || operation.node_ids.length > 100) throw new Error('node_ids must contain between 1 and 100 card IDs.');
       const childIds = Array.from(new Set(operation.node_ids.filter((id): id is string => typeof id === 'string')));
@@ -627,13 +665,16 @@ export const applyMcpOperations = (
       const nextData = { ...current.data } as Record<string, unknown>;
       const rename = getSettingRename(current, updates);
       for (const [key, value] of Object.entries(updates)) {
-        if (operation.type === 'update_story_node' && !['title', 'text', 'text_html'].includes(key)) throw new Error(`Field '${key}' is not writable with update_story_node.`);
+        if (operation.type === 'update_story_node' && !['title', 'text', 'text_html', 'hideTitleInPlayback', 'showTextOverlay', 'skip', 'nodeValue', 'affinity', 'titleAlign', 'textAlign'].includes(key)) throw new Error(`Field '${key}' is not writable with update_story_node.`);
         if (key === 'text_html' && current.type === 'storyNode') {
           if (typeof value !== 'string' || value.length > 100_000) throw new Error('text_html must be a string of at most 100000 characters.');
           nextData.text = sanitizeRichText(value, nextNodes);
+        } else if (current.type === 'textNode' && key === 'fontFamily') {
+          if (typeof value !== 'string' || value.length > 200) throw new Error('fontFamily must be a string of at most 200 characters.');
+          nextData.fontFamily = value;
         } else if (allowedText.includes(key)) {
           if (key === 'skip' && typeof value === 'boolean') nextData[key] = value;
-          else if (typeof value === 'string' && value.length <= (key === 'text' ? 100_000 : 20_000)) {
+          else if (typeof value === 'string' && value.length <= (key === 'text' || key === 'content' ? 100_000 : 20_000)) {
             nextData[key] = key === 'text' ? escapeHtml(value).replace(/\r?\n/g, '<br />') : value;
           } else throw new Error(`Field '${key}' must be a valid string or boolean within its size limit.`);
         } else if (allowedBoolean.includes(key)) {
@@ -645,6 +686,24 @@ export const applyMcpOperations = (
         } else if (current.type === 'storyNode' && key === 'color') {
           if (typeof value !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) throw new Error('color must be a 3- or 6-digit hex color.');
           nextData.color = value;
+        } else if (current.type === 'storyNode' && key === 'nodeValue') {
+          if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('nodeValue must be a finite number.');
+          nextData.nodeValue = value;
+        } else if (current.type === 'storyNode' && key === 'affinity') {
+          if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('affinity must be a finite number.');
+          nextData.nodeValue = value;
+        } else if ((current.type === 'storyNode' && ['textAlign', 'titleAlign'].includes(key)) || (current.type === 'textNode' && key === 'textAlign')) {
+          if (!['left', 'center', 'right'].includes(String(value))) throw new Error(`${key} must be left, center, or right.`);
+          nextData[key] = value;
+        } else if (current.type === 'textNode' && key === 'fontSize') {
+          if (typeof value !== 'number' || !Number.isFinite(value) || value < 8 || value > 512) throw new Error('fontSize must be between 8 and 512.');
+          nextData.fontSize = value;
+        } else if (current.type === 'textNode' && key === 'color') {
+          if (typeof value !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) throw new Error('color must be a 3- or 6-digit hex color.');
+          nextData.color = value;
+        } else if (current.type === 'batchReplaceNode' && key === 'scope') {
+          if (!['all', 'group', 'selected'].includes(String(value))) throw new Error('scope must be all, group, or selected.');
+          nextData.scope = value;
         } else if (current.type === 'sceneNode' && key === 'sceneEnvironment') {
           if (value !== 'indoor' && value !== 'outdoor') throw new Error('sceneEnvironment must be indoor or outdoor.');
           nextData.sceneEnvironment = value;
@@ -688,6 +747,9 @@ export const applyMcpOperations = (
             && edge.sourceHandle?.startsWith('out-range-')
             && !nextRangeIds.has(edge.sourceHandle.slice('out-range-'.length)));
           if (connectedRemovedRanges) throw new Error('Disconnect custom-range branches before removing or renaming their range IDs.');
+        } else if (key === 'hidden' || key === 'isMinimized') {
+          if (typeof value !== 'boolean') throw new Error(`${key} must be a boolean.`);
+          nextData[key] = value;
         } else {
           throw new Error(`Field '${key}' is not writable for node type '${current.type}'.`);
         }
@@ -737,8 +799,9 @@ export const applyMcpOperations = (
           if (segment.format === undefined || segment.format === 'plain') return text;
           if (segment.format === 'bold') return `<strong>${text}</strong>`;
           if (segment.format === 'italic') return `<em>${text}</em>`;
+          if (segment.format === 'bold_italic') return `<strong><em>${text}</em></strong>`;
           if (segment.format === 'underline') return `<u>${text}</u>`;
-          throw new Error('Text segment format must be plain, bold, italic, or underline.');
+          throw new Error('Text segment format must be plain, bold, italic, bold_italic, or underline.');
         }
         if (segment.type === 'mention' && typeof segment.node_id === 'string' && (segment.kind === 'character' || segment.kind === 'scene')) {
           if (Object.keys(segment).some((key) => !['type', 'node_id', 'kind'].includes(key))) throw new Error('Mention segment contains unsupported fields.');
@@ -961,8 +1024,8 @@ export const applyMcpOperations = (
       if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
       const current = nextNodes.find((node) => node.id === nodeId);
       if (!current) throw new Error(`Node '${nodeId}' was not found.`);
-      if (!['storyNode', 'characterNode', 'sceneNode', 'plotStructureNode', 'numberConditionNode'].includes(current.type || '')) {
-        throw new Error(`Node '${nodeId}' is not a deletable story, character, scene, plot-structure, or number-condition card.`);
+      if (!['storyNode', 'characterNode', 'sceneNode', 'plotStructureNode', 'numberConditionNode', 'aiNode', 'batchReplaceNode', 'textNode', 'summaryNode'].includes(current.type || '')) {
+        throw new Error(`Node '${nodeId}' is not a deletable supported project card. Use the dedicated region/group tools for wrappers.`);
       }
       if (current.type === 'storyNode' && (current.data as Record<string, unknown>).isRoot === true) {
         throw new Error('The root story card is protected. Update it to become the first card of the new story instead.');

@@ -48,6 +48,7 @@ import {
   resolveAssistantStorySceneMedia,
 } from './assistantMentions';
 import { isDefaultInitialStoryNode } from './colorUtils';
+import { arrangeArticleGalgameNodes, type ArticleGalgameLayout } from './articleGalgameLayout';
 import {
   AI_CHARACTER_CARD_LAYOUT_HEIGHT,
   AI_SCENE_CARD_LAYOUT_HEIGHT,
@@ -929,7 +930,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         }),
       );
       const existingMentionReferences = buildAssistantMentionReferencesFromNodes(
-        nodes,
+        currentCanvasNodes,
         (sourceNode?.data as StoryNodeData | undefined)?.presentation?.scene?.sourceNodeId,
       );
       const generatedMentionReferences: AssistantMentionReference[] = remainingCards
@@ -1189,7 +1190,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
               : reference,
           );
         }
-        const sceneMedia = resolveAssistantStorySceneMedia(taggedStory.presentation, nodes);
+        const sceneMedia = resolveAssistantStorySceneMedia(taggedStory.presentation, currentCanvasNodes);
 
         return {
           id,
@@ -1612,7 +1613,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         return 'out-greater';
       };
       const pushFlowEdge = (source: Node, target: Node, sourceHandle: string, label?: string) => {
-        const handles = getFlowEdgeHandles(source, target, sourceHandle);
+        const handles = options?.organizeArticleCards
+          ? { sourceHandle: 'bottom', targetHandle: 'top' }
+          : getFlowEdgeHandles(source, target, sourceHandle);
         newEdges.push({
           id: `e-${source.id}-${target.id}-${newEdges.length}`,
           source: source.id,
@@ -2443,7 +2446,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
   );
 
   const finalizeAssistantStoryHeights = useCallback(
-    (nodeIds: string[] | undefined, keepStreaming = false) => {
+    (nodeIds: string[] | undefined, keepStreaming = false, articleLayout?: ArticleGalgameLayout) => {
       if (!nodeIds?.length) return;
       const nodeIdSet = new Set(nodeIds);
       const nonce = Date.now();
@@ -2472,6 +2475,13 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
 
       const fitPendingAssistantBackgrounds = () => {
         setNodes((currentNodes) => {
+          if (articleLayout) {
+            const arranged = arrangeArticleGalgameNodes(currentNodes, articleLayout);
+            const selected = arranged.filter((node) => node.selected);
+            const cursor = spawnCursorFromNodes(selected);
+            if (cursor) assistantSpawnCursorRef.current = cursor;
+            return arranged;
+          }
           const readDimension = (value: unknown) => {
             if (typeof value === 'number' && Number.isFinite(value)) return value;
             if (typeof value === 'string') {
@@ -2643,6 +2653,7 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
         });
       };
 
+      if (articleLayout) fitPendingAssistantBackgrounds();
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
           window.setTimeout(fitPendingAssistantBackgrounds, 420);
@@ -2669,7 +2680,9 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       if (options?.placeLibraryReferencesDirectly) {
         const placement = executeAssistantCardPlacement(cards, mode, options);
         if (!options.keepAssistantHeightStreaming) {
-          finalizeAssistantStoryHeights(placement.nodeIds);
+          finalizeAssistantStoryHeights(placement.nodeIds, false, options?.organizeArticleCards
+            ? { cards, nodeIds: placement.nodeIds || [], setupNodeIds: options.setupNodeIds }
+            : undefined);
         }
         return placement;
       }
@@ -2777,7 +2790,23 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       }
 
       if (!options?.keepAssistantHeightStreaming) {
-        finalizeAssistantStoryHeights(placement.nodeIds);
+        finalizeAssistantStoryHeights(placement.nodeIds, false, options?.organizeArticleCards
+          ? { cards, nodeIds: placement.nodeIds || [], setupNodeIds: options.setupNodeIds }
+          : undefined);
+      }
+
+      if (options?.organizeArticleCards && placement.nodeIds?.length) {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        const selectedNodes = getNodes().filter((node) => node.selected);
+        if (selectedNodes.length) {
+          void fitView({ nodes: selectedNodes, padding: 0.15, duration: 300 });
+          const firstStory = selectedNodes.find((node) => node.type === 'storyNode' && node.data.isRoot);
+          if (firstStory) placement.position = {
+            x: firstStory.position.x + AI_STORY_CARD_WIDTH / 2,
+            y: firstStory.position.y + 100,
+            zoom: 0.7,
+          };
+        }
       }
 
       return placement;
@@ -2787,6 +2816,8 @@ export function useAssistantSystem(params: UseAssistantSystemParams) {
       createAgentSkeletonCards,
       executeAssistantCardPlacement,
       finalizeAssistantStoryHeights,
+      fitView,
+      getNodes,
       getAgentFieldValue,
       getAgentDraftType,
       handleGenerateSettingNodeImage,

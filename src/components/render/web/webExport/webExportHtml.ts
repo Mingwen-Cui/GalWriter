@@ -1380,6 +1380,10 @@ ${SCENE_SWITCH_CSS}</style>
             icon.style.height = '45%';
           }
           if (!isToolbar && element.textVisible === false && (element.role === "flowDirection" || element.role === "flowFitView")) {
+            button.setAttribute('aria-label', buttonLabel || element.role);
+            button.title = buttonLabel || element.role;
+          }
+          if (!isToolbar && element.textVisible === false && (element.role === "flowDirection" || element.role === "flowFitView")) {
             const icon = document.createElement("span");
             icon.setAttribute("aria-hidden", "true");
             icon.innerHTML = element.role === "flowDirection"

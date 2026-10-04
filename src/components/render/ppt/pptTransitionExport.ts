@@ -2,6 +2,7 @@ import type JSZip from 'jszip';
 
 import type { PptSlideTransition } from '../video/shared/types';
 import { normalizePptTransition } from './pptTransitions';
+import { replacePptSlideProperty } from './pptSlideXml';
 
 export type PptTransitionExportTarget = { slideNumber: number; transition: PptSlideTransition };
 
@@ -53,14 +54,6 @@ export const addNativePptTransitions = async (
     const xml = await archive.file(path)?.async('string');
     if (!xml) continue;
     const node = pptTransitionXml(transition);
-    // CT_Slide order is cSld, clrMapOvr, transition, timing, extLst.
-    const clean = xml.replace(/<p:transition\b[^>]*(?:\/>|>[\s\S]*?<\/p:transition>)/g, '');
-    const anchor = /<p:(?:timing|extLst)\b/.exec(clean);
-    archive.file(
-      path,
-      anchor
-        ? clean.slice(0, anchor.index) + node + clean.slice(anchor.index)
-        : clean.replace('</p:sld>', `${node}</p:sld>`),
-    );
+    archive.file(path, replacePptSlideProperty(xml, 'transition', node));
   }
 };

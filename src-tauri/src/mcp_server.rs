@@ -491,7 +491,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
   }
 
-  #[tool(description = "List story, setting, plot-structure, number-condition, background-region, and dynamic-group cards without returning full story text. Dynamic groups include childIds; number-condition cards include their threshold; isRoot identifies the protected root story card.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "List every project card type, including story, setting, text, AI-analysis, batch-replace, plot-structure, number-condition, background-region, and dynamic-group cards, without returning full story text or private media. Utility-card configuration is included where safe.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
   async fn list_project_cards(&self) -> Result<CallToolResult, McpError> {
     *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) =
       Some(timestamp_now());
@@ -529,6 +529,23 @@ impl GalWriterMcpServer {
             "cardCount": data.get("cardCount"),
             "detailLevel": data.get("detailLevel"),
             "direction": data.get("direction"),
+            "content": data.get("content"),
+            "result": data.get("result"),
+            "findText": data.get("findText"),
+            "replaceText": data.get("replaceText"),
+            "scope": data.get("scope"),
+            "nodeValue": data.get("nodeValue"),
+            "affinity": data.get("nodeValue"),
+            "skip": data.get("skip"),
+            "hidden": data.get("hidden"),
+            "isMinimized": data.get("isMinimized"),
+            "hideTitleInPlayback": data.get("hideTitleInPlayback"),
+            "showTextOverlay": data.get("showTextOverlay"),
+            "textAlign": data.get("textAlign"),
+            "titleAlign": data.get("titleAlign"),
+            "fontSize": data.get("fontSize"),
+            "fontFamily": data.get("fontFamily"),
+            "isBold": data.get("isBold"),
           "threshold": if node.get("type").and_then(Value::as_str) == Some("numberConditionNode") { data.get("threshold") } else { None },
           "ranges": if node.get("type").and_then(Value::as_str) == Some("numberConditionNode") { data.get("ranges") } else { None },
           "isReversed": if node.get("type").and_then(Value::as_str) == Some("numberConditionNode") { data.get("isReversed") } else { None },
@@ -668,7 +685,7 @@ impl GalWriterMcpServer {
     ]))
   }
 
-  #[tool(description = "Update the title and/or body text of an existing story card. Only title and text fields can be changed. For MCP-written story text, keep each card to about 3 visible lines and never more than 5; split further developments into following cards. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  #[tool(description = "Update an existing story card's title, body, playback title visibility, skip state, affinity/story value (nodeValue or affinity), and title/body alignment (titleAlign/textAlign: left, center, right). Rich text is set with set_story_text. For MCP-written story text, keep each card to about 3 visible lines and never more than 5; split further developments into following cards. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
   async fn update_story_node(&self, Parameters(input): Parameters<UpdateStoryNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("update_story_node", input).await?;
@@ -745,7 +762,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Update safe text and display fields on an existing story, character, or scene card. Fields are validated against the card type. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  #[tool(description = "Update validated fields on supported cards. Story cards support title/text, skip, playback title visibility, affinity/story value (nodeValue or affinity), and title/body alignment. Text cards support content, font, size, color, bold, and alignment. AI and batch-replace cards support their editable configuration fields. hidden and isMinimized are supported on cards that expose those states. Use typed character/scene/plot/condition tools for those cards; background regions and groups have dedicated update tools. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
   async fn update_project_node(&self, Parameters(input): Parameters<UpdateProjectNodeInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("update_project_node", input).await?;
@@ -773,10 +790,38 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Replace story-card dialogue with validated text segments. To add a character or scene tag, include a {type: mention, node_id, kind} segment referencing an existing characterNode or sceneNode; this creates a real editable mention chip and synchronizes its presentation association. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  #[tool(description = "Invoke an existing plot-structure card. The card must sit inside a background region or dynamic group that contains story cards. Continue mode generates the next story segment from that region; play mode starts its interactive creative-story workflow.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = true))]
+  async fn run_plot_structure_card(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("run_plot_structure_card", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Replace story-card dialogue with validated text segments. Text segments support plain, bold, italic, bold_italic, and underline formats; line breaks are preserved. To add a character or scene tag, include a {type: mention, node_id, kind} segment referencing an existing characterNode or sceneNode; this creates a real editable mention chip and synchronizes its presentation association. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
   async fn set_story_text(&self, Parameters(input): Parameters<SetStoryTextInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("set_story_text", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Run one existing batch-replace card against story cards. Uses the card's findText/replaceText settings. If target_node_ids is omitted, all story cards are searched; otherwise only the listed story cards are changed. Returns matched and updated card counts. Undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn execute_batch_replace(&self, Parameters(input): Parameters<ExecuteBatchReplaceInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("execute_batch_replace", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Invoke an existing AI-analysis card with summary, structure, suggestions, or direction mode. The editor's configured text AI profile is used; credentials stay local. Waits for the card action to finish.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = true))]
+  async fn run_ai_analysis(&self, Parameters(input): Parameters<RunAIAnalysisInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("run_ai_analysis", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Trace the story line passing through node_id in the editor canvas, or clear the current story-line highlight with action='clear'. This is a temporary canvas display state and does not alter the project story.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  async fn set_storyline_highlight(&self, Parameters(input): Parameters<SetStorylineHighlightInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("set_storyline_highlight", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
@@ -1317,6 +1362,27 @@ struct ImportProjectNodeImageInput {
 struct SetStoryTextInput {
   node_id: String,
   segments: Vec<StoryTextSegment>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct ExecuteBatchReplaceInput {
+  node_id: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  target_node_ids: Option<Vec<String>>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct RunAIAnalysisInput {
+  node_id: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  mode: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct SetStorylineHighlightInput {
+  action: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  node_id: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]

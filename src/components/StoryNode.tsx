@@ -2779,6 +2779,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
             storyTitlePlacement === 'outside-left' ? 'left-0 text-left' : 'right-0 text-right'
           }`}
           style={{
+            textAlign: data.titleAlign || 'center',
             color: getReadableTextColor(outsideTitleBackground),
             textShadow: isLightColor(outsideTitleBackground)
               ? '0 1px 2px rgba(255, 255, 255, 0.35)'
@@ -2826,7 +2827,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
               onChange={(e) => updateNodeData({ title: e.target.value })}
               onFocus={(e) => e.target.select()}
               className={`nodrag w-[50%] text-[11px] font-bold uppercase tracking-widest bg-transparent px-2 rounded outline-none border border-transparent hover:border-[var(--card-border)] focus:border-blue-500 transition-colors text-center pb-0.5 cursor-text ${imageUrl || videoUrl ? 'py-1' : ''}`}
-              style={{ color: nodeText }}
+              style={{ color: nodeText, textAlign: data.titleAlign || 'center' }}
               placeholder="标题..."
             />
           </div>
@@ -3067,6 +3068,7 @@ export function StoryNode({ id, data, selected }: NodeProps<StoryFlowNode>) {
                   className={`w-full overflow-visible resize-none bg-transparent text-sm leading-relaxed relative z-10 break-words cursor-text [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-left ${shape === 'square' || shape === 'rounded-rectangle' ? 'text-left' : 'text-center'}`}
                   style={{
                     color: nodeText,
+                    textAlign: data.textAlign || (shape === 'square' || shape === 'rounded-rectangle' ? 'left' : 'center'),
                     minHeight: '1.5em',
                   }}
                   onMentionContextMenu={handleMentionContextMenu}

@@ -158,37 +158,6 @@ const normalizeImageFillBaseColor = (element: WebMenuElement) => {
   return { ...element, backgroundImageBackgroundColor: element.backgroundColor };
 };
 
-const flowControlShadow = (
-  id: string,
-): Pick<
-  WebMenuElement,
-  | 'shadowEnabled'
-  | 'shadowColor'
-  | 'shadowOpacity'
-  | 'shadowBlur'
-  | 'shadowOffsetX'
-  | 'shadowOffsetY'
-  | 'shadows'
-> => ({
-  shadowEnabled: true,
-  shadowColor: '#0f172a',
-  shadowOpacity: 14,
-  shadowBlur: 14,
-  shadowOffsetX: 0,
-  shadowOffsetY: 6,
-  shadows: [
-    {
-      id,
-      type: 'outer',
-      color: '#0f172a',
-      opacity: 14,
-      blur: 14,
-      offsetX: 0,
-      offsetY: 6,
-    },
-  ],
-});
-
 const defaultFlowOverviewElements: WebMenuElement[] = [
   {
     id: 'flow-direction-control',
@@ -210,7 +179,8 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     textColor: '#475569',
     fillEnabled: true,
     strokeEnabled: true,
-    ...flowControlShadow('flow-direction-control-shadow'),
+    shadowEnabled: false,
+    shadows: [],
   },
   {
     id: 'flow-fit-view-control',
@@ -232,7 +202,8 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     textColor: '#475569',
     fillEnabled: true,
     strokeEnabled: true,
-    ...flowControlShadow('flow-fit-view-control-shadow'),
+    shadowEnabled: false,
+    shadows: [],
   },
   {
     id: 'flow-minimap',
@@ -424,7 +395,7 @@ const normalizeFlowControlShapes = (settings: WebExportSettings): WebExportSetti
       element.borderColor === 'transparent' &&
       element.borderWidth === 0 &&
       element.textColor === '#475569' &&
-      hasShadowData
+      (hasShadowData || element.shadowEnabled === false)
     )
       return element;
     changed = true;
@@ -436,7 +407,7 @@ const normalizeFlowControlShapes = (settings: WebExportSettings): WebExportSetti
       borderColor: 'transparent',
       borderWidth: 0,
       textColor: '#475569',
-      ...(hasShadowData ? {} : flowControlShadow(`${element.id}-shadow`)),
+      shadowEnabled: element.shadowEnabled ?? false,
     };
   });
   return changed ? { ...settings, flowOverviewElements: normalized } : settings;
@@ -498,8 +469,17 @@ const migrateFlowOverviewControlLayout = (settings: WebExportSettings): WebExpor
     'flow-direction-control': { x: 84, y: 4 },
     'flow-fit-view-control': { x: 88, y: 4 },
   };
+  const aspectHeightToWidth =
+    settings.canvasWidth > 0 && settings.canvasHeight > 0
+      ? settings.canvasHeight / settings.canvasWidth
+      : 9 / 16;
+  const homeWidth = Math.round(4.6 * aspectHeightToWidth * 1000) / 1000;
   let changed = false;
   const normalized = (settings.flowOverviewElements || []).map((element) => {
+    if (element.id === 'flow-main-menu' && element.role === 'mainMenu' && element.x === 2 && element.y === 2.4) {
+      changed = true;
+      return { ...element, x: 92, y: 4, width: homeWidth, height: 4.6 };
+    }
     const legacy = legacyPositions[element.id];
     const next = nextPositions[element.id];
     if (!legacy || !next || element.x !== legacy.x || element.y !== legacy.y) return element;

@@ -131,6 +131,7 @@ export type AssistantArticleAnalysisStep = {
   status: 'pending' | 'active' | 'done' | 'error';
   detail: string;
   evidence?: string;
+  items?: string[];
 };
 
 export type AssistantStoryProfileStep = 'persona' | 'genre' | 'dynamics' | 'world' | 'plot';

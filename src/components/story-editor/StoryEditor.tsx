@@ -8,6 +8,7 @@ import { useAgentRuntime } from '../../agent/runtime/useAgentRuntime';
 import type {
   CharacterAssetType,
   CharacterImageMode,
+  CreativeStorySource,
   ImageAIProfile,
   PlotStructureGenerateDirection,
   ProjectAIProfilesExport,
@@ -32,6 +33,8 @@ import {
   isLocalStableDiffusionProvider,
 } from '../../editor-features/media/imageGeneration';
 import { useMediaActions } from '../../editor-features/media/useMediaActions';
+import { buildRegionStoryItems, sortContentNodesInRegion } from '../../lib/plotStructure';
+import { findContainingRegion, isNodeInsideRegion, isStoryContentNode } from '../../lib/regionUtils';
 import { useNodeActions } from '../../editor-features/node-actions/useNodeActions';
 import { useSelectionActions } from '../../editor-features/selection-tools/useSelectionActions';
 import { useSelectionMenu } from '../../editor-features/selection-tools/useSelectionMenu';
@@ -831,6 +834,9 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     canRedo: () => boolean;
   } | null>(null);
   const mcpSpeechGenerationRef = useRef<((nodeId: string) => Promise<void>) | null>(null);
+  const mcpStorylineHighlightRef = useRef<((nodeId: string, force?: boolean) => void) | null>(null);
+  const mcpAIAnalysisRef = useRef<((nodeId: string, mode: string) => Promise<void>) | null>(null);
+  const mcpPlotStructureActionRef = useRef<((nodeId: string) => Promise<void>) | null>(null);
   const mcpTextGenerationRef = useRef<((prompt: string) => Promise<string>) | null>(null);
   const mcpGenerateSettingImageRef = useRef<((
     nodeId: string,
@@ -1357,6 +1363,52 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             throw new Error('The active project changed before the MCP write could be applied.');
           }
 
+          if (payload.operation === 'set_storyline_highlight') {
+            const action = payload.input.action;
+            const nodeId = payload.input.node_id;
+            if (action === 'clear') {
+              setHighlightedPath(null);
+              await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+              await resolveSuccess({ highlighted: false });
+              return;
+            }
+            if (action !== 'trace' || typeof nodeId !== 'string') throw new Error("action must be 'trace' with node_id, or 'clear'.");
+            if (!mcpNodesRef.current.some((node) => node.id === nodeId && node.type === 'storyNode')) throw new Error(`Story card '${nodeId}' was not found.`);
+            const trace = mcpStorylineHighlightRef.current;
+            if (!trace) throw new Error('Storyline highlighting is unavailable.');
+            trace(nodeId, true);
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+            await resolveSuccess({ highlighted: true, nodeId });
+            return;
+          }
+
+          if (payload.operation === 'run_ai_analysis') {
+            const nodeId = payload.input.node_id;
+            const mode = typeof payload.input.mode === 'string' ? payload.input.mode : 'summary';
+            if (typeof nodeId !== 'string' || !mcpNodesRef.current.some((node) => node.id === nodeId && node.type === 'aiNode')) throw new Error('node_id must identify an existing AI-analysis card.');
+            if (!['summary', 'structure', 'suggestions', 'direction'].includes(mode)) throw new Error('mode must be summary, structure, suggestions, or direction.');
+            const analyze = mcpAIAnalysisRef.current;
+            if (!analyze) throw new Error('AI analysis is unavailable.');
+            await analyze(nodeId, mode);
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+            const updated = mcpNodesRef.current.find((node) => node.id === nodeId);
+            await resolveSuccess({ completed: true, nodeId, mode, result: updated?.data.result || '' }, true);
+            return;
+          }
+
+          if (payload.operation === 'run_plot_structure_card') {
+            const nodeId = payload.input.node_id;
+            if (typeof nodeId !== 'string' || !mcpNodesRef.current.some((node) => node.id === nodeId && node.type === 'plotStructureNode')) throw new Error('node_id must identify an existing plot-structure card.');
+            const run = mcpPlotStructureActionRef.current;
+            if (!run) throw new Error('Plot-structure card actions are unavailable.');
+            const beforeIds = new Set(mcpNodesRef.current.map((node) => node.id));
+            await run(nodeId);
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+            const createdNodeIds = mcpNodesRef.current.filter((node) => !beforeIds.has(node.id)).map((node) => node.id);
+            await resolveSuccess({ completed: true, nodeId, createdNodeIds }, true);
+            return;
+          }
+
           if (payload.operation === 'list_projects') {
             const projects = await mcpProjectActionsRef.current?.listProjects();
             if (!projects) throw new Error('The local project list is unavailable.');
@@ -1640,6 +1692,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
           const simpleMap: Record<string, string> = {
             update_story_node: 'update_story_node',
             update_project_node: 'update_node',
+            execute_batch_replace: 'execute_batch_replace',
             update_character_node: 'update_character_node',
             update_scene_node: 'update_scene_node',
             update_plot_structure_node: 'update_plot_structure_node',
@@ -1726,7 +1779,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             { direction: payload.input.layout_direction, language },
           );
           const isPreview = payload.operation === 'preview_story_changes';
-          const result = { ...(isPreview ? { previewOnly: true } : { applied: true }), ...change.summary };
+          const batchReplaceResult = payload.operation === 'execute_batch_replace'
+            ? change.summary.changes.find((item) => item.type === 'execute_batch_replace')
+            : undefined;
+          const result = { ...(isPreview ? { previewOnly: true } : { applied: true }), ...change.summary, ...(batchReplaceResult || {}) };
           if (isPreview) {
             await resolveSuccess(result);
             return;
@@ -2383,10 +2439,10 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
   );
 
   const toggleStorylineHighlight = useCallback(
-    (nodeId: string | null) => {
+    (nodeId: string | null, force = false) => {
       if (
         !nodeId ||
-        (highlightedPath &&
+        (!force && highlightedPath &&
           nodes.find((n) => n.id === nodeId)?.selected &&
           highlightedPath.nodes.has(nodeId))
       ) {
@@ -2708,6 +2764,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     },
     [nodes, edges, highlightedPath, showToast, storyEditorCopy.storylineTraced],
   );
+  mcpStorylineHighlightRef.current = (nodeId, force) => toggleStorylineHighlight(nodeId, force);
 
   // NOTE: 卡片 AI 操作现在统一进入右侧助手，不再使用独立操作弹窗。
   // =========================================================================
@@ -3155,6 +3212,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     canRedo: () => history.future.length > 0,
   };
   mcpSpeechGenerationRef.current = handleGenerateStoryNodeSpeech;
+  mcpAIAnalysisRef.current = runAIAnalyze;
   mcpTextGenerationRef.current = callAIForText;
 
   useEditorKeyboardShortcuts({
@@ -3318,6 +3376,59 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     setNodes,
     showDialogAlert,
   });
+  mcpPlotStructureActionRef.current = async (nodeId) => {
+    const currentNodes = mcpNodesRef.current;
+    const currentEdges = mcpEdgesRef.current;
+    const state = { nodes: currentNodes, edges: currentEdges };
+    const toolNode = currentNodes.find((node) => node.id === nodeId && node.type === 'plotStructureNode');
+    if (!toolNode) throw new Error(`Plot-structure card '${nodeId}' was not found.`);
+    const region = findContainingRegion(state, nodeId);
+    if (!region) throw new Error('Place the plot-structure card inside a background region or dynamic group first.');
+    const regionIds = currentNodes
+      .filter((node) => node.id !== nodeId && isStoryContentNode(node) && isNodeInsideRegion(state, node, region))
+      .map((node) => node.id);
+    const regionStoryNodes = buildRegionStoryItems(
+      currentNodes,
+      currentEdges,
+      sortContentNodesInRegion(regionIds, currentNodes, currentEdges),
+    );
+    const lastStory = regionStoryNodes.filter((node) => node.type === 'storyNode').at(-1);
+    if (!lastStory) throw new Error('Add at least one story card to the plot-structure card region first.');
+    const cardData = toolNode.data;
+    if (cardData.creationMode === 'play') {
+      const storyData = currentNodes.find((node) => node.id === lastStory.id)?.data;
+      const sceneNodeId = (storyData?.presentation as { scene?: { sourceNodeId?: string } } | undefined)?.scene?.sourceNodeId;
+      const sceneNode = currentNodes.find((node) => node.id === sceneNodeId && node.type === 'sceneNode');
+      const source: CreativeStorySource = {
+        toolNodeId: nodeId,
+        title: region.title,
+        storyNodes: regionStoryNodes,
+        availableNodeIds: currentNodes.filter((node) => node.type === 'storyNode').map((node) => node.id),
+        choiceInterval: typeof cardData.choiceInterval === 'number' ? cardData.choiceInterval : 4,
+        prefetchCount: typeof cardData.prefetchCount === 'number' ? cardData.prefetchCount : 3,
+        ...(sceneNode && typeof sceneNode.data.sceneName === 'string'
+          ? { scene: { nodeId: sceneNode.id, name: sceneNode.data.sceneName } }
+          : {}),
+      };
+      await handleStartCreativeStory(source);
+      return;
+    }
+    const direction = typeof cardData.direction === 'string' && cardData.direction.trim()
+      ? cardData.direction
+      : language === 'zh'
+        ? '承接最后一张剧情卡，自然推进后续故事。'
+        : language === 'ja'
+          ? '最後のカードから自然に物語を続けてください。'
+          : 'Continue naturally from the final story card.';
+    await handlePlotStructureGenerate({
+      toolNodeId: nodeId,
+      cardCount: Math.max(1, Math.min(20, Number(cardData.cardCount) || 3)),
+      detailLevel: cardData.detailLevel === 'brief' || cardData.detailLevel === 'detailed' ? cardData.detailLevel : 'standard',
+      direction,
+      regionStoryNodes,
+      region: { id: region.id, type: region.type },
+    });
+  };
 
   const handleAIAnalyze = useCallback(
     async (nodeId: string, mode: string = 'summary') => {

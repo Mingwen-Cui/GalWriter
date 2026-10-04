@@ -802,6 +802,9 @@ export interface StoryNodeData extends BaseEditorNodeData {
   showTextOverlay?: boolean;
   /** Keeps this card's title available for branching while omitting it in playback and exports. */
   hideTitleInPlayback?: boolean;
+  /** Per-card title and dialogue alignment on the story canvas. */
+  titleAlign?: 'left' | 'center' | 'right';
+  textAlign?: 'left' | 'center' | 'right';
   titleHeightAdded?: boolean;
   isRoot?: boolean;
   nodeValue?: number;
