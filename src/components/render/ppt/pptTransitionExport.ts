@@ -36,6 +36,8 @@ export const pptTransitionXml = (transition: PptSlideTransition) => {
       break;
   }
   const speed = value.durationMs <= 500 ? 'fast' : value.durationMs <= 1000 ? 'med' : 'slow';
+  // PowerPoint starts advTm after the final animation/effect. Store only the
+  // requested pause here; adding the timeline duration would count it twice.
   const attrs = `spd="${speed}" advClick="${value.advanceOnClick ? 1 : 0}"${
     value.advanceAfterMs === undefined
       ? ''

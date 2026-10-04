@@ -274,13 +274,20 @@ type TimedPptObjectAnimation = PptObjectAnimation & { timelineStartMs: number };
 const withTimelineStarts = (animations: PptObjectAnimation[]): TimedPptObjectAnimation[] => {
   let previousStart = 0;
   let previousDuration = 0;
+  const startsById = new Map<string, number>();
   return animations.map((animation) => {
+    const sourceStart = animation.target === 'nameplate' && animation.source === 'tag' &&
+      animation.id.endsWith(':nameplate')
+      ? startsById.get(animation.id.slice(0, -':nameplate'.length)) : undefined;
+    // A generated label is part of its portrait's effect, not another step.
+    if (sourceStart !== undefined) return { ...animation, timelineStartMs: sourceStart };
     const timelineStartMs =
       animation.start === 'withPrevious'
         ? previousStart + animation.delayMs
         : previousStart + previousDuration + animation.delayMs;
     previousStart = timelineStartMs;
     previousDuration = animation.durationMs;
+    startsById.set(animation.id, timelineStartMs);
     return { ...animation, timelineStartMs };
   });
 };
@@ -390,6 +397,7 @@ export function PptWorkspace({
   const [notesHeight, setNotesHeight] = useState(150);
   const [zoom, setZoom] = useState(100);
   const [isPlaying, setIsPlaying] = useState(false);
+  const playbackStartedAtRef = useRef<number | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [loopPreview, setLoopPreview] = useState(false);
   const loopPreviewRef = useRef(false);
@@ -1424,10 +1432,23 @@ export function PptWorkspace({
     viewMode,
   ]);
   useEffect(() => {
+    playbackStartedAtRef.current = isPlaying ? performance.now() : null;
+  }, [isPlaying, selectedId]);
+  const playbackEffectsEndMs = Math.max(
+    0,
+    currentTransition.effect === 'none' ? 0 : currentTransition.durationMs,
+    currentVideoTrack && !currentVideoTrack.loop ? currentVideoTrack.durationMs : 0,
+    ...currentAnimations.map((animation) => animation.timelineStartMs + animation.durationMs),
+  );
+  useEffect(() => {
     if (!isPlaying || currentTransition.advanceAfterMs === undefined) return;
-    const timeout = window.setTimeout(next, Math.max(0, currentTransition.advanceAfterMs));
+    const startedAt = playbackStartedAtRef.current;
+    if (startedAt === null) return;
+    const remainingMs = playbackEffectsEndMs + Math.max(0, currentTransition.advanceAfterMs) -
+      (performance.now() - startedAt);
+    const timeout = window.setTimeout(next, Math.max(0, remainingMs));
     return () => window.clearTimeout(timeout);
-  }, [currentTransition.advanceAfterMs, isPlaying, next, selectedId]);
+  }, [currentTransition.advanceAfterMs, playbackEffectsEndMs, isPlaying, next, selectedId]);
   useEffect(() => {
     if (!isPlaying || document.fullscreenElement) return;
     playerRef.current?.requestFullscreen().catch(() => {

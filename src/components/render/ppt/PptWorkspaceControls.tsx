@@ -333,27 +333,30 @@ function TransitionControls({
             />
             {copy.clickMouse}
           </label>
-          <div className="flex items-center gap-2">
+          <div className="grid gap-2">
             <label className="flex items-center gap-2 whitespace-nowrap">
               <input
                 type="checkbox"
                 checked={transition.advanceAfterMs !== undefined}
                 onChange={(event) =>
-                  onUpdate({ advanceAfterMs: event.target.checked ? 0 : undefined })
+                  onUpdate({ advanceAfterMs: event.target.checked ? 2000 : undefined })
                 }
               />
               {copy.autoAdvance}
             </label>
-            <PptNumberInput
-              label={copy.autoTime}
-              disabled={transition.advanceAfterMs === undefined}
-              min={0}
-              max={3600}
-              value={(transition.advanceAfterMs ?? 0) / 1000}
-              onChange={(value) => onUpdate({ advanceAfterMs: Math.round(value * 1000) })}
-              className="!w-20"
-            />
-            <span>{copy.seconds}</span>
+            <div className="flex items-center gap-2 pl-5">
+              <span className="whitespace-nowrap">{copy.afterAnimation}</span>
+              <PptNumberInput
+                label={copy.autoTime}
+                disabled={transition.advanceAfterMs === undefined}
+                min={0}
+                max={3600}
+                value={(transition.advanceAfterMs ?? 0) / 1000}
+                onChange={(value) => onUpdate({ advanceAfterMs: Math.round(value * 1000) })}
+                className="!w-20"
+              />
+              <span>{copy.seconds}</span>
+            </div>
           </div>
         </div>
       </RibbonGroup>

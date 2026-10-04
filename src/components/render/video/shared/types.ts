@@ -828,6 +828,7 @@ export type PptSlideTransition = {
   orientation?: 'horizontal' | 'vertical';
   splitDirection?: 'in' | 'out';
   advanceOnClick: boolean;
+  /** Wait after the final slide animation/effect, then advance automatically. */
   advanceAfterMs?: number;
 };
 
