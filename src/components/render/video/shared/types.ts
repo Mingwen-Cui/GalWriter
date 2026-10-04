@@ -102,6 +102,7 @@ export type VideoRenderModalProps = {
   launchIntent?: RenderWorkspaceLaunchIntent;
   onMcpWorkspaceApiChange?: (api: McpRenderWorkspaceApi | null) => void;
   fullscreenHostRef?: RefObject<HTMLElement | null>;
+  onShowToast?: (message: string, tone?: 'success' | 'error') => void;
 };
 
 export type RenderStyle = {

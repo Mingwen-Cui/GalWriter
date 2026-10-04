@@ -118,6 +118,8 @@ export function RenderHeader({
 }: RenderHeaderProps) {
   const pptCopy = getPptCopy(language);
   const isRendering = status === 'rendering';
+  const timelineExportUnavailable =
+    workspaceMode === 'video' && videoWorkspaceMode === 'timeline' && selectedNodes.length === 0;
   const workspaceIntentTimerRef = useRef<number | null>(null);
   const cancelWorkspaceIntent = () => {
     if (workspaceIntentTimerRef.current === null) return;
@@ -500,13 +502,21 @@ export function RenderHeader({
         <button
           type="button"
           onClick={onExportClick}
+          aria-disabled={timelineExportUnavailable || undefined}
+          title={
+            timelineExportUnavailable
+              ? formatVideoText(language, 'videoTimelineExportUnavailableHint')
+              : undefined
+          }
           disabled={
             isRendering ||
-            (workspaceMode === 'video' && selectedNodes.length === 0) ||
+            (workspaceMode === 'video' && videoWorkspaceMode === 'interactive' && selectedNodes.length === 0) ||
             ((workspaceMode === 'web' || workspaceMode === 'ppt' || workspaceMode === 'code') &&
               nodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length === 0)
           }
-          className="flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
+          className={`flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--vr-accent)] px-3 text-xs font-black text-white shadow-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-50 ${
+            timelineExportUnavailable ? 'cursor-not-allowed opacity-50 hover:brightness-100 active:scale-100' : ''
+          }`}
         >
           {isRendering ? (
             <LoadingAnimation className="h-8 w-8 shrink-0" />

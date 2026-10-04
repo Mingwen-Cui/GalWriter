@@ -1,4 +1,7 @@
 export const videoZh = {
+  videoTimelineExportUnavailableHint: '请先将素材放入时间轴并选中要导出的片段。',
+  videoTimelineNeedsClipsDescription: '请将左侧素材卡片拖放到下方时间轴，再导出视频。',
+  videoTimelineNeedsSelectionDescription: '时间轴已有素材，请先选中要导出的片段，再点击导出。',
   exportPreflightTitle: '导出前检查',
   exportPreflightContinue: '仍然导出',
   exportPreflightCancel: '返回检查',

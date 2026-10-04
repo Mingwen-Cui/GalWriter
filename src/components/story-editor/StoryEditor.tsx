@@ -4132,6 +4132,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             fullscreenHostRef={editorRootRef}
             renderStyle={sharedRenderStyle}
             updateRenderStyle={updateSharedRenderStyle}
+            onShowToast={showToast}
             callAIForTextResult={callAIForTextResult}
             voiceTtsConfig={{
               provider: ttsProvider,

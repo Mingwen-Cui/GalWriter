@@ -5,6 +5,7 @@ import type { PptObjectAnimation } from '../video/shared/types';
 import { embedCustomFontsInPptx } from './pptFontEmbedding';
 import { pptTextLineTiming } from './pptTextBuild';
 import { addNativePptTransitions, type PptTransitionExportTarget } from './pptTransitionExport';
+import { replacePptSlideProperty } from './pptSlideXml';
 
 const CONTENT_TYPES_PATH = '[Content_Types].xml';
 
@@ -38,9 +39,8 @@ export type PptVideoPlaybackTarget = {
 };
 
 /**
- * PowerPoint's "With Previous" effects only synchronize with the adjacent
- * effect in the sequence. Keep character/nameplate copies together so the
- * latter cannot accidentally follow a dialogue or panel animation instead.
+ * Keep shapes for one authored effect together, with the character first so
+ * its start mode remains authoritative when merging its nameplate copies.
  */
 export const orderPptAnimationTargets = (
   targets: PptAnimationExportTarget[],
@@ -80,7 +80,7 @@ const textLineCount = (slideXml: string, objectName: string) => {
   const shape = [...slideXml.matchAll(/<p:sp>[\s\S]*?<\/p:sp>/g)].find((match) =>
     name.test(match[0]),
   )?.[0];
-  return Math.max(1, (shape?.match(/<a:p(?:\s[^>]*)?>/g) || []).length);
+  return shape ? Math.max(1, (shape.match(/<a:p(?:\s[^>]*)?>/g) || []).length) : 0;
 };
 const duration = (animation: PptObjectAnimation) =>
   Math.max(1, Math.round(animation.durationMs || 500));
@@ -91,12 +91,6 @@ const nodeType = (animation: PptObjectAnimation) =>
     : animation.start === 'afterPrevious'
       ? 'afterEffect'
       : 'clickEffect';
-// PowerPoint uses the innermost cTn's nodeType to chain automatic effects.
-// The outer click-group condition must therefore be zero for both
-// `withPrevious` and `afterPrevious`; putting a cumulative timeline offset
-// here makes PowerPoint treat the group as an independently gated item.
-const startDelay = (animation: PptObjectAnimation) =>
-  animation.start === 'onClick' ? 'indefinite' : '0';
 const phaseOf = (animation: PptObjectAnimation) => animation.phase || 'enter';
 const presetSubtypeFor = (animation: PptObjectAnimation) => {
   if (animation.effect === 'wipe' && animation.direction === 'left') return 1;
@@ -121,16 +115,22 @@ const behavior = (
   animation: PptObjectAnimation,
   extra = '',
   paragraph?: number,
-  iterator = '',
+  attributes: string[] = [],
 ) =>
   `<p:cBhvr additive="base" accumulate="none"><p:cTn id="${id}" dur="${duration(animation)}" fill="hold"${
     animation.repeats && animation.repeats > 1
       ? ` repeatCount="${Math.round(animation.repeats)}"`
       : ''
-  }${extra}>${iterator}</p:cTn>${shapeTarget(shapeId, paragraph)}</p:cBhvr>`;
+  }${extra}><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>${shapeTarget(shapeId, paragraph)}${
+    attributes.length
+      ? `<p:attrNameLst>${attributes.map((name) => `<p:attrName>${name}</p:attrName>`).join('')}</p:attrNameLst>`
+      : ''
+  }</p:cBhvr>`;
 
-const visibilitySet = (id: number, shapeId: string, visible: boolean, paragraph?: number) =>
-  `<p:set><p:cBhvr><p:cTn id="${id}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>${shapeTarget(shapeId, paragraph)}<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="${
+const visibilitySet = (
+  id: number, shapeId: string, visible: boolean, paragraph?: number, offsetMs = 0,
+) =>
+  `<p:set><p:cBhvr><p:cTn id="${id}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${offsetMs}"/></p:stCondLst></p:cTn>${shapeTarget(shapeId, paragraph)}<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="${
     visible ? 'visible' : 'hidden'
   }"/></p:to></p:set>`;
 
@@ -144,7 +144,9 @@ const directionVector = (direction: PptObjectAnimation['direction'], amount: num
 const motionPathXml = (id: number, shapeId: string, animation: PptObjectAnimation) => {
   const phase = phaseOf(animation);
   const action = animation.action;
-  const amount = Math.max(
+  // Motion paths use fractions of the slide, not DrawingML percentage units.
+  // A shared path also keeps the portrait and label moving the same distance.
+  const amount = animation.effect === 'fly' ? 1 : Math.max(
     24000,
     Math.min(
       180000,
@@ -156,7 +158,7 @@ const motionPathXml = (id: number, shapeId: string, animation: PptObjectAnimatio
         ) * 900,
       ),
     ),
-  );
+  ) / 100000;
   const direction =
     action === 'translate' && Math.abs(animation.offsetY || 0) > Math.abs(animation.offsetX || 0)
       ? (animation.offsetY || 0) < 0
@@ -179,6 +181,8 @@ const motionPathXml = (id: number, shapeId: string, animation: PptObjectAnimatio
     shapeId,
     animation,
     isShake ? ' autoRev="1"' : '',
+    undefined,
+    ['ppt_x', 'ppt_y'],
   )}</p:animMotion>`;
 };
 
@@ -230,7 +234,8 @@ const effectXml = (id: number, shapeId: string, animation: PptObjectAnimation) =
   const phase = phaseOf(animation);
   // Keep line-aware timing in the workspace, but export the text as the
   // native PowerPoint wipe effect instead of a per-character fade build.
-  if (animation.effect === 'line') return motionPathXml(id, shapeId, animation);
+  if (animation.effect === 'line' || animation.effect === 'fly')
+    return motionPathXml(id, shapeId, animation);
   if (animation.effect === 'zoom' || animation.effect === 'growShrink')
     return scaleXml(id, shapeId, animation);
   if (animation.effect === 'spin') return rotationXml(id, shapeId, animation);
@@ -241,12 +246,19 @@ const effectXml = (id: number, shapeId: string, animation: PptObjectAnimation) =
   )}</p:animEffect>`;
 };
 
+type ResolvedAnimationTarget = {
+  shapeId: string;
+  animation: PptObjectAnimation;
+  lineCount: number;
+};
+
 const animationXml = (
-  shapeId: string,
-  animation: PptObjectAnimation,
-  baseId: number,
-  lineCount = 1,
+  targets: ResolvedAnimationTarget[],
+  allocateId: () => number,
+  offsetMs: number,
 ) => {
+  const animation = targets[0].animation;
+  const id = allocateId();
   const phase = phaseOf(animation);
   const presetClass = phase === 'enter' ? 'entr' : phase === 'exit' ? 'exit' : 'emph';
   const presetId =
@@ -261,25 +273,25 @@ const animationXml = (
             : animation.effect === 'zoom'
               ? 23
               : 0;
-  const lineBuild = animation.textBuild && phase === 'enter';
-  const visibility =
-    phase === 'enter' && !lineBuild ? visibilitySet(baseId + 1, shapeId, true) : '';
-  const hideAfter = phase === 'exit' ? visibilitySet(baseId + 2, shapeId, false) : '';
-  const effects = lineBuild
-    ? Array.from({ length: lineCount }, (_, paragraph) => {
-        const timing = pptTextLineTiming(animation, lineCount, paragraph);
-        const id = baseId + 6 + paragraph * 3;
-        const lineAnimation = { ...animation, durationMs: timing.durationMs };
-        return `<p:par><p:cTn id="${id}" fill="hold"><p:stCondLst><p:cond delay="${Math.round(timing.offsetMs)}"/></p:stCondLst><p:childTnLst>${visibilitySet(id + 1, shapeId, true, paragraph)}<p:animEffect transition="in" filter="wipe(${animation.direction})">${behavior(id + 2, shapeId, lineAnimation, '', paragraph)}</p:animEffect></p:childTnLst></p:cTn></p:par>`;
-      }).join('')
-    : effectXml(baseId + 5, shapeId, animation);
-  return `<p:par><p:cTn id="${baseId}" fill="hold"><p:stCondLst><p:cond delay="${startDelay(
-    animation,
-  )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 3}" fill="hold"><p:stCondLst><p:cond delay="${delay(
-    animation,
-  )}"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${baseId + 4}" presetID="${presetId}" presetClass="${presetClass}" presetSubtype="${presetSubtypeFor(animation)}" fill="hold" grpId="0" nodeType="${nodeType(
-    animation,
-  )}"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${visibility}${effects}${hideAfter}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
+  const effects = targets.map(({ shapeId, animation: targetAnimation, lineCount }) => {
+    const lineBuild = targetAnimation.textBuild && phase === 'enter';
+    const visibility = phase === 'enter' && !lineBuild
+      ? visibilitySet(allocateId(), shapeId, true) : '';
+    const effect = lineBuild
+      ? Array.from({ length: lineCount }, (_, paragraph) => {
+          const timing = pptTextLineTiming(targetAnimation, lineCount, paragraph);
+          const lineId = allocateId();
+          const lineAnimation = { ...targetAnimation, durationMs: timing.durationMs };
+          return `<p:par><p:cTn id="${lineId}" fill="hold"><p:stCondLst><p:cond delay="${Math.round(timing.offsetMs)}"/></p:stCondLst><p:childTnLst>${visibilitySet(allocateId(), shapeId, true, paragraph)}<p:animEffect transition="in" filter="wipe(${targetAnimation.direction})">${behavior(allocateId(), shapeId, lineAnimation, '', paragraph)}</p:animEffect></p:childTnLst></p:cTn></p:par>`;
+        }).join('')
+      : effectXml(allocateId(), shapeId, targetAnimation);
+    const hideAfter = phase === 'exit'
+      ? visibilitySet(allocateId(), shapeId, false, undefined, duration(targetAnimation)) : '';
+    return `${visibility}${effect}${hideAfter}`;
+  }).join('');
+  // All shapes for one authored effect share its trigger and delay. Copies
+  // cannot add clicks, delays, or durations to the following dialogue effect.
+  return `<p:par><p:cTn id="${id}" presetID="${presetId}" presetClass="${presetClass}" presetSubtype="${presetSubtypeFor(animation)}" fill="hold" grpId="0" nodeType="${nodeType(animation)}"><p:stCondLst><p:cond delay="${offsetMs}"/></p:stCondLst><p:childTnLst>${effects}</p:childTnLst></p:cTn></p:par>`;
 };
 
 const videoPlaybackXml = (shapeId: string, id: number, loop: boolean) =>
@@ -290,18 +302,37 @@ const videoPlaybackXml = (shapeId: string, id: number, loop: boolean) =>
   )}</p:cMediaNode></p:video>`;
 
 const animationTimelineXml = (
-  targets: Array<{ shapeId: string; animation: PptObjectAnimation; lineCount?: number }>,
+  targets: ResolvedAnimationTarget[],
   videoTargets: Array<{ shapeId: string; loop: boolean }>,
 ) => {
   if (!targets.length && !videoTargets.length) return '';
   let nextId = 3;
-  const entries = targets
-    .map((target) => {
-      const baseId = nextId;
-      nextId += 10 + (target.animation.textBuild ? (target.lineCount || 1) * 3 : 0);
-      return animationXml(target.shapeId, target.animation, baseId, target.lineCount);
-    })
-    .join('');
+  const allocateId = () => nextId++;
+  const effectsById = new Map<string, ResolvedAnimationTarget[]>();
+  targets.forEach((target) => {
+    const group = effectsById.get(target.animation.id) || [];
+    if (!group.some((item) => item.shapeId === target.shapeId)) group.push(target);
+    effectsById.set(target.animation.id, group);
+  });
+  const clickGroups: Array<{ id: number; onClick: boolean; effects: string[] }> = [];
+  let previousStart = 0;
+  let previousDuration = 0;
+  for (const group of effectsById.values()) {
+    const animation = group[0].animation;
+    if (!clickGroups.length || animation.start === 'onClick') {
+      clickGroups.push({ id: allocateId(), onClick: animation.start === 'onClick', effects: [] });
+      previousStart = 0;
+      previousDuration = 0;
+    }
+    const start = previousStart +
+      (animation.start === 'afterPrevious' ? previousDuration : 0) + delay(animation);
+    clickGroups[clickGroups.length - 1].effects.push(animationXml(group, allocateId, start));
+    previousStart = start;
+    previousDuration = duration(animation);
+  }
+  const entries = clickGroups.map((group) =>
+    `<p:par><p:cTn id="${group.id}" fill="hold"><p:stCondLst><p:cond delay="${group.onClick ? 'indefinite' : '0'}"/></p:stCondLst><p:childTnLst>${group.effects.join('')}</p:childTnLst></p:cTn></p:par>`,
+  ).join('');
   const mainSequence = entries
     ? `<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${entries}</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>`
     : '';
@@ -310,7 +341,8 @@ const animationTimelineXml = (
     .join('');
   const textShapes = [
     ...new Set(
-      targets.filter((target) => target.animation.textBuild).map((target) => target.shapeId),
+      targets.filter((target) => target.animation.textBuild && phaseOf(target.animation) === 'enter')
+        .map((target) => target.shapeId),
     ),
   ];
   const builds = textShapes.length
@@ -347,11 +379,15 @@ const addNativeAnimations = async (
     const slideXml = await archive.file(path)?.async('string');
     if (!slideXml) continue;
     const resolved = slideTargets
-      .map((target) => ({
-        shapeId: findShapeId(slideXml, target.objectName),
-        animation: target.animation,
-        lineCount: textLineCount(slideXml, target.objectName),
-      }))
+      .map((target) => {
+        const lineCount = textLineCount(slideXml, target.objectName);
+        return {
+          shapeId: findShapeId(slideXml, target.objectName),
+          // Paragraph ranges/build lists can only target actual text shapes.
+          animation: lineCount ? target.animation : { ...target.animation, textBuild: undefined },
+          lineCount: lineCount || 1,
+        };
+      })
       .filter(
         (target): target is { shapeId: string; animation: PptObjectAnimation; lineCount: number } =>
           Boolean(target.shapeId),
@@ -361,12 +397,7 @@ const addNativeAnimations = async (
       .filter((target): target is { shapeId: string; loop: boolean } => Boolean(target.shapeId));
     const timeline = animationTimelineXml(resolved, resolvedVideos);
     if (!timeline) continue;
-    archive.file(
-      path,
-      slideXml
-        .replace(/<p:timing>[\s\S]*?<\/p:timing>/, '')
-        .replace('</p:sld>', `${timeline}</p:sld>`),
-    );
+    archive.file(path, replacePptSlideProperty(slideXml, 'timing', timeline));
   }
 };
 

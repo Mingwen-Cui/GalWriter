@@ -153,6 +153,7 @@ export function VideoRenderModal({
   launchIntent,
   onMcpWorkspaceApiChange,
   fullscreenHostRef,
+  onShowToast,
 }: VideoRenderModalProps) {
   const orderedNodes = useMemo(() => getOrderedStoryNodes(nodes, edges), [nodes, edges]);
   const persistedWorkspace = useMemo(() => readRenderWorkspaceState(workspaceKey), [workspaceKey]);
@@ -2676,6 +2677,18 @@ export function VideoRenderModal({
           setPptRibbonTab={setPptRibbonTab}
           setPptRibbonCollapsed={setPptRibbonCollapsed}
           onExportClick={() => {
+            if (workspaceMode === 'video' && videoWorkspaceMode === 'timeline' && selectedNodes.length === 0) {
+              onShowToast?.(
+                formatVideoText(
+                  language,
+                  timelineNodes.length === 0
+                    ? 'videoTimelineNeedsClipsDescription'
+                    : 'videoTimelineNeedsSelectionDescription',
+                ),
+                'error',
+              );
+              return;
+            }
             if (workspaceMode === 'video' && videoWorkspaceMode === 'interactive') {
               exportInteractiveSegments();
               return;

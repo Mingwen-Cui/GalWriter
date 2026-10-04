@@ -564,7 +564,6 @@ export async function buildPptxBuffer({
       objectName: string,
       target: PptAnimationExportTarget['animation']['target'],
       targetId?: string,
-      startOverride?: PptAnimationExportTarget['animation']['start'],
     ) => {
       if (!sceneSlideNumber) return;
       sceneAnimations
@@ -575,43 +574,14 @@ export async function buildPptxBuffer({
             !(animation.action === 'switch' && animation.switchImageUrl),
         )
         .forEach((animation) => {
-          // Character entrances are part of the scene opening: export legacy
-          // click-triggered entries as automatic even when they were created
-          // before the automatic PPT defaults were introduced.
           const exportAnimation =
             (target === 'dialog-title' || target === 'dialog-body') && animation.effect === 'wipe'
               ? { ...animation, direction: 'left' as const }
               : animation;
-          const scheduledAnimation =
-            target === 'character' &&
-            exportAnimation.phase === 'enter' &&
-            exportAnimation.start === 'onClick'
-              ? { ...exportAnimation, start: 'withPrevious' as const }
-              : exportAnimation;
-          const automaticAnimation =
-            scheduledAnimation.phase === 'enter' && scheduledAnimation.start === 'onClick'
-              ? {
-                  ...scheduledAnimation,
-                  start:
-                    target === 'character' || target === 'nameplate'
-                      ? ('withPrevious' as const)
-                      : ('afterPrevious' as const),
-                }
-              : scheduledAnimation;
-          // Nameplate targets explicitly request PowerPoint's "With Previous"
-          // trigger. Do not let the source phase or legacy start value undo
-          // that export-only override.
-          const finalAnimation = startOverride
-            ? {
-                ...automaticAnimation,
-                start:
-                  automaticAnimation.phase === 'enter' ? startOverride : automaticAnimation.start,
-              }
-            : automaticAnimation;
           animationTargets.push({
             slideNumber: sceneSlideNumber,
             objectName,
-            animation: finalAnimation,
+            animation: exportAnimation,
           });
         });
     };
@@ -1024,8 +994,9 @@ export async function buildPptxBuffer({
             animation.effect !== 'none' &&
             !(animation.action === 'switch' && animation.switchImageUrl),
         );
-        // Bind both nameplate parts to their own character's timeline so the
-        // label follows that character's entrance and exit motion.
+        // Reuse the character's effect ID and timing for both label parts.
+        // The native timeline emits them inside the same parallel effect,
+        // including click-triggered motion and exits.
         const nameplateAnimationTarget = hasCharacterTimeline ? 'character' : 'nameplate';
         const nameplateAnimationTargetId = hasCharacterTimeline
           ? character.sourceNodeId
@@ -1034,13 +1005,11 @@ export async function buildPptxBuffer({
           objectName,
           nameplateAnimationTarget,
           nameplateAnimationTargetId,
-          'withPrevious',
         );
         addAnimationTargets(
           textObjectName,
           nameplateAnimationTarget,
           nameplateAnimationTargetId,
-          'withPrevious',
         );
       }
     }

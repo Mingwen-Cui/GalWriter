@@ -1,4 +1,7 @@
 export const videoEn = {
+  videoTimelineExportUnavailableHint: 'Place assets on the timeline and select the clips you want to export first.',
+  videoTimelineNeedsClipsDescription: 'Drag an asset card from the left panel onto the timeline below, then export the video.',
+  videoTimelineNeedsSelectionDescription: 'The timeline has assets. Select the clips you want to export, then try again.',
   exportPreflightTitle: 'Export check',
   exportPreflightContinue: 'Export anyway',
   exportPreflightCancel: 'Review',

@@ -1,4 +1,7 @@
 export const videoJa = {
+  videoTimelineExportUnavailableHint: '素材をタイムラインに配置し、エクスポートするクリップを選択してください。',
+  videoTimelineNeedsClipsDescription: '左側の素材カードを下のタイムラインにドラッグしてから、動画をエクスポートしてください。',
+  videoTimelineNeedsSelectionDescription: 'タイムラインに素材があります。エクスポートするクリップを選択してください。',
   exportPreflightTitle: 'エクスポート前の確認',
   exportPreflightContinue: '続けてエクスポート',
   exportPreflightCancel: '確認に戻る',
