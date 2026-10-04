@@ -1,4 +1,5 @@
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
+import { normalizeWebFlowView } from '../webFlowView';
 import { defaultWebTheme, webThemeCssVariables, WEB_FLOW_THEME_CSS } from '../webThemeVisuals';
 import {
   createInlinePlaybackParser,
@@ -144,7 +145,7 @@ ${SCENE_SWITCH_CSS}</style>
     <div class="flow-overview-panel" id="flowOverviewPanel">
       <div class="flow-overview-viewport" id="flowOverviewViewport">
         <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="Close">&#10005;</button>
-        <div class="flow-overview-canvas" id="flowOverviewCanvas"></div>
+        <div class="flow-overview-graph-region" id="flowOverviewGraphRegion"><div class="flow-overview-canvas" id="flowOverviewCanvas"></div></div>
         <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
         <div class="flow-overview-minimap" id="flowOverviewMinimap" aria-label="Flow chart navigator">
           <div class="flow-overview-minimap-map" id="flowOverviewMinimapMap" aria-hidden="true"></div>
@@ -187,6 +188,8 @@ ${SCENE_SWITCH_CSS}</style>
           }
         }));
     const settings = content.settings || {};
+    const normalizeFlowView = (${normalizeWebFlowView.toString()});
+    settings.flowOverviewView = normalizeFlowView(settings.flowOverviewView);
     settings.canvasWidth = Math.min(7680, Math.max(320, Math.round(Number(settings.canvasWidth) || 1920)));
     settings.canvasHeight = Math.min(4320, Math.max(180, Math.round(Number(settings.canvasHeight) || 1080)));
     settings.canvasRatioWidth = Math.min(100, Math.max(1, Math.round(Number(settings.canvasRatioWidth) || 16)));
@@ -824,7 +827,10 @@ ${SCENE_SWITCH_CSS}</style>
     const flowOverviewFitView = document.getElementById("flowOverviewFitView");
     const flowOverviewAudio = document.getElementById("flowOverviewAudio");
     const flowOverviewDetail = document.getElementById("flowOverviewDetail");
+    const flowGraphRegion = document.getElementById("flowOverviewGraphRegion");
     let flowOverviewZoom = 1;
+    let flowPan = { x: 0, y: 0 };
+    let flowMinimapViewportRect = null;
     const flowOverviewControlLabels = content.language === "zh"
       ? { zoomIn: "放大", zoomOut: "缩小", fit: "适应屏幕" }
       : content.language === "ja"
@@ -1316,6 +1322,7 @@ ${SCENE_SWITCH_CSS}</style>
           flowOverviewMinimap.style.setProperty("--flow-overview-minimap-bottom-right-radius", minimapBottomRightRadius + "px");
           flowOverviewMinimap.style.setProperty("--flow-overview-minimap-bottom-left-radius", minimapBottomLeftRadius + "px");
           flowOverviewMinimap.style.setProperty("--flow-overview-control-radius", Math.max(4, minimapRadius - 2) + "px");
+          flowOverviewMinimap.style.setProperty("--flow-overview-control-color", element.textColorAlpha === undefined ? (element.textColor || "#111827") : "color-mix(in srgb, " + (element.textColor || "#111827") + " " + element.textColorAlpha + "%, transparent)");
           if (element.appearance) {
             gwAppearance(flowOverviewMinimap, element.appearance, [element.borderTopLeftRadius ?? element.borderRadius ?? 12, element.borderTopRightRadius ?? element.borderRadius ?? 12, element.borderBottomRightRadius ?? element.borderRadius ?? 12, element.borderBottomLeftRadius ?? element.borderRadius ?? 12].map((value) => value + "px").join(" "));
           } else applyCustomBoxEffects(flowOverviewMinimap, element);
@@ -2124,20 +2131,33 @@ ${SCENE_SWITCH_CSS}</style>
       if (flowOverviewBackdrop.classList.contains("open")) openFlowOverview();
     }
 
-    function setFlowOverviewZoom(value, scrollToOrigin) {
-      flowOverviewZoom = clamp(value, 0.55, 1.8, 1);
-      flowOverviewCanvas.style.zoom = String(flowOverviewZoom);
-      if (scrollToOrigin) flowOverviewViewport.scrollTo({ left: 0, top: 0, behavior: "smooth" });
-      if (flowOverviewZoomIn) flowOverviewZoomIn.disabled = flowOverviewZoom >= 1.8;
-      if (flowOverviewZoomOut) flowOverviewZoomOut.disabled = flowOverviewZoom <= 0.55;
+    function applyFlowTransform() {
+      flowOverviewCanvas.style.transform = "translate(" + flowPan.x + "px, " + flowPan.y + "px) scale(" + flowOverviewZoom + ")";
+      if (flowMinimapViewportRect) {
+        flowMinimapViewportRect.setAttribute("x", String(-flowPan.x / flowOverviewZoom));
+        flowMinimapViewportRect.setAttribute("y", String(-flowPan.y / flowOverviewZoom));
+        flowMinimapViewportRect.setAttribute("width", String(flowGraphRegion.clientWidth / flowOverviewZoom));
+        flowMinimapViewportRect.setAttribute("height", String(flowGraphRegion.clientHeight / flowOverviewZoom));
+      }
+    }
+    function setFlowOverviewZoom(value, resetPan, anchorX = flowGraphRegion.clientWidth / 2, anchorY = flowGraphRegion.clientHeight / 2) {
+      const zoom = clamp(value, settings.flowOverviewView.minZoom, settings.flowOverviewView.maxZoom, 1);
+      const ratio = zoom / flowOverviewZoom;
+      flowPan = resetPan ? { x: 0, y: 0 } : { x: anchorX - (anchorX - flowPan.x) * ratio, y: anchorY - (anchorY - flowPan.y) * ratio };
+      flowOverviewZoom = zoom;
+      applyFlowTransform();
+      if (flowOverviewZoomIn) flowOverviewZoomIn.disabled = flowOverviewZoom >= settings.flowOverviewView.maxZoom;
+      if (flowOverviewZoomOut) flowOverviewZoomOut.disabled = flowOverviewZoom <= settings.flowOverviewView.minZoom;
     }
 
     function fitFlowOverview() {
-      const availableWidth = Math.max(1, flowOverviewViewport.clientWidth - 48);
-      const availableHeight = Math.max(1, flowOverviewViewport.clientHeight - 48);
+      const availableWidth = Math.max(1, flowGraphRegion.clientWidth - 48);
+      const availableHeight = Math.max(1, flowGraphRegion.clientHeight - 48);
       const canvasWidth = Math.max(1, flowOverviewCanvas.scrollWidth || flowOverviewCanvas.clientWidth);
       const canvasHeight = Math.max(1, flowOverviewCanvas.scrollHeight || flowOverviewCanvas.clientHeight);
       setFlowOverviewZoom(Math.min(1, availableWidth / canvasWidth, availableHeight / canvasHeight), true);
+      flowPan = { x: (flowGraphRegion.clientWidth - canvasWidth * flowOverviewZoom) / 2, y: (flowGraphRegion.clientHeight - canvasHeight * flowOverviewZoom) / 2 };
+      applyFlowTransform();
     }
 
     function flowPathNodeIds(targetId) {
@@ -2316,10 +2336,28 @@ ${SCENE_SWITCH_CSS}</style>
         rect.setAttribute("fill-opacity", "0.9");
         svg.appendChild(rect);
       });
+      flowMinimapViewportRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      flowMinimapViewportRect.setAttribute("fill", "rgba(79,70,229,0.08)");
+      flowMinimapViewportRect.setAttribute("stroke", "#818cf8");
+      flowMinimapViewportRect.setAttribute("stroke-width", "1");
+      flowMinimapViewportRect.setAttribute("vector-effect", "non-scaling-stroke");
+      svg.appendChild(flowMinimapViewportRect);
+      svg.style.touchAction = "none";
+      const navigate = (event) => {
+        const rect = svg.getBoundingClientRect();
+        flowPan = { x: flowGraphRegion.clientWidth / 2 - (event.clientX - rect.left) / rect.width * canvasWidth * flowOverviewZoom, y: flowGraphRegion.clientHeight / 2 - (event.clientY - rect.top) / rect.height * canvasHeight * flowOverviewZoom };
+        applyFlowTransform();
+      };
+      svg.addEventListener("pointerdown", (event) => { if (event.button !== 0) return; event.preventDefault(); svg.setPointerCapture(event.pointerId); navigate(event); });
+      svg.addEventListener("pointermove", (event) => { if (svg.hasPointerCapture(event.pointerId)) navigate(event); });
+      svg.addEventListener("pointerup", (event) => { if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId); });
       flowOverviewMinimapMap.appendChild(svg);
     }
 
     function openFlowOverview() {
+      flowOverviewBackdrop.classList.add("open");
+      const view = settings.flowOverviewView;
+      Object.assign(flowGraphRegion.style, { inset: "auto", left: view.x + "%", top: view.y + "%", width: view.width + "%", height: view.height + "%" });
       const allNodes = Array.isArray(content.nodes) ? content.nodes.filter(Boolean) : [];
       const allEdges = Array.isArray(content.edges) ? content.edges.filter(Boolean) : [];
       if (settings.surfaceAppearances?.flow) {
@@ -2329,7 +2367,8 @@ ${SCENE_SWITCH_CSS}</style>
         applySurfaceBackground(flowOverviewPanel, "flowOverviewBackground");
         flowOverviewViewport.style.background = 'transparent';
       }
-      setFlowOverviewZoom(1, false);
+      setFlowOverviewZoom(view.zoom, true);
+      flowPan = { x: view.offsetX * flowGraphRegion.clientWidth / 100, y: view.offsetY * flowGraphRegion.clientHeight / 100 };
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-width", settings.flowOverviewMinimapWidth + "px");
       flowOverviewViewport.style.setProperty("--flow-overview-minimap-height", settings.flowOverviewMinimapHeight + "px");
       if (startScreen.classList.contains("open")) stopStartMenuMusic();
@@ -2383,15 +2422,15 @@ ${SCENE_SWITCH_CSS}</style>
         const levelOffset = flowOverviewLayoutDirection === "left" || flowOverviewLayoutDirection === "up"
           ? maxLevel - position.level
           : position.level;
-        position.x = 48 + (horizontal ? levelOffset * 282 : position.index * 282);
-        position.y = 112 + (horizontal ? position.index * 150 : levelOffset * 180);
+        position.x = 120 + (horizontal ? levelOffset : position.index) * (208 + view.gapX);
+        position.y = 120 + (horizontal ? position.index : levelOffset) * (132 + view.gapY);
         const size = settings.flowOverviewCardSizes[nodeId] || {};
         position.width = clamp(size.width, 140, 420, 220);
         position.height = clamp(size.height, 90, 260, 132);
       });
       const horizontal = flowOverviewLayoutDirection === "right" || flowOverviewLayoutDirection === "left";
-      const canvasWidth = Math.max(flowOverviewViewport.clientWidth - 1, (horizontal ? maxLevel + 1 : maxRows) * 282 + 96);
-      const canvasHeight = Math.max(flowOverviewViewport.clientHeight - 1, (horizontal ? maxRows * 150 : (maxLevel + 1) * 180) + 96);
+      const canvasWidth = Math.max(1040, ...Array.from(positionById.values()).map((position) => position.x + position.width + 120));
+      const canvasHeight = Math.max(620, ...Array.from(positionById.values()).map((position) => position.y + position.height + 120));
       flowOverviewCanvas.style.width = canvasWidth + "px";
       flowOverviewCanvas.style.height = canvasHeight + "px";
 
@@ -2458,6 +2497,7 @@ ${SCENE_SWITCH_CSS}</style>
         flowOverviewCanvas.appendChild(card);
       });
       flowOverviewBackdrop.classList.add("open");
+      applyFlowTransform();
     }
 
     let isTransitioning = false;
@@ -3271,6 +3311,26 @@ ${SCENE_SWITCH_CSS}</style>
     flowOverviewZoomIn?.addEventListener("click", () => setFlowOverviewZoom(flowOverviewZoom + 0.15, false));
     flowOverviewZoomOut?.addEventListener("click", () => setFlowOverviewZoom(flowOverviewZoom - 0.15, false));
     flowOverviewFitView?.addEventListener("click", fitFlowOverview);
+    let flowDrag = null;
+    flowGraphRegion.addEventListener("pointerdown", (event) => {
+      if ((event.button !== 0 && event.button !== 1) || event.target.closest(".flow-overview-node")) return;
+      event.preventDefault();
+      flowDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, pan: { ...flowPan } };
+      flowGraphRegion.setPointerCapture(event.pointerId);
+    });
+    flowGraphRegion.addEventListener("pointermove", (event) => {
+      if (!flowDrag || flowDrag.pointerId !== event.pointerId) return;
+      flowPan = { x: flowDrag.pan.x + event.clientX - flowDrag.x, y: flowDrag.pan.y + event.clientY - flowDrag.y };
+      applyFlowTransform();
+    });
+    const endFlowDrag = (event) => { flowDrag = null; if (flowGraphRegion.hasPointerCapture(event.pointerId)) flowGraphRegion.releasePointerCapture(event.pointerId); };
+    flowGraphRegion.addEventListener("pointerup", endFlowDrag);
+    flowGraphRegion.addEventListener("pointercancel", endFlowDrag);
+    flowGraphRegion.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const rect = flowGraphRegion.getBoundingClientRect();
+      setFlowOverviewZoom(flowOverviewZoom * Math.exp(-Math.max(-240, Math.min(240, event.deltaY)) * 0.0014), false, event.clientX - rect.left, event.clientY - rect.top);
+    }, { passive: false });
     saveSlotButton.addEventListener("click", openSaveList);
     newGameButton.addEventListener("click", startNewGame);
     settingsButton.addEventListener("click", openSettingsPanel);

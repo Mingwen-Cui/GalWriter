@@ -136,8 +136,8 @@ import { syncCloseButtonBehavior } from './windowBehavior';
 
 const sanitizeMcpSnapshotValue = (value: unknown, depth = 0): unknown => {
   if (depth > 12) return '[truncated]';
-  if (typeof value === 'string') return value.length > 20_000 ? `${value.slice(0, 20_000)}…` : value;
-  if (Array.isArray(value)) return value.slice(0, 500).map((item) => sanitizeMcpSnapshotValue(item, depth + 1));
+  if (typeof value === 'string') return value.length > 100_000 ? `${value.slice(0, 100_000)}…` : value;
+  if (Array.isArray(value)) return value.slice(0, 10_000).map((item) => sanitizeMcpSnapshotValue(item, depth + 1));
   if (!value || typeof value !== 'object') return value;
   return Object.fromEntries(
     Object.entries(value)
@@ -1227,8 +1227,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
     const omitMcpField = /(api.?key|secret|token|password|base64|dataurl|thumbnail|image|audio|video|media|blob|avatar|three.?view|tag.?sprite)/i;
     const sanitizeMcpValue = (value: unknown, depth = 0): unknown => {
       if (depth > 12) return '[truncated]';
-      if (typeof value === 'string') return value.length > 20_000 ? `${value.slice(0, 20_000)}…` : value;
-      if (Array.isArray(value)) return value.slice(0, 500).map((item) => sanitizeMcpValue(item, depth + 1));
+      if (typeof value === 'string') return value.length > 100_000 ? `${value.slice(0, 100_000)}…` : value;
+      if (Array.isArray(value)) return value.slice(0, 10_000).map((item) => sanitizeMcpValue(item, depth + 1));
       if (!value || typeof value !== 'object') return value;
       return Object.fromEntries(
         Object.entries(value).filter(([key]) => !omitMcpField.test(key))
@@ -1568,6 +1568,8 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             update_scene_node: 'update_scene_node',
             update_plot_structure_node: 'update_plot_structure_node',
             create_story_node: 'create_story_node',
+            create_number_condition_node: 'create_number_condition_node',
+            update_number_condition_node: 'update_number_condition_node',
             create_character_node: 'create_character_node',
             create_scene_node: 'create_scene_node',
             create_plot_structure_node: 'create_plot_structure_node',
@@ -1597,7 +1599,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             if (!Array.isArray(payload.input.operations)) throw new Error('operations must be an array.');
             operations = payload.input.operations as Array<Record<string, unknown>>;
             operations.forEach((operation, index) => {
-              if (['create_story_node', 'create_character_node', 'create_scene_node', 'create_plot_structure_node', 'create_background_region', 'create_dynamic_group'].includes(String(operation.type)) && (typeof operation.node_id !== 'string' || !operation.node_id.trim())) {
+              if (['create_story_node', 'create_number_condition_node', 'create_character_node', 'create_scene_node', 'create_plot_structure_node', 'create_background_region', 'create_dynamic_group'].includes(String(operation.type)) && (typeof operation.node_id !== 'string' || !operation.node_id.trim())) {
                 throw new Error(`operations[${index}].node_id is required for batch creates so preview and apply use the same node IDs.`);
               }
             });
@@ -1618,11 +1620,11 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             const fieldsByType: Record<string, string[]> = {
               storyNode: ['imageUrl', 'videoUrl', 'audioUrl'],
               characterNode: ['avatarUrl', 'threeViewUrl', 'tagSpriteUrl'],
-              sceneNode: ['coverImageUrl'],
+              sceneNode: ['coverImageUrl', 'sceneImage', 'sceneVideo'],
             };
             if (!(fieldsByType[node.type || ''] || []).includes(field)) throw new Error(`Media field '${field}' is not supported for this card type.`);
             const kindByMime = mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('audio/') ? 'audio' : mimeType.startsWith('video/') ? 'video' : null;
-            const kindByField: Record<string, string> = { imageUrl: 'image', videoUrl: 'video', audioUrl: 'audio', avatarUrl: 'image', threeViewUrl: 'image', tagSpriteUrl: 'image', coverImageUrl: 'image' };
+            const kindByField: Record<string, string> = { imageUrl: 'image', videoUrl: 'video', audioUrl: 'audio', avatarUrl: 'image', threeViewUrl: 'image', tagSpriteUrl: 'image', coverImageUrl: 'image', sceneImage: 'image', sceneVideo: 'video' };
             if (!kindByMime || kindByField[field] !== kindByMime) throw new Error(`mime_type '${mimeType}' is not compatible with field '${field}'.`);
             if (mediaData.length > 45_000_000 || !/^[a-z0-9+/]+={0,2}$/i.test(mediaData) || mediaData.length % 4 !== 0) throw new Error('media_data is invalid or exceeds the 32 MB media limit.');
             let decoded: string;
@@ -1633,7 +1635,7 @@ export function StoryEditor({ appLanguage, onAppLanguageChange }: StoryEditorPro
             for (let index = 0; index < decoded.length; index += 1) bytes[index] = decoded.charCodeAt(index);
             const blob = new Blob([bytes], { type: mimeType });
             const mediaUrl = registerBlobAsset(URL.createObjectURL(blob), blob);
-            operations = [{ type: 'import_project_media', node_id: nodeId, field, mime_type: mimeType, media_url: mediaUrl }];
+            operations = [{ type: 'import_project_media', node_id: nodeId, field, mime_type: mimeType, media_url: mediaUrl, name: payload.input.name }];
           } else {
             const operationType = simpleMap[payload.operation];
             if (!operationType) throw new Error(`Unsupported MCP write operation: ${payload.operation}`);

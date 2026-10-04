@@ -1493,7 +1493,7 @@ html.canvas-selection-dragging * {
 .interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) {
   border-color: #c5cad1 !important;
   background: #f3f4f6 !important;
-  color: #000000 !important;
+  color: var(--interactive-minimap-control-color, #111827) !important;
   box-shadow: none;
 }
 
@@ -1565,6 +1565,7 @@ html.canvas-selection-dragging * {
 .interactive-segment-minimap--icon-only .react-flow__controls-button {
   border-right-color: #d8dce2 !important;
   box-shadow: none !important;
+  color: var(--interactive-minimap-control-color, #111827) !important;
 }
 
 .interactive-segment-minimap--icon-only .react-flow__controls {
@@ -1576,20 +1577,20 @@ html.canvas-selection-dragging * {
 .interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) {
   border-color: #c5cad1 !important;
   background: #f3f4f6 !important;
-  color: #000000 !important;
+  color: var(--interactive-minimap-control-color, #111827) !important;
   box-shadow: none !important;
 }
 
 .interactive-segment-minimap--icon-only .react-flow__controls-button svg,
 .interactive-segment-minimap--icon-only .react-flow__controls-button svg path {
-  fill: #111827 !important;
-  stroke: #111827 !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
 }
 
 .interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) svg,
 .interactive-segment-minimap--icon-only .react-flow__controls-button:hover:not(:disabled) svg path {
-  fill: #000000 !important;
-  stroke: #000000 !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
 }
 
 .gw-flow-control {

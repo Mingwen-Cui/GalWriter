@@ -65,6 +65,7 @@ type Props = {
     borderBottomRightRadius?: number;
     borderBottomLeftRadius?: number;
     textColor?: string;
+    textColorAlpha?: number;
   };
 };
 
@@ -178,7 +179,9 @@ export function InteractiveSegmentMinimap({
       controlAppearance?.strokeEnabled === false ? 0 : (controlAppearance?.borderWidth ?? 1)
     }px`,
     '--interactive-minimap-control-radius': `${controlAppearance?.borderRadius ?? 10}px`,
-    '--interactive-minimap-control-color': controlAppearance?.textColor ?? (showControlLabels ? '#4338ca' : '#111827'),
+    '--interactive-minimap-control-color': controlAppearance?.textColorAlpha === undefined
+      ? (controlAppearance?.textColor ?? (showControlLabels ? '#4338ca' : '#111827'))
+      : `color-mix(in srgb, ${controlAppearance.textColor ?? '#111827'} ${controlAppearance.textColorAlpha}%, transparent)`,
   } as CSSProperties;
 
   return (
@@ -287,7 +290,7 @@ export function InteractiveSegmentMinimap({
             className="react-flow__controls-button interactive-minimap-control interactive-minimap-control--zoom-in react-flow__controls-zoomin"
             title={formatVideoText(language, 'interactiveMinimapZoomIn')}
             aria-label={formatVideoText(language, 'interactiveMinimapZoomIn')}
-            disabled={!interactive || !canZoomIn}
+            disabled={!canZoomIn}
             onClick={interactive ? onZoomIn : undefined}
           >
             <svg
@@ -308,7 +311,7 @@ export function InteractiveSegmentMinimap({
             className="react-flow__controls-button interactive-minimap-control interactive-minimap-control--zoom-out react-flow__controls-zoomout"
             title={formatVideoText(language, 'interactiveMinimapZoomOut')}
             aria-label={formatVideoText(language, 'interactiveMinimapZoomOut')}
-            disabled={!interactive || !canZoomOut}
+            disabled={!canZoomOut}
             onClick={interactive ? onZoomOut : undefined}
           >
             <svg className="interactive-minimap-control-icon" viewBox="0 0 32 5" aria-hidden="true">
@@ -325,7 +328,7 @@ export function InteractiveSegmentMinimap({
             className="react-flow__controls-button interactive-minimap-control interactive-minimap-control--fit-view react-flow__controls-fitview"
             title={formatVideoText(language, 'interactiveMinimapFitView')}
             aria-label={formatVideoText(language, 'interactiveMinimapFitView')}
-            disabled={!interactive}
+            aria-disabled={!interactive}
             onClick={interactive ? onFitView : undefined}
           >
             <svg

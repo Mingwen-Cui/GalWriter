@@ -496,7 +496,7 @@ export function StartMenuElementInspector({
     element.backgroundGradientStart || '#0ea5e9',
     element.backgroundGradientEnd || '#0f172a',
   );
-  const buttonTextColorType = element.textColorType || 'solid';
+  const buttonTextColorType = element.role === 'flowMinimap' ? 'solid' : element.textColorType || 'solid';
   const buttonTextGradientStops = normalizeGradientStops(
     element.textGradientStops,
     element.textGradientStart || element.textColor || '#ffffff',
@@ -595,6 +595,9 @@ export function StartMenuElementInspector({
     language,
     'componentsrenderwebStartMenuElementInspectorStructuredText468',
   );
+  const buttonColorLabel = element.role === 'flowMinimap'
+    ? language === 'zh' ? '图标颜色与透明度' : language === 'ja' ? 'アイコンの色と不透明度' : 'Icon color and opacity'
+    : descriptionCopy.textColor;
   const fillHasValue =
     element.kind !== 'text' &&
     !(
@@ -1022,7 +1025,7 @@ export function StartMenuElementInspector({
 
       {element.kind === 'button' && (
         <Group
-          title={descriptionCopy.textColor}
+          title={buttonColorLabel}
           icon={<Palette className="h-3.5 w-3.5" />}
           tone="text"
           expandLabel={inspectorCopy.expand}
@@ -1088,7 +1091,7 @@ export function StartMenuElementInspector({
                         label: text.popover.gradientTitle,
                         icon: <GradientIcon />,
                       },
-                    ].map((option) => (
+                    ].filter((option) => element.role !== 'flowMinimap' || option.value === 'solid').map((option) => (
                       <button
                         key={option.value}
                         type="button"

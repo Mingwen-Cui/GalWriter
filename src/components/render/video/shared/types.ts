@@ -586,6 +586,9 @@ export type WebExportSettings = {
   /** Built-in page colours, shared by settings controls, saves and story flow. */
   menuTheme?: WebThemeVisuals;
   flowOverviewLayoutDirection: 'right' | 'down' | 'left' | 'up';
+  flowOverviewView?: import('../../web/webFlowView').WebFlowView;
+  /** One-time migration of the previously visible built-in controls. */
+  flowOverviewControlsInitialized?: boolean;
   flowOverviewCardSizes?: Record<string, { width: number; height: number }>;
   flowOverviewMinimapWidth: number;
   flowOverviewMinimapHeight: number;

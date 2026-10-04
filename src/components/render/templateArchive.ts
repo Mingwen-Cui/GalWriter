@@ -1,3 +1,4 @@
+import { splitWebExperienceTemplate } from './web/webTemplateBundle';
 import { resolveKnownAppAssetUrl } from '../../lib/appAssets';
 
 const imageUrlKey = /image(?:url)?$/i;
@@ -26,140 +27,6 @@ const canPackageImage = (key: string, value: string) =>
     value.startsWith('https://') ||
     value.startsWith('/') ||
     supportedImageExtension.test(value));
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-
-const webPageSettingKeys = {
-  home: [
-    'showStartMenu',
-    'startMenuTemplate',
-    'startMenuBackgroundType',
-    'startMenuBackgroundColor',
-    'startMenuBackgroundGradientStart',
-    'startMenuBackgroundGradientEnd',
-    'startMenuBackgroundGradientAngle',
-    'startMenuBackgroundGradientShape',
-    'startMenuBackgroundGradientStops',
-    'startMenuBackgroundImageUrl',
-    'startMenuBackgroundVideoUrl',
-    'startMenuBackgroundVideoLoop',
-    'startMenuBackgroundVideoMuted',
-    'startMenuBackgroundVideoFit',
-    'startMenuElements',
-    'startMenuPlacementBoundsLocked',
-    'startMenuPlacementMinX',
-    'startMenuPlacementMinY',
-    'startMenuPlacementMaxX',
-    'startMenuPlacementMaxY',
-    'startMenuShowSave',
-    'startMenuShowNewGame',
-    'startMenuShowSettings',
-  ],
-  archive: [
-    'archiveBackgroundType',
-    'archiveBackgroundColor',
-    'archiveBackgroundGradientStart',
-    'archiveBackgroundGradientEnd',
-    'archiveBackgroundGradientAngle',
-    'archiveBackgroundGradientShape',
-    'archiveBackgroundGradientStops',
-    'archiveBackgroundImageUrl',
-    'archiveBackgroundVideoUrl',
-    'archiveBackgroundVideoLoop',
-    'archiveBackgroundVideoMuted',
-    'archiveBackgroundVideoFit',
-    'archivePageElements',
-    'startMenuMusicApplyToArchive',
-  ],
-  settings: [
-    'settingsBackgroundType',
-    'settingsBackgroundColor',
-    'settingsBackgroundGradientStart',
-    'settingsBackgroundGradientEnd',
-    'settingsBackgroundGradientAngle',
-    'settingsBackgroundGradientShape',
-    'settingsBackgroundGradientStops',
-    'settingsBackgroundImageUrl',
-    'settingsBackgroundVideoUrl',
-    'settingsBackgroundVideoLoop',
-    'settingsBackgroundVideoMuted',
-    'settingsBackgroundVideoFit',
-    'settingsPageElements',
-    'startMenuMusicApplyToSettings',
-  ],
-  dialogue: [
-    'layoutMode',
-    'sceneFit',
-    'sceneScale',
-    'sceneScaleX',
-    'sceneScaleY',
-    'sceneOffsetX',
-    'sceneOffsetY',
-    'sceneBackgroundVisible',
-    'sceneBackgroundType',
-    'sceneBackgroundColor',
-    'sceneBackgroundGradientStart',
-    'sceneBackgroundGradientEnd',
-    'sceneBackgroundGradientAngle',
-    'sceneBackgroundImageUrl',
-    'choicesPosition',
-    'skipSingleChoicePopup',
-    'autoAdvance',
-    'videoAutoPlay',
-    'hideCharacterTags',
-    'hideSceneTags',
-    'dialogueBackgroundType',
-    'dialogueBackgroundColor',
-    'dialogueBackgroundGradientStart',
-    'dialogueBackgroundGradientEnd',
-    'dialogueBackgroundGradientAngle',
-    'dialogueBackgroundGradientShape',
-    'dialogueBackgroundGradientStops',
-    'dialogueBackgroundImageUrl',
-    'dialogueBackgroundVideoUrl',
-    'dialogueBackgroundVideoLoop',
-    'dialogueBackgroundVideoMuted',
-    'dialogueBackgroundVideoFit',
-    'previewToolbarElements',
-    'dialogueOverlayElements',
-  ],
-} as const;
-
-const splitWebExperienceTemplate = (template: unknown) => {
-  if (!isRecord(template) || !isRecord(template.settings)) return null;
-  const settings = template.settings;
-  if (!Array.isArray(settings.startMenuElements)) return null;
-
-  const { settings: _settings, renderStyle, ...shared } = template;
-  const pages = Object.fromEntries(
-    Object.entries(webPageSettingKeys).map(([surface, keys]) => [
-      surface,
-      {
-        version: 1,
-        surface,
-        settings: Object.fromEntries(
-          keys.filter((key) => key in settings).map((key) => [key, settings[key]]),
-        ),
-        ...(surface === 'dialogue' && renderStyle !== undefined ? { renderStyle } : {}),
-      },
-    ]),
-  );
-  return {
-    manifest: {
-      ...shared,
-      version: 3,
-      kind: 'galwriter-web-template',
-      pages: {
-        home: 'pages/home.json',
-        archive: 'pages/archive.json',
-        settings: 'pages/settings.json',
-        dialogue: 'pages/dialogue.json',
-      },
-    },
-    pages,
-  };
-};
 
 /**
  * Packages a portable template: template.json keeps the design data and every
@@ -221,7 +88,10 @@ export const downloadTemplateArchive = async ({
 
   const webBundle = splitWebExperienceTemplate(template);
   if (webBundle) {
-    zip.file('template.json', JSON.stringify(webBundle.manifest, null, 2));
+    zip.file(
+      'template.json',
+      JSON.stringify(await copyWithPackagedImages(webBundle.manifest), null, 2),
+    );
     for (const [surface, page] of Object.entries(webBundle.pages)) {
       const portablePage = await copyWithPackagedImages(page, '', '../');
       zip.file(`pages/${surface}.json`, JSON.stringify(portablePage, null, 2));

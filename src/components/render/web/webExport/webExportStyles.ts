@@ -831,8 +831,9 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .flow-overview-close:hover { color: #4f46e5; border-color: #818cf8; }
     .flow-overview-close-floating { position: absolute; top: 18px; right: 18px; z-index: 12; }
-    .flow-overview-viewport { position: relative; flex: 1; overflow: auto; background: radial-gradient(rgba(37,42,89,0.12) 1px, transparent 1px), #f8fafc; background-size: 22px 22px; }
-    .flow-overview-canvas { position: relative; min-width: 100%; min-height: 100%; padding: 80px; }
+    .flow-overview-viewport { position: relative; flex: 1; overflow: hidden; background: radial-gradient(rgba(37,42,89,0.12) 1px, transparent 1px), #f8fafc; background-size: 22px 22px; }
+    .flow-overview-graph-region { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+    .flow-overview-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
     .flow-overview-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
     .flow-overview-custom-layer { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
     .flow-overview-custom-layer .start-element { pointer-events: auto; }
@@ -864,8 +865,8 @@ export const WEB_EXPORT_STYLES = String.raw`
     .flow-overview-minimap-map { min-height: 0; flex: 1; overflow: hidden; background: transparent; }
     .flow-overview-minimap-map svg { display: block; width: 100%; height: 100%; }
     .flow-overview-minimap-controls { display: flex; gap: 0; align-items: center; justify-content: stretch; min-height: 42px; padding: 5px 6px; border-top: 1px solid #d8dce2; border-radius: 0 0 var(--flow-overview-minimap-bottom-right-radius, var(--flow-overview-minimap-radius, 12px)) var(--flow-overview-minimap-bottom-left-radius, var(--flow-overview-minimap-radius, 12px)); overflow: hidden; background: #ffffff; }
-    .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; min-height: 30px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: #111827; cursor: pointer; }
-    .flow-overview-minimap-control:hover:not(:disabled), .flow-overview-minimap-control:focus-visible { border-color: #c5cad1; background: #f3f4f6; color: #000000; outline: none; transform: translateY(-1px); }
+    .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; min-height: 30px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: var(--flow-overview-control-color, #111827); cursor: pointer; }
+    .flow-overview-minimap-control:hover:not(:disabled), .flow-overview-minimap-control:focus-visible { border-color: #c5cad1; background: #f3f4f6; color: var(--flow-overview-control-color, #111827); outline: none; transform: translateY(-1px); }
     .flow-overview-minimap-control:disabled { cursor: not-allowed; opacity: .38; }
     .flow-overview-minimap-control svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
     .flow-overview-node {

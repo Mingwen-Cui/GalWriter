@@ -1,4 +1,5 @@
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
+import { normalizeWebFlowView } from '../webFlowView';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import JSZip from 'jszip';
 
@@ -385,6 +386,8 @@ export async function buildInteractiveWebZipBlob(
     flowOverviewElements: options.settings?.flowOverviewElements || [],
     menuTheme: options.settings?.menuTheme,
     flowOverviewLayoutDirection: options.settings?.flowOverviewLayoutDirection || 'right',
+    flowOverviewView: normalizeWebFlowView(options.settings?.flowOverviewView),
+    flowOverviewControlsInitialized: options.settings?.flowOverviewControlsInitialized,
     flowOverviewCardSizes: options.settings?.flowOverviewCardSizes || {},
     flowOverviewMinimapWidth: options.settings?.flowOverviewMinimapWidth ?? 220,
     flowOverviewMinimapHeight: options.settings?.flowOverviewMinimapHeight ?? 160,

@@ -125,6 +125,7 @@ import {
   type WebStoryFlowGraphControls,
   type WebStoryFlowGraphSnapshot,
 } from './WebStoryFlowGraph';
+import { WebFlowRegion } from './WebFlowRegion';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 
 type WebPlaytestPreviewProps = {
@@ -139,6 +140,7 @@ type WebPlaytestPreviewProps = {
   previewMode?: 'edit' | 'test';
   requestedSurface?: WebPreviewSurface;
   selectedStartMenuElementId?: string | null;
+  selectedFlowCardId?: string | null;
   imageCropEditingElementId?: string | null;
   gradientEditingSurface?: WebPreviewSurface | null;
   gradientEditingElement?: { id: string; group: 'text' | 'fill' | 'stroke' } | null;
@@ -188,6 +190,7 @@ export function WebPlaytestPreview({
   previewMode = 'test',
   requestedSurface,
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
+  selectedFlowCardId,
   imageCropEditingElementId = null,
   gradientEditingSurface = null,
   gradientEditingElement = null,
@@ -2327,8 +2330,8 @@ export function WebPlaytestPreview({
           viewportZoom={flowGraphSnapshot.viewportZoom}
           viewportSize={flowGraphSnapshot.viewportSize}
           lineOpacity={flowGraphSnapshot.lineOpacity}
-          canZoomIn={flowGraphSnapshot.viewportZoom < 1.85}
-          canZoomOut={flowGraphSnapshot.viewportZoom > 0.35}
+          canZoomIn={flowGraphSnapshot.viewportZoom < flowGraphSnapshot.maxZoom}
+          canZoomOut={flowGraphSnapshot.viewportZoom > flowGraphSnapshot.minZoom}
           onViewportPanChange={flowGraphSnapshot.onViewportPanChange}
           onZoomIn={flowGraphSnapshot.onZoomIn}
           onZoomOut={flowGraphSnapshot.onZoomOut}
@@ -2395,6 +2398,7 @@ export function WebPlaytestPreview({
             event.stopPropagation();
           }}
         >
+          <WebFlowRegion view={settings.flowOverviewView} editable={previewMode === 'edit'} selected={!selectedStartMenuElementId && !selectedFlowCardId} language={language} onSelect={() => onSelectFlowCard?.(null)} onChange={(view) => onUpdateSettings('flowOverviewView', view)}>
           <WebStoryFlowGraph
             language={language}
             nodes={nodes}
@@ -2407,6 +2411,8 @@ export function WebPlaytestPreview({
             onSelectedCardChange={onSelectFlowCard}
             onActiveSegmentChange={setFlowActiveBranchLabel}
             layoutDirection={settings.flowOverviewLayoutDirection}
+            view={settings.flowOverviewView}
+            onViewChange={(view) => onUpdateSettings('flowOverviewView', view)}
             onLayoutDirectionChange={(direction) =>
               onUpdateSettings('flowOverviewLayoutDirection', direction)
             }
@@ -2432,15 +2438,12 @@ export function WebPlaytestPreview({
                 })(),
               )
             }
-            showDirectionControl={
-              !flowOverviewElements.some((element) => element.role === 'flowDirection')
-            }
-            showFitViewControl={
-              !flowOverviewElements.some((element) => element.role === 'flowFitView')
-            }
+            showDirectionControl={false}
+            showFitViewControl={false}
             onClose={previewMode === 'test' ? () => setFlowOverviewOpen(false) : undefined}
             onPlayFromNode={startPreviewFromNode}
           />
+          </WebFlowRegion>
           {previewMode === 'edit' && activeStartMenuGuideLines.length > 0 && (
             <div className="pointer-events-none absolute inset-0 z-30">
               {activeStartMenuGuideLines.map((line, index) => (
@@ -2456,7 +2459,7 @@ export function WebPlaytestPreview({
               ))}
             </div>
           )}
-          {flowOverviewElements.map((element) => (
+          {flowOverviewElements.filter((element) => element.visible !== false || (element.role !== 'flowDirection' && element.role !== 'flowFitView')).map((element) => (
             <WebPlaytestStartMenuElement
               key={element.id}
               element={element}

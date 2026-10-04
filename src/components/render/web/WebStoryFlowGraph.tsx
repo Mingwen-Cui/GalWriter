@@ -1,5 +1,6 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { WEB_FLOW_THEME_CSS } from './webThemeVisuals';
+import { normalizeWebFlowView, type WebFlowView } from './webFlowView';
 import {
   ArrowDown,
   ArrowLeft,
@@ -64,6 +65,8 @@ type Props = {
   showDirectionControl?: boolean;
   showFitViewControl?: boolean;
   watchedNodeIds?: ReadonlySet<string>;
+  view?: WebFlowView;
+  onViewChange?: (view: WebFlowView) => void;
 };
 
 export type WebStoryFlowGraphControls = {
@@ -89,6 +92,8 @@ export type WebStoryFlowGraphSnapshot = {
   viewportSize: { width: number; height: number };
   cardSizes: Record<string, { width: number; height: number }>;
   lineOpacity: number;
+  minZoom: number;
+  maxZoom: number;
   onViewportPanChange: (pan: GraphPoint) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -98,8 +103,6 @@ export type WebStoryFlowGraphSnapshot = {
 const cardWidth = 208;
 const cardHeight = 132;
 const graphPadding = 120;
-const minZoom = 0.35;
-const maxZoom = 1.85;
 
 const textFor = (language: Language, zh: string, ja: string, en: string) =>
   language === 'zh' ? zh : language === 'ja' ? ja : en;
@@ -143,10 +146,14 @@ export function WebStoryFlowGraph({
   onLayoutDirectionChange,
   onSelectedCardChange,
   controlsRef,
-  showDirectionControl = true,
-  showFitViewControl = true,
+  showDirectionControl = false,
+  showFitViewControl = false,
   watchedNodeIds,
+  view: viewSettings,
+  onViewChange,
 }: Props) {
+  const view = normalizeWebFlowView(viewSettings);
+  const { minZoom, maxZoom } = view;
   const segments = useMemo(() => buildInteractiveSegments(nodes, edges), [edges, nodes]);
   const nodesById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>(
@@ -246,8 +253,8 @@ export function WebStoryFlowGraph({
   }, [activeSegment, language, nodesById, onActiveSegmentChange]);
 
   const autoPositions = useMemo(
-    () => buildSegmentLayout(segments, layoutDirection, cardWidth, cardHeight),
-    [layoutDirection, segments],
+    () => buildSegmentLayout(segments, layoutDirection, cardWidth, cardHeight, { columnGap: view.gapX, rowGap: view.gapY }),
+    [layoutDirection, segments, view.gapX, view.gapY],
   );
   const positions = useMemo(() => {
     const next = new Map<string, GraphPoint>();
@@ -343,6 +350,19 @@ export function WebStoryFlowGraph({
     setViewportZoom(zoom);
   };
 
+  useEffect(() => {
+    scheduleTransform({ x: view.offsetX * viewportSize.width / 100, y: view.offsetY * viewportSize.height / 100 }, view.zoom);
+  }, [view.offsetX, view.offsetY, view.zoom, viewportSize.width, viewportSize.height]);
+
+  const saveInitialView = () => {
+    if (!editable || !onViewChange || !viewportSize.width || !viewportSize.height) return;
+    onViewChange(normalizeWebFlowView({ ...view, offsetX: panRef.current.x / viewportSize.width * 100, offsetY: panRef.current.y / viewportSize.height * 100, zoom: zoomRef.current }));
+  };
+  const wheelSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveInitialViewRef = useRef(saveInitialView);
+  saveInitialViewRef.current = saveInitialView;
+  useEffect(() => () => { if (wheelSaveRef.current) clearTimeout(wheelSaveRef.current); }, []);
+
   const fitView = () => {
     if (!viewportSize.width || !viewportSize.height) return;
     const fitPadding = 56;
@@ -381,7 +401,6 @@ export function WebStoryFlowGraph({
     setLayoutDirection(direction);
     onLayoutDirectionChange?.(direction);
     setManualPositions({});
-    scheduleTransform({ x: 0, y: 0 }, 1);
   };
 
   useEffect(() => {
@@ -399,11 +418,15 @@ export function WebStoryFlowGraph({
   }, [controlsRef, layoutDirection, viewportSize, graphWidth, graphHeight]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || event.target !== event.currentTarget) return;
-    if (editable) {
+    if (event.button !== 0 && event.button !== 1) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button, [role="button"]')) return;
+    if (editable && !event.altKey && event.button !== 1) {
       onSelectedCardChange?.(null);
       return;
     }
+    event.preventDefault();
+    event.stopPropagation();
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -422,7 +445,11 @@ export function WebStoryFlowGraph({
     });
   };
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+      if (event.type !== 'pointercancel') saveInitialView();
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
   const beginCardResize = (event: ReactPointerEvent<HTMLSpanElement>, segmentId: string) => {
     if (!editable || !onCardSizeChange) return;
@@ -470,6 +497,10 @@ export function WebStoryFlowGraph({
       event.clientX - rect.left,
       event.clientY - rect.top,
     );
+    if (editable) {
+      if (wheelSaveRef.current) clearTimeout(wheelSaveRef.current);
+      wheelSaveRef.current = setTimeout(() => saveInitialViewRef.current(), 180);
+    }
   };
 
   useEffect(() => {
@@ -486,6 +517,8 @@ export function WebStoryFlowGraph({
       viewportSize,
       cardSizes,
       lineOpacity,
+      minZoom,
+      maxZoom,
       onViewportPanChange: (pan) => scheduleTransform(pan),
       onZoomIn: () => setZoomAt(viewportZoom + 0.15),
       onZoomOut: () => setZoomAt(viewportZoom - 0.15),
@@ -505,6 +538,8 @@ export function WebStoryFlowGraph({
     viewportSize,
     viewportZoom,
     cardSizes,
+    minZoom,
+    maxZoom,
   ]);
 
   if (segments.length === 0) {

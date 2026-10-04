@@ -28,6 +28,7 @@ export const buildSegmentLayout = (
   direction: LayoutDirection,
   cardWidth: number,
   cardHeight: number,
+  spacing?: { columnGap: number; rowGap: number },
 ) => {
   const incoming = new Map<string, number>();
   const byId = new Map(segments.map((segment) => [segment.id, segment]));
@@ -70,8 +71,8 @@ export const buildSegmentLayout = (
     lanesByDepth.set(depth, [...(lanesByDepth.get(depth) || []), segment]);
   });
 
-  const columnGap = 260;
-  const rowGap = 116;
+  const columnGap = spacing?.columnGap ?? 260;
+  const rowGap = spacing?.rowGap ?? 116;
   const branchGap = 96;
   const positions = new Map<string, GraphPoint>();
   const sortedDepths = [...lanesByDepth.keys()].sort((a, b) => a - b);

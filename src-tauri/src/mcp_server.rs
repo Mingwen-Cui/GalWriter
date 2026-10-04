@@ -139,16 +139,15 @@ fn connection_status(state: &GalWriterMcpState) -> Value {
 
 fn sanitize_private_and_media_fields(value: Value) -> Value {
   match value {
-    Value::String(text) => Value::String(if text.len() > 20_000 {
-      let boundary = text.char_indices().map(|(index, _)| index).take_while(|index| *index <= 20_000).last().unwrap_or(0);
-      format!("{}…", &text[..boundary])
+    Value::String(text) => Value::String(if text.chars().count() > 100_000 {
+      format!("{}…", text.chars().take(100_000).collect::<String>())
     } else {
       text
     }),
     Value::Array(values) => Value::Array(
       values
         .into_iter()
-        .take(500)
+        .take(10_000)
         .map(sanitize_private_and_media_fields)
         .collect(),
     ),
@@ -171,6 +170,163 @@ fn is_private_or_media_field(key: &str) -> bool {
   ]
   .iter()
   .any(|part| key.contains(part))
+}
+
+fn project_structure_diagnostics(project: &Value) -> Value {
+  let nodes = project.get("nodes").and_then(Value::as_array).cloned().unwrap_or_default();
+  let edges = project.get("edges").and_then(Value::as_array).cloned().unwrap_or_default();
+  let by_id: std::collections::HashMap<&str, &Value> = nodes.iter()
+    .filter_map(|node| Some((node.get("id")?.as_str()?, node)))
+    .collect();
+  let mut findings: Vec<Value> = Vec::new();
+  let mut add = |severity: &str, code: &str, message: String, node_id: Option<&str>| {
+    findings.push(json!({"severity": severity, "code": code, "message": message, "nodeId": node_id}));
+  };
+  let mut node_id_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+  for node in &nodes {
+    if let Some(id) = node.get("id").and_then(Value::as_str) { *node_id_counts.entry(id).or_default() += 1; }
+    else { add("error", "missing_node_id", "A canvas card is missing its ID.".to_string(), None); }
+  }
+  for (id, count) in node_id_counts {
+    if count > 1 { add("error", "duplicate_node_id", format!("Card ID {id} appears {count} times."), Some(id)); }
+  }
+  let roots: Vec<&Value> = nodes.iter().filter(|node| {
+    node.get("type").and_then(Value::as_str) == Some("storyNode")
+      && node.get("data").and_then(|data| data.get("isRoot")).and_then(Value::as_bool) == Some(true)
+  }).collect();
+  if roots.len() != 1 {
+    add("error", "root_count", format!("Expected exactly one protected root story card; found {}.", roots.len()), None);
+  }
+
+  let mut pair_counts: std::collections::HashMap<(String, String, String), usize> = std::collections::HashMap::new();
+  let mut incoming: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+  let mut outgoing: std::collections::HashMap<&str, Vec<&Value>> = std::collections::HashMap::new();
+  for edge in &edges {
+    let source = edge.get("source").and_then(Value::as_str);
+    let target = edge.get("target").and_then(Value::as_str);
+    let (Some(source_id), Some(target_id)) = (source, target) else {
+      add("error", "invalid_edge", "A link is missing its source or target ID.".to_string(), None);
+      continue;
+    };
+    let source_node = by_id.get(source_id).copied();
+    let target_node = by_id.get(target_id).copied();
+    if source_node.is_none() || target_node.is_none() {
+      add("error", "dangling_edge", format!("Link {source_id} → {target_id} points to a missing card."), Some(source_id));
+      continue;
+    }
+    let source_type = source_node.and_then(|node| node.get("type")).and_then(Value::as_str).unwrap_or("");
+    let target_type = target_node.and_then(|node| node.get("type")).and_then(Value::as_str).unwrap_or("");
+    let is_presentation_marker = edge.get("data").and_then(|data| data.get("mcpRelation")).and_then(Value::as_str) == Some("presentation");
+    let setting_pair = (source_type == "storyNode" && matches!(target_type, "characterNode" | "sceneNode"))
+      || (target_type == "storyNode" && matches!(source_type, "characterNode" | "sceneNode"));
+    let is_presentation = is_presentation_marker || setting_pair;
+    if is_presentation {
+      if !setting_pair {
+        add("error", "invalid_presentation_link", format!("Presentation link {source_id} → {target_id} must connect a story card to a character or scene card."), Some(source_id));
+      }
+      continue;
+    }
+    if !matches!(source_type, "storyNode" | "numberConditionNode") || !matches!(target_type, "storyNode" | "numberConditionNode") {
+      add("error", "invalid_story_link", format!("Story-flow link {source_id} → {target_id} connects an unsupported card type."), Some(source_id));
+      continue;
+    }
+    let source_handle = edge.get("sourceHandle").and_then(Value::as_str).unwrap_or("");
+    let pair = (source_id.to_string(), target_id.to_string(), source_handle.to_string());
+    *pair_counts.entry(pair).or_default() += 1;
+    *incoming.entry(target_id).or_default() += 1;
+    outgoing.entry(source_id).or_default().push(edge);
+    if source_id == target_id {
+      add("error", "self_link", format!("Card {source_id} links to itself."), Some(source_id));
+    }
+    if source_type == "numberConditionNode" {
+      let handle = edge.get("sourceHandle").and_then(Value::as_str).unwrap_or("");
+      let valid = matches!(handle, "out-greater" | "out-less-equal")
+        || handle.strip_prefix("out-range-").is_some_and(|range_id| {
+          source_node.and_then(|node| node.get("data")).and_then(|data| data.get("ranges"))
+            .and_then(Value::as_array).is_some_and(|ranges| ranges.iter().any(|range| range.get("id").and_then(Value::as_str) == Some(range_id)))
+        });
+      if !valid {
+        add("error", "invalid_condition_branch", format!("Condition card {source_id} has a link with an invalid or missing branch handle."), Some(source_id));
+      }
+    }
+  }
+  for ((source, target, handle), count) in pair_counts {
+    if count > 1 { add("warning", "duplicate_link", format!("There are {count} duplicate links from {source} to {target} on handle '{handle}'."), Some(&source)); }
+  }
+
+  for node in &nodes {
+    let id = node.get("id").and_then(Value::as_str).unwrap_or("");
+    let kind = node.get("type").and_then(Value::as_str).unwrap_or("");
+    let data = node.get("data").unwrap_or(&Value::Null);
+    if kind == "numberConditionNode" {
+      let threshold_ok = data.get("threshold").and_then(Value::as_f64).is_some_and(|value| value.is_finite());
+      if !threshold_ok { add("error", "invalid_threshold", format!("Condition card {id} needs a finite numeric threshold."), Some(id)); }
+      if incoming.get(id).copied().unwrap_or(0) == 0 { add("warning", "condition_without_input", format!("Condition card {id} has no incoming story-flow link, so its accumulated value is empty."), Some(id)); }
+      let handles: Vec<&str> = outgoing.get(id).into_iter().flatten().filter_map(|edge| edge.get("sourceHandle").and_then(Value::as_str)).collect();
+      for (branch, handle) in [("greater-or-equal", "out-greater"), ("less-than", "out-less-equal")] {
+        if !handles.contains(&handle) { add("warning", "condition_branch_unconnected", format!("Condition card {id} has no outgoing {branch} branch."), Some(id)); }
+      }
+      if let Some(ranges) = data.get("ranges").and_then(Value::as_array) {
+        let mut range_ids = std::collections::HashSet::new();
+        let mut valid_ranges: Vec<(f64, f64, String)> = Vec::new();
+        for range in ranges {
+          let range_id = range.get("id").and_then(Value::as_str).unwrap_or("");
+          if range_id.is_empty() || !range_ids.insert(range_id) {
+            add("error", "duplicate_condition_range_id", format!("Condition card {id} has a missing or duplicate range ID."), Some(id));
+          }
+          let valid = range.get("min").and_then(Value::as_f64).zip(range.get("max").and_then(Value::as_f64)).is_some_and(|(min, max)| min.is_finite() && max.is_finite() && min <= max);
+          if !valid { add("error", "invalid_condition_range", format!("Condition card {id} contains an invalid range {range_id}."), Some(id)); }
+          else {
+            let min = range.get("min").and_then(Value::as_f64).unwrap_or_default();
+            let max = range.get("max").and_then(Value::as_f64).unwrap_or_default();
+            valid_ranges.push((min, max, range_id.to_string()));
+            if !handles.contains(&format!("out-range-{range_id}").as_str()) { add("warning", "condition_range_unconnected", format!("Condition card {id} has no outgoing link for range {range_id}."), Some(id)); }
+          }
+        }
+        for (index, (min, max, range_id)) in valid_ranges.iter().enumerate() {
+          if let Some((_, _, overlap_id)) = valid_ranges.iter().skip(index + 1).find(|(other_min, other_max, _)| min <= other_max && max >= other_min) {
+            add("warning", "overlapping_condition_ranges", format!("Condition card {id} ranges {range_id} and {overlap_id} overlap; the first matching range takes precedence."), Some(id));
+          }
+        }
+      }
+    }
+    if kind == "groupNode" {
+      let children = data.get("childIds").and_then(Value::as_array).cloned().unwrap_or_default();
+      if children.is_empty() { add("warning", "empty_group", format!("Dynamic group {id} has no members."), Some(id)); }
+      let mut child_ids = std::collections::HashSet::new();
+      for child in children.iter().filter_map(Value::as_str) {
+        if !child_ids.insert(child) { add("warning", "duplicate_group_member", format!("Dynamic group {id} contains card {child} more than once."), Some(id)); }
+        if !by_id.contains_key(child) { add("error", "missing_group_member", format!("Dynamic group {id} references missing card {child}."), Some(id)); }
+        else if by_id.get(child).and_then(|node| node.get("type")).and_then(Value::as_str).is_some_and(|kind| matches!(kind, "backgroundNode" | "groupNode" | "batchReplaceNode" | "plotStructureNode" | "aiNode")) {
+          add("error", "invalid_group_member", format!("Dynamic group {id} contains unsupported card {child}."), Some(id));
+        }
+      }
+    }
+  }
+
+  if let Some(root) = roots.first() {
+    let root_id = root.get("id").and_then(Value::as_str).unwrap_or("");
+    let mut reachable = std::collections::HashSet::from([root_id]);
+    let mut queue = std::collections::VecDeque::from([root_id]);
+    while let Some(current) = queue.pop_front() {
+      if let Some(links) = outgoing.get(current) {
+        for edge in links {
+          if let Some(target) = edge.get("target").and_then(Value::as_str) {
+            if reachable.insert(target) { queue.push_back(target); }
+          }
+        }
+      }
+    }
+    for node in &nodes {
+      if node.get("type").and_then(Value::as_str) == Some("storyNode") {
+        let id = node.get("id").and_then(Value::as_str).unwrap_or("");
+        if !reachable.contains(id) { add("warning", "unreachable_story", format!("Story card {id} cannot be reached from the root card."), Some(id)); }
+      }
+    }
+  }
+  let error_count = findings.iter().filter(|finding| finding.get("severity").and_then(Value::as_str) == Some("error")).count();
+  let warning_count = findings.iter().filter(|finding| finding.get("severity").and_then(Value::as_str) == Some("warning")).count();
+  json!({"valid": error_count == 0, "errorCount": error_count, "warningCount": warning_count, "findings": findings})
 }
 
 fn media_type_for_extension(extension: &str) -> Option<(&'static str, &'static str, u64)> {
@@ -200,7 +356,9 @@ fn media_type_for_extension(extension: &str) -> Option<(&'static str, &'static s
 fn media_field_kind(field: &str) -> Option<&'static str> {
   match field {
     "imageUrl" | "avatarUrl" | "threeViewUrl" | "tagSpriteUrl" | "coverImageUrl" => Some("image"),
+    "sceneImage" => Some("image"),
     "videoUrl" => Some("video"),
+    "sceneVideo" => Some("video"),
     "audioUrl" => Some("audio"),
     _ => None,
   }
@@ -299,7 +457,41 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
   }
 
-  #[tool(description = "List story, setting, plot-structure, background-region, and dynamic-group nodes in the currently open GalWriter project without returning full story text. Dynamic-group entries include childIds so you can inspect true membership. The isRoot field identifies the protected root story card.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "Read one card's full non-media data and connected links. Story text is returned up to its supported 100000-character limit. Media binaries, URLs, credentials, and local paths remain private; safe media asset IDs, fields, kinds, and names are included.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  async fn get_project_node(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
+    *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) = Some(timestamp_now());
+    let project = self.state.project.read().unwrap_or_else(|error| error.into_inner()).clone();
+    let Some(project) = project else {
+      return Err(McpError::internal_error("No project state has been shared by an open GalWriter editor yet.".to_string(), None));
+    };
+    let node = project.get("nodes").and_then(Value::as_array).into_iter().flatten()
+      .find(|node| node.get("id").and_then(Value::as_str) == Some(input.node_id.as_str()))
+      .ok_or_else(|| McpError::invalid_params(format!("Card '{}' was not found in the open project.", input.node_id), None))?;
+    let links: Vec<&Value> = project.get("edges").and_then(Value::as_array).into_iter().flatten()
+      .filter(|edge| edge.get("source").and_then(Value::as_str) == Some(input.node_id.as_str())
+        || edge.get("target").and_then(Value::as_str) == Some(input.node_id.as_str()))
+      .collect();
+    let assets: Vec<&Value> = project.get("assetCatalog").and_then(Value::as_array).into_iter().flatten()
+      .filter(|asset| asset.get("nodeId").and_then(Value::as_str) == Some(input.node_id.as_str()))
+      .collect();
+    let result = json!({"projectId": project.get("projectId"), "projectTitle": project.get("projectTitle"), "node": node, "connectedLinks": links, "mediaAssets": assets});
+    let text = serde_json::to_string_pretty(&result).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
+  }
+
+  #[tool(description = "Inspect the current story graph without modifying it. Reports missing/duplicate links, invalid card connections, unreachable story cards, malformed dynamic-group membership, and number-condition thresholds and unconnected branches.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  async fn validate_project_structure(&self) -> Result<CallToolResult, McpError> {
+    *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) = Some(timestamp_now());
+    let project = self.state.project.read().unwrap_or_else(|error| error.into_inner()).clone();
+    let Some(project) = project else {
+      return Err(McpError::internal_error("No project state has been shared by an open GalWriter editor yet.".to_string(), None));
+    };
+    let result = project_structure_diagnostics(&project);
+    let text = serde_json::to_string_pretty(&result).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
+  }
+
+  #[tool(description = "List story, setting, plot-structure, number-condition, background-region, and dynamic-group cards without returning full story text. Dynamic groups include childIds; number-condition cards include their threshold; isRoot identifies the protected root story card.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
   async fn list_project_cards(&self) -> Result<CallToolResult, McpError> {
     *self.state.last_request_at.write().unwrap_or_else(|error| error.into_inner()) =
       Some(timestamp_now());
@@ -337,6 +529,9 @@ impl GalWriterMcpServer {
             "cardCount": data.get("cardCount"),
             "detailLevel": data.get("detailLevel"),
             "direction": data.get("direction"),
+          "threshold": if node.get("type").and_then(Value::as_str) == Some("numberConditionNode") { data.get("threshold") } else { None },
+          "ranges": if node.get("type").and_then(Value::as_str) == Some("numberConditionNode") { data.get("ranges") } else { None },
+          "isReversed": if node.get("type").and_then(Value::as_str) == Some("numberConditionNode") { data.get("isReversed") } else { None },
           "choiceInterval": data.get("choiceInterval"),
           "prefetchCount": data.get("prefetchCount"),
           "childIds": if node.get("type").and_then(Value::as_str) == Some("groupNode") { data.get("childIds") } else { None },
@@ -487,7 +682,21 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Connect two existing story cards with a directed link. Duplicate and self-links are rejected. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "Create a numeric condition card for branching on the accumulated upstream story value. Set a threshold and connect incoming story flow plus greater_equal and less branches. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  async fn create_number_condition_node(&self, Parameters(input): Parameters<CreateNumberConditionInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("create_number_condition_node", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Update numeric condition-card threshold, reversed branch display, and custom ranges. Ranges use {id, min, max} and need unique IDs and finite min <= max values.", annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = true, open_world_hint = false))]
+  async fn update_number_condition_node(&self, Parameters(input): Parameters<UpdateProjectNodeInput>) -> Result<CallToolResult, McpError> {
+    let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
+    let result = self.request_editor_write("update_number_condition_node", input).await?;
+    Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
+  }
+
+  #[tool(description = "Connect story-flow cards. Endpoints may be story or number-condition cards. When source_id is a number-condition card, set branch to greater_equal, less, or range:<rangeId> for a configured custom range; duplicate and self-links are rejected. Additive, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
   async fn connect_story_nodes(&self, Parameters(input): Parameters<ConnectStoryNodesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("connect_story_nodes", input).await?;
@@ -508,7 +717,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Delete one existing non-root story, character, scene, or plot-structure card and its connected links. The protected root story card must be updated to the new story's first card instead of deleted. A clear user request to delete a specific card is sufficient; ask once before deleting multiple cards or performing broad cleanup.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  #[tool(description = "Delete one existing non-root story, character, scene, plot-structure, or number-condition card and its connected links. The protected root story card must be updated to the new story's first card instead of deleted. A clear user request to delete a specific card is sufficient; ask once before deleting multiple cards or performing broad cleanup.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
   async fn delete_project_node(&self, Parameters(input): Parameters<StoryNodeIdInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("delete_project_node", input).await?;
@@ -522,7 +731,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Remove directed links between two existing story cards. This removes an existing relationship from the project.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  #[tool(description = "Remove directed links between two story-flow cards, including number-condition cards. When source_id is a condition card, provide the same branch value used to create the link (greater_equal, less, or range:<rangeId>).", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
   async fn disconnect_story_nodes(&self, Parameters(input): Parameters<ConnectStoryNodesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("disconnect_story_nodes", input).await?;
@@ -711,7 +920,7 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Import one local image, audio, or video file by an explicitly supplied absolute file_path, then attach it to a compatible existing card field. Supported images: PNG, JPEG, WebP, GIF, BMP, AVIF (8 MB max). Supported audio: MP3, WAV, OGG, M4A, AAC, FLAC; supported video: MP4, WebM, MOV, MKV, AVI, M4V (32 MB max). Only the selected media file is read; its path and bytes are not returned to the MCP client. Use story fields imageUrl/videoUrl/audioUrl, character fields avatarUrl/threeViewUrl/tagSpriteUrl, or scene field coverImageUrl. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "Import one local image, audio, or video file by an explicitly supplied absolute file_path, then attach it to a compatible existing card field. Supported images: PNG, JPEG, WebP, GIF, BMP, AVIF (8 MB max). Supported audio: MP3, WAV, OGG, M4A, AAC, FLAC; supported video: MP4, WebM, MOV, MKV, AVI, M4V (32 MB max). Only the selected media file is read; its path and bytes are not returned to the MCP client. Use story fields imageUrl/videoUrl/audioUrl, character fields avatarUrl/threeViewUrl/tagSpriteUrl, scene coverImageUrl, or scene gallery fields sceneImage/sceneVideo. Optional name labels a new scene gallery item. Routine, undoable editor update.", annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false))]
   async fn import_project_media(&self, Parameters(input): Parameters<ImportProjectMediaInput>) -> Result<CallToolResult, McpError> {
     let path = Path::new(&input.file_path);
     if !path.is_absolute() {
@@ -725,7 +934,7 @@ impl GalWriterMcpServer {
     let (mime_type, kind, limit) = media_type_for_extension(&extension)
       .ok_or_else(|| McpError::invalid_params("Unsupported media extension. Use a supported image, audio, or video file.".to_string(), None))?;
     let expected_kind = media_field_kind(&input.field)
-      .ok_or_else(|| McpError::invalid_params("field must be imageUrl, videoUrl, audioUrl, avatarUrl, threeViewUrl, tagSpriteUrl, or coverImageUrl.".to_string(), None))?;
+      .ok_or_else(|| McpError::invalid_params("field must be a supported story, character, scene-cover, or scene-gallery media field.".to_string(), None))?;
     if expected_kind != kind {
       return Err(McpError::invalid_params(format!("The selected file is {kind} media, but field '{}' requires {expected_kind} media.", input.field), None));
     }
@@ -744,11 +953,12 @@ impl GalWriterMcpServer {
       "field": input.field,
       "mime_type": mime_type,
       "media_data": media_data,
+      "name": input.name,
     })).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Clear a supported image, video, or audio reference from a story, character, or scene card. This removes existing project media.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  #[tool(description = "Clear a supported image, video, or audio reference from a story, character, or scene card. For scene gallery entries, use images:<itemId> or images:<itemId>:video. This removes existing project media.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
   async fn clear_story_media(&self, Parameters(input): Parameters<ClearStoryMediaInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("clear_story_media", input).await?;
@@ -772,14 +982,14 @@ impl GalWriterMcpServer {
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Validate a list of supported story and setting-card edits, including deletion of non-root story, character, scene, and plot-structure cards, and return a preview without changing the project.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
+  #[tool(description = "Validate supported story, setting, and number-condition card edits and flow links, including deletion of non-root supported cards, and return a preview without changing the project.", annotations(read_only_hint = true, destructive_hint = false, open_world_hint = false))]
   async fn preview_story_changes(&self, Parameters(input): Parameters<StoryChangesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("preview_story_changes", input).await?;
     Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]))
   }
 
-  #[tool(description = "Apply a validated list of supported story and setting-card edits as one undoable change. Keep MCP-generated story text to about 3 visible lines per card and never more than 5; give each card one readable beat and move extra details to following cards. Optional layout_direction ('up', 'down', 'left', 'right') controls the story-flow layout for newly created cards. Multi-card creation groups story, character, and scene cards and creates fitting background regions. Apply clearly requested routine edits directly; use preview_story_changes for large or ambiguous batches where a review would help.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
+  #[tool(description = "Apply a validated list of supported story, setting, and number-condition card edits and flow links as one undoable change. Keep MCP-generated story text to about 3 visible lines per card and never more than 5; give each card one readable beat and move extra details to following cards. Optional layout_direction ('up', 'down', 'left', 'right') controls the story-flow layout for newly created cards. Multi-card creation groups story, character, and scene cards and creates fitting background regions. Apply clearly requested routine edits directly; use preview_story_changes for large or ambiguous batches where a review would help.", annotations(read_only_hint = false, destructive_hint = true, open_world_hint = false))]
   async fn apply_story_changes(&self, Parameters(input): Parameters<StoryChangesInput>) -> Result<CallToolResult, McpError> {
     let input = serde_json::to_value(input).map_err(|error| McpError::internal_error(error.to_string(), None))?;
     let result = self.request_editor_write("apply_story_changes", input).await?;
@@ -799,7 +1009,7 @@ impl GalWriterMcpServer {
   }
 }
 
-  #[tool_handler(name = "galwriter", version = "1.6.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Image fallback: if generate_project_node_image returns HTTP 403, explain the configured image API denied access and ask once whether the user permits the assistant's own image generator. Do not generate a fallback before approval. If approved, generate from the target card's setting and call import_project_node_image with the same node ID and asset type; report insertion only after it succeeds. Read the current GalWriter desktop project before editing. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Before delete_project, ask unless the user explicitly requested deleting that exact project; do not infer permission from a general request to manage projects. Only use import_project_media with a local path explicitly supplied or selected by the user; never guess paths or read other files. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Use connect_story_setting for explicit story-to-character/scene presentation links and connect_story_nodes only for story-flow choices. Edit character, scene, or plot-structure settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation.")]
+  #[tool_handler(name = "galwriter", version = "1.7.0", instructions = "Approval policy: a clear user request authorizes routine edits; do not ask the user to approve each MCP call. Read full card details with get_project_node when needed; it excludes private media URLs and includes safe media asset references. Run validate_project_structure to inspect graph integrity and unreachable story cards. Numeric logic uses number-condition cards: create/update these directly and call connect_story_nodes with branch=greater_equal or less when the source is a condition card. Image fallback: if generate_project_node_image returns HTTP 403, explain the configured image API denied access and ask once whether the user permits the assistant's own image generator. Do not generate a fallback before approval. If approved, generate from the target card's setting and call import_project_node_image with the same node ID and asset type; report insertion only after it succeeds. Read the current GalWriter desktop project before editing. Apply requested story text, character/scene/plot settings, card creation or updates, links, layout changes, and playtest settings directly. For routine edits, prefer focused tools over apply_story_changes. Ask once before high-impact or broadly destructive changes such as bulk deletion, replacing a whole existing story, or rewriting a large part of the project, unless the user explicitly requested that exact change. Before delete_project, ask unless the user explicitly requested deleting that exact project; do not infer permission from a general request to manage projects. Only use import_project_media with a local path explicitly supplied or selected by the user; never guess paths or read other files. Use preview_story_changes when it materially helps review a large or ambiguous edit; do not make routine previews an extra approval gate. Changes are undoable in the editor. Save only when the user asks to persist changes. Use set_story_text mention segments with existing characterNode/sceneNode IDs to add real editable tags; those tags synchronize presentation associations. Use connect_story_setting for explicit story-to-character/scene presentation links and connect_story_nodes only for story-flow choices. Edit character, scene, plot-structure, and number-condition settings with their typed update tools. When the user asks for a new, unrelated story, replace the existing little-monk/old-monk demo story instead of keeping it: update the protected root story card so it becomes the first card of the new story, then delete the obsolete non-root story cards and their related old character, scene, and plot-structure cards with delete_project_node. Do not delete the root card. Do not perform this cleanup for a continuation or revision of the current story. Create and connect the new story cards as requested. For visual card layout, call capture_editor_canvas to inspect the user's current canvas before and after arranging cards, then use move_story_node to refine positions. Connection handles are selected by the editor from card geometry; do not try to calculate handle IDs. When the user asks for a character portrait, three-view sheet, transparent full-body sprite, or scene background image, use generate_project_node_image with the matching asset_type on the corresponding card. The editor uses its locally configured Image AI profile; never ask for, read, include, or reveal API keys in MCP arguments or responses. For playtest work, call get_playtest_configuration to inspect settings, use update_playtest_settings and update_playtest_render_object for validated interface changes, open_playtest to show the game, and capture_playtest_screen to return the game stage as an image for visual evaluation.")]
 impl ServerHandler for GalWriterMcpServer {}
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -836,6 +1046,15 @@ struct ConnectStoryNodesInput {
   source_id: String,
   target_id: String,
   label: Option<String>,
+  branch: Option<String>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
+struct CreateNumberConditionInput {
+  node_id: Option<String>,
+  position: StoryNodePosition,
+  threshold: Option<f64>,
+  layout_direction: Option<StoryLayoutDirection>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -852,6 +1071,7 @@ struct ProjectIdInput {
 struct ImportProjectMediaInput {
   node_id: String,
   field: String,
+  name: Option<String>,
   /// Absolute path to one local media file chosen by the user.
   file_path: String,
 }
@@ -1055,6 +1275,7 @@ enum StoryChangeOperation {
   SetMedia { node_id: String, field: String, asset_id: String },
   ClearMedia { node_id: String, field: String },
   CreateStoryNode { node_id: Option<String>, title: String, text: String, position: StoryNodePosition },
+  CreateNumberConditionNode { node_id: Option<String>, position: StoryNodePosition, threshold: Option<f64>, layout_direction: Option<StoryLayoutDirection> },
   CreateCharacterNode { node_id: Option<String>, character_name: String, position: StoryNodePosition },
   CreateSceneNode { node_id: Option<String>, scene_name: String, position: StoryNodePosition },
   CreatePlotStructureNode { node_id: Option<String>, position: StoryNodePosition, direction: Option<String>, creation_mode: Option<String>, card_count: Option<u8>, detail_level: Option<String> },
@@ -1072,8 +1293,8 @@ enum StoryChangeOperation {
   DeleteStoryNode { node_id: String },
   DeleteProjectNode { node_id: String },
   MoveNode { node_id: String, position: StoryNodePosition },
-  ConnectStoryNodes { source_id: String, target_id: String, label: Option<String> },
-  DisconnectStoryNodes { source_id: String, target_id: String },
+  ConnectStoryNodes { source_id: String, target_id: String, label: Option<String>, branch: Option<String> },
+  DisconnectStoryNodes { source_id: String, target_id: String, branch: Option<String> },
 }
 
 #[derive(serde::Deserialize, serde::Serialize, JsonSchema)]

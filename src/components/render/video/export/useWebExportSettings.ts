@@ -1,4 +1,5 @@
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
+import { normalizeWebFlowView } from '../../web/webFlowView';
 import { resolveSettingsPageElements, resolveArchivePageElements } from '../../web/webMenuPageElements';
 import { useEffect, useState, useRef } from 'react';
 
@@ -191,7 +192,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     kind: 'button',
     role: 'flowDirection',
     text: '',
-    visible: true,
+    visible: false,
     x: 84,
     y: 4,
     width: 2.588,
@@ -213,7 +214,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     kind: 'button',
     role: 'flowFitView',
     text: '',
-    visible: true,
+    visible: false,
     x: 88,
     y: 4,
     width: 2.588,
@@ -519,13 +520,15 @@ const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSetti
       normalizeFlowMinimapControls(normalizeFlowControlShapes(settings)),
     ),
   );
-  const elements = normalizedSettings.flowOverviewElements || [];
+  const elements = (normalizedSettings.flowOverviewElements || []).map((element) => {
+    if (normalizedSettings.flowOverviewControlsInitialized) return element;
+    const isDefaultControl = (element.id === 'flow-direction-control' && element.x === 84 && element.y === 4) || (element.id === 'flow-fit-view-control' && element.x === 88 && element.y === 4);
+    return isDefaultControl ? { ...element, visible: false } : element;
+  });
   const controls = defaultFlowOverviewElements.filter(
     (defaultElement) => !elements.some((element) => element.role === defaultElement.role),
   );
-  return controls.length > 0
-    ? { ...normalizedSettings, flowOverviewElements: [...controls, ...elements] }
-    : normalizedSettings;
+  return { ...normalizedSettings, flowOverviewControlsInitialized: true, flowOverviewElements: [...controls, ...elements] };
 };
 
 const normalizeWebImageFillBaseColors = (settings: WebExportSettings): WebExportSettings => {
@@ -568,7 +571,7 @@ const applyDefaultMainInterfaceBackground = (settings: WebExportSettings): WebEx
 
 const normalizeWebSettings = (settings: WebExportSettings): WebExportSettings =>
   ensureFlowOverviewControls(
-    applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors(settings)),
+    applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors({ ...settings, flowOverviewView: normalizeWebFlowView(settings.flowOverviewView) })),
   );
 
 export const useWebExportSettings = (

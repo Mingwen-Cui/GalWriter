@@ -563,7 +563,7 @@ export const applyMcpOperations = (
       continue;
     }
 
-    if (operation.type === 'create_story_node' || operation.type === 'create_character_node' || operation.type === 'create_scene_node' || operation.type === 'create_plot_structure_node') {
+    if (operation.type === 'create_story_node' || operation.type === 'create_character_node' || operation.type === 'create_scene_node' || operation.type === 'create_plot_structure_node' || operation.type === 'create_number_condition_node') {
       const id = typeof operation.node_id === 'string' ? operation.node_id.trim() : uuidv4();
       if (!id || id.length > 128 || nextNodes.some((node) => node.id === id)) throw new Error(`Node ID '${id}' is empty, too long, or already in use.`);
       const position = positionOf(operation.position);
@@ -582,7 +582,7 @@ export const applyMcpOperations = (
         const sceneName = operation.scene_name;
         if (typeof sceneName !== 'string' || !sceneName.trim() || sceneName.length > 200) throw new Error('scene_name must be a non-empty string of at most 200 characters.');
         node = { id, type: 'sceneNode', position, style: { width: 440 }, data: { id, sceneName: sceneName.trim(), description: '', scenePresetEnabled: false } };
-      } else {
+      } else if (operation.type === 'create_plot_structure_node') {
         const direction = operation.direction;
         const creationMode = operation.creation_mode ?? 'continue';
         const detailLevel = operation.detail_level ?? 'standard';
@@ -592,6 +592,10 @@ export const applyMcpOperations = (
         if (!['brief', 'standard', 'detailed'].includes(String(detailLevel))) throw new Error('detail_level must be brief, standard, or detailed.');
         if (typeof cardCount !== 'number' || !Number.isInteger(cardCount) || cardCount < 1 || cardCount > 20) throw new Error('card_count must be an integer between 1 and 20.');
         node = { id, type: 'plotStructureNode', position, data: { id, creationMode, cardCount, detailLevel, direction } };
+      } else {
+        const threshold = operation.threshold ?? 0;
+        if (typeof threshold !== 'number' || !Number.isFinite(threshold)) throw new Error('threshold must be a finite number.');
+        node = { id, type: 'numberConditionNode', position, style: { width: 300 }, data: { id, threshold } };
       }
       nextNodes.push(node);
       created.push(id);
@@ -600,7 +604,7 @@ export const applyMcpOperations = (
       continue;
     }
 
-    if (['update_node', 'update_story_node', 'update_character_node', 'update_scene_node', 'update_plot_structure_node'].includes(operation.type)) {
+    if (['update_node', 'update_story_node', 'update_character_node', 'update_scene_node', 'update_plot_structure_node', 'update_number_condition_node'].includes(operation.type)) {
       if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
       const current = nextNodes.find((node) => node.id === nodeId);
       if (!current) throw new Error(`Node '${nodeId}' was not found.`);
@@ -609,6 +613,7 @@ export const applyMcpOperations = (
         update_character_node: 'characterNode',
         update_scene_node: 'sceneNode',
         update_plot_structure_node: 'plotStructureNode',
+        update_number_condition_node: 'numberConditionNode',
       };
       if (expectedType[operation.type] && current.type !== expectedType[operation.type]) {
         throw new Error(`Node '${nodeId}' is not a ${expectedType[operation.type]} card.`);
@@ -661,6 +666,28 @@ export const applyMcpOperations = (
           const [min, max] = bounds[key];
           if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) throw new Error(`${key} must be an integer between ${min} and ${max}.`);
           nextData[key] = value;
+        } else if (current.type === 'numberConditionNode' && key === 'threshold') {
+          if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('threshold must be a finite number.');
+          nextData.threshold = value;
+        } else if (current.type === 'numberConditionNode' && key === 'isReversed') {
+          if (typeof value !== 'boolean') throw new Error('isReversed must be a boolean.');
+          nextData.isReversed = value;
+        } else if (current.type === 'numberConditionNode' && key === 'ranges') {
+          if (!Array.isArray(value) || value.length > 100) throw new Error('ranges must be an array with at most 100 entries.');
+          const ids = new Set<string>();
+          nextData.ranges = value.map((range, index) => {
+            if (!range || typeof range !== 'object' || Array.isArray(range)) throw new Error(`ranges[${index}] must be an object.`);
+            const item = range as Record<string, unknown>;
+            if (typeof item.id !== 'string' || !item.id.trim() || item.id.length > 128 || ids.has(item.id)) throw new Error(`ranges[${index}].id must be a unique non-empty string of at most 128 characters.`);
+            if (typeof item.min !== 'number' || !Number.isFinite(item.min) || typeof item.max !== 'number' || !Number.isFinite(item.max) || item.min > item.max) throw new Error(`ranges[${index}] needs finite min and max values with min <= max.`);
+            ids.add(item.id);
+            return { id: item.id, min: item.min, max: item.max };
+          });
+          const nextRangeIds = new Set((nextData.ranges as Array<{ id: string }>).map((range) => range.id));
+          const connectedRemovedRanges = nextEdges.some((edge) => edge.source === nodeId
+            && edge.sourceHandle?.startsWith('out-range-')
+            && !nextRangeIds.has(edge.sourceHandle.slice('out-range-'.length)));
+          if (connectedRemovedRanges) throw new Error('Disconnect custom-range branches before removing or renaming their range IDs.');
         } else {
           throw new Error(`Field '${key}' is not writable for node type '${current.type}'.`);
         }
@@ -740,9 +767,11 @@ export const applyMcpOperations = (
         sceneNode: ['coverImageUrl'],
       };
       const kindForField: Record<string, string> = { imageUrl: 'image', coverImageUrl: 'image', avatarUrl: 'image', threeViewUrl: 'image', tagSpriteUrl: 'image', videoUrl: 'video', audioUrl: 'audio' };
-      if (!(targetKind[target.type || ''] || []).includes(operation.field)) throw new Error(`Media field '${operation.field}' is not writable for this node type.`);
+      const sceneGalleryMatch = target.type === 'sceneNode' && typeof operation.field === 'string' && operation.field.match(/^images:([^:]+)(:video)?$/);
+      if (!(targetKind[target.type || ''] || []).includes(operation.field) && !sceneGalleryMatch) throw new Error(`Media field '${operation.field}' is not writable for this node type.`);
+      const mediaKind = sceneGalleryMatch ? (sceneGalleryMatch[2] ? 'video' : 'image') : kindForField[operation.field as string];
       const catalog = getMcpAssetCatalog(nextNodes);
-      const asset = catalog.find((item) => item.id === operation.asset_id && item.kind === kindForField[operation.field as string]);
+      const asset = catalog.find((item) => item.id === operation.asset_id && item.kind === mediaKind);
       if (!asset) throw new Error(`Compatible project media asset '${operation.asset_id}' was not found.`);
       const source = nextNodes.find((node) => node.id === asset.nodeId)!;
       const sourceData = source.data as Record<string, unknown>;
@@ -753,7 +782,17 @@ export const applyMcpOperations = (
           ? (sourceData.images as Array<Record<string, unknown>>).find((item) => item.id === asset.field.slice('images:'.length))?.imageUrl
           : sourceData[asset.field];
       if (typeof sourceValue !== 'string') throw new Error('The selected media asset is no longer available.');
-      nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, [operation.field as string]: sourceValue } } : node);
+      nextNodes = nextNodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        if (!sceneGalleryMatch) return { ...node, data: { ...node.data, [operation.field as string]: sourceValue } };
+        const images = Array.isArray(node.data.images) ? [...node.data.images as Array<Record<string, unknown>>] : [];
+        const itemId = sceneGalleryMatch[1];
+        const found = images.some((image) => image.id === itemId);
+        if (!found) throw new Error(`Scene media item '${itemId}' was not found.`);
+        const field = sceneGalleryMatch[2] ? 'videoUrl' : 'imageUrl';
+        const updatedImages = images.map((image) => image.id === itemId ? { ...image, [field]: sourceValue } : image);
+        return { ...node, data: { ...node.data, images: updatedImages, ...(!sceneGalleryMatch[2] && typeof node.data.coverImageUrl !== 'string' ? { coverImageUrl: sourceValue } : {}) } };
+      });
       changes.push({ type: operation.type, nodeId });
       changedCount += 1;
       continue;
@@ -841,7 +880,7 @@ export const applyMcpOperations = (
       const targetFields: Record<string, string[]> = {
         storyNode: ['imageUrl', 'videoUrl', 'audioUrl'],
         characterNode: ['avatarUrl', 'threeViewUrl', 'tagSpriteUrl'],
-        sceneNode: ['coverImageUrl'],
+        sceneNode: ['coverImageUrl', 'sceneImage', 'sceneVideo'],
       };
       const field = operation.field;
       if (!(targetFields[target.type || ''] || []).includes(field)) throw new Error(`Media field '${field}' is not supported for this card type.`);
@@ -850,13 +889,19 @@ export const applyMcpOperations = (
           : operation.mime_type.startsWith('video/') ? 'video' : null;
       const expectedKind: Record<string, string> = {
         imageUrl: 'image', videoUrl: 'video', audioUrl: 'audio', avatarUrl: 'image',
-        threeViewUrl: 'image', tagSpriteUrl: 'image', coverImageUrl: 'image',
+        threeViewUrl: 'image', tagSpriteUrl: 'image', coverImageUrl: 'image', sceneImage: 'image', sceneVideo: 'video',
       };
       if (!kind || expectedKind[field] !== kind) throw new Error(`mime_type '${operation.mime_type}' is not compatible with field '${field}'.`);
       if (!operation.media_url.startsWith('blob:')) throw new Error('Imported media must use an editor-managed local blob URL.');
-      nextNodes = nextNodes.map((node) => node.id === nodeId
-        ? { ...node, data: { ...node.data, [field]: operation.media_url } }
-        : node);
+      nextNodes = nextNodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        if (field === 'sceneImage' || field === 'sceneVideo') {
+          const images = Array.isArray(node.data.images) ? [...node.data.images as Array<Record<string, unknown>>] : [];
+          const image = { id: uuidv4(), name: typeof operation.name === 'string' && operation.name.trim() ? operation.name.trim().slice(0, 200) : 'MCP scene media', [field === 'sceneImage' ? 'imageUrl' : 'videoUrl']: operation.media_url };
+          return { ...node, data: { ...node.data, images: [...images, image], ...(field === 'sceneImage' && typeof node.data.coverImageUrl !== 'string' ? { coverImageUrl: operation.media_url } : {}) } };
+        }
+        return { ...node, data: { ...node.data, [field]: operation.media_url } };
+      });
       changes.push({ type: operation.type, nodeId, field, mediaType: kind });
       changedCount += 1;
       continue;
@@ -871,10 +916,20 @@ export const applyMcpOperations = (
         characterNode: ['avatarUrl', 'threeViewUrl', 'tagSpriteUrl'],
         sceneNode: ['coverImageUrl'],
       };
-      if (!(targetKind[target.type || ''] || []).includes(operation.field)) throw new Error(`Media field '${operation.field}' is not writable for this node type.`);
+      const sceneGalleryMatch = target.type === 'sceneNode' && typeof operation.field === 'string' && operation.field.match(/^images:([^:]+)(:video)?$/);
+      if (!(targetKind[target.type || ''] || []).includes(operation.field) && !sceneGalleryMatch) throw new Error(`Media field '${operation.field}' is not writable for this node type.`);
       nextNodes = nextNodes.map((node) => {
         if (node.id !== nodeId) return node;
         const data = { ...node.data } as Record<string, unknown>;
+        if (sceneGalleryMatch) {
+          const images = Array.isArray(data.images) ? [...data.images as Array<Record<string, unknown>>] : [];
+          const itemId = sceneGalleryMatch[1];
+          const found = images.some((image) => image.id === itemId);
+          if (!found) throw new Error(`Scene media item '${itemId}' was not found.`);
+          const field = sceneGalleryMatch[2] ? 'videoUrl' : 'imageUrl';
+          data.images = images.map((image) => image.id === itemId ? { ...image, [field]: undefined } : image);
+          return { ...node, data };
+        }
         delete data[operation.field as string];
         return { ...node, data };
       });
@@ -906,8 +961,8 @@ export const applyMcpOperations = (
       if (typeof nodeId !== 'string') throw new Error('node_id must be a string.');
       const current = nextNodes.find((node) => node.id === nodeId);
       if (!current) throw new Error(`Node '${nodeId}' was not found.`);
-      if (!['storyNode', 'characterNode', 'sceneNode', 'plotStructureNode'].includes(current.type || '')) {
-        throw new Error(`Node '${nodeId}' is not a deletable story, character, scene, or plot-structure card.`);
+      if (!['storyNode', 'characterNode', 'sceneNode', 'plotStructureNode', 'numberConditionNode'].includes(current.type || '')) {
+        throw new Error(`Node '${nodeId}' is not a deletable story, character, scene, plot-structure, or number-condition card.`);
       }
       if (current.type === 'storyNode' && (current.data as Record<string, unknown>).isRoot === true) {
         throw new Error('The root story card is protected. Update it to become the first card of the new story instead.');
@@ -957,24 +1012,36 @@ export const applyMcpOperations = (
       const sourceId = operation.source_id;
       const targetId = operation.target_id;
       if (typeof sourceId !== 'string' || typeof targetId !== 'string' || !sourceId.trim() || !targetId.trim()) throw new Error('source_id and target_id must be non-empty strings.');
-      if (sourceId === targetId) throw new Error('A story card cannot connect to itself.');
-      for (const id of [sourceId, targetId]) {
-        const node = nextNodes.find((item) => item.id === id);
-        if (!node) throw new Error(`Story node '${id}' was not found.`);
-        if (node.type !== 'storyNode') throw new Error(`Node '${id}' is not a story card.`);
+      if (sourceId === targetId) throw new Error('A story-flow card cannot connect to itself.');
+      const sourceNode = nextNodes.find((item) => item.id === sourceId);
+      const targetNode = nextNodes.find((item) => item.id === targetId);
+      if (!sourceNode || !targetNode) throw new Error(`Story-flow endpoint '${!sourceNode ? sourceId : targetId}' was not found.`);
+      if (!['storyNode', 'numberConditionNode'].includes(sourceNode.type || '') || !['storyNode', 'numberConditionNode'].includes(targetNode.type || '')) {
+        throw new Error('Story-flow links require story or number-condition cards.');
       }
+      const branch = operation.branch;
+      const customRange = typeof branch === 'string' ? branch.match(/^range:(.+)$/) : null;
+      const customRangeExists = Boolean(customRange && Array.isArray(sourceNode.data.ranges)
+        && (sourceNode.data.ranges as Array<Record<string, unknown>>).some((range) => range.id === customRange[1]));
+      if (sourceNode.type === 'numberConditionNode' && branch !== 'greater_equal' && branch !== 'less' && !customRangeExists) {
+        throw new Error("A number-condition source requires branch='greater_equal', 'less', or 'range:<rangeId>' for an existing custom range.");
+      }
+      if (sourceNode.type !== 'numberConditionNode' && branch !== undefined) throw new Error('branch is only valid when source_id is a number-condition card.');
+      const sourceHandle = sourceNode.type === 'numberConditionNode'
+        ? branch === 'greater_equal' ? 'out-greater' : branch === 'less' ? 'out-less-equal' : `out-range-${customRange![1]}`
+        : undefined;
       if (operation.type === 'disconnect_story_nodes') {
+        if (sourceNode.type === 'numberConditionNode' && !branch) throw new Error('Specify branch when disconnecting from a number-condition card.');
         const before = nextEdges.length;
-        nextEdges = nextEdges.filter((edge) => edge.source !== sourceId || edge.target !== targetId);
-        if (nextEdges.length === before) throw new Error('No directed link exists between these story cards.');
+        nextEdges = nextEdges.filter((edge) => edge.source !== sourceId || edge.target !== targetId || (sourceHandle !== undefined && edge.sourceHandle !== sourceHandle));
+        if (nextEdges.length === before) throw new Error('No directed link exists between these story-flow cards on that branch.');
       } else {
-        if (nextEdges.some((edge) => edge.source === sourceId && edge.target === targetId)) throw new Error('A link between these story cards already exists.');
+        if (nextEdges.some((edge) => edge.source === sourceId && edge.target === targetId && (sourceHandle === undefined || edge.sourceHandle === sourceHandle))) throw new Error('A link between these story-flow cards already exists on that branch.');
         const label = operation.label;
         if (label !== undefined && (typeof label !== 'string' || label.length > 500)) throw new Error('label must be a string of at most 500 characters.');
-        const sourceNode = nextNodes.find((node) => node.id === sourceId)!;
-        const targetNode = nextNodes.find((node) => node.id === targetId)!;
-        const { sourceHandle, targetHandle } = getStoryConnectionHandles(sourceNode, targetNode);
-        nextEdges.push({ id: `mcp-${uuidv4()}`, ...defaultEdge, source: sourceId, sourceHandle, target: targetId, targetHandle, ...(typeof label === 'string' && label ? { label } : {}) });
+        const handles = getStoryConnectionHandles(sourceNode, targetNode);
+        const targetHandle = targetNode.type === 'numberConditionNode' ? 'in-top' : handles.targetHandle;
+        nextEdges.push({ id: `mcp-${uuidv4()}`, ...defaultEdge, source: sourceId, sourceHandle: sourceHandle ?? handles.sourceHandle, target: targetId, targetHandle, ...(typeof label === 'string' && label ? { label } : {}) });
       }
       changes.push({ type: operation.type, sourceId, targetId });
       changedCount += 1;

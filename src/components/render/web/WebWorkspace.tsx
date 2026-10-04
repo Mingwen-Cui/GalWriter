@@ -50,6 +50,8 @@ import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/sh
 import { formatWebText } from './i18n';
 import { getWebSettingsCopy } from './i18n';
 import { StartMenuBackgroundInspector } from './StartMenuBackgroundInspector';
+import { WebFlowViewInspector } from './WebFlowViewInspector';
+import { readWebTemplateFile } from './webTemplateFiles';
 import { StartMenuElementInspector } from './StartMenuElementInspector';
 import { buildArchivePageElements } from './webMenuPageElements';
 import type {
@@ -369,6 +371,7 @@ type AIStartMenuDesign = {
 };
 
 type WebExperienceSnapshot = {
+  surface?: WebPreviewSurface;
   settings?: Partial<WebExportSettings>;
   renderStyle?: Partial<RenderStyle>;
   choiceColor?: string;
@@ -491,6 +494,8 @@ export function WebWorkspace({
   const [selectedTemplateEditIds, setSelectedTemplateEditIds] = useState<string[]>([]);
   const [templateNameDraft, setTemplateNameDraft] = useState('');
   const [templateSaveScope, setTemplateSaveScope] = useState<'current' | 'all'>('current');
+  const templateFileInputRef = useRef<HTMLInputElement>(null);
+  const [templateFileError, setTemplateFileError] = useState('');
   const createStartMenuDesignSnapshot = (
     scope: 'current' | 'all' = 'all',
     stripEmbeddedMedia = false,
@@ -641,6 +646,9 @@ export function WebWorkspace({
         'flowOverviewMusicFadeOut',
         'flowOverviewMusicLoop',
         'flowOverviewElements',
+        'flowOverviewLayoutDirection',
+        'flowOverviewView',
+        'flowOverviewControlsInitialized',
         'flowOverviewCardSizes',
         'flowOverviewMinimapWidth',
         'flowOverviewMinimapHeight',
@@ -652,8 +660,12 @@ export function WebWorkspace({
         : Object.fromEntries(
             surfaceKeys[currentPreviewSurface].map((key) => [key, fullSettings[key]]),
           );
+    if (scope === 'current') {
+      Object.assign(settings, { canvasWidth: webSettings.canvasWidth, canvasHeight: webSettings.canvasHeight, menuTheme: webSettings.menuTheme, surfaceAppearances: webSettings.surfaceAppearances?.[currentPreviewSurface] ? { [currentPreviewSurface]: webSettings.surfaceAppearances[currentPreviewSurface] } : undefined });
+    }
     return {
       version: 2,
+      ...(scope === 'current' ? { surface: currentPreviewSurface } : {}),
       settings,
       renderStyle: scope === 'all' || currentPreviewSurface === 'game' ? webRenderStyle : undefined,
       choiceColor: webChoiceColor,
@@ -798,31 +810,38 @@ export function WebWorkspace({
       setSelectedSavedTemplateId(null);
     setSelectedTemplateEditIds([]);
   };
+  const applyWebTemplate = (snapshot: WebExperienceSnapshot & { surface?: WebPreviewSurface }) => {
+    if (snapshot.settings) updateWebSettingsBulk({ ...snapshot.settings, surfaceAppearances: { ...webSettings.surfaceAppearances, ...snapshot.settings.surfaceAppearances } });
+    if (snapshot.renderStyle) Object.entries(snapshot.renderStyle).forEach(([key, value]) => updateWebRenderStyle(key as keyof RenderStyle, value as never));
+    if (snapshot.choiceColor) updateWebChoiceColor(snapshot.choiceColor);
+    if (snapshot.choiceTextColor) updateWebChoiceTextColor(snapshot.choiceTextColor);
+    if (snapshot.surface) {
+      setEditPreviewSurface(snapshot.surface);
+      setCurrentPreviewSurface(snapshot.surface);
+    }
+    setSelectedStartMenuElementId(null);
+    setSelectedFlowCardId(null);
+    setSelectedPreviewElementIds([]);
+  };
+  const importWebTemplate = async (file: File) => {
+    try {
+      setTemplateFileError('');
+      const snapshot = await readWebTemplateFile(file);
+      applyWebTemplate(snapshot);
+      const entry: SavedWebExperienceTemplate = { ...snapshot, id: `template-${Date.now()}`, name: file.name.replace(/\.(zip|json)$/i, ''), savedAt: Date.now(), scope: snapshot.surface ? 'current' : 'all' };
+      // Applying the imported design goes through the same history/autosave path.
+      persistTemplateLibrary([entry, ...savedTemplateLibrary]);
+      setSelectedSavedTemplateId(entry.id);
+    } catch {
+      setTemplateFileError(language === 'zh' ? '无法导入模板，请选择完整的网页模板 JSON 或 ZIP 文件。' : language === 'ja' ? 'Web テンプレートの JSON または ZIP ファイルを選択してください。' : 'Choose a complete web template JSON or ZIP file.');
+    }
+  };
   const loadStartMenuDesign = (templateId = selectedSavedTemplateId) => {
     if (typeof window === 'undefined') return;
     try {
       const selected = savedTemplateLibrary.find((item) => item.id === templateId);
       if (!selected) return;
-      const parsed = selected as Partial<WebExportSettings> | WebExperienceSnapshot;
-      const isExperienceSnapshot =
-        typeof parsed === 'object' &&
-        parsed !== null &&
-        ('settings' in parsed ||
-          'renderStyle' in parsed ||
-          'choiceColor' in parsed ||
-          'choiceTextColor' in parsed);
-      const snapshot = isExperienceSnapshot ? (parsed as WebExperienceSnapshot) : null;
-      const settingsPatch = snapshot ? snapshot.settings : (parsed as Partial<WebExportSettings>);
-      if (settingsPatch) updateWebSettingsBulk(settingsPatch);
-      if (snapshot?.renderStyle) {
-        Object.entries(snapshot.renderStyle).forEach(([key, value]) => {
-          updateWebRenderStyle(key as keyof RenderStyle, value as never);
-        });
-      }
-      if (snapshot?.choiceColor) updateWebChoiceColor(snapshot.choiceColor);
-      if (snapshot?.choiceTextColor) {
-        updateWebChoiceTextColor(snapshot.choiceTextColor);
-      }
+      applyWebTemplate(selected);
     } catch {
       // Ignore invalid local design presets.
     }
@@ -1042,15 +1061,20 @@ export function WebWorkspace({
       .replace(/[\\/:*?"<>|]+/g, '-')
       .replace(/\s+/g, '-')
       .toLowerCase();
+    try {
+    setTemplateFileError('');
     await downloadTemplateArchive({
       filename: `${safeProjectName || 'galwriter-web'}-export.zip`,
       template: createStartMenuDesignSnapshot('all'),
     });
+    } catch {
+      setTemplateFileError(language === 'zh' ? '模板文件保存失败，请重试。' : 'Unable to save the template file. Please retry.');
+    }
   };
   const downloadTemplate = () => {
     const selected = savedTemplateLibrary.find((item) => item.id === selectedSavedTemplateId);
     downloadTemplateSnapshot(
-      selected || createStartMenuDesignSnapshot('current', true),
+      selected || { ...createStartMenuDesignSnapshot('current'), surface: currentPreviewSurface },
       'template',
     );
   };
@@ -2001,6 +2025,12 @@ JSON schema:
                 </div>
               </>
             )}
+            {startMenuPreviewMode === 'edit' && <>
+              <WebInsertToolButton icon={Save} label={language === 'zh' ? '存为模板' : language === 'ja' ? 'テンプレートを保存' : 'Save template'} onClick={() => { setSelectedSavedTemplateId(null); setTemplateNameDraft(webProjectName || 'Web'); setTemplateSaveScope('current'); setIsSaveTemplateDialogOpen(true); }} />
+              <WebInsertToolButton icon={Download} label={language === 'zh' ? '保存网页模板文件' : language === 'ja' ? 'テンプレートファイルを保存' : 'Save web template file'} onClick={() => void exportCurrentTemplate()} />
+              <WebInsertToolButton icon={Upload} label={language === 'zh' ? '导入网页模板' : language === 'ja' ? 'テンプレートを読み込む' : 'Import web template'} onClick={() => templateFileInputRef.current?.click()} />
+              <input ref={templateFileInputRef} type="file" accept=".json,.zip" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importWebTemplate(file); }} />
+            </>}
             <button
               type="button"
               onClick={() => setPreviewRefreshKey((key) => key + 1)}
@@ -2012,6 +2042,7 @@ JSON schema:
             </button>
           </div>
         </div>
+        {templateFileError && <p role="alert" className="px-4 py-2 text-xs text-rose-600">{templateFileError}</p>}
         <div className="min-h-0 flex-1 p-4 xl:p-5">
           <VirtualPresentationStage
             className="h-full w-full"
@@ -2031,6 +2062,7 @@ JSON schema:
               previewMode={startMenuPreviewMode}
               requestedSurface={editPreviewSurface}
               selectedStartMenuElementId={selectedStartMenuElementId}
+              selectedFlowCardId={selectedFlowCardId}
               imageCropEditingElementId={imageCropEditingElementId}
               gradientEditingSurface={gradientEditingSurface}
               gradientEditingElement={gradientEditingElement}
@@ -2535,6 +2567,8 @@ JSON schema:
                         </div>
                       )}
                     </WebAuxiliaryPanel>
+                  </>
+                )}
                     {isSaveTemplateDialogOpen && (
                       <div
                         className="fixed inset-0 z-[10060] grid place-items-center bg-slate-950/40 p-4"
@@ -2696,9 +2730,6 @@ JSON schema:
                         </div>
                       </div>
                     )}
-                  </>
-                )}
-
                 {designPanelMode === 'background' && currentPreviewSurface === 'start' && (
                   <>{surfaceInspector}</>
                 )}
@@ -2712,7 +2743,10 @@ JSON schema:
                 )}
 
                 {designPanelMode === 'background' && currentPreviewSurface === 'flow' && (
-                  <>{surfaceInspector}</>
+                  <>
+                    <WebFlowViewInspector settings={webSettings} language={language} onChange={updateWebSettingsBulk} />
+                    {surfaceInspector}
+                  </>
                 )}
 
                 {designPanelMode === 'background' && currentPreviewSurface === 'game' && (
