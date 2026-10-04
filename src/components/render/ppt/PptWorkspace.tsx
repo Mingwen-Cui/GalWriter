@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import type { InlinePresentationActionType } from '../../../domain/project';
+import defaultMainInterfaceBackgroundUrl from '../../../assets/common/default-main-interface-background.jpg';
 import type { Language } from '../../../lib/i18n';
 import { getKeyboardMouseSettings, getWheelDelta } from '../../../lib/keyboardMouseSettings';
 import { getCharacterStageBounds } from '../../../lib/presentation';
@@ -66,9 +67,11 @@ import { PptCopyContext, type PptCopyContextValue } from './pptCopyContext';
 import {
   getPptCoverText,
   getPptCoverTitle,
-  PPT_DEFAULT_COVER_DESCRIPTION,
+  getPptCoverSubtitle,
+  getPptCoverDescription,
 } from './pptCoverTemplate';
 import { copyPptCoverText } from './pptElementClipboard';
+import { createPptCoverDecorations, resolvePptCoverElements, usesDefaultPptCoverDesign } from './pptCoverDesign';
 import { PptExportRulesRibbon } from './PptExportRulesRibbon';
 import { PptInsertRibbon } from './PptInsertRibbon';
 import {
@@ -198,6 +201,7 @@ export const directionLabel = (copy: PptCopy, direction: PptAnimationDirection) 
 const toPptBackgroundStyle = (settings: WebExportSettings): PptSlideBackgroundStyle => {
   const background = getSurfaceBackground(settings, 'start');
   return {
+    coverDesign: usesDefaultPptCoverDesign(undefined, background.imageUrl) ? 'universal' : undefined,
     type: background.type,
     color: background.color,
     gradientStart: background.gradientStart,
@@ -312,7 +316,7 @@ type Props = {
   renderStyle: RenderStyle;
   updateRenderStyle: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   pptSettings: PptExportSettings;
-  updatePptSettings: (patch: Partial<PptExportSettings>) => void;
+  updatePptSettings: (patch: Partial<PptExportSettings>, stylePatch?: Partial<RenderStyle>) => void;
   ribbonTab: 'insert' | 'animation' | 'transition';
   ribbonCollapsed: boolean;
 };
@@ -424,12 +428,15 @@ export function PptWorkspace({
   const transitions = pptSettings.transitions || {};
   const textOverrides = pptSettings.textOverrides || {};
   const textBoxLayouts = pptSettings.textBoxLayouts || {};
-  const slideElements = pptSettings.slideElements || {};
   const slideBackgroundColors: PptSlideBackgroundColors = pptSettings.slideBackgroundColors || {};
   const slideBackgroundStyles: PptSlideBackgroundStyles = pptSettings.slideBackgroundStyles || {};
   const slideBackgroundStylesForPreview: PptSlideBackgroundStyles = {
     ...slideBackgroundStyles,
     cover: slideBackgroundStyles.cover || toPptBackgroundStyle(webSettings),
+  };
+  const slideElements = {
+    ...pptSettings.slideElements,
+    cover: resolvePptCoverElements(pptSettings.slideElements?.cover, slideBackgroundStylesForPreview.cover, webSettings.startMenuBackgroundImageUrl),
   };
   const activeSlideElements = slideElements[selectedId] || [];
   const selectedManualElement = (manualSlide?.elements || activeSlideElements).find(
@@ -469,8 +476,9 @@ export function PptWorkspace({
             getPptCoverText(
               selectedObject.target,
               projectName,
-              '由旮旯作家 · GalWriter 生成',
+              getPptCoverSubtitle(language),
               copy.untitled,
+              language,
             ),
           layout: resolvePptTextBoxLayout(
             textBoxLayouts.cover?.[selectedObject.target],
@@ -575,49 +583,18 @@ export function PptWorkspace({
     const copied = createManualSlide(source.title);
     const copiedElements = slideElements[source.id] || [];
     if (source.kind === 'cover') {
-      copied.backgroundColor = webSettings.startMenuBackgroundColor || '#020617';
+      const coverBackground = slideBackgroundStylesForPreview.cover;
+      copied.backgroundColor = coverBackground.color;
+      copied.backgroundStyle = structuredClone(coverBackground);
       copied.elements = [
-        ...(webSettings.startMenuBackgroundImageUrl
-          ? [
-              {
-                ...createManualImage(webSettings.startMenuBackgroundImageUrl),
-                x: 0,
-                y: 0,
-                width: PPT_CONTENT_WIDTH,
-                height: PPT_CONTENT_HEIGHT,
-              },
-            ]
-          : []),
-        {
-          ...createManualText(
-            textOverrides.cover?.['cover-title'] ?? getPptCoverTitle(projectName, copy.untitled),
+        ...(['cover-title', 'cover-subtitle', 'cover-description'] as const).map((target) => ({
+          ...copyPptCoverText(
+            target,
+            textOverrides.cover?.[target] ?? getPptCoverText(target, projectName, getPptCoverSubtitle(language), copy.untitled, language),
+            resolvePptTextBoxLayout(textBoxLayouts.cover?.[target], target),
           ),
-          x: 160,
-          y: 330,
-          width: 720,
-          height: 130,
-          fontSize: 68,
-        },
-        {
-          ...createManualText(textOverrides.cover?.['cover-subtitle'] ?? copy.generatedBy),
-          x: 160,
-          y: 485,
-          width: 620,
-          height: 56,
-          fontSize: 28,
-          bold: false,
-        },
-        {
-          ...createManualText(
-            textOverrides.cover?.['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION,
-          ),
-          x: 160,
-          y: 555,
-          width: 660,
-          height: 90,
-          fontSize: 24,
-          bold: false,
-        },
+          id: `manual-${target}-${crypto.randomUUID()}`,
+        })),
         ...copiedElements,
       ];
     } else {
@@ -981,6 +958,35 @@ export function PptWorkspace({
       gradientEnd: color,
     });
   const applyHomepageCoverPreset = (templateId: string) => {
+    if (templateId === 'universal') {
+      updatePptSettings({
+        slideElements: { ...slideElements, cover: [
+          ...createPptCoverDecorations(),
+          ...slideElements.cover.filter((element) => !element.id.startsWith('ppt-cover-decoration-')),
+        ] },
+        slideBackgroundColors: { ...slideBackgroundColors, cover: '#ffffff' },
+        slideBackgroundStyles: { ...slideBackgroundStyles, cover: {
+          type: 'image', color: '#ffffff', gradientStart: '#ffffff', gradientEnd: '#eef2ff',
+          gradientAngle: 135, imageUrl: defaultMainInterfaceBackgroundUrl, coverDesign: 'universal',
+        } },
+        textBoxLayouts: { ...textBoxLayouts, cover: {
+          ...textBoxLayouts.cover,
+          'cover-title': resolvePptTextBoxLayout(undefined, 'cover-title'),
+          'cover-subtitle': resolvePptTextBoxLayout(undefined, 'cover-subtitle'),
+          'cover-description': resolvePptTextBoxLayout(undefined, 'cover-description'),
+        } },
+        textOverrides: { ...textOverrides, cover: {
+          ...textOverrides.cover,
+          'cover-title': getPptCoverTitle(projectName, copy.untitled, language),
+          'cover-subtitle': getPptCoverSubtitle(language),
+          'cover-description': getPptCoverDescription(language),
+        } },
+      });
+      setSelectedManualElementId(undefined);
+      setSelectedObject({ target: 'background', label: copy.background });
+      setSidebarTab('style');
+      return;
+    }
     const template = homepageCoverTemplates.find((item) => item.id === templateId);
     if (!template) return;
     const coverBackground: PptSlideBackgroundStyle = {
@@ -994,10 +1000,7 @@ export function PptWorkspace({
     updatePptSettings({
       slideBackgroundColors: { ...slideBackgroundColors, cover: template.backgroundColor },
       slideBackgroundStyles: { ...slideBackgroundStyles, cover: coverBackground },
-    });
-    Object.entries(themeRenderPatch(template.id, renderStyle)).forEach(([key, value]) =>
-      updateRenderStyle(key as keyof RenderStyle, value as never),
-    );
+    }, themeRenderPatch(template.id, renderStyle));
     setSelectedManualElementId(undefined);
     setSelectedObject({ target: 'background', label: copy.background });
     setSidebarTab('style');
@@ -2131,6 +2134,7 @@ export function SlideCanvas({
             {selectedId === 'cover' ? (
               <CoverPreview
                 projectName={projectName}
+                language={language}
                 editable={editable}
                 textOverrides={textOverrides}
                 textBoxLayouts={textBoxLayouts}
@@ -2237,6 +2241,7 @@ export function SlideCanvas({
 
 function CoverPreview({
   projectName,
+  language,
   editable,
   textOverrides,
   textBoxLayouts,
@@ -2250,6 +2255,7 @@ function CoverPreview({
   onUpdateTextBoxLayout,
 }: {
   projectName: string;
+  language: Language;
   editable: boolean;
   textOverrides?: Partial<Record<PptTextOverrideTarget, string>>;
   textBoxLayouts?: Partial<Record<PptTextOverrideTarget, PptTextBoxLayout>>;
@@ -2263,9 +2269,9 @@ function CoverPreview({
   onUpdateTextBoxLayout?: (target: PptTextOverrideTarget, patch: Partial<PptTextBoxLayout>) => void;
 }) {
   const title =
-    textOverrides?.['cover-title'] ?? getPptCoverTitle(projectName, '旮旯作家 · GalWriter');
-  const subtitle = textOverrides?.['cover-subtitle'] ?? '由旮旯作家 · GalWriter 生成';
-  const description = textOverrides?.['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION;
+    textOverrides?.['cover-title'] ?? getPptCoverTitle(projectName, '旮旯作家 · GalWriter', language);
+  const subtitle = textOverrides?.['cover-subtitle'] ?? getPptCoverSubtitle(language);
+  const description = textOverrides?.['cover-description'] ?? getPptCoverDescription(language);
   return (
     <div
       className="absolute inset-0"
@@ -2303,7 +2309,7 @@ function CoverPreview({
       />
       <PptCoverTextBox
         target="cover-description"
-        label="Galgame 游戏说明"
+        label="作品说明"
         text={description}
         layout={resolvePptTextBoxLayout(textBoxLayouts?.['cover-description'], 'cover-description')}
         selected={selected}

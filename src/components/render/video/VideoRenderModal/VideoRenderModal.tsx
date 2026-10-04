@@ -173,6 +173,7 @@ export function VideoRenderModal({
     [orderedNodes],
   );
   const [pptSettings, setPptSettings] = useState<PptExportSettings>(() => ({
+    ...persistedWorkspace?.pptSettings,
     layout:
       persistedWorkspace?.pptSettings?.layout === 'LAYOUT_STANDARD'
         ? 'LAYOUT_STANDARD'
@@ -203,10 +204,38 @@ export function VideoRenderModal({
         ? persistedWorkspace.codeTarget
         : 'renpy',
   );
-  const capturePptState = (): PptHistoryState => structuredClone(pptSettings);
+  const capturePptState = (): PptHistoryState => structuredClone({
+    ...pptSettings,
+    renderStyle,
+  });
+  const pptHistoryQueued = useRef(false);
   const pushPptHistory = () => {
+    if (pptHistoryQueued.current) return;
+    pptHistoryQueued.current = true;
+    queueMicrotask(() => { pptHistoryQueued.current = false; });
     setPptPast((previous) => [...previous.slice(-49), capturePptState()]);
     setPptFuture([]);
+  };
+  const applyPptRenderStylePatch = (patch: Partial<RenderStyle>) => {
+    // Restore the authored objects last, after legacy fields have synchronized.
+    const keys = Object.keys(patch) as Array<keyof RenderStyle>;
+    keys.sort((left, right) => Number(left === 'renderObjects') - Number(right === 'renderObjects'));
+    keys.forEach((key) => updateProjectRenderStyle(key, patch[key] as RenderStyle[typeof key]));
+  };
+  const restorePptState = (snapshot: PptHistoryState) => {
+    const { renderStyle: savedStyle, ...savedSettings } = snapshot;
+    setPptSettings(savedSettings);
+    if (savedStyle) {
+      const keys = new Set([...Object.keys(renderStyle), ...Object.keys(savedStyle)]);
+      applyPptRenderStylePatch(Object.fromEntries(
+        Array.from(keys, (key) => [key, savedStyle[key as keyof RenderStyle]]),
+      ));
+    }
+  };
+  const updatePptRenderStyle = <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => {
+    if (renderStyle[key] === value) return;
+    if (key !== 'selectedRenderObject') pushPptHistory();
+    updateProjectRenderStyle(key, value);
   };
   const [pptRibbonTab, setPptRibbonTab] = useState<'insert' | 'animation' | 'transition'>(
     launchIntent?.workspaceMode === 'ppt' && launchIntent.entryMode === 'manual'
@@ -214,15 +243,18 @@ export function VideoRenderModal({
       : 'animation',
   );
   const [pptRibbonCollapsed, setPptRibbonCollapsed] = useState(false);
-  const updatePptSettings = (patch: Partial<PptExportSettings>) => {
+  const updatePptSettings = (patch: Partial<PptExportSettings>, stylePatch?: Partial<RenderStyle>) => {
     if (
       Object.entries(patch).every(
         ([key, value]) => pptSettings[key as keyof PptExportSettings] === value,
-      )
+      ) && (!stylePatch || Object.entries(stylePatch).every(
+        ([key, value]) => renderStyle[key as keyof RenderStyle] === value,
+      ))
     )
       return;
     pushPptHistory();
     setPptSettings((current) => ({ ...current, ...patch }));
+    if (stylePatch) applyPptRenderStylePatch(stylePatch);
   };
   const [status, setStatus] = useState<RenderStatus>('idle');
   const isDesktopApp = isTauriRuntime();
@@ -1169,7 +1201,7 @@ export function VideoRenderModal({
     const previous = pptPast[pptPast.length - 1];
     setPptPast((past) => past.slice(0, -1));
     setPptFuture((future) => [capturePptState(), ...future].slice(0, 50));
-    setPptSettings(previous);
+    restorePptState(previous);
   };
 
   const redoPpt = () => {
@@ -1177,7 +1209,7 @@ export function VideoRenderModal({
     const next = pptFuture[0];
     setPptFuture((future) => future.slice(1));
     setPptPast((past) => [...past.slice(-49), capturePptState()]);
-    setPptSettings(next);
+    restorePptState(next);
   };
 
   const seekTimelineTime = (
@@ -2985,7 +3017,7 @@ export function VideoRenderModal({
                     projectName={webProjectName || defaultWebProjectName}
                     webSettings={webSettings}
                     renderStyle={renderStyle}
-                    updateRenderStyle={updateRenderStyle}
+                    updateRenderStyle={updatePptRenderStyle}
                     pptSettings={pptSettings}
                     updatePptSettings={updatePptSettings}
                     ribbonTab={pptRibbonTab}

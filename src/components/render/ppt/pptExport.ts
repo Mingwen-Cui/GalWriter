@@ -25,7 +25,8 @@ import type {
 } from '../video/shared/types';
 import { syncNameplateAnimations } from './pptAnimationPreview';
 import { filterPptDisabledAnimations } from './pptAnimationReset';
-import { getPptCoverTitle, PPT_DEFAULT_COVER_DESCRIPTION } from './pptCoverTemplate';
+import { getPptCoverTitle, getPptCoverSubtitle, getPptCoverDescription } from './pptCoverTemplate';
+import { resolvePptCoverElements } from './pptCoverDesign';
 import { renderPptGradientPng } from './pptGradient';
 import {
   getPptImageDimensions,
@@ -125,12 +126,6 @@ export async function buildPptxBuffer({
   await registerCustomRenderFonts(style.customFonts);
   const pptx = new PptxGenJS();
   pptx.layout = toPptxGenLayout(pptSettings.layout);
-  const generatedBy =
-    language === 'zh'
-      ? '由旮旯作家 · GalWriter 生成'
-      : language === 'ja'
-        ? 'GalWriter で作成'
-        : 'Created with GalWriter';
   pptx.author = `${language === 'zh' ? '旮旯作家 · GalWriter' : 'GalWriter'} (Mingwen Cui)`;
   pptx.subject = 'Interactive story presentation';
   pptx.title = projectName;
@@ -428,9 +423,9 @@ export async function buildPptxBuffer({
 
   if (pptSettings.includeCover && !deletedSlideIds.has('cover')) {
     const coverText = textOverrides.cover || {};
-    const coverTitle = coverText['cover-title'] ?? getPptCoverTitle(projectName, 'GalWriter');
-    const coverSubtitle = coverText['cover-subtitle'] ?? generatedBy;
-    const coverDescription = coverText['cover-description'] ?? PPT_DEFAULT_COVER_DESCRIPTION;
+    const coverTitle = coverText['cover-title'] ?? getPptCoverTitle(projectName, 'GalWriter', language);
+    const coverSubtitle = coverText['cover-subtitle'] ?? getPptCoverSubtitle(language);
+    const coverDescription = coverText['cover-description'] ?? getPptCoverDescription(language);
     const coverTitleLayout = resolvePptTextBoxLayout(
       textBoxLayouts.cover?.['cover-title'],
       'cover-title',
@@ -478,12 +473,13 @@ export async function buildPptxBuffer({
     if (coverImage) {
       slide.addImage({ data: coverImage, ...fullContentFrame });
     }
+    const coverFontScale = (WIDE_PAGE_WIDTH * 72 / 1920) * page.scale;
     if (coverTitleLayout.visible !== false) {
       addCoverText(coverTitle || ' ', {
         objectName: 'ppt-cover-title',
         ...textBoxFrame(coverTitleLayout),
         fontFace: toPptFontFace(coverTitleStyle.fontFamily || style.titleFontFamily),
-        fontSize: Math.max(8, (coverTitleStyle.fontSize || 34) * page.scale),
+        fontSize: Math.max(8, (coverTitleStyle.fontSize || 84) * coverFontScale),
         bold: coverTitleStyle.fontWeight ? coverTitleStyle.fontWeight >= 600 : true,
         color: hex(coverTitleStyle.textColor || '#111827'),
         align: coverTitleStyle.textAlign || 'left',
@@ -498,7 +494,7 @@ export async function buildPptxBuffer({
         objectName: 'ppt-cover-subtitle',
         ...textBoxFrame(coverSubtitleLayout),
         fontFace: toPptFontFace(coverSubtitleStyle.fontFamily || style.bodyFontFamily),
-        fontSize: Math.max(8, (coverSubtitleStyle.fontSize || 15) * page.scale),
+        fontSize: Math.max(8, (coverSubtitleStyle.fontSize || 22) * coverFontScale),
         bold: coverSubtitleStyle.fontWeight ? coverSubtitleStyle.fontWeight >= 600 : false,
         color: hex(coverSubtitleStyle.textColor || '#475569'),
         align: coverSubtitleStyle.textAlign || 'left',
@@ -513,7 +509,7 @@ export async function buildPptxBuffer({
         objectName: 'ppt-cover-description',
         ...textBoxFrame(coverDescriptionLayout),
         fontFace: toPptFontFace(coverDescriptionStyle.fontFamily || style.bodyFontFamily),
-        fontSize: Math.max(8, (coverDescriptionStyle.fontSize || 20) * page.scale),
+        fontSize: Math.max(8, (coverDescriptionStyle.fontSize || 30) * coverFontScale),
         bold: coverDescriptionStyle.fontWeight ? coverDescriptionStyle.fontWeight >= 600 : false,
         color: hex(coverDescriptionStyle.textColor || '#64748b'),
         align: coverDescriptionStyle.textAlign || 'left',
@@ -523,7 +519,7 @@ export async function buildPptxBuffer({
         rotate: coverDescriptionLayout.rotation,
       });
     }
-    await addSlideElements(slide, slideElements.cover || []);
+    await addSlideElements(slide, resolvePptCoverElements(slideElements.cover, coverBackground, settings.startMenuBackgroundImageUrl));
     slide.addNotes(authorNote);
     authorNoteWritten = true;
     await appendManualSlides('cover');

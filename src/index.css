@@ -2476,21 +2476,28 @@ html.canvas-selection-dragging * {
 
 .assistant-agent-connect-template-picker {
   display: flex;
+  width: 100%;
   align-items: stretch;
   gap: 8px;
 }
 
+.assistant-agent-connect-template-step {
+  grid-column: 1 / -1;
+}
+
 .assistant-agent-connect-template-picker .assistant-agent-connect-template {
-  flex: 1 1 auto;
+  flex: 1 1 0;
 }
 
 .assistant-agent-connect-template-switch {
-  display: inline-flex;
-  min-width: max-content;
+  display: flex;
+  width: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
+  align-self: stretch;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
+  padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   background: #f8faff;
@@ -2533,6 +2540,12 @@ html.canvas-selection-dragging * {
   transform: translateY(-1px);
   border-color: #a5b4fc;
   background: #f8faff;
+}
+
+.assistant-agent-connect-action--primary.is-copied,
+.assistant-agent-connect-template.is-copied {
+  transition: none;
+  animation: none;
 }
 
 .assistant-agent-connect-template:focus-visible {

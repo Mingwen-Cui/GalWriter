@@ -894,6 +894,8 @@ export type PptManualElement =
   | PptManualShapeElement;
 /** Background settings are intentionally local to one PPT slide. */
 export type PptSlideBackgroundStyle = {
+  /** Retained with saved cover templates, including bundled background images. */
+  coverDesign?: 'universal';
   appearance?: SurfaceAppearance;
   type: 'solid' | 'gradient' | 'image' | 'video';
   color: string;
@@ -961,7 +963,10 @@ export type PptExportSettings = {
 };
 
 /** Snapshots used by the PPT workspace undo and redo controls. */
-export type PptHistoryState = PptExportSettings;
+export type PptHistoryState = PptExportSettings & {
+  /** Optional for history written before shared dialogue styles were captured. */
+  renderStyle?: RenderStyle;
+};
 
 export type RenderContextMenuTarget = {
   kind: 'asset' | 'timeline' | 'audio' | 'preview' | 'empty';

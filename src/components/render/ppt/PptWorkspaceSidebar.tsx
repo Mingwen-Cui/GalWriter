@@ -10,6 +10,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import defaultMainInterfaceBackgroundUrl from '../../../assets/common/default-main-interface-background.jpg';
 
 import { isRapidAssetEdition } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
@@ -467,6 +468,29 @@ export function PptSidebar({
               <div className="mt-2">
                 {coverDesignMode === 'preset' ? (
                   <div className="grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onApplyHomepageCoverPreset('universal')}
+                      className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50"
+                    >
+                      <div className="relative aspect-video overflow-hidden bg-white">
+                        <img src={defaultMainInterfaceBackgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                        <span className="absolute left-[9%] top-[26%] h-[2px] w-[4%] bg-[#625bf6]" />
+                        <span className="absolute left-[9%] top-[70%] h-px w-[24%] bg-[#dce1ee]" />
+                        <span className="absolute left-[39%] top-[25%] aspect-square w-[1.5%] rounded-full border border-[#c3c7df]" />
+                        <span className="absolute left-[9%] top-[33%] text-[clamp(10px,1vw,16px)] font-extrabold leading-tight text-[#252a49]">
+                          {language === 'zh' ? <>故事，<br />从这里开始</> : language === 'ja' ? <>ここから、<br />物語が始まる。</> : <>Your story<br />starts here.</>}
+                        </span>
+                      </div>
+                      <span className="block p-2">
+                        <span className="block text-[11px] font-black text-[var(--vr-text)]">
+                          {language === 'zh' ? '通用封面' : language === 'ja' ? '汎用カバー' : 'Universal cover'}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-[var(--vr-text-muted)]">
+                          {language === 'zh' ? '浅色画廊、简单图形与可编辑标题' : language === 'ja' ? '明るいギャラリーと編集可能なタイトル' : 'A light gallery with editable typography'}
+                        </span>
+                      </span>
+                    </button>
                     {isRapidAssetEdition() ? (
                       <RapidEditionTemplateNotice language={language} kind="preset" />
                     ) : (

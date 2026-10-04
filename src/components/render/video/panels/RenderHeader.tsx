@@ -188,7 +188,7 @@ export function RenderHeader({
         </div>
         {workspaceMode === 'code' && (
           <span className="inline-flex shrink-0 items-center rounded border border-amber-500/45 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-black tracking-wide text-amber-600 dark:text-amber-300">
-            Beta 测试版
+            暂时还在搭建
           </span>
         )}
       </div>

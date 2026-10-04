@@ -13,6 +13,7 @@ import type {
   TextAnimation,
   TypewriterMode,
 } from './types';
+import { buttonMotionForPreset } from '../../web/webButtonMotion';
 
 const defaultStops = (start: string, end: string): RenderColorStop[] => [
   { id: 'start', color: start, alpha: 100, position: 0 },
@@ -119,6 +120,7 @@ export const buildDefaultRenderObjects = (): RenderEditableObjects => ({
     height: 22,
     radius: 24,
     fill: fill('solid', '#111827', 82, defaultStops('#111827', '#111827')),
+    buttonMotion: buttonMotionForPreset('none'),
   }),
   title: textObject(
     objectBase({

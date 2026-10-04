@@ -23,6 +23,7 @@ export function AgentConnectionContent({
 }) {
   const ui = assistantPanelCopy(language);
   const [status, setStatus] = useState('');
+  const [copiedAction, setCopiedAction] = useState<'connection' | 'template' | null>(null);
   const [selectedThemeIndex, setSelectedThemeIndex] = useState(0);
   const titleId = inline ? 'assistant-agent-connect-settings-title' : 'assistant-agent-connect-title';
   const canObserveConnection = isTauriRuntime() || import.meta.env.DEV;
@@ -42,6 +43,31 @@ export function AgentConnectionContent({
       title: ui.agentConnectThemeAndroidTitle,
       description: ui.agentConnectThemeAndroidDescription,
       prompt: ui.agentConnectThemeAndroidPrompt,
+    },
+    {
+      title: ui.agentConnectThemeFantasyTitle,
+      description: ui.agentConnectThemeFantasyDescription,
+      prompt: `${ui.agentConnectThemeFantasyPrompt}\n\n${ui.agentConnectThemeExportGuidance}`,
+    },
+    {
+      title: ui.agentConnectThemeCampusTitle,
+      description: ui.agentConnectThemeCampusDescription,
+      prompt: `${ui.agentConnectThemeCampusPrompt}\n\n${ui.agentConnectThemeExportGuidance}`,
+    },
+    {
+      title: ui.agentConnectThemeHistoricalMysteryTitle,
+      description: ui.agentConnectThemeHistoricalMysteryDescription,
+      prompt: `${ui.agentConnectThemeHistoricalMysteryPrompt}\n\n${ui.agentConnectThemeExportGuidance}`,
+    },
+    {
+      title: ui.agentConnectThemeSpaceTitle,
+      description: ui.agentConnectThemeSpaceDescription,
+      prompt: `${ui.agentConnectThemeSpacePrompt}\n\n${ui.agentConnectThemeExportGuidance}`,
+    },
+    {
+      title: ui.agentConnectThemeCozyComedyTitle,
+      description: ui.agentConnectThemeCozyComedyDescription,
+      prompt: `${ui.agentConnectThemeCozyComedyPrompt}\n\n${ui.agentConnectThemeExportGuidance}`,
     },
   ];
   const selectedTheme = promptThemes[selectedThemeIndex % promptThemes.length];
@@ -130,7 +156,8 @@ export function AgentConnectionContent({
           </span>
           <button
             type="button"
-            className="assistant-agent-connect-action assistant-agent-connect-action--primary"
+            className={`assistant-agent-connect-action assistant-agent-connect-action--primary${copiedAction === 'connection' ? ' is-copied' : ''}`}
+            aria-live="polite"
             onClick={async () => {
               try {
                 if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
@@ -142,14 +169,16 @@ export function AgentConnectionContent({
                 await navigator.clipboard.writeText(
                   ui.agentConnectCopyPrompt.replace('http://127.0.0.1:38941/mcp', endpoint),
                 );
-                setStatus(ui.agentConnectCopied);
+                setStatus('');
+                setCopiedAction('connection');
               } catch {
+                setCopiedAction(null);
                 setStatus(ui.agentConnectCopyFailed);
               }
             }}
           >
-            <Copy className="h-4 w-4" />
-            {ui.agentConnectCopyButton}
+            {copiedAction === 'connection' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copiedAction === 'connection' ? ui.agentConnectCopySuccess : ui.agentConnectCopyButton}
           </button>
         </div>
         {canObserveConnection && (
@@ -183,21 +212,26 @@ export function AgentConnectionContent({
           <div className="assistant-agent-connect-template-picker">
             <button
               type="button"
-              className="assistant-agent-connect-template"
+              className={`assistant-agent-connect-template${copiedAction === 'template' ? ' is-copied' : ''}`}
+              aria-live="polite"
               aria-label={ui.agentConnectCopyTemplate.replace('{title}', selectedTheme.title)}
               onClick={async () => {
                 try {
                   if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
                   await navigator.clipboard.writeText(selectedTheme.prompt);
-                  setStatus(ui.agentConnectTemplateCopied.replace('{title}', selectedTheme.title));
+                  setStatus('');
+                  setCopiedAction('template');
                 } catch {
+                  setCopiedAction(null);
                   setStatus(ui.agentConnectCopyFailed);
                 }
               }}
             >
-              <span className="assistant-agent-connect-template-copy"><Copy className="h-4 w-4" /></span>
+              <span className="assistant-agent-connect-template-copy">
+                {copiedAction === 'template' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </span>
               <span className="assistant-agent-connect-template-text">
-                <strong>{selectedTheme.title}</strong>
+                <strong>{copiedAction === 'template' ? ui.agentConnectCopySuccess : selectedTheme.title}</strong>
                 <span>{selectedTheme.description}</span>
               </span>
             </button>
@@ -205,10 +239,14 @@ export function AgentConnectionContent({
               type="button"
               className="assistant-agent-connect-template-switch"
               aria-label={ui.agentConnectSwitchTheme}
-              onClick={() => setSelectedThemeIndex((index) => (index + 1) % promptThemes.length)}
+              title={ui.agentConnectSwitchTheme}
+              onClick={() => {
+                setCopiedAction(null);
+                setStatus('');
+                setSelectedThemeIndex((index) => (index + 1) % promptThemes.length);
+              }}
             >
               <RefreshCw className="h-4 w-4" />
-              <span>{ui.agentConnectSwitchTheme}</span>
             </button>
           </div>
         </div>

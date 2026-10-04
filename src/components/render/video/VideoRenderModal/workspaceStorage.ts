@@ -9,6 +9,7 @@ import type {
   ExportFormat,
   ExportSettingsMode,
   PptExportSettings,
+  PptHistoryState,
   RenderStyle,
   RenderWorkspaceMode,
   TimelineScaleMode,
@@ -154,8 +155,8 @@ export type PersistedRenderWorkspaceState = {
   webPast?: WebHistoryState[];
   webFuture?: WebHistoryState[];
   pptSettings?: Partial<PptExportSettings>;
-  pptPast?: PptExportSettings[];
-  pptFuture?: PptExportSettings[];
+  pptPast?: PptHistoryState[];
+  pptFuture?: PptHistoryState[];
   codeSettings?: RenpyExportSettings;
   codeTarget?: CodeExportTarget;
   savedAt?: number;
