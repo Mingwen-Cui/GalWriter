@@ -435,7 +435,7 @@ ${SCENE_SWITCH_CSS}</style>
       }
       const width = element.strokeEnabled === false ? 0 : Math.max(0, Number(element.borderWidth) || 0);
       const shadows = [];
-      target.style.border = "";
+      target.style.border = element.strokeEnabled === false ? "0" : "";
       target.style.borderImage = "";
       target.style.outline = "";
       target.style.outlineOffset = "";
@@ -1378,6 +1378,8 @@ ${SCENE_SWITCH_CSS}</style>
           }
           if (element.fillEnabled === false) {
             button.style.background = "transparent";
+            button.style.backdropFilter = "none";
+            button.style.webkitBackdropFilter = "none";
           } else if (element.backgroundType === "image") {
             const imageBase = String(element.backgroundImageBackgroundColor || "").trim();
             const legacyBase = String(element.backgroundColor || "").trim();

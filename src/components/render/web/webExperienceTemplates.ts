@@ -3,7 +3,7 @@ import { formatWebText } from './i18n';
 import type { Language } from '../../../lib/i18n';
 import type { RenderStyle, WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { getWebSettingsCopy } from './i18n';
-import { decorateWebPageElements, defaultWebTheme } from './webThemeVisuals';
+import { decorateWebPageElements, defaultWebTheme, SETTINGS_BACKGROUND_STYLE } from './webThemeVisuals';
 
 /**
  * The single source of truth for the built-in web rehearsal experience.
@@ -219,18 +219,22 @@ export const buildRehearsalSettingsPageElements = (
   choiceTextColor: string,
 ): WebMenuElement[] => {
   const positions: Record<string, [number, number, number, number]> = {
-    mode: [8, 33, 26, 10],
-    speed: [8, 45, 26, 14],
-    textSize: [8, 61, 26, 19],
-    preview: [8, 83, 56, 14],
-    auto: [38, 33, 26, 10],
-    animationSpeed: [38, 45, 26, 14],
-    sound: [38, 61, 26, 9],
-    controls: [38, 72, 26, 8],
-    reset: [40, 9, 12, 7],
+    preview: [8, 25, 84, 17],
+    mode: [8, 52, 40, 10],
+    speed: [8, 66, 40, 13],
+    textSize: [8, 82, 40, 17],
+    auto: [56, 52, 36, 10],
+    sound: [56, 64, 36, 10],
+    controls: [56, 76, 36, 10],
+    animationSpeed: [56, 88, 36, 11],
+    reset: [70, 9, 12, 7],
   };
   return decorateWebPageElements([
-    pagePanel('settings-panel'),
+    {
+      ...pagePanel('settings-background', 90),
+      shapeType: 'rectangle' as const, text: language === 'zh' ? '设置背景' : language === 'ja' ? '設定の背景' : 'Settings background',
+      zIndex: -1, borderRadius: 0, strokeEnabled: false, shadowEnabled: false,
+    },
     text(
       'settings-title',
       'title',
@@ -245,9 +249,9 @@ export const buildRehearsalSettingsPageElements = (
       'settings-back',
       'back',
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText196'),
-      54,
+      84,
       9,
-      10,
+      8,
       7,
       choiceColor,
       choiceTextColor,
@@ -258,15 +262,15 @@ export const buildRehearsalSettingsPageElements = (
       textAlign: 'left' as const,
     },
     ...(['reading', 'playback'] as const).map((group, index) => ({
-      ...text(`settings-${group}-heading`, 'custom', language === 'zh' ? (index === 0 ? '文字与阅读' : '声音与操作') : language === 'ja' ? (index === 0 ? '文字と読み方' : 'サウンドと操作') : (index === 0 ? 'Text & reading' : 'Audio & controls'), index === 0 ? 8 : 38, 26, 26, 5, 22),
+      ...text(`settings-${group}-heading`, 'custom', language === 'zh' ? (index === 0 ? '文字与阅读' : '声音与操作') : language === 'ja' ? (index === 0 ? '文字と読み方' : 'サウンドと操作') : (index === 0 ? 'Text & reading' : 'Audio & controls'), index === 0 ? 8 : 56, 46, 36, 4, 22),
       textColor: '#252a59',
       fontWeight: 700,
       textAlign: 'left' as const,
     })),
     ...playerControlCatalog(language).map(({ id, label, forms }) => ({
       ...button(`settings-${id}`, id, label, ...positions[id], choiceColor, choiceTextColor),
-      fontSize: id === 'reset' ? 16 : 20,
-      textAlign: 'left' as const,
+      fontSize: id === 'reset' ? 18 : 20,
+      textAlign: id === 'reset' ? 'center' as const : 'left' as const,
       textColor: id === 'reset' ? '#4f46e5' : '#334155',
       backgroundColor: id === 'reset' ? '#eef2ff' : '#ffffff',
       borderColor: id === 'reset' ? '#c7d2fe' : '#e0e5ef',
@@ -280,7 +284,16 @@ export const buildRehearsalSettingsPageElements = (
     })),
   ].map((element) =>
     element.role === 'title' ? { ...element, textColor: '#252a59', textAlign: 'left' } : element.role === 'back' ? { ...element, textColor: '#4338ca', backgroundColor: '#eef2ff', borderColor: '#c7d2fe', fontSize: 18, textAlign: 'center' } : element,
-  ), defaultWebTheme);
+  ), defaultWebTheme).map((element) => ({
+    ...element,
+    settingsLayoutVersion: 6,
+    borderRadius: element.kind === 'button' && ['back', 'reset'].includes(element.role || '') ? defaultWebTheme.radius : 0,
+    ...(element.id === 'settings-background' ? SETTINGS_BACKGROUND_STYLE : {}),
+    ...(element.kind === 'button' && !['back', 'reset'].includes(element.role || '')
+      ? { fillEnabled: false, strokeEnabled: false, shadowEnabled: false, borderWidth: 0,
+          backgroundType: 'solid' as const, backgroundColor: 'transparent', appearance: undefined }
+      : {}),
+  }));
 };
 
 export const buildRehearsalFlowPageElements = (language: Language): WebMenuElement[] =>

@@ -8,7 +8,7 @@ import type React from 'react';
 import type { CSSProperties } from 'react';
 import { Fragment, useRef, useState } from 'react';
 import { PlayerSettingsPanel } from './WebPlayerSettingsPanel';
-import { PLAYER_SETTINGS_CSS, type PlayerSettingsValues } from './playerSettingsPanel';
+import { PLAYER_SETTINGS_CSS, playerSettingsDescription, type PlayerSettingsValues } from './playerSettingsPanel';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
 
 import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
@@ -225,7 +225,7 @@ export function WebPreviewMenuPages({
     type: 'move' | 'resize' | 'rotate',
     resizeHandle?: PlacementResizeHandle,
   ) => {
-    if (previewMode !== 'edit') return;
+    if (previewMode !== 'edit' || element.locked) return;
     if (event.button === 2) return;
     const rect = (
       page === 'archive' ? archiveRootRef.current : settingsRootRef.current
@@ -238,7 +238,7 @@ export function WebPreviewMenuPages({
       type === 'move' && selectedElementIds.length > 1 && selectedElementIds.includes(element.id);
     const groupIds = shouldMoveGroup ? selectedElementIds : [element.id];
     const pageElements = getPageElements(page);
-    const groupInitial = pageElements.filter((item) => groupIds.includes(item.id));
+    const groupInitial = pageElements.filter((item) => groupIds.includes(item.id) && !item.locked);
     if (!shouldMoveGroup) setSelectedElementIds([element.id]);
     const centerX = rect.left + ((element.x + element.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((element.y + element.height / 2) / 100) * rect.height;
@@ -323,6 +323,7 @@ export function WebPreviewMenuPages({
     event?.preventDefault();
     event?.stopPropagation();
     const nextIds = getPageElements(marquee.page)
+      .filter((element) => !element.locked)
       .filter((element) => previewMode === 'edit' || element.visible !== false)
       .filter(
         (element) =>
@@ -676,7 +677,7 @@ export function WebPreviewMenuPages({
             canvasWidth={settings.canvasWidth}
             canvasHeight={settings.canvasHeight}
             elements={settingsElements}
-            renderControl={(element, label) =>
+            renderControl={(element, label, description) =>
               playerControlCatalog(language).some((control) => control.id === element.role) ? (
                 <PlayerSettingsPanel
                   config={settings.playerSettingsPanel}
@@ -687,6 +688,7 @@ export function WebPreviewMenuPages({
                   elements={[element]}
                   element={element}
                   editableLabel={previewMode === 'edit' ? label : undefined}
+                  editableDescription={previewMode === 'edit' ? description : undefined}
                   onClose={onCloseSettings}
                   onChange={(patch) => {
                     if (patch.autoAdvance !== undefined)
@@ -756,7 +758,7 @@ type MenuPageElementLayerProps = {
   ) => void;
   onAction: (element: WebMenuElement) => void;
   renderSuffix?: (element: WebMenuElement) => string;
-  renderControl?: (element: WebMenuElement, label: React.ReactNode) => React.ReactNode;
+  renderControl?: (element: WebMenuElement, label: React.ReactNode, description?: React.ReactNode) => React.ReactNode;
   slotPreviewActive?: boolean;
   onToggleSlotPreview?: () => void;
 };
@@ -785,9 +787,10 @@ function MenuPageElementLayer({
 }: MenuPageElementLayerProps) {
   const editable = previewMode === 'edit';
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
   const finishEditing = () => {
     setEditingElementId(null);
-    onSelectElement?.(null);
+    setEditingDescriptionId(null);
   };
 
   return (
@@ -798,9 +801,17 @@ function MenuPageElementLayer({
           const selected =
             editable &&
             (selectedElementId === element.id || selectedElementIds.includes(element.id));
-          const isRenaming = editable && editingElementId === element.id;
+          const isEditingLabel = editable && editingElementId === element.id;
+          const isEditingDescription = editable && editingDescriptionId === element.id;
+          const isRenaming = isEditingLabel || isEditingDescription;
+          const selectByRightClick = (event: React.MouseEvent<HTMLElement>) => {
+            if (!editable) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onSelectElement?.(element.id);
+          };
           const startEditing = () => {
-            if (!editable || isRenaming) return;
+            if (!editable || element.locked || isRenaming) return;
             onSelectElement?.(element.id);
             setEditingElementId(element.id);
           };
@@ -808,8 +819,8 @@ function MenuPageElementLayer({
             element.textVisible === false ? null : (
               <WebInlineText
                 value={element.text}
-                editable={editable}
-                editing={isRenaming}
+                editable={editable && !element.locked}
+                editing={isEditingLabel}
                 style={webElementTextPaintStyle(element)}
                 onStart={startEditing}
                 onCommit={(text) => {
@@ -819,6 +830,25 @@ function MenuPageElementLayer({
                 onCancel={finishEditing}
               />
             );
+          const hint = page === 'settings' ? playerSettingsDescription(language, element) : undefined;
+          const description = hint === undefined ? undefined : (
+            <WebInlineText
+              value={hint}
+              placeholder={language === 'zh' ? '双击添加说明' : language === 'ja' ? 'ダブルクリックで説明を追加' : 'Double-click to add a description'}
+              editable={editable && !element.locked}
+              editing={isEditingDescription}
+              onStart={() => {
+                if (!editable || element.locked || isRenaming) return;
+                onSelectElement?.(element.id);
+                setEditingDescriptionId(element.id);
+              }}
+              onCommit={(settingsDescription) => {
+                onUpdateElement(element.id, { settingsDescription });
+                finishEditing();
+              }}
+              onCancel={finishEditing}
+            />
+          );
           const suffix = renderSuffix?.(element) || '';
           const commonStyle: CSSProperties = {
             left: `${element.x}%`,
@@ -857,12 +887,17 @@ function MenuPageElementLayer({
                 data-selectable-element-id={element.id}
                 className={`absolute ${editable ? 'pointer-events-auto cursor-move' : 'pointer-events-none'}`}
                 style={commonStyle}
-                onPointerDown={(event) =>
-                  editable && onBeginElementDrag(page, event, element, 'move')
-                }
+                onContextMenu={selectByRightClick}
+                onPointerDown={(event) => {
+                  if (!editable) return;
+                  if (event.button === 2) { event.stopPropagation(); return; }
+                  if (element.locked) return;
+                  onBeginElementDrag(page, event, element, 'move');
+                }}
                 onClick={(event) => {
                   if (editable) {
                     event.stopPropagation();
+                    if (element.locked) return;
                     onSelectElement?.(element.id);
                   }
                 }}
@@ -875,11 +910,11 @@ function MenuPageElementLayer({
                 />
                 {selected && (
                   <WebShapeSelectionOverlay element={element}>
-                    <WebShapeCornerHandles
+                    {!element.locked && <WebShapeCornerHandles
                       element={element}
                       language={language}
                       onUpdate={onUpdateElement}
-                    />
+                    />}
                     <SelectedElementFrame
                       page={page}
                       element={element}
@@ -891,7 +926,7 @@ function MenuPageElementLayer({
               </div>
             );
           if (element.kind === 'button') {
-            const control = renderControl?.(element, label);
+            const control = renderControl?.(element, label, description);
             const ButtonShell = editable || control ? 'div' : 'button';
             const elementBoxStyle = webElementBoxStyle(element);
             const motionBoxStyle =
@@ -955,6 +990,7 @@ function MenuPageElementLayer({
                     ...elementBoxStyleWithoutShadow,
                     ...buttonMotionStyle,
                     boxShadow: 'var(--gw-button-motion-base-shadow, none)',
+                    ...(element.strokeEnabled === false ? { border: 0, outline: 0 } : {}),
                     ...(element.appearance
                       ? { background: 'transparent', boxShadow: 'none', border: 0, outline: 0 }
                       : {}),
@@ -962,13 +998,15 @@ function MenuPageElementLayer({
                   aria-disabled={!editable && element.disabled}
                   {...(!control ? { disabled: !editable && element.disabled } : {})}
                   onPointerDown={(event) => {
-                    if (isRenaming) event.stopPropagation();
+                    if (isRenaming || (editable && (element.locked || event.button === 2))) event.stopPropagation();
                     else if (editable) onBeginElementDrag(page, event, element, 'move');
                   }}
+                  onContextMenu={selectByRightClick}
                   onDoubleClick={startEditing}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (editable) {
+                      if (element.locked) return;
                       if (isRenaming) return;
                       if (event.button === 2) return;
                       onSelectElement?.(element.id);
@@ -1085,11 +1123,13 @@ function MenuPageElementLayer({
                   ...commonStyle,
                 }}
                 onPointerDown={(event) => {
+                  if (editable && (element.locked || event.button === 2)) { event.stopPropagation(); return; }
                   if (editable) onBeginElementDrag(page, event, element, 'move');
                 }}
+                onContextMenu={selectByRightClick}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (!editable || event.button === 2) return;
+                  if (!editable || element.locked || event.button === 2) return;
                   if (event.detail > 1) {
                     event.currentTarget
                       .querySelector<HTMLInputElement>('input[type="file"]')
@@ -1173,13 +1213,14 @@ function MenuPageElementLayer({
                     : {}),
                 }}
                 onPointerDown={(event) => {
-                  if (isRenaming) event.stopPropagation();
+                  if (isRenaming || (editable && (element.locked || event.button === 2))) event.stopPropagation();
                   else if (editable) onBeginElementDrag(page, event, element, 'move');
                 }}
+                onContextMenu={selectByRightClick}
                 onDoubleClick={startEditing}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (!editable || event.button === 2) return;
+                  if (!editable || element.locked || event.button === 2) return;
                   if (isRenaming) return;
                   onSelectElement?.(element.id);
                 }}
@@ -1253,6 +1294,11 @@ function SelectedElementFrame({
   return (
     <WebEditableElementFrame
       visible={element.visible !== false}
+      locked={element.locked}
+      onToggleLocked={(event) => {
+        event.stopPropagation();
+        onUpdateElement(element.id, { locked: !element.locked });
+      }}
       onRotatePointerDown={(event) => onBeginElementDrag(page, event, element, 'rotate')}
       onToggleVisible={(event) => {
         event.stopPropagation();

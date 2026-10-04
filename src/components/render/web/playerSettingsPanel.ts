@@ -34,7 +34,7 @@ const copy = {
     immediate: '全部显示',
     typewriter: '逐字显示',
     speed: '文字速度',
-    speedHint: '向右拖动，文字出现得更快。',
+    speedHint: '仅控制逐字显示；向右拖动，文字出现得更快。',
     intervalHint: '每字等待时间（毫秒），数值越小越快。',
     fast: '快',
     slow: '慢',
@@ -47,8 +47,8 @@ const copy = {
     large: '大 · 130%',
     auto: '自动推进',
     autoHint: '文字和媒体播放结束后继续；分支选项仍由你选择。',
-    animation: '动画速度',
-    animationHint: '调整画面转场和文字动画的节奏，不改变音视频速度。',
+    animation: '转场与动效速度',
+    animationHint: '调整转场和入场动效，不改变逐字显示或音视频速度。',
     half: '舒缓 · 0.5×',
     double: '快速 · 2×',
     sound: '播放声音',
@@ -89,8 +89,8 @@ const copy = {
     large: 'Large · 130%',
     auto: 'Auto advance',
     autoHint: 'Continue after text and media finish. Branch choices remain yours.',
-    animation: 'Animation speed',
-    animationHint: 'Adjust scene and text animations; audio and video speed stay unchanged.',
+    animation: 'Transitions & effects',
+    animationHint: 'Adjust transitions and entrance effects. Text reveal and media speed stay unchanged.',
     half: 'Gentle · 0.5×',
     double: 'Fast · 2×',
     sound: 'Playback audio',
@@ -131,8 +131,8 @@ const copy = {
     large: '大 · 130%',
     auto: '自動ページ送り',
     autoHint: '文字とメディアの再生後に進みます。分岐は自分で選べます。',
-    animation: 'アニメーション速度',
-    animationHint: '画面と文字の演出速度を変更します。音声と動画は変わりません。',
+    animation: '画面切替と演出の速度',
+    animationHint: '画面切替と登場演出を調整します。文字表示や音声・動画の速度は変わりません。',
     half: 'ゆっくり · 0.5×',
     double: '速い · 2×',
     sound: 'サウンド',
@@ -151,6 +151,17 @@ const copy = {
     undoDone: '変更を元に戻しました',
   },
 };
+
+export function playerSettingsDescription(language: Language, element: Pick<WebMenuElement, 'role' | 'settingsControlForm' | 'settingsDescription'>): string | undefined {
+  if (element.settingsDescription !== undefined) return element.settingsDescription;
+  const t = copy[language === 'ja' ? 'ja' : language === 'en' ? 'en' : 'zh'];
+  const hints: Record<string, string> = {
+    speed: element.settingsControlForm === 'stepper' ? t.intervalHint : t.speedHint,
+    textSize: t.sizeHint, auto: t.autoHint, animationSpeed: t.animationHint,
+    sound: t.soundHint, controls: t.controlsHint,
+  };
+  return hints[element.role || ''];
+}
 
 // Both the editor and the standalone export consume this markup and controller.
 export function playerSettingsMarkup(
@@ -198,19 +209,19 @@ export function playerSettingsMarkup(
     const input = `<input type="${stepper ? 'number' : 'range'}" data-setting="${key}" ${role === 'speed' && !stepper ? 'data-invert="true"' : ''} min="${min}" max="${max}" step="${step}" aria-label="${label}" />`;
     return `<div class="gw-ps-row" ${attrs(role)}>
       <label><span class="gw-ps-label"><span data-role-label>${label}</span><output data-value="${key}" data-unit="${unit}" ${stepper ? 'hidden' : ''}></output></span>
-      <span class="gw-ps-hint">${role === 'speed' && stepper ? t.intervalHint : hint}</span>${stepper ? '' : input + `<span class="gw-ps-scale" aria-hidden="true"><span>${low}</span><span>${high}</span></span>`}</label>
+      <span class="gw-ps-hint" data-role-hint>${role === 'speed' && stepper ? t.intervalHint : hint}</span>${stepper ? '' : input + `<span class="gw-ps-scale" aria-hidden="true"><span>${low}</span><span>${high}</span></span>`}</label>
       ${stepper ? `<div class="gw-ps-stepper"><button type="button" data-step-setting="${key}" data-delta="-1" aria-label="${label} − ${step}">−</button>${input}<span>${unit}</span><button type="button" data-step-setting="${key}" data-delta="1" aria-label="${label} + ${step}">+</button></div>` : ''}
       ${role === 'textSize' ? `<div class="gw-ps-presets" role="group" aria-label="${label}">${[[85, t.presetSmall], [100, t.standard], [130, t.presetLarge]].map(([value, text]) => `<button type="button" data-text-scale="${value}" aria-pressed="false">${text}</button>`).join('')}</div>` : ''}
     </div>`;
   };
   const toggle = (role: PlayerControlId, key: string, label: string, hint: string) => {
     const segmented = config.controls?.[role]?.form === 'segmented';
-    return `<div class="gw-ps-row ${segmented ? '' : 'gw-ps-toggle-row'}" ${attrs(role)}><div><span class="gw-ps-label" data-role-label>${label}</span><p class="gw-ps-hint">${hint}</p></div>
+    return `<div class="gw-ps-row ${segmented ? '' : 'gw-ps-toggle-row'}" ${attrs(role)}><div><span class="gw-ps-label" data-role-label>${label}</span><p class="gw-ps-hint" data-role-hint>${hint}</p></div>
       ${segmented ? `<div class="gw-ps-segments" role="group" aria-label="${label}"><button type="button" data-setting-choice="${key}" data-choice="true">${t.on}</button><button type="button" data-setting-choice="${key}" data-choice="false">${t.off}</button></div>` : `<button class="gw-ps-toggle" type="button" role="switch" aria-checked="false" aria-label="${label}" data-setting="${key}"><span data-toggle-label>${t.off}</span><i aria-hidden="true"></i></button>`}</div>`;
   };
   const modeMarkup = `<div class="gw-ps-row" ${attrs('mode')}><span class="gw-ps-label" data-role-label>${t.mode}</span>
       ${config.controls?.mode?.form === 'select' ? `<select class="gw-ps-select" data-mode-select aria-label="${t.mode}"><option value="immediate">${t.immediate}</option><option value="typewriter">${t.typewriter}</option></select>` : `<div class="gw-ps-segments" role="group" aria-label="${t.mode}"><button type="button" data-mode="immediate">${t.immediate}</button><button type="button" data-mode="typewriter">${t.typewriter}</button></div>`}</div>`;
-  const previewMarkup = `<div class="gw-ps-preview" ${attrs('preview')}><div class="gw-ps-preview-head"><span data-role-label>${t.preview}</span><button type="button" data-action="replay">${t.replay}</button></div><p data-sample="${t.sample}">${t.sample}</p><div class="gw-ps-motion" aria-hidden="true"><i></i></div></div>`;
+  const previewMarkup = `<div class="gw-ps-preview" ${attrs('preview')}><div class="gw-ps-preview-head"><span data-role-label>${t.preview}</span><button type="button" data-action="replay">${t.replay}</button></div><p data-sample="${t.sample}">${t.sample}</p></div>`;
   const resetMarkup = `<div class="gw-ps-reset" ${attrs('reset')}><button type="button" data-action="reset"><span data-role-label>${t.reset}</span></button><button type="button" data-action="undo-reset" hidden>${t.undo}</button><span data-status role="status" class="gw-ps-reset-status"></span></div>`;
   const widgets: Record<string, string> = {
     mode: modeMarkup,
@@ -246,17 +257,17 @@ export function playerSettingsMarkup(
     controls: toggle('controls', 'controlsVisible', t.controls, t.controlsHint),
   };
   if (element)
-    return `<div class="gw-ps-panel gw-ps-widget" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-size:${fontSize}px;--ps-height:${height}px;--ps-radius:${clamp(element.borderRadius, 0, 100, radius)}px;" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">${widgets[element.role || ''] || ''}</div>`;
+    return `<div class="gw-ps-panel gw-ps-widget" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-size:${fontSize}px;--ps-height:${height}px;--ps-radius:${radius}px;" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">${widgets[element.role || ''] || ''}</div>`;
   const appearance = ['soft', 'filled', 'outline'].includes(config.appearance || '')
     ? config.appearance
     : 'soft';
   return `<section class="gw-ps-panel" data-appearance="${appearance}" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-height:${height}px;--ps-size:${fontSize}px;--ps-radius:${radius}px;" aria-label="${t.title}" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">
     <div class="gw-ps-head"><div><span class="gw-ps-eyebrow">PREFERENCES</span><h2 data-setting-role="title"><span data-role-label>${t.title}</span></h2><p>${t.intro}</p></div><button class="gw-ps-done" type="button" data-action="close" data-setting-role="back"><span data-role-label>${t.back}</span><span aria-hidden="true">✓</span></button></div>
     <div class="gw-ps-columns"><section class="gw-ps-group"><h3><span aria-hidden="true">Aa</span>${t.reading}</h3>
+      ${previewMarkup}
       ${modeMarkup}
       ${range('speed', 'typewriterSpeed', t.speed, t.speedHint, 10, 200, 5, ' ms', t.slow, t.fast)}
       ${range('textSize', 'textScale', t.size, t.sizeHint, 85, 130, 5, '%', t.small, t.large)}
-      ${previewMarkup}
     </section><section class="gw-ps-group"><h3><span aria-hidden="true">▷</span>${t.playback}</h3>
       ${toggle('auto', 'autoAdvance', t.auto, t.autoHint)}
       ${range('animationSpeed', 'animationSpeed', t.animation, t.animationHint, 0.5, 2, 0.25, '×', t.half, t.double)}
@@ -273,22 +284,17 @@ export function mountPlayerSettings(
   defaults: PlayerSettingsValues,
   onChange: (patch: Partial<PlayerSettingsValues>) => void,
   onClose: () => void,
-  elements: Array<{ role?: string; text: string; visible?: boolean; disabled?: boolean }> = [],
+  elements: Array<{ role?: string; text: string; visible?: boolean; disabled?: boolean; settingsDescription?: string }> = [],
   readingStyle?: Partial<RenderStyle>,
 ) {
   let values = { ...initial };
   let beforeReset: PlayerSettingsValues | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let sampleAnimation: Animation | undefined;
   const panel = root.querySelector<HTMLElement>('.gw-ps-panel')!;
   const sample = panel.querySelector<HTMLElement>('[data-sample]');
   if (sample && readingStyle) {
     sample.style.fontFamily = readingStyle.bodyFontFamily || 'inherit';
     sample.style.lineHeight = String(readingStyle.bodyLineHeight || 1.5);
-    sample.style.color = readingStyle.bodyColor || 'inherit';
-    sample.style.backgroundColor = readingStyle.panelColor || 'transparent';
-    sample.style.borderRadius = `${readingStyle.dialogRadius ?? 10}px`;
-    sample.style.padding = '8px 12px';
   }
   const locks = new Set<Element>();
   panel.querySelectorAll<HTMLElement>('[data-setting-role]').forEach((row) => {
@@ -314,6 +320,8 @@ export function mountPlayerSettings(
       : element.visible === false;
     const label = row.querySelector<HTMLElement>('[data-role-label]');
     if (label && typeof element.text === 'string') label.textContent = element.text;
+    const hint = row.querySelector<HTMLElement>('[data-role-hint]');
+    if (hint && element.settingsDescription !== undefined) hint.textContent = element.settingsDescription;
     row
       .querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button')
       .forEach((control) => {
@@ -346,7 +354,6 @@ export function mountPlayerSettings(
   if (closeButton) closeButton.hidden = false;
   const replay = () => {
     clearTimeout(timer);
-    sampleAnimation?.cancel();
     if (!sample) return;
     const text = Array.from(sample.dataset.sample || '');
     sample.textContent = '';
@@ -358,24 +365,9 @@ export function mountPlayerSettings(
       if (index < text.length) timer = setTimeout(tick, values.typewriterSpeed);
     };
     tick();
-    sampleAnimation = panel
-      .querySelector('.gw-ps-motion i')
-      ?.animate(
-        [
-          { transform: 'translateX(0)' },
-          { transform: 'translateX(200%)' },
-          { transform: 'translateX(0)' },
-        ],
-        {
-          duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? 0
-            : 1600 / values.animationSpeed,
-          easing: 'ease-in-out',
-        },
-      );
   };
   const sync = (next: PlayerSettingsValues) => {
-    const readingChanged = values.interactionMode !== next.interactionMode || values.typewriterSpeed !== next.typewriterSpeed || values.animationSpeed !== next.animationSpeed;
+    const readingChanged = values.interactionMode !== next.interactionMode || values.typewriterSpeed !== next.typewriterSpeed;
     values = { ...next };
     panel
       .querySelectorAll<HTMLInputElement | HTMLButtonElement>('[data-setting]')
@@ -432,7 +424,7 @@ export function mountPlayerSettings(
           : current >= Number(field.max));
     });
     panel.querySelectorAll<HTMLButtonElement>('[data-text-scale]').forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.textScale) === values.textScale)));
-    if (sample) sample.style.fontSize = readingStyle?.bodyFontSize ? `${(readingStyle.bodyFontSize * values.textScale) / 100}px` : `${(1.1 * values.textScale) / 100}em`;
+    if (sample) sample.style.fontSize = `${(1.05 * values.textScale) / 100}em`;
     if (readingChanged) replay();
   };
   const change = (patch: Partial<PlayerSettingsValues>) => {
@@ -463,7 +455,7 @@ export function mountPlayerSettings(
       Math.min(Number(field.max), Math.round(raw / step) * step),
     );
     change({ [field.dataset.setting]: value });
-    if (field.dataset.setting !== 'textScale') replay();
+    if (field.dataset.setting === 'typewriterSpeed') replay();
   };
   const click = (event: Event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>('button');
@@ -503,7 +495,7 @@ export function mountPlayerSettings(
         ),
       );
       change({ [button.dataset.stepSetting]: next });
-      if (button.dataset.stepSetting !== 'textScale') replay();
+      if (button.dataset.stepSetting === 'typewriterSpeed') replay();
     } else if (button.dataset.setting) {
       const key = button.dataset.setting as keyof PlayerSettingsValues;
       change({ [key]: !values[key] });
@@ -518,7 +510,6 @@ export function mountPlayerSettings(
     sync,
     destroy: () => {
       clearTimeout(timer);
-      sampleAnimation?.cancel();
       root.removeEventListener('input', input);
       root.removeEventListener('change', input);
       root.removeEventListener('click', click);
@@ -577,7 +568,7 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-preview { margin-top:18px; padding:16px; border-radius:12px; background:linear-gradient(125deg,#608ec51a,#6172bd12); border:1px solid #a3c7ff20; }
 .gw-ps-preview-head { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12px; color:#b9c9de; }
 .gw-ps-preview-head button { background:transparent; border:0; padding:4px; font-size:12px; color:#c4dcff; }
-.gw-ps-preview p { margin:14px 0; min-height:3em; line-height:1.5; overflow-wrap:anywhere; }
+.gw-ps-preview p { margin:14px 0; min-height:3em; line-height:1.5; overflow-wrap:anywhere; padding:12px 16px; background:#111827; color:#f8fafc; border:0; border-radius:22px; }
 .gw-ps-preview p { white-space:pre-line; font-weight:500; }
 .gw-ps-presets { display:flex; gap:6px; margin-top:8px; }
 .gw-ps-presets button { flex:1; min-height:30px; padding:4px 8px; border:1px solid #789ed452; border-radius:7px; background:transparent; color:inherit; font-size:.8em; }
@@ -585,8 +576,6 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-reset { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; height:100%; }
 .gw-ps-reset-status { font-size:11px; line-height:1.3; text-align:center; }
 .gw-ps-reset-status:empty { display:none; }
-.gw-ps-motion { height:3px; overflow:hidden; border-radius:5px; background:#ffffff0d; }
-.gw-ps-motion i { display:block; width:33.333%; height:100%; background:#a4c4ff; border-radius:5px; }
 .gw-ps-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; padding-top:24px; color:#a9b7cc; font-size:13px; }
 .gw-ps-footer button { border:1px solid #ffffff26; background:transparent; padding:10px 14px; border-radius:10px; }
 
@@ -616,23 +605,28 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-panel[data-appearance=outline] .gw-ps-toggle i { box-shadow:inset 0 0 0 1px #a8caff; }
 .gw-ps-panel[data-appearance=filled] .gw-ps-preview-head button { background:#2b4368; padding-inline:10px; }
  .gw-ps-widget-surface { width:100%; height:100%; position:relative; }
-.gw-ps-panel.gw-ps-widget { white-space:normal; font:inherit; color:inherit; width:100%; height:100%; max-height:none; padding:12px 16px; overflow:auto; border:0; border-radius:inherit; background:transparent; box-shadow:none; }
+.gw-ps-panel.gw-ps-widget { white-space:normal; font:inherit; color:inherit; width:100%; height:100%; max-height:none; overflow:visible; border:0; border-radius:inherit; background:transparent; box-shadow:none; }
 .gw-ps-widget .gw-ps-row,.gw-ps-widget .gw-ps-preview { padding:0; border:0; background:transparent; margin:0; box-shadow:none; }
 .gw-ps-widget .gw-ps-label { color:inherit; font-weight:inherit; }
 .gw-ps-widget-surface { z-index:1; }
 .gw-ps-widget .gw-ps-hint { color:inherit; opacity:.85; font-size:.8em; }
-.gw-ps-widget [data-setting-role=reset]>button { width:100%; min-height:28px; padding:3px 6px; border:0; background:transparent; color:inherit; }
+.gw-ps-widget [data-setting-role=reset]>button { width:100%; min-height:28px; padding:0; border:0; background:transparent; color:inherit; font:inherit; }
+.gw-ps-widget:has([data-setting-role=reset]) { padding:0; }
+.gw-ps-widget [data-action=reset] { flex:1; display:flex; align-items:center; justify-content:center; box-shadow:none; border-radius:inherit; }
+.gw-ps-widget [data-action=reset]:hover:not(:disabled) { background:transparent; }
+.gw-ps-widget [data-action=reset] [data-role-label] { display:inline; }
 .gw-ps-widget [data-action=undo-reset] { font-size:13px; text-decoration:underline; }
-.gw-ps-widget .gw-ps-toggle-row { min-height:100%; }
-.gw-ps-panel.gw-ps-widget { overflow:auto; padding:14px 18px; color-scheme:light; }
+.gw-ps-widget .gw-ps-toggle-row { min-height:100%; align-items:flex-start; flex-wrap:nowrap; gap:24px; }
+.gw-ps-widget .gw-ps-toggle-row>div { flex:1; }
+.gw-ps-panel.gw-ps-widget { padding:0; color-scheme:light; }
 .gw-ps-widget .gw-ps-row { padding:0; }
 .gw-ps-widget .gw-ps-label { line-height:1.2; }
-.gw-ps-widget .gw-ps-hint { margin-top:5px; line-height:1.4; white-space:normal; }
+.gw-ps-widget .gw-ps-hint { margin-top:10px; line-height:1.6; white-space:pre-wrap; }
 .gw-ps-widget .gw-ps-row input[type=range] { height:32px; margin:4px 0 0; background-size:100% 5px; background-image:linear-gradient(to right,#625bf6 var(--fill,50%),#cbd5e1 var(--fill,50%)); }
 .gw-ps-widget input[type=range]::-webkit-slider-thumb { width:22px; height:22px; border-color:#625bf6; box-shadow:0 2px 6px #252a5920; }
 .gw-ps-widget input[type=range]::-moz-range-thumb { width:16px; height:16px; border-color:#625bf6; }
 .gw-ps-widget .gw-ps-scale { font-size:.7em; line-height:1.3; color:inherit; opacity:.8; }
-.gw-ps-widget .gw-ps-label output { color:inherit; background:#64748b0d; border-color:#64748b26; min-width:64px; padding:2px 8px; font-size:.85em; }
+.gw-ps-widget .gw-ps-label output { color:inherit; background:transparent; border:0; min-width:64px; padding:2px 0; font-size:.85em; }
 .gw-ps-widget .gw-ps-segments { background:#64748b14; margin-top:8px; }
 .gw-ps-widget .gw-ps-segments button { color:inherit; min-height:32px; padding:6px 10px; font-size:.85em; }
 .gw-ps-widget .gw-ps-segments button[aria-pressed=true] { color:#fff; background:#625bf6; box-shadow:0 2px 5px #252a5920; }
@@ -648,9 +642,7 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-widget .gw-ps-preview { margin:0; padding:0; border:0; background:transparent; }
 .gw-ps-widget .gw-ps-preview-head { font-size:.75em; color:inherit; }
 .gw-ps-widget .gw-ps-preview-head button { min-height:28px; padding:2px 8px; font-size:inherit; color:#4338ca; background:#eef2ff; }
-.gw-ps-widget .gw-ps-preview p { margin:8px 0; min-height:3em; line-height:1.5; color:inherit; }
-.gw-ps-widget .gw-ps-motion { background:#e0e5ef; }
-.gw-ps-widget .gw-ps-motion i { background:#625bf6; }
+.gw-ps-widget .gw-ps-preview p { margin:8px 0; min-height:3em; line-height:1.5; color:#f8fafc; }
 /* These controls inherit the preset from both React preview and the offline page. */
 .gw-archive-slot-list { color:var(--gw-ink,#252a59); }
 .gw-archive-slot { border-color:var(--gw-edge,#dce0ef); background:linear-gradient(145deg,var(--gw-panel,#fff),var(--gw-panel-end,#f0f2fb)); border-radius:var(--gw-radius,14px); transition:border-color .18s,box-shadow .18s; }
@@ -662,15 +654,15 @@ export const PLAYER_SETTINGS_CSS = `
 .gw-ps-widget .gw-ps-row input[type=range] { background-image:linear-gradient(to right,var(--gw-accent,#7169d8) var(--fill,50%),var(--gw-edge,#dce0ef) var(--fill,50%)); }
 .gw-ps-widget input[type=range]::-webkit-slider-thumb { border-color:var(--gw-accent,#7169d8); }
 .gw-ps-widget input[type=range]::-moz-range-thumb { border-color:var(--gw-accent,#7169d8); }
-.gw-ps-widget .gw-ps-segments,.gw-ps-widget .gw-ps-stepper,.gw-ps-widget .gw-ps-select,.gw-ps-widget .gw-ps-label output { background:var(--gw-panel-end,#f0f2fb); border-color:var(--gw-edge,#dce0ef); }
+.gw-ps-widget .gw-ps-segments,.gw-ps-widget .gw-ps-stepper,.gw-ps-widget .gw-ps-select { background:var(--gw-panel-end,#f0f2fb); border-color:var(--gw-edge,#dce0ef); }
 .gw-ps-widget .gw-ps-select option { background:var(--gw-panel,#fff); color:var(--gw-ink,#252a59); }
 .gw-ps-widget .gw-ps-segments button[aria-pressed=true],.gw-ps-widget .gw-ps-presets button[aria-pressed=true] { color:var(--gw-on-accent,#fff); border-color:var(--gw-accent,#7169d8); background:linear-gradient(135deg,var(--gw-accent,#7169d8),var(--gw-accent-end,#5750b5)); }
 .gw-ps-widget .gw-ps-presets button { border-color:var(--gw-edge,#dce0ef); }
 .gw-ps-widget .gw-ps-segments button[aria-pressed=true]:hover,.gw-ps-widget .gw-ps-presets button[aria-pressed=true]:hover { background:var(--gw-accent-end,#5750b5); }
-.gw-ps-widget .gw-ps-toggle[aria-checked=true] i,.gw-ps-widget .gw-ps-motion i { background:var(--gw-accent,#7169d8); }
+.gw-ps-widget .gw-ps-toggle[aria-checked=true] i { background:var(--gw-accent,#7169d8); }
 .gw-ps-widget .gw-ps-preview-head button { color:var(--gw-ink,#252a59); background:var(--gw-panel-end,#f0f2fb); }
-.gw-ps-widget .gw-ps-motion { background:var(--gw-edge,#dce0ef); }
 .gw-ps-widget button:focus-visible,.gw-ps-widget input:focus-visible,.gw-ps-widget select:focus-visible { outline-color:var(--gw-accent,#7169d8); }
 @container (max-width:700px) { .gw-ps-panel { padding:20px; border-radius:18px; } .gw-ps-columns { grid-template-columns:1fr; } .gw-ps-head h2 { font-size:24px; } .gw-ps-group { padding:16px; } .gw-ps-footer { flex-wrap:wrap; } }
+.gw-ps-panel,.gw-ps-group,.gw-ps-preview { border-radius:0; }
 @media (prefers-reduced-motion:reduce) { .gw-ps-toggle i::after { transition:none; } }
 `;

@@ -45,6 +45,7 @@ export function PlayerSettingsControlsInspector({
         title={t('设置页元素', 'Settings page elements', '設定ページの要素')}
         icon={<SlidersHorizontal className="h-4 w-4" />}
         tone="extra"
+        titleActive={false}
         secondary={<span className="text-xs text-[var(--inspector-muted)]">{elements.length}</span>}
       >
         <div className="space-y-3">
@@ -99,7 +100,7 @@ export function PlayerSettingsControlsInspector({
               </div>
             ))}
           </div>
-          <details open className="border-t border-[var(--inspector-line)] pt-2">
+          <details className="border-t border-[var(--inspector-line)] pt-2">
             <summary className="cursor-pointer py-1 text-xs font-semibold">
               {t('添加按钮与功能', 'Add buttons & functions', 'ボタンと機能を追加')}
             </summary>

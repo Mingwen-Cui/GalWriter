@@ -1,4 +1,4 @@
-import { Eye, EyeOff, List, RotateCw, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, List, Lock, Unlock, RotateCw, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 export type WebEditableResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -39,6 +39,8 @@ export function WebEditableElementFrame({
   showAuxiliaryControls = true,
   showVisibilityControl = true,
   showResizeHandles = true,
+  locked = false,
+  onToggleLocked,
 }: {
   compact?: boolean;
   visible: boolean;
@@ -55,11 +57,13 @@ export function WebEditableElementFrame({
   showAuxiliaryControls?: boolean;
   showVisibilityControl?: boolean;
   showResizeHandles?: boolean;
+  locked?: boolean;
+  onToggleLocked?: (event: React.MouseEvent<HTMLElement>) => void;
 }) {
   return (
     <>
       <span className={`pointer-events-none absolute inset-0 z-[260] ${ringClassName}`} />
-      {showAuxiliaryControls && (
+      {showAuxiliaryControls && !locked && (
         <span
           tabIndex={-1}
           className="pointer-events-auto absolute -left-10 top-1/2 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white text-slate-900 shadow-lg"
@@ -132,7 +136,30 @@ export function WebEditableElementFrame({
           <Trash2 className="h-4 w-4" />
         </span>
       )}
-      {showResizeHandles &&
+      {onToggleLocked && (
+        <span
+          role="button"
+          tabIndex={0}
+          data-editable-frame-control="lock"
+          aria-label={locked ? '解锁' : '锁定'}
+          aria-pressed={locked}
+          title={locked ? '解锁' : '锁定：右键可再次选中'}
+          className={`pointer-events-auto absolute -right-10 z-[9999] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-slate-700 text-white shadow-lg ${onToggleSlotPreview ? 'top-[calc(50%-80px)]' : 'top-[calc(50%-40px)]'}`}
+          style={{ cursor: 'pointer', pointerEvents: 'auto', touchAction: 'none', zIndex: 2147483646 }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={onToggleLocked}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              event.stopPropagation();
+              event.currentTarget.click();
+            }
+          }}
+        >
+          {locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+        </span>
+      )}
+      {showResizeHandles && !locked &&
         webEditableResizeHandles.map((handle) => (
           <span
             key={handle}

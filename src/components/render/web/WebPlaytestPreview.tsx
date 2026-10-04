@@ -141,6 +141,8 @@ type WebPlaytestPreviewProps = {
   requestedSurface?: WebPreviewSurface;
   selectedStartMenuElementId?: string | null;
   selectedFlowCardId?: string | null;
+  flowRegionSelected?: boolean;
+  onSelectFlowRegion?: () => void;
   imageCropEditingElementId?: string | null;
   gradientEditingSurface?: WebPreviewSurface | null;
   gradientEditingElement?: { id: string; group: 'text' | 'fill' | 'stroke' } | null;
@@ -191,6 +193,8 @@ export function WebPlaytestPreview({
   requestedSurface,
   selectedStartMenuElementId: controlledSelectedStartMenuElementId,
   selectedFlowCardId,
+  flowRegionSelected = false,
+  onSelectFlowRegion,
   imageCropEditingElementId = null,
   gradientEditingSurface = null,
   gradientEditingElement = null,
@@ -1732,7 +1736,7 @@ export function WebPlaytestPreview({
     type: 'move' | 'resize' | 'rotate',
     resizeHandle?: StartMenuResizeHandle,
   ) => {
-    if (previewMode !== 'edit') return;
+    if (previewMode !== 'edit' || element.locked) return;
     if (event.button === 2) return;
     const rect = startMenuEditorRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1746,7 +1750,7 @@ export function WebPlaytestPreview({
       selectedStartMenuElementIds.length > 1 &&
       selectedStartMenuElementIds.includes(element.id);
     const groupIds = shouldMoveGroup ? selectedStartMenuElementIds : [element.id];
-    const groupInitial = source.filter((item) => groupIds.includes(item.id));
+    const groupInitial = source.filter((item) => groupIds.includes(item.id) && !item.locked);
     if (shouldMoveGroup) {
       setLocalSelectedStartMenuElementId(element.id);
       onSelectStartMenuElement?.(element.id);
@@ -1838,6 +1842,7 @@ export function WebPlaytestPreview({
     event?.stopPropagation();
     const selectedIds = editableSurfaceElements
       .filter((element) => {
+        if (element.locked) return false;
         if (!element.visible && previewMode !== 'edit') return false;
         return (
           element.x < box.x + box.width &&
@@ -2398,7 +2403,14 @@ export function WebPlaytestPreview({
             event.stopPropagation();
           }}
         >
-          <WebFlowRegion view={settings.flowOverviewView} editable={previewMode === 'edit'} selected={!selectedStartMenuElementId && !selectedFlowCardId} language={language} onSelect={() => onSelectFlowCard?.(null)} onChange={(view) => onUpdateSettings('flowOverviewView', view)}>
+          <WebFlowRegion
+            view={settings.flowOverviewView}
+            editable={previewMode === 'edit'}
+            selected={flowRegionSelected}
+            language={language}
+            onSelect={() => onSelectFlowRegion?.()}
+            onChange={(view) => onUpdateSettings('flowOverviewView', view)}
+          >
           <WebStoryFlowGraph
             language={language}
             nodes={nodes}
@@ -2440,7 +2452,6 @@ export function WebPlaytestPreview({
             }
             showDirectionControl={false}
             showFitViewControl={false}
-            onClose={previewMode === 'test' ? () => setFlowOverviewOpen(false) : undefined}
             onPlayFromNode={startPreviewFromNode}
           />
           </WebFlowRegion>

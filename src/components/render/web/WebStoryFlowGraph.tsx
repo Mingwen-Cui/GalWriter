@@ -544,7 +544,7 @@ export function WebStoryFlowGraph({
 
   if (segments.length === 0) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--vr-surface-soft)] text-sm text-[var(--vr-text-muted)]">
+      <div className={`flex min-h-0 flex-1 items-center justify-center ${transparentSurface ? 'bg-transparent' : 'bg-[var(--vr-surface-soft)]'} text-sm text-[var(--vr-text-muted)]`}>
         {textFor(
           language,
           '还没有可展示的剧情分支',
@@ -624,7 +624,7 @@ export function WebStoryFlowGraph({
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
           ref={viewportRef}
-          className={`interactive-segment-graph-viewport absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing ${transparentSurface ? 'bg-transparent before:hidden' : ''}`}
+          className={`interactive-segment-graph-viewport absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing ${transparentSurface ? 'interactive-segment-graph-viewport--transparent' : ''}`}
           style={graphStyle}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

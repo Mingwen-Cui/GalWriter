@@ -821,6 +821,7 @@ export function WebWorkspace({
     }
     setSelectedStartMenuElementId(null);
     setSelectedFlowCardId(null);
+    setFlowRegionSelected(false);
     setSelectedPreviewElementIds([]);
   };
   const importWebTemplate = async (file: File) => {
@@ -878,6 +879,8 @@ export function WebWorkspace({
   const [editPreviewSurface, setEditPreviewSurface] = useState<WebPreviewSurface>('start');
   const [selectedStartMenuElementId, setSelectedStartMenuElementId] = useState<string | null>(null);
   const [selectedFlowCardId, setSelectedFlowCardId] = useState<string | null>(null);
+  const [flowRegionSelected, setFlowRegionSelected] = useState(false);
+  useEffect(() => setFlowRegionSelected(false), [currentPreviewSurface, startMenuPreviewMode]);
   const [selectedPreviewElementIds, setSelectedPreviewElementIds] = useState<string[]>([]);
   const [imageCropEditingElementId, setImageCropEditingElementId] = useState<string | null>(null);
   const [gradientEditingElement, setGradientEditingElement] = useState<{
@@ -1486,6 +1489,7 @@ export function WebWorkspace({
     </WebSurfaceInspectorPanel>
   );
   const selectPlacementTool = (tool: WebPlacementTool) => {
+    setFlowRegionSelected(false);
     setPlacementTool((previous) =>
       previous?.kind === tool.kind && previous?.shapeType === tool.shapeType ? null : tool,
     );
@@ -2063,17 +2067,26 @@ JSON schema:
               requestedSurface={editPreviewSurface}
               selectedStartMenuElementId={selectedStartMenuElementId}
               selectedFlowCardId={selectedFlowCardId}
+              flowRegionSelected={flowRegionSelected}
+              onSelectFlowRegion={() => {
+                setFlowRegionSelected(true);
+                setSelectedFlowCardId(null);
+                setSelectedStartMenuElementId(null);
+                setSelectedPreviewElementIds([]);
+              }}
               imageCropEditingElementId={imageCropEditingElementId}
               gradientEditingSurface={gradientEditingSurface}
               gradientEditingElement={gradientEditingElement}
               onSurfaceChange={setCurrentPreviewSurface}
               onSelectStartMenuElement={(id) => {
+                setFlowRegionSelected(false);
                 setSelectedFlowCardId(null);
                 setSelectedStartMenuElementId(id);
                 setSelectedPreviewElementIds(id ? [id] : []);
                 if (id) setDialogueSelection('background');
               }}
               onSelectFlowCard={(id) => {
+                setFlowRegionSelected(false);
                 setSelectedFlowCardId(id);
                 if (id) {
                   setSelectedStartMenuElementId(null);
@@ -2083,7 +2096,10 @@ JSON schema:
                   setSelectedPreviewElementIds([]);
                 }
               }}
-              onSelectStartMenuElements={setSelectedPreviewElementIds}
+              onSelectStartMenuElements={(ids) => {
+                setFlowRegionSelected(false);
+                setSelectedPreviewElementIds(ids);
+              }}
               onDeleteStartMenuElement={deleteStartMenuElement}
               onUpdateSettings={updateWebSettings}
               onUpdateRenderStyle={updateWebRenderStyle}
@@ -2744,7 +2760,13 @@ JSON schema:
 
                 {designPanelMode === 'background' && currentPreviewSurface === 'flow' && (
                   <>
-                    <WebFlowViewInspector settings={webSettings} language={language} onChange={updateWebSettingsBulk} />
+                    {(flowRegionSelected || selectedFlowCardId) && (
+                      <WebFlowViewInspector
+                        settings={webSettings}
+                        language={language}
+                        onChange={updateWebSettingsBulk}
+                      />
+                    )}
                     {surfaceInspector}
                   </>
                 )}

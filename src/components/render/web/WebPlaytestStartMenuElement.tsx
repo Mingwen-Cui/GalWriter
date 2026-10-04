@@ -192,7 +192,8 @@ export function WebPlaytestStartMenuElement({
     whiteSpace: 'pre-wrap',
   };
 
-  const ensureAndSelect = () => {
+  const ensureAndSelect = (allowLocked = false) => {
+    if (element.locked && !allowLocked) return;
     if (!hasCustomStartMenuElements) onEnsureStartMenuElements();
     onSelectElement(element.id);
   };
@@ -205,7 +206,7 @@ export function WebPlaytestStartMenuElement({
   const isEditingText = previewMode === 'edit' && editingStartMenuElementId === element.id;
 
   const openImagePicker = (event: React.MouseEvent<HTMLElement>) => {
-    if (previewMode !== 'edit') return;
+    if (previewMode !== 'edit' || element.locked) return;
     event.preventDefault();
     event.stopPropagation();
     ensureAndSelect();
@@ -217,7 +218,7 @@ export function WebPlaytestStartMenuElement({
       <WebInlineText
         value={element.text}
         displayValue={previewMode === 'edit' ? element.text : visibleText}
-        editable={previewMode === 'edit'}
+        editable={previewMode === 'edit' && !element.locked}
         editing={isEditingText}
         placeholder={formatWebText(
           language,
@@ -231,17 +232,15 @@ export function WebPlaytestStartMenuElement({
         onCommit={(text) => {
           onUpdateElement(element.id, { text });
           onSetEditingElement(null);
-          onSelectElement(null);
         }}
         onCancel={() => {
           onSetEditingElement(null);
-          onSelectElement(null);
         }}
       />
     );
 
   const startEditingText = (event: React.MouseEvent<HTMLElement>) => {
-    if (previewMode !== 'edit' || (element.kind !== 'text' && element.kind !== 'button')) return;
+    if (previewMode !== 'edit' || element.locked || (element.kind !== 'text' && element.kind !== 'button')) return;
     event.stopPropagation();
     if (isEditingText) return;
     ensureAndSelect();
@@ -328,6 +327,10 @@ export function WebPlaytestStartMenuElement({
         pointerEvents: element.kind === 'shape' && previewMode !== 'edit' ? 'none' : undefined,
       }}
       onPointerDown={(event) => {
+        if (previewMode === 'edit' && (element.locked || event.button === 2)) {
+          event.stopPropagation();
+          return;
+        }
         if (isEditingText) {
           event.stopPropagation();
           return;
@@ -337,10 +340,17 @@ export function WebPlaytestStartMenuElement({
       onClick={(event) => {
         if (previewMode !== 'edit') return;
         event.stopPropagation();
+        if (element.locked) return;
         if (isEditingText) return;
         ensureAndSelect();
       }}
       onDoubleClick={startEditingText}
+      onContextMenu={(event) => {
+        if (previewMode !== 'edit') return;
+        event.preventDefault();
+        event.stopPropagation();
+        ensureAndSelect(true);
+      }}
     >
       {element.kind === 'button' && <style>{WEB_BUTTON_MOTION_CSS}</style>}
       {previewMode === 'edit' && !isEditingText && element.kind === 'button' && (
@@ -418,6 +428,10 @@ export function WebPlaytestStartMenuElement({
       ) : element.kind === 'button' ? (
         <ButtonShell
           onPointerDown={(event) => {
+            if (previewMode === 'edit' && (element.locked || event.button === 2)) {
+              event.stopPropagation();
+              return;
+            }
             if (isEditingText) {
               event.preventDefault();
               event.stopPropagation();
@@ -466,7 +480,7 @@ export function WebPlaytestStartMenuElement({
             if (previewMode === 'edit') {
               event.preventDefault();
               event.stopPropagation();
-              if (isEditingText) return;
+              if (isEditingText || element.locked) return;
               ensureAndSelect();
               if (element.role === 'flowDirection' || element.role === 'flowFitView') {
                 action?.onClick();
@@ -614,7 +628,7 @@ export function WebPlaytestStartMenuElement({
             }
           />
         )}
-      {imageCropEditing && element.kind === 'button' && element.backgroundImageUrl && (
+      {imageCropEditing && !element.locked && element.kind === 'button' && element.backgroundImageUrl && (
         <div className="pointer-events-none absolute inset-0 z-[40] overflow-visible">
           <div
             className="pointer-events-auto absolute cursor-move select-none"
@@ -755,7 +769,7 @@ export function WebPlaytestStartMenuElement({
       )}
       {previewMode === 'edit' && selected && !isEditingText && (
         <WebShapeSelectionOverlay element={element} enabled={element.kind === 'shape'}>
-          {element.kind === 'shape' && (
+          {element.kind === 'shape' && !element.locked && (
             <WebShapeCornerHandles
               element={element}
               language={language}
@@ -764,6 +778,11 @@ export function WebPlaytestStartMenuElement({
           )}
           <WebEditableElementFrame
             visible={!imageCropEditing && element.visible}
+            locked={element.locked}
+            onToggleLocked={(event) => {
+              event.stopPropagation();
+              onUpdateElement(element.id, { locked: !element.locked });
+            }}
             onRotatePointerDown={(event) => onBeginDrag(event, element, 'rotate')}
             onToggleVisible={(event) => {
               event.stopPropagation();

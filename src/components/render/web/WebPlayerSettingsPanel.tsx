@@ -20,6 +20,7 @@ type Props = {
   elements: WebMenuElement[];
   element?: WebMenuElement;
   editableLabel?: ReactNode;
+  editableDescription?: ReactNode;
   readingStyle?: Partial<RenderStyle>;
   onChange: (patch: Partial<PlayerSettingsValues>) => void;
   onClose: () => void;
@@ -28,7 +29,9 @@ type Props = {
 export function PlayerSettingsPanel(props: Props) {
   const root = useRef<HTMLDivElement>(null);
   const [labelHost, setLabelHost] = useState<HTMLElement | null>(null);
+  const [descriptionHost, setDescriptionHost] = useState<HTMLElement | null>(null);
   const hasEditableLabel = props.editableLabel !== undefined;
+  const hasEditableDescription = props.editableDescription !== undefined;
   const latest = useRef(props);
   latest.current = props;
   const controller = useRef<ReturnType<typeof mountPlayerSettings> | null>(null);
@@ -46,7 +49,7 @@ export function PlayerSettingsPanel(props: Props) {
   );
   // Only template semantics change the markup. Slider updates must preserve focus and dragging.
   const elementConfig = JSON.stringify(
-    props.elements.map(({ role, text, visible, disabled }) => ({ role, text, visible, disabled })),
+    props.elements.map(({ role, text, visible, disabled, settingsDescription }) => ({ role, text, visible, disabled, settingsDescription })),
   );
   useLayoutEffect(() => {
     const current = latest.current;
@@ -80,11 +83,16 @@ export function PlayerSettingsPanel(props: Props) {
       label?.replaceChildren();
       setLabelHost(label);
     }
+    if (hasEditableDescription) {
+      const description = host.querySelector<HTMLElement>('[data-role-hint]');
+      description?.replaceChildren();
+      setDescriptionHost(description);
+    }
     return () => {
       mounted.destroy();
       if (controller.current === mounted) controller.current = null;
     };
-  }, [markup, elementConfig, hasEditableLabel, readingStyleKey]);
+  }, [markup, elementConfig, hasEditableLabel, hasEditableDescription, readingStyleKey]);
   useLayoutEffect(() => {
     controller.current?.sync(props.values);
   }, [props.values]);
@@ -104,6 +112,7 @@ export function PlayerSettingsPanel(props: Props) {
         }}
       />
       {hasEditableLabel && labelHost && createPortal(props.editableLabel, labelHost)}
+      {hasEditableDescription && descriptionHost && createPortal(props.editableDescription, descriptionHost)}
     </>
   );
 }

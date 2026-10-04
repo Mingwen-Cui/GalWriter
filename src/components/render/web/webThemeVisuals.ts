@@ -1,5 +1,19 @@
 import type { WebMenuElement } from '../video/shared/types';
 
+export const SETTINGS_BACKGROUND_STYLE = {
+  borderRadius: 61,
+  borderTopLeftRadius: 61, borderTopRightRadius: 61,
+  borderBottomLeftRadius: 61, borderBottomRightRadius: 61,
+  opacity: 100, fillEnabled: true,
+  backgroundType: 'gradient' as const,
+  backgroundGradientStart: '#ffffff', backgroundGradientEnd: '#e8ecf8',
+  backgroundGradientAngle: 270, backgroundGradientShape: 'linear' as const,
+  backgroundGradientStops: [
+    { id: 'settings-bg-start', color: '#ffffff', alpha: 80, position: 0 },
+    { id: 'settings-bg-end', color: '#e8ecf8', alpha: 94, position: 100 },
+  ],
+};
+
 /** Shared, serializable colours for the editor and the offline player. */
 export type WebThemeVisuals = {
   panel: string;
@@ -86,12 +100,13 @@ export function decorateWebPageElements(items: WebMenuElement[], theme = default
       backgroundGradientEnd: primary ? theme.accentEnd : theme.panelEnd,
       backgroundGradientAngle: panel ? 155 : 135,
       backgroundGradientShape: 'linear', backgroundGradientStops: undefined,
-      borderColor: theme.edge, borderWidth: 1, borderRadius: element.role === 'flowDirection' || element.role === 'flowFitView' ? 999 : panel ? theme.radius + 8 : theme.radius,
-      shadowEnabled: true, shadowColor: theme.dark ? '#000000' : '#34344f',
+      borderColor: theme.edge, borderWidth: 1, borderRadius: element.settingsLayoutVersion ? (element.kind === 'button' && ['back', 'reset'].includes(element.role || '') ? theme.radius : 0) : element.role === 'flowDirection' || element.role === 'flowFitView' ? 999 : panel ? theme.radius + 8 : theme.radius,
+      shadowEnabled: element.shadowEnabled !== false, shadowColor: theme.dark ? '#000000' : '#34344f',
       shadowOpacity: panel ? 10 : primary ? 16 : 5, shadowBlur: panel ? 40 : primary ? 22 : 12,
       shadowOffsetX: 0, shadowOffsetY: panel ? 14 : primary ? 6 : 3,
       // Generated presets use editable legacy paint fields, with no stale layered override.
       appearance: undefined,
+      ...(element.id === 'settings-background' ? SETTINGS_BACKGROUND_STYLE : {}),
     };
   });
 }

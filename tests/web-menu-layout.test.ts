@@ -44,8 +44,8 @@ test('settings migrate only the complete untouched previous grid', () => {
     '#fff',
   );
   assert.equal(migrated.find((element) => element.role === 'speed')?.text, '文字速度');
-  assert.equal(migrated.find((element) => element.role === 'preview')?.width, 56);
-  assert.equal(migrated.find((element) => element.id === 'settings-panel')?.kind, 'shape');
+  assert.equal(migrated.find((element) => element.role === 'preview')?.width, 84);
+  assert.equal(migrated.find((element) => element.id === 'settings-panel'), undefined);
   const authored = previous.map((element) =>
     element.role === 'mode' ? { ...element, x: element.x + 1 } : element,
   );
@@ -103,7 +103,7 @@ test('archive migrates the previous default without overwriting a moved layout',
 });
 
 test('shapes preserve layered paint when serialized into the offline player', () => {
-  const element = buildSettingsPageElements('zh', '#625bf6', '#fff')[0];
+  const element = { ...buildSettingsPageElements('zh', '#625bf6', '#fff')[0], kind: 'shape' as const };
   const compiled = ts.transpileModule(
     readFileSync(new URL('../src/components/render/web/webShapes.ts', import.meta.url), 'utf8'),
     { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } },
@@ -158,11 +158,15 @@ test('shapes preserve layered paint when serialized into the offline player', ()
 test('rectangle responds to unified and independent corner radii', () => {
   const rectangle = {
     ...buildSettingsPageElements('zh', '#625bf6', '#fff')[0],
+    kind: 'shape' as const,
     shapeType: 'rectangle' as const,
     width: 20,
     height: 20,
     borderRadius: 32,
+    borderTopLeftRadius: undefined, borderTopRightRadius: undefined,
+    borderBottomLeftRadius: undefined, borderBottomRightRadius: undefined,
     borderWidth: 2,
+    strokeEnabled: true,
     borderColor: '#625bf6',
   };
   assert.match(webShapeMarkup(rectangle), /rx="32"/);

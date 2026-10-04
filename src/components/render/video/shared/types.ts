@@ -309,6 +309,9 @@ export type WebButtonMotion = {
 
 export type WebMenuElement = {
   appearance?: SurfaceAppearance;
+  locked?: boolean;
+  settingsDescription?: string;
+  settingsLayoutVersion?: number;
   settingsControlForm?: 'switch' | 'segmented' | 'slider' | 'stepper' | 'select';
   id: string;
   kind: 'button' | 'text' | 'image' | 'shape';

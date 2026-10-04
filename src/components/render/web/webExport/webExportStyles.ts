@@ -831,8 +831,8 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .flow-overview-close:hover { color: #4f46e5; border-color: #818cf8; }
     .flow-overview-close-floating { position: absolute; top: 18px; right: 18px; z-index: 12; }
-    .flow-overview-viewport { position: relative; flex: 1; overflow: hidden; background: radial-gradient(rgba(37,42,89,0.12) 1px, transparent 1px), #f8fafc; background-size: 22px 22px; }
-    .flow-overview-graph-region { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+    .flow-overview-viewport { position: relative; flex: 1; overflow: hidden; background: transparent; }
+    .flow-overview-graph-region { position: absolute; inset: 0; overflow: hidden; background: transparent; border: 0; box-shadow: none; touch-action: none; cursor: grab; }
     .flow-overview-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
     .flow-overview-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
     .flow-overview-custom-layer { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
