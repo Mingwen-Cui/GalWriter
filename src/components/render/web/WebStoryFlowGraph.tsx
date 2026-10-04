@@ -1,6 +1,8 @@
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import { WEB_FLOW_THEME_CSS } from './webThemeVisuals';
 import { normalizeWebFlowView, type WebFlowView } from './webFlowView';
+import { buildWebFlowLayout } from './webFlowGraphLayout';
+import { buildWebFlowChoicePreview } from './webFlowPreview';
 import {
   ArrowDown,
   ArrowLeft,
@@ -36,7 +38,6 @@ import type {
   LayoutDirection,
 } from '../video/interactive/interactiveSegmentGraphLayout';
 import {
-  buildSegmentLayout,
   clamp,
   segmentLinkPath,
 } from '../video/interactive/interactiveSegmentGraphLayout';
@@ -66,6 +67,7 @@ type Props = {
   showFitViewControl?: boolean;
   watchedNodeIds?: ReadonlySet<string>;
   view?: WebFlowView;
+  previewImageUrl?: string;
   onViewChange?: (view: WebFlowView) => void;
 };
 
@@ -150,12 +152,18 @@ export function WebStoryFlowGraph({
   showFitViewControl = false,
   watchedNodeIds,
   view: viewSettings,
+  previewImageUrl,
   onViewChange,
 }: Props) {
   const view = normalizeWebFlowView(viewSettings);
   const { minZoom, maxZoom } = view;
-  const segments = useMemo(() => buildInteractiveSegments(nodes, edges), [edges, nodes]);
-  const nodesById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const actualSegments = useMemo(() => buildInteractiveSegments(nodes, edges), [edges, nodes]);
+  const showChoicePreview = editable && !actualSegments.some((segment) => segment.choices.length > 1);
+  const graphData = useMemo(() => showChoicePreview
+    ? buildWebFlowChoicePreview(actualSegments, nodes, language, previewImageUrl)
+    : { segments: actualSegments, nodes }, [actualSegments, nodes, language, previewImageUrl, showChoicePreview]);
+  const segments = graphData.segments;
+  const nodesById = useMemo(() => new Map(graphData.nodes.map((node) => [node.id, node])), [graphData.nodes]);
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>(
     controlledLayoutDirection || 'right',
   );
@@ -252,9 +260,17 @@ export function WebStoryFlowGraph({
     );
   }, [activeSegment, language, nodesById, onActiveSegmentChange]);
 
+  const resolvedCardSizes = useMemo(() => Object.fromEntries(segments.map((segment) => {
+    const size = cardSizes[segment.id] || cardSizes[segment.nodeIds[0]];
+    return [segment.id, {
+      width: clamp(size?.width ?? cardWidth, 140, 420),
+      height: clamp(size?.height ?? cardHeight, 90, 260),
+    }];
+  })), [segments, cardSizes]);
+  const cardSizeFor = (segmentId: string) => resolvedCardSizes[segmentId] || { width: cardWidth, height: cardHeight };
   const autoPositions = useMemo(
-    () => buildSegmentLayout(segments, layoutDirection, cardWidth, cardHeight, { columnGap: view.gapX, rowGap: view.gapY }),
-    [layoutDirection, segments, view.gapX, view.gapY],
+    () => buildWebFlowLayout(segments.map((segment) => ({ id: segment.id, targets: segment.choices.map((choice) => choice.targetSegmentId), ...cardSizeFor(segment.id) })), layoutDirection, view.gapX, view.gapY),
+    [layoutDirection, segments, resolvedCardSizes, view.gapX, view.gapY],
   );
   const positions = useMemo(() => {
     const next = new Map<string, GraphPoint>();
@@ -266,13 +282,6 @@ export function WebStoryFlowGraph({
     });
     return next;
   }, [autoPositions, manualPositions, segments]);
-  const cardSizeFor = (segmentId: string) => {
-    const size = cardSizes[segmentId];
-    return {
-      width: clamp(size?.width ?? cardWidth, 140, 420),
-      height: clamp(size?.height ?? cardHeight, 90, 260),
-    };
-  };
   const bounds = useMemo(() => {
     if (positions.size === 0) return { minX: 0, minY: 0, maxX: cardWidth, maxY: cardHeight };
     let minX = Number.POSITIVE_INFINITY;
@@ -287,7 +296,7 @@ export function WebStoryFlowGraph({
       maxY = Math.max(maxY, position.y + size.height);
     });
     return { minX, minY, maxX, maxY };
-  }, [cardSizes, positions]);
+  }, [resolvedCardSizes, positions]);
   const offset = { x: graphPadding - bounds.minX, y: graphPadding - bounds.minY };
   const renderPositions = useMemo(() => {
     const next = new Map<string, GraphPoint>();
@@ -515,7 +524,7 @@ export function WebStoryFlowGraph({
       viewportPan,
       viewportZoom,
       viewportSize,
-      cardSizes,
+      cardSizes: resolvedCardSizes,
       lineOpacity,
       minZoom,
       maxZoom,
@@ -537,7 +546,7 @@ export function WebStoryFlowGraph({
     viewportPan,
     viewportSize,
     viewportZoom,
-    cardSizes,
+    resolvedCardSizes,
     minZoom,
     maxZoom,
   ]);
@@ -641,6 +650,11 @@ export function WebStoryFlowGraph({
               transformOrigin: '0 0',
             }}
           >
+            {showChoicePreview && (
+              <span className="pointer-events-none absolute left-4 top-4 rounded-lg bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                {textFor(language, '选择分支示例 · 仅编辑模式', '選択肢の例 · 編集モードのみ', 'Choice preview · edit mode only')}
+              </span>
+            )}
             <svg
               className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
               aria-hidden="true"
@@ -756,6 +770,7 @@ export function WebStoryFlowGraph({
               const cardSize = cardSizeFor(segment.id);
               const selectedForEdit = editable && selectedCardId === segment.id;
               const locked =
+                !editable &&
                 watchedNodeIds !== undefined &&
                 !segment.nodeIds.some((nodeId) => watchedNodeIds.has(nodeId));
               const cardLabel =
@@ -973,7 +988,7 @@ export function WebStoryFlowGraph({
             graphHeight={graphHeight}
             cardWidth={cardWidth}
             cardHeight={cardHeight}
-            cardSizes={cardSizes}
+            cardSizes={resolvedCardSizes}
             viewportPan={viewportPan}
             viewportZoom={viewportZoom}
             viewportSize={viewportSize}

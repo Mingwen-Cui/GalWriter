@@ -1,3 +1,5 @@
+import volumeTestJingleUrl from '../../../../assets/common/audio/volume-test-jingle.ogg';
+import volumeTestJingleLicense from '../../../../assets/common/audio/volume-test-jingle.LICENSE.md?raw';
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
 import { normalizeWebFlowView } from '../webFlowView';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
@@ -434,6 +436,8 @@ export async function buildInteractiveWebZipBlob(
     textScale: options.settings?.textScale ?? 100,
     animationSpeed: options.settings?.animationSpeed ?? 1,
     soundEnabled: options.settings?.soundEnabled ?? true,
+    musicVolume: Math.max(0, Math.min(100, options.settings?.musicVolume ?? 100)),
+    voiceVolume: Math.max(0, Math.min(100, options.settings?.voiceVolume ?? 100)),
     videoAutoPlay: options.settings?.videoAutoPlay ?? false,
     hideCharacterTags: true,
     hideSceneTags: true,
@@ -846,6 +850,10 @@ export async function buildInteractiveWebZipBlob(
       edges: webEdges,
     }),
   );
+  const testMusicResponse = await fetch(volumeTestJingleUrl);
+  if (!testMusicResponse.ok) throw new Error('Unable to load bundled volume test music');
+  zip.file('audio/volume-test-jingle.ogg', await testMusicResponse.blob());
+  zip.file('audio/volume-test-jingle.LICENSE.md', volumeTestJingleLicense);
   zip.folder('images');
   zip.file('start-preview.cmd', LOCAL_PREVIEW_CMD);
   zip.file('preview-server.ps1', LOCAL_PREVIEW_SERVER);

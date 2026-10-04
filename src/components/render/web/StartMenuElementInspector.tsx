@@ -178,6 +178,8 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
     'textSize',
     'animationSpeed',
     'sound',
+    'musicVolume',
+    'voiceVolume',
     'controls',
     'volume',
     'link',
@@ -191,6 +193,8 @@ const BUTTON_FUNCTIONS_BY_SURFACE: Record<
     'auto',
     'animationSpeed',
     'sound',
+    'musicVolume',
+    'voiceVolume',
     'controls',
     'preview',
     'reset',
@@ -231,6 +235,8 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       textSize: '文字サイズ',
       animationSpeed: 'アニメーション速度',
       sound: 'サウンド',
+      musicVolume: '背景音楽',
+      voiceVolume: 'キャラクターボイス',
       controls: '操作表示',
       history: '会話履歴',
       audio: '音声リスト',
@@ -268,6 +274,8 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
       textSize: 'Text size',
       animationSpeed: 'Animation speed',
       sound: 'Sound',
+      musicVolume: 'Background music',
+      voiceVolume: 'Character voice',
       controls: 'Show controls',
       history: 'Dialogue history',
       audio: 'Audio playlist',
@@ -304,6 +312,8 @@ const buttonFunctionCopy = (language: Language): Record<ButtonFunction, string> 
     textSize: '文本大小',
     animationSpeed: '动画速度',
     sound: '音效开关',
+    musicVolume: '背景音乐',
+    voiceVolume: '人物声音',
     controls: '显示控制栏',
     history: '对话历史',
     audio: '音频播放列表',
@@ -331,7 +341,7 @@ function NumericButtonActionControl({
   onChange,
   onModeChange,
 }: {
-  role: 'speed' | 'textSize' | 'animationSpeed';
+  role: 'speed' | 'textSize' | 'animationSpeed' | 'musicVolume' | 'voiceVolume';
   language: Language;
   value?: number;
   inputMode?: 'drag' | 'slider';
@@ -343,6 +353,7 @@ function NumericButtonActionControl({
       ? { min: 10, max: 200, step: 5, fallback: 65, unit: 'ms' }
       : role === 'textSize'
         ? { min: 85, max: 130, step: 5, fallback: 100, unit: '%' }
+        : role === 'musicVolume' || role === 'voiceVolume' ? { min: 0, max: 100, step: 1, fallback: 100, unit: '%' }
         : { min: 0.5, max: 2, step: 0.5, fallback: 1, unit: '×' };
   const label =
     role === 'speed'
@@ -1290,11 +1301,11 @@ export function StartMenuElementInspector({
           )}
           {surface !== 'settings' &&
             surface !== 'game' &&
-            (['speed', 'textSize', 'animationSpeed'] as ButtonFunction[]).includes(
+            (['speed', 'textSize', 'animationSpeed', 'musicVolume', 'voiceVolume'] as ButtonFunction[]).includes(
               buttonFunction,
             ) && (
               <NumericButtonActionControl
-                role={buttonFunction as 'speed' | 'textSize' | 'animationSpeed'}
+                role={buttonFunction as 'speed' | 'textSize' | 'animationSpeed' | 'musicVolume' | 'voiceVolume'}
                 language={language}
                 value={element.actionValue}
                 inputMode={element.actionValueInputMode}

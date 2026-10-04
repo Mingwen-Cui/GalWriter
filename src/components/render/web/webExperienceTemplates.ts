@@ -99,7 +99,7 @@ export const buildRehearsalArchivePageElements = (
 ): WebMenuElement[] => {
   const settingsCopy = getWebSettingsCopy(language);
   return decorateWebPageElements([
-    pagePanel('archive-panel'),
+    { ...pagePanel('archive-panel', 90), shapeType: 'rectangle' as const, zIndex: -1, strokeEnabled: false, shadowEnabled: false },
     text(
       'archive-title',
       'title',
@@ -131,9 +131,9 @@ export const buildRehearsalArchivePageElements = (
       'archive-back',
       'back',
       settingsCopy.backToMainMenu,
-      54,
+      84,
       9,
-      10,
+      8,
       7,
       choiceColor,
       choiceTextColor,
@@ -144,53 +144,14 @@ export const buildRehearsalArchivePageElements = (
       formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText107'),
       8,
       33,
-      56,
-      22,
+      84,
+      60,
       choiceColor,
       choiceTextColor,
-    ),
-    button(
-      'archive-slot-continue',
-      'slotContinue',
-      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText119'),
-      8,
-      58,
-      36,
-      8,
-      choiceColor,
-      choiceTextColor,
-      true,
-    ),
-    button(
-      'archive-slot-delete',
-      'slotDelete',
-      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText120'),
-      46,
-      58,
-      18,
-      8,
-      choiceColor,
-      choiceTextColor,
-    ),
-    button(
-      'archive-new',
-      'new',
-      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText124'),
-      8,
-      80,
-      56,
-      10,
-      choiceColor,
-      choiceTextColor,
-      true,
     ),
     {
       ...text('archive-progress-heading', 'custom', language === 'zh' ? '你的阅读进度' : language === 'ja' ? '保存した進行状況' : 'Your reading progress', 8, 26, 56, 5, 22),
       textColor: '#252a59', fontWeight: 700, textAlign: 'left' as const,
-    },
-    {
-      ...text('archive-new-hint', 'custom', language === 'zh' ? '想重新体验故事？可以从头开始。' : language === 'ja' ? '物語を最初から楽しむこともできます。' : 'You can also enjoy the story from the beginning.', 8, 72, 56, 5, 18),
-      textColor: '#59637d', textAlign: 'left' as const,
     },
   ].map((element) => {
     if (element.role === 'title') return { ...element, textColor: '#252a59', textAlign: 'left' };
@@ -212,7 +173,11 @@ export const buildRehearsalArchivePageElements = (
       shadowBlur: primary ? 20 : 10,
       shadowOffsetY: primary ? 6 : 2,
     };
-  }), defaultWebTheme);
+  }), defaultWebTheme).map((element) => ({
+    ...element, archiveLayoutVersion: 1,
+    ...(element.id === 'archive-panel' ? SETTINGS_BACKGROUND_STYLE : {}),
+    ...(element.role === 'slot' ? { fillEnabled: false, strokeEnabled: false, shadowEnabled: false, borderWidth: 0, appearance: undefined, buttonMotion: buttonMotionForPreset('none') } : {}),
+  }));
 };
 
 export const buildRehearsalSettingsPageElements = (

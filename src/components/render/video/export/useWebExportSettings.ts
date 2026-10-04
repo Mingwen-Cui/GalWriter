@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import defaultMainInterfaceBackgroundUrl from '../../../../assets/common/default-main-interface-background.jpg';
 import type { Language } from '../../../../lib/i18n';
 import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
-import { buildRehearsalTemplate, isPreviousRehearsalArchiveLayout } from '../../web/webExperienceTemplates';
+import { buildRehearsalTemplate } from '../../web/webExperienceTemplates';
 import type {
   RenderStyle,
   WebExportSettings,
@@ -594,9 +594,7 @@ export const useWebExportSettings = (
     settingsPageElements: defaultPreset.settings.settingsPageElements || [],
   });
   migratedInitialSettings = { ...migratedInitialSettings, settingsPageElements: resolveSettingsPageElements(migratedInitialSettings, language, '#0ea5e9', '#ffffff'), settingsPageElementsInitialized: true };
-  if (isPreviousRehearsalArchiveLayout(migratedInitialSettings.archivePageElements)) {
-    migratedInitialSettings = { ...migratedInitialSettings, archivePageElements: resolveArchivePageElements(migratedInitialSettings, language, '#0ea5e9', '#ffffff') };
-  }
+  migratedInitialSettings = { ...migratedInitialSettings, archivePageElements: resolveArchivePageElements(migratedInitialSettings, language, '#0ea5e9', '#ffffff') };
   const sharedCanvas = useSharedCanvasSettings(
     workspaceKey,
     canvasPatchFromWebSettings(migratedInitialSettings),

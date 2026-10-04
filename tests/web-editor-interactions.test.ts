@@ -52,14 +52,15 @@ test('saved settings adopt compact controls and no motion once, preserving subse
   }));
   const migrated = resolveSettingsPageElements({ settingsPageElements: saved, settingsPageElementsInitialized: true }, 'zh', '#625bf6', '#fff');
   const sound = migrated.find((element) => element.role === 'sound')!;
-  assert.equal(sound.width, 30);
-  assert.equal(sound.x, 51);
+  assert.equal(sound.width, 26);
+  assert.equal(sound.x, 38);
   assert.equal(resolveWebButtonMotionPreset(sound.buttonMotion), 'none');
   for (const element of migrated.filter((element) => element.kind === 'button' && !['back', 'reset'].includes(element.role || ''))) {
     assert.equal(resolveWebButtonMotionPreset(element.buttonMotion), 'none');
-    if (element.role !== 'preview') assert.equal(element.width, 30);
+    if (!['preview', 'reset', 'back'].includes(element.role || '')) assert.equal(element.width, defaults.find((item) => item.id === element.id)!.width);
   }
-  for (const role of ['back', 'reset']) assert.deepEqual(migrated.find((element) => element.role === role), saved.find((element) => element.role === role));
+  assert.equal(migrated.find((element) => element.role === 'reset')!.y, 92);
+  assert.equal(migrated.find((element) => element.role === 'back')!.x, 84);
   const edited = migrated.map((element) => element.role === 'sound' ? { ...element, width: 27, buttonMotion: buttonMotionForPreset('soft') } : element);
   assert.equal(resolveSettingsPageElements({ settingsPageElements: edited, settingsPageElementsInitialized: true }, 'zh', '#625bf6', '#fff'), edited);
 });

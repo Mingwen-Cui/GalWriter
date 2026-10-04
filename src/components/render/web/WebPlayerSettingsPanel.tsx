@@ -1,4 +1,5 @@
 import { webElementTextPaintStyle } from './webElementStyle';
+import volumeTestJingleUrl from '../../../assets/common/audio/volume-test-jingle.ogg';
 import type { PlayerSettingsPanelConfig } from './playerSettingsPanelConfig';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -44,6 +45,7 @@ export function PlayerSettingsPanel(props: Props) {
         props.language,
         JSON.parse(configKey),
         JSON.parse(widgetKey) || undefined,
+        volumeTestJingleUrl,
       ),
     [props.language, configKey, widgetKey],
   );

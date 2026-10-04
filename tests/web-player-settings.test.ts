@@ -50,7 +50,7 @@ test('settings upgrade the previous built-in layout once while preserving edited
     settingsPageElements: [...previous, custom],
   };
   const next = resolveSettingsPageElements(settings, 'zh', '#625bf6', '#fff');
-  assert.equal(next.find((element) => element.role === 'speed')?.width, 30);
+  assert.equal(next.find((element) => element.role === 'speed')?.width, 26);
   assert.equal(next.find((element) => element.role === 'animationSpeed')?.text, '转场与动效速度');
   assert.equal(
     next.find((element) => element.role === 'sound')?.settingsDescription,
@@ -60,7 +60,7 @@ test('settings upgrade the previous built-in layout once while preserving edited
   assert.equal(next.find((element) => element.role === 'sound')?.locked, true);
   assert.equal(next.find((element) => element.role === 'sound')?.borderRadius, 0);
   const preview = next.find((element) => element.role === 'preview')!;
-  assert.equal(preview.width, 84);
+  assert.equal(preview.width, 66);
   assert.ok(preview.y + preview.height < next.find((element) => element.role === 'mode')!.y);
   const background = next.find((element) => element.id === 'settings-background')!;
   assert.equal(background.kind, 'shape');

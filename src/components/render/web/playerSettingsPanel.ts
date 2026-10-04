@@ -172,7 +172,9 @@ export function playerSettingsMarkup(
   language: Language,
   config: PlayerSettingsPanelConfig = {},
   element?: WebMenuElement,
+  testAudioUrl = './audio/volume-test-jingle.ogg',
 ) {
+  const escapedTestAudioUrl = testAudioUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const t = copy[language === 'ja' ? 'ja' : language === 'en' ? 'en' : 'zh'];
   if (element?.role)
     config = {
@@ -264,11 +266,11 @@ export function playerSettingsMarkup(
     controls: toggle('controls', 'controlsVisible', t.controls, t.controlsHint),
   };
   if (element)
-    return `<div class="gw-ps-panel gw-ps-widget" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-size:${fontSize}px;--ps-height:${height}px;--ps-radius:${radius}px;" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">${widgets[element.role || ''] || ''}</div>`;
+    return `<div class="gw-ps-panel gw-ps-widget" data-test-audio="${escapedTestAudioUrl}" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-size:${fontSize}px;--ps-height:${height}px;--ps-radius:${radius}px;" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">${widgets[element.role || ''] || ''}</div>`;
   const appearance = ['soft', 'filled', 'outline'].includes(config.appearance || '')
     ? config.appearance
     : 'soft';
-  return `<section class="gw-ps-panel" data-appearance="${appearance}" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-height:${height}px;--ps-size:${fontSize}px;--ps-radius:${radius}px;" aria-label="${t.title}" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">
+  return `<section class="gw-ps-panel" data-appearance="${appearance}" data-test-audio="${escapedTestAudioUrl}" data-speed-slow="${t.slow}" data-speed-standard="${t.standard}" data-speed-fast="${t.fast}" data-undo-done="${t.undoDone}" style="--ps-height:${height}px;--ps-size:${fontSize}px;--ps-radius:${radius}px;" aria-label="${t.title}" data-on="${t.on}" data-off="${t.off}" data-saved="${t.saved}" data-reset-done="${t.resetDone}">
     <div class="gw-ps-head"><div><span class="gw-ps-eyebrow">PREFERENCES</span><h2 data-setting-role="title"><span data-role-label>${t.title}</span></h2><p>${t.intro}</p></div><button class="gw-ps-done" type="button" data-action="close" data-setting-role="back"><span data-role-label>${t.back}</span><span aria-hidden="true">✓</span></button></div>
     ${previewMarkup}
     <div class="gw-ps-columns"><section class="gw-ps-group"><h3>${t.reading}</h3>
@@ -299,7 +301,13 @@ export function mountPlayerSettings(
   readingStyle?: Partial<RenderStyle>,
 ) {
   let values = { musicVolume: 100, voiceVolume: 100, ...initial };
-  let testContext: AudioContext | undefined;
+  let testAudio: HTMLAudioElement | undefined;
+  let testVolumeKey: 'musicVolume' | 'voiceVolume' = 'musicVolume';
+  const stopVolumeTest = () => {
+    testAudio?.pause();
+    if (testAudio) testAudio.src = '';
+    testAudio = undefined;
+  };
   let beforeReset: PlayerSettingsValues | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const panel = root.querySelector<HTMLElement>('.gw-ps-panel')!;
@@ -381,6 +389,10 @@ export function mountPlayerSettings(
   const sync = (next: PlayerSettingsValues) => {
     const readingChanged = values.interactionMode !== next.interactionMode || values.typewriterSpeed !== next.typewriterSpeed;
     values = { musicVolume: 100, voiceVolume: 100, ...next };
+    if (testAudio) {
+      testAudio.volume = Math.max(0, Math.min(100, Number(values[testVolumeKey]) || 0)) / 100;
+      testAudio.muted = !values.soundEnabled;
+    }
     panel
       .querySelectorAll<HTMLInputElement | HTMLButtonElement>('[data-setting]')
       .forEach((control) => {
@@ -476,27 +488,16 @@ export function mountPlayerSettings(
     if (button.dataset.action === 'close') onClose();
     else if (button.dataset.action === 'replay') replay();
     else if (button.dataset.testVolume) {
-      testContext ??= new AudioContext();
-      void testContext.resume().then(() => {
-        const context = testContext!;
-        const oscillator = context.createOscillator(), gain = context.createGain();
-        const now = context.currentTime;
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(button.dataset.testVolume === 'voiceVolume' ? 440 : 262, now);
-        oscillator.frequency.setValueAtTime(button.dataset.testVolume === 'voiceVolume' ? 440 : 330, now + 0.3);
-        const volume = Math.max(0, Math.min(100, Number(values[button.dataset.testVolume as 'musicVolume' | 'voiceVolume']) || 0)) / 100;
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(volume * 0.15, now + 0.04);
-        gain.gain.setValueAtTime(volume * 0.15, now + 0.55);
-        gain.gain.linearRampToValueAtTime(0, now + 0.65);
-        oscillator.connect(gain); gain.connect(context.destination);
-        oscillator.start(now); oscillator.stop(now + 0.7);
-        oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
-      }).catch(() => undefined);
+      document.dispatchEvent(new Event('gw-stop-volume-test'));
+      testVolumeKey = button.dataset.testVolume as 'musicVolume' | 'voiceVolume';
+      testAudio = new Audio(panel.dataset.testAudio);
+      testAudio.volume = Math.max(0, Math.min(100, Number(values[testVolumeKey]) || 0)) / 100;
+      testAudio.muted = !values.soundEnabled;
+      void testAudio.play().catch(() => undefined);
     }
     else if (button.dataset.action === 'reset') {
       beforeReset = { ...values };
-      change({ ...defaults });
+      change({ musicVolume: 100, voiceVolume: 100, ...defaults });
       replay();
       const status = panel.querySelector('[data-status]');
       if (status) status.textContent = panel.dataset.resetDone!;
@@ -536,14 +537,15 @@ export function mountPlayerSettings(
   root.addEventListener('input', input);
   root.addEventListener('change', input);
   root.addEventListener('click', click);
+  document.addEventListener('gw-stop-volume-test', stopVolumeTest);
   sync(values);
   replay();
   return {
     sync,
     destroy: () => {
       clearTimeout(timer);
-      if (testContext) void testContext.close();
-      testContext = undefined;
+      stopVolumeTest();
+      document.removeEventListener('gw-stop-volume-test', stopVolumeTest);
       root.removeEventListener('input', input);
       root.removeEventListener('change', input);
       root.removeEventListener('click', click);
@@ -552,15 +554,6 @@ export function mountPlayerSettings(
 }
 
 export const PLAYER_SETTINGS_CSS = `
-.gw-archive-slot-list { box-sizing:border-box; width:100%; height:100%; overflow:auto; display:flex; flex-direction:column; gap:8px; padding:12px; color:#334155; text-align:left; }
-.gw-archive-slot { box-sizing:border-box; display:flex; flex-direction:column; flex-shrink:0; gap:5px; width:100%; min-height:72px; padding:12px 16px; border:1px solid #e0e5ef; border-radius:10px; background:#fff; color:inherit; text-align:left; font:inherit; cursor:pointer; }
-.gw-archive-slot[aria-pressed=true] { border-color:#625bf6; background:#eef2ff; box-shadow:inset 3px 0 #625bf6; }
-.gw-archive-slot strong { font-size:18px; font-weight:700; }
-.gw-archive-slot span { font-size:15px; color:#59637d; }
-.gw-archive-slot:focus-visible { outline:3px solid #625bf6; outline-offset:2px; }
-.gw-archive-empty { display:flex; flex-direction:column; justify-content:center; gap:12px; height:100%; padding:20px; }
-.gw-archive-empty strong { color:#252a59; font-size:24px; }
-.gw-archive-empty span { color:#59637d; font-size:18px; }
 .gw-ps-surface { position:absolute; inset:0; z-index:15; display:grid; place-items:center; padding:32px; overflow:hidden; container-type:inline-size; }
 .gw-ps-panel { box-sizing:border-box; width:min(100%,1060px); max-height:100%; overflow:auto; color:#edf3ff; background:rgba(12,20,34,.94); border:1px solid #ffffff24; border-radius:24px; box-shadow:0 28px 80px #0005; padding:32px; font:16px/1.5 system-ui,sans-serif; text-align:left; color-scheme:dark; scrollbar-width:thin; }
 .gw-ps-panel * { box-sizing:border-box; }

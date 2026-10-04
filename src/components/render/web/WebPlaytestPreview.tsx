@@ -1,3 +1,4 @@
+import { captureWebArchiveThumbnail } from './webArchiveGrid';
 import { combineWebSelection, webSelectionMode, type WebSelectionMode } from './webCanvasSelection';
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../lib/typewriterTiming';
 import { webThemeCssVariables } from './webThemeVisuals';
@@ -92,8 +93,7 @@ import {
   writeWebSaveCollection,
 } from './webExport/webSaveSlots';
 import { gradientFromStops, normalizeGradientStops } from './webGradientStops';
-import { resolveSettingsPageElements } from './webMenuPageElements';
-import { buildArchivePageElements } from './webMenuPageElements';
+import { resolveArchivePageElements, resolveSettingsPageElements } from './webMenuPageElements';
 import { WebDialogueHistory, WebPlaybackSettings, WebStoryEnding } from './WebPlaybackDialogs';
 import { WEB_BUTTON_MOTION_CSS } from './webButtonMotion';
 import { WEB_PLAYBACK_UI_CSS, webStoryTitle, webToolbarButtonLabel } from './webPlaybackUi';
@@ -1188,12 +1188,13 @@ export function WebPlaytestPreview({
     )
       return;
     const now = Date.now();
-    const existing = getActiveWebSaveSlot(previewSaves);
+    const existing = previewSaves?.slots.find((item) => item.id === activePreviewSaveId);
     const slot: WebSaveSlot = {
       id: activePreviewSaveId || `save-${now}-${Math.random().toString(36).slice(2, 8)}`,
       createdAt: existing?.createdAt || now,
       savedAt: now,
       currentId: currentNodeId,
+      thumbnail: captureWebArchiveThumbnail(previewRootRef.current, resolveKnownAppAssetUrl(currentImageUrl), resolveKnownAppAssetUrl(currentVideoUrl)) || existing?.thumbnail,
       history,
       settings: {
         autoAdvance: settings.autoAdvance,
@@ -1213,14 +1214,15 @@ export function WebPlaytestPreview({
     writeWebSaveCollection(projectTitle, next);
   };
 
-  const continuePreviewSave = () => {
-    const save = getActiveWebSaveSlot(previewSaves);
+  const continuePreviewSave = (chosenSave?: WebSaveSlot) => {
+    const save = chosenSave || getActiveWebSaveSlot(previewSaves);
     if (
       !save ||
-      save.currentId === 'THE_END' ||
-      !runtimeNodes.some((node) => node.id === save.currentId)
+      (save.currentId !== 'THE_END' && !runtimeNodes.some((node) => node.id === save.currentId))
     )
       return;
+    restartPlaybackSession();
+    autoAdvanceHoldNodeRef.current = save.currentId;
     setCurrentNodeId(save.currentId);
     setHistory(save.history);
     onUpdateSettings('autoAdvance', save.settings.autoAdvance);
@@ -1232,6 +1234,7 @@ export function WebPlaytestPreview({
     onUpdateSettings('voiceVolume', save.settings.voiceVolume ?? 100);
     setPreviewControlsHidden(save.controlsHidden);
     setActivePreviewSaveId(save.id);
+    if (previewSaves) setPreviewSaves({ ...previewSaves, activeSlotId: save.id });
     setPreviewGameStarted(true);
     setPreviewStartMenuOpen(false);
     setPreviewArchiveOpen(false);
@@ -1451,6 +1454,10 @@ export function WebPlaytestPreview({
       onUpdateSettings('animationSpeed', Math.max(0.5, Math.min(2, element.actionValue ?? 1)));
       return true;
     }
+    if (element.role === 'musicVolume' || element.role === 'voiceVolume') {
+      onUpdateSettings(element.role, Math.max(0, Math.min(100, element.actionValue ?? 100)));
+      return true;
+    }
     if (element.role === 'sound') {
       onUpdateSettings('soundEnabled', !settings.soundEnabled);
       return true;
@@ -1508,7 +1515,7 @@ export function WebPlaytestPreview({
           label: formatWebText(language, 'componentsrenderwebWebPlaytestPreviewText1168'),
           disabled: !canContinuePreviewSave,
           primary: true,
-          onClick: continuePreviewSave,
+          onClick: () => continuePreviewSave(),
         }
       : null,
     settings.startMenuShowSave
@@ -1658,15 +1665,19 @@ export function WebPlaytestPreview({
       ),
     [isPreviewFlowOverviewOpen, onUpdateSettings],
   );
-  const defaultArchivePageElements = React.useMemo(
-    () => buildArchivePageElements(language, choiceColor, choiceTextColor),
-    [choiceColor, choiceTextColor, language],
-  );
-
-  const archivePageElements =
-    settings.archivePageElements && settings.archivePageElements.length > 0
-      ? settings.archivePageElements
-      : defaultArchivePageElements;
+  const archiveSaveSlots = useMemo(() => (previewSaves?.slots || []).map((save) => {
+    const node = runtimeNodes.find((item) => item.id === save.currentId);
+    const savedPresentation = normalizeStoryPresentation(node?.data?.presentation as StoryPresentation | undefined);
+    const source = nodes.find((item) => item.id === savedPresentation.scene?.sourceNodeId);
+    const media = resolveSceneMedia({
+      data: source?.type === 'sceneNode' ? source.data as SceneNodeData : undefined,
+      scene: savedPresentation.scene,
+      fallbackImageUrl: typeof node?.data?.imageUrl === 'string' ? node.data.imageUrl : '',
+      fallbackVideoUrl: '',
+    });
+    return { ...save, thumbnail: (save.thumbnail?.startsWith('blob:') ? media.imageUrl : save.thumbnail) || media.imageUrl || undefined };
+  }), [previewSaves, runtimeNodes, nodes]);
+  const archivePageElements = resolveArchivePageElements(settings, language, choiceColor, choiceTextColor);
   const settingsPageElements = resolveSettingsPageElements(
     settings,
     language,
@@ -2290,20 +2301,14 @@ export function WebPlaytestPreview({
             setPreviewArchiveOpen(false);
             setPreviewStartMenuOpen(false);
           }}
-          saveSlots={previewSaves?.slots || []}
-          onContinueSave={(slot) => {
-            setCurrentNodeId(slot.currentId);
-            setHistory(slot.history);
-            setPreviewControlsHidden(slot.controlsHidden);
-            setActivePreviewSaveId(slot.id);
-            setPreviewArchiveOpen(false);
-            setPreviewStartMenuOpen(false);
-          }}
+          saveSlots={archiveSaveSlots}
+          archivePreviewImage={currentImageUrl || settings.startMenuBackgroundImageUrl || undefined}
+          onContinueSave={continuePreviewSave}
           onDeleteSave={(slotId) => {
             if (!previewSaves) return;
             const next = removeWebSaveSlot(previewSaves, slotId);
             setPreviewSaves(next);
-            setActivePreviewSaveId(next.activeSlotId);
+            setActivePreviewSaveId(activePreviewSaveId === slotId ? null : activePreviewSaveId);
             writeWebSaveCollection(projectTitle, next);
           }}
           onToggleControls={() => setPreviewControlsHidden((current) => !current)}
@@ -2311,9 +2316,7 @@ export function WebPlaytestPreview({
           onSelectElement={setSelectedStartMenuElementId}
           onSelectElements={onSelectStartMenuElements}
           onUpdateArchiveElement={(id, patch) => {
-            const source = settings.archivePageElements?.length
-              ? settings.archivePageElements
-              : defaultArchivePageElements;
+            const source = archivePageElements;
             onUpdateSettings(
               'archivePageElements',
               source.map((element) => (element.id === id ? { ...element, ...patch } : element)),
@@ -2460,6 +2463,7 @@ export function WebPlaytestPreview({
             layoutDirection={settings.flowOverviewLayoutDirection}
             view={settings.flowOverviewView}
             onViewChange={(view) => onUpdateSettings('flowOverviewView', view)}
+            previewImageUrl={currentImageUrl || settings.startMenuBackgroundImageUrl || undefined}
             onLayoutDirectionChange={(direction) =>
               onUpdateSettings('flowOverviewLayoutDirection', direction)
             }

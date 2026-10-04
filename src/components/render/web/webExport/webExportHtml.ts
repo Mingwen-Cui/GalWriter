@@ -1,3 +1,5 @@
+import { buildWebFlowLayout } from '../webFlowGraphLayout';
+import { mountWebArchiveGrid, WEB_ARCHIVE_GRID_CSS } from '../webArchiveGrid';
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
 import { normalizeWebFlowView } from '../webFlowView';
 import { defaultWebTheme, webThemeCssVariables, WEB_FLOW_THEME_CSS } from '../webThemeVisuals';
@@ -68,6 +70,7 @@ export const makeIndexHtml = (
   <script src="./content.js"></script>
   <style>${WEB_EXPORT_STYLES}
 ${PLAYER_SETTINGS_CSS}
+${WEB_ARCHIVE_GRID_CSS}
 ${WEB_FLOW_THEME_CSS}
 ${WEB_BUTTON_MOTION_CSS}
 ${WEB_PLAYBACK_UI_CSS}
@@ -170,6 +173,7 @@ ${SCENE_SWITCH_CSS}</style>
   <script>
     const content = window.GALWRITER_CONTENT || { nodes: [], edges: [], title: "GalWriter" };
     const playbackCopy = ${JSON.stringify(webPlaybackCopy(language))};
+    const mountArchiveGrid = (${mountWebArchiveGrid.toString()});
     const mountHistory = (${mountWebHistory.toString()});
     const mountEnding = (${mountWebEnding.toString()});
     const storyTitle = (${webStoryTitle.toString()});
@@ -189,6 +193,7 @@ ${SCENE_SWITCH_CSS}</style>
         }));
     const settings = content.settings || {};
     const normalizeFlowView = (${normalizeWebFlowView.toString()});
+    const layoutWebFlow = (${buildWebFlowLayout.toString()});
     settings.flowOverviewView = normalizeFlowView(settings.flowOverviewView);
     settings.canvasWidth = Math.min(7680, Math.max(320, Math.round(Number(settings.canvasWidth) || 1920)));
     settings.canvasHeight = Math.min(4320, Math.max(180, Math.round(Number(settings.canvasHeight) || 1080)));
@@ -326,6 +331,8 @@ ${SCENE_SWITCH_CSS}</style>
     settings.textScale = clamp(settings.textScale, 85, 130, 100);
     settings.animationSpeed = clamp(settings.animationSpeed, 0.5, 2, 1);
     settings.soundEnabled = settings.soundEnabled !== false;
+    settings.musicVolume = clamp(settings.musicVolume, 0, 100, 100);
+    settings.voiceVolume = clamp(settings.voiceVolume, 0, 100, 100);
     settings.videoAutoPlay = Boolean(settings.videoAutoPlay);
     settings.blurBackground = Boolean(settings.blurBackground);
     settings.skipSingleChoicePopup = settings.skipSingleChoicePopup !== false;
@@ -800,6 +807,7 @@ ${SCENE_SWITCH_CSS}</style>
     const playlistHint = document.getElementById("playlistHint");
     const playlistItems = document.getElementById("playlistItems");
     const playlistAudio = document.getElementById("playlistAudio");
+    playlistAudio.volume = settings.voiceVolume / 100;
     const makeButton = document.getElementById("makeButton");
     const zenButton = document.getElementById("zenButton");
     const startScreen = document.getElementById("startScreen");
@@ -869,7 +877,7 @@ ${SCENE_SWITCH_CSS}</style>
     startTitle.textContent = content.title || "GalWriter";
     if (settings.startMenuBackgroundMusicUrl) {
       startMenuAudio.src = settings.startMenuBackgroundMusicUrl;
-      startMenuAudio.volume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100));
+      setMusicLevel(startMenuAudio, Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100)));
       startMenuAudio.loop = Boolean(settings.startMenuMusicLoop);
     }
     startScreen.classList.add("template-" + settings.startMenuTemplate);
@@ -1007,6 +1015,7 @@ ${SCENE_SWITCH_CSS}</style>
       return { autoAdvance: settings.autoAdvance, interactionMode: settings.interactionMode,
         typewriterSpeed: settings.typewriterSpeed, textScale: settings.textScale,
         animationSpeed: settings.animationSpeed, soundEnabled: settings.soundEnabled,
+        musicVolume: settings.musicVolume, voiceVolume: settings.voiceVolume,
         controlsVisible: !controlsHidden };
     }
     function restorePlayerPreferences() {
@@ -1018,6 +1027,8 @@ ${SCENE_SWITCH_CSS}</style>
         settings.typewriterSpeed = clamp(value.typewriterSpeed, 10, 200, settings.typewriterSpeed);
         settings.textScale = clamp(value.textScale, 85, 130, settings.textScale);
         settings.animationSpeed = clamp(value.animationSpeed, 0.5, 2, settings.animationSpeed);
+        settings.musicVolume = clamp(value.musicVolume, 0, 100, settings.musicVolume);
+        settings.voiceVolume = clamp(value.voiceVolume, 0, 100, settings.voiceVolume);
         if (typeof value.soundEnabled === "boolean") settings.soundEnabled = value.soundEnabled;
         if (typeof value.controlsVisible === "boolean") controlsHidden = !value.controlsVisible;
       } catch (_) { /* Storage can be unavailable in a local-file browser session. */ }
@@ -1065,12 +1076,14 @@ ${SCENE_SWITCH_CSS}</style>
       if (!gameStarted) return;
       if (!currentId) return;
       try {
-        const previous = readSave(activeSaveId);
+        const collection = readSaveCollection();
+        const previous = collection?.slots.find((save) => save.id === activeSaveId);
         const payload = {
           id: activeSaveId || "save-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
           createdAt: previous?.createdAt || Date.now(),
           title: content.title || "GalWriter",
           currentId,
+          thumbnail: archiveThumbnail(currentId) || previous?.thumbnail || '',
           history: Array.isArray(history) ? history.filter((id) => nodeById.has(id)) : [],
           settings: {
             autoAdvance: Boolean(settings.autoAdvance),
@@ -1079,13 +1092,13 @@ ${SCENE_SWITCH_CSS}</style>
             textScale: Number(settings.textScale) || 100,
             animationSpeed: Number(settings.animationSpeed) || 1,
             soundEnabled: settings.soundEnabled !== false,
+            musicVolume: settings.musicVolume, voiceVolume: settings.voiceVolume,
           },
           controlsHidden: Boolean(controlsHidden),
           playedAudios,
           savedAt: Date.now(),
         };
         activeSaveId = payload.id;
-        const collection = readSaveCollection();
         const otherSlots = (collection?.slots || []).filter((save) => save.id !== payload.id);
         window.localStorage.setItem(saveKey, JSON.stringify({ version: 2, activeSaveId: payload.id, slots: [payload, ...otherSlots].sort((left, right) => right.savedAt - left.savedAt) }));
         updateStartMenu();
@@ -1105,6 +1118,8 @@ ${SCENE_SWITCH_CSS}</style>
         }
         if (Number.isFinite(Number(save.settings.textScale))) settings.textScale = clamp(save.settings.textScale, 85, 130, 100);
         if (Number.isFinite(Number(save.settings.animationSpeed))) settings.animationSpeed = clamp(save.settings.animationSpeed, 0.5, 2, 1);
+        settings.musicVolume = clamp(save.settings.musicVolume, 0, 100, settings.musicVolume);
+        settings.voiceVolume = clamp(save.settings.voiceVolume, 0, 100, settings.voiceVolume);
         if (typeof save.settings.soundEnabled === "boolean") settings.soundEnabled = save.settings.soundEnabled;
       }
       if (["immediate", "typewriter"].includes(save.settings?.interactionMode)) settings.interactionMode = save.settings.interactionMode;
@@ -1131,6 +1146,47 @@ ${SCENE_SWITCH_CSS}</style>
       return String(text || "").replace(/<[^>]*>/g, "").replace(/\\s+/g, " ").trim().slice(0, 72);
     }
 
+    function archiveThumbnail(nodeId) {
+      const nodeImage = nodeById.get(nodeId)?.data?.imageUrl;
+      const image = stageEl.querySelector('.scene-image');
+      const video = stageEl.querySelector('#nodeVideo');
+      const source = image || video;
+      if (nodeId === currentId && source) {
+        try {
+          const width = image ? image.naturalWidth : video.videoWidth;
+          const height = image ? image.naturalHeight : video.videoHeight;
+          if (width && height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.min(480, width); canvas.height = Math.max(1, Math.round(canvas.width * height / width));
+            const context = canvas.getContext('2d');
+            if (context) { context.drawImage(source, 0, 0, canvas.width, canvas.height); return canvas.toDataURL('image/jpeg', 0.75); }
+          }
+        } catch (_) { /* Remote media can prevent a canvas capture. Use its scene image instead. */ }
+      }
+      return nodeImage || '';
+    }
+    function deleteArchiveSave(id) {
+      const latest = readSaveCollection();
+      const slots = (latest?.slots || []).filter((item) => item.id !== id);
+      const nextActiveId = activeSaveId === id ? null : activeSaveId;
+      activeSaveId = nextActiveId;
+      try { localStorage.setItem(saveKey, JSON.stringify({ version: 2, activeSaveId, slots })); } catch (_) {}
+      openSaveList(); updateStartMenu();
+      activeSaveId = nextActiveId;
+    }
+    function renderArchiveGrid(root, slots, interactive = true) {
+      mountArchiveGrid(root, slots.map((slot, index) => ({
+        id: slot.id, savedAt: slot.savedAt,
+        title: saveProgressLabel(slot) || (content.language === 'zh' ? '存档 ' : content.language === 'ja' ? 'セーブ ' : 'Save ') + (index + 1),
+        thumbnail: slot.thumbnail || nodeById.get(slot.currentId)?.data?.imageUrl || settings.startMenuBackgroundImageUrl || '',
+      })), content.language, (id) => {
+        const slot = readSaveCollection()?.slots.find((item) => item.id === id);
+        if (!slot) return;
+        activeSaveId = slot.id;
+        if (applySave(slot)) { saveBackdrop.classList.remove('open'); startGameFromCurrent(); }
+      }, deleteArchiveSave, interactive);
+    }
+
     function openSaveList() {
       const collection = readSaveCollection();
       if (settings.archivePageElements?.length) {
@@ -1144,54 +1200,8 @@ ${SCENE_SWITCH_CSS}</style>
       archiveCustomLayer.hidden = true;
       saveBackdrop.classList.remove('custom-archive');
       saveTitle.textContent = labels.archive || labels.saveSlot;
-      saveList.innerHTML = "";
-      const slots = collection?.slots || [];
-      if (!slots.length) {
-        const empty = document.createElement("p");
-        empty.textContent = labels.noSave;
-        saveList.appendChild(empty);
-      }
-      const archiveControls = Array.isArray(settings.archivePageElements) ? settings.archivePageElements : [];
-      const continueControl = archiveControls.find((element) => element && element.role === "slotContinue");
-      const deleteControl = archiveControls.find((element) => element && element.role === "slotDelete");
-      function applyArchiveActionButton(button, element, fallbackLabel, fallbackColor) {
-        button.textContent = element?.text || fallbackLabel;
-        if (!element) return;
-        if (element.fillEnabled === false) button.style.background = "transparent";
-        else if (element.backgroundType === "gradient") button.style.background = gradientFromStops(element.backgroundGradientShape, Number(element.backgroundGradientAngle) || 135, normalizeGradientStops(element.backgroundGradientStops, element.backgroundGradientStart || fallbackColor, element.backgroundGradientEnd || "#0f172a"), { startX: element.backgroundGradientStartX, startY: element.backgroundGradientStartY, endX: element.backgroundGradientEndX, endY: element.backgroundGradientEndY });
-        else if (element.backgroundColor) button.style.background = element.backgroundColor;
-        applyCustomButtonTextStyle(button, element, "#ffffff");
-        applyCustomBoxEffects(button, element);
-        applyElementRadius(button, element, 9);
-        applyCustomButtonMotion(button, element);
-      }
-      slots.forEach((save) => {
-        const row = document.createElement("div");
-        row.className = "settings-row save-slot-row";
-        const meta = document.createElement("div");
-        meta.className = "settings-label";
-        meta.textContent = saveLabel(save) + (saveProgressLabel(save) ? " · " + saveProgressLabel(save) : "");
-        const actions = document.createElement("div");
-        const continueButton = document.createElement("button");
-        continueButton.type = "button";
-        continueButton.className = "save-slot-action primary";
-        applyArchiveActionButton(continueButton, continueControl, labels.continue, style.choiceColor || "#0ea5e9");
-        continueButton.addEventListener("click", () => { activeSaveId = save.id; if (applySave(save)) { saveBackdrop.classList.remove("open"); startGameFromCurrent(); } });
-        const deleteButton = document.createElement("button");
-        deleteButton.type = "button";
-        deleteButton.className = "save-slot-action";
-        applyArchiveActionButton(deleteButton, deleteControl, labels.deleteSave || "Delete", "#475569");
-        deleteButton.addEventListener("click", () => {
-          const latest = readSaveCollection();
-          const nextSlots = (latest?.slots || []).filter((item) => item.id !== save.id);
-          activeSaveId = activeSaveId === save.id ? nextSlots[0]?.id || null : activeSaveId;
-          window.localStorage.setItem(saveKey, JSON.stringify({ version: 2, activeSaveId, slots: nextSlots }));
-          openSaveList(); updateStartMenu();
-        });
-        actions.append(continueButton, deleteButton);
-        row.append(meta, actions);
-        saveList.appendChild(row);
-      });
+      renderArchiveGrid(saveList, collection?.slots || []);
+      saveList.style.minHeight = '260px'; saveList.style.maxHeight = '60vh';
       saveBackdrop.classList.add("open");
     }
 
@@ -1286,7 +1296,7 @@ ${SCENE_SWITCH_CSS}</style>
           onClick: () => {
             const nextVolume = clamp(element.actionValue, 0, 100, 70);
             settings.startMenuMusicVolume = nextVolume;
-            startMenuAudio.volume = nextVolume / 100;
+            setMusicLevel(startMenuAudio, nextVolume / 100);
           },
         },
       };
@@ -1443,20 +1453,8 @@ ${SCENE_SWITCH_CSS}</style>
             });
           }
           if (archiveSlot) {
-            const list = document.createElement('div'); list.className = 'gw-archive-slot-list';
-            const slots = readSaveCollection()?.slots || [];
-            if (!slots.length) {
-              const empty = document.createElement('div'); empty.className = 'gw-archive-empty';
-              const title = document.createElement('strong'); title.textContent = content.language === 'zh' ? '还没有存档' : content.language === 'ja' ? 'セーブはまだありません' : 'No saves yet';
-              const hint = document.createElement('span'); hint.textContent = content.language === 'zh' ? '开始故事后，你的阅读进度会保存在这里。' : content.language === 'ja' ? '物語を始めると、ここに進行状況が保存されます。' : 'Your reading progress will appear here after you start.';
-              empty.append(title, hint); list.appendChild(empty);
-            }
-            slots.forEach((slot, index) => {
-              const row = document.createElement('button'); row.type = 'button'; row.className = 'gw-archive-slot'; row.setAttribute('aria-pressed', String(slot.id === save?.id));
-              const title = document.createElement('strong'); title.textContent = saveProgressLabel(slot) || (content.language === 'zh' ? '存档 ' : content.language === 'ja' ? 'セーブ ' : 'Save ') + (index + 1);
-              const date = document.createElement('span'); date.textContent = saveLabel(slot);
-              row.append(title, date); row.addEventListener('click', () => { activeSaveId = slot.id; openSaveList(); }); list.appendChild(row);
-            });
+            const list = document.createElement('div');
+            renderArchiveGrid(list, readSaveCollection()?.slots || [], !element.disabled);
             button.appendChild(list);
           }
           if (!widget && !archiveSlot && element.textVisible !== false) {
@@ -1550,14 +1548,14 @@ ${SCENE_SWITCH_CSS}</style>
       cancelAnimationFrame(startMenuFadeFrame);
       const duration = Math.max(0, Number(seconds) || 0) * 1000;
       if (!duration) {
-        startMenuAudio.volume = to;
+        setMusicLevel(startMenuAudio, to);
         if (done) done();
         return;
       }
       const started = performance.now();
       const tick = (now) => {
         const progress = Math.min(1, (now - started) / duration);
-        startMenuAudio.volume = from + (to - from) * progress;
+        setMusicLevel(startMenuAudio, from + (to - from) * progress);
         if (progress < 1) startMenuFadeFrame = requestAnimationFrame(tick);
         else if (done) done();
       };
@@ -1568,14 +1566,14 @@ ${SCENE_SWITCH_CSS}</style>
       if (!settings.startMenuBackgroundMusicUrl) return;
       const targetVolume = Math.max(0, Math.min(1, Number(settings.startMenuMusicVolume) / 100));
       startMenuAudio.loop = Boolean(settings.startMenuMusicLoop);
-      startMenuAudio.volume = Number(settings.startMenuMusicFadeIn) > 0 ? 0 : targetVolume;
+      setMusicLevel(startMenuAudio, Number(settings.startMenuMusicFadeIn) > 0 ? 0 : targetVolume);
       startMenuAudio.play().catch(() => {});
-      fadeStartMenuAudio(startMenuAudio.volume, targetVolume, settings.startMenuMusicFadeIn);
+      fadeStartMenuAudio(startMenuAudio._musicLevel || 0, targetVolume, settings.startMenuMusicFadeIn);
     }
 
     function stopStartMenuMusic() {
       if (!settings.startMenuBackgroundMusicUrl) return;
-      fadeStartMenuAudio(startMenuAudio.volume, 0, settings.startMenuMusicFadeOut, () => {
+      fadeStartMenuAudio(startMenuAudio._musicLevel || 0, 0, settings.startMenuMusicFadeOut, () => {
         startMenuAudio.pause();
       });
     }
@@ -1585,14 +1583,14 @@ ${SCENE_SWITCH_CSS}</style>
       flowOverviewAudio.src = settings.flowOverviewBackgroundMusicUrl;
       flowOverviewAudio.loop = Boolean(settings.flowOverviewMusicLoop);
       const targetVolume = Math.max(0, Math.min(1, Number(settings.flowOverviewMusicVolume) / 100));
-      flowOverviewAudio.volume = Number(settings.flowOverviewMusicFadeIn) > 0 ? 0 : targetVolume;
+      setMusicLevel(flowOverviewAudio, Number(settings.flowOverviewMusicFadeIn) > 0 ? 0 : targetVolume);
       flowOverviewAudio.play().catch(() => {});
       const duration = Math.max(0, Number(settings.flowOverviewMusicFadeIn) || 0) * 1000;
       if (!duration) return;
       const started = performance.now();
       const tick = (now) => {
         const progress = Math.min(1, (now - started) / duration);
-        flowOverviewAudio.volume = progress * targetVolume;
+        setMusicLevel(flowOverviewAudio, progress * targetVolume);
         if (progress < 1 && flowOverviewBackdrop.classList.contains("open")) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -1600,7 +1598,7 @@ ${SCENE_SWITCH_CSS}</style>
 
     function stopFlowOverviewMusic() {
       if (!flowOverviewAudio) return;
-      const from = Number(flowOverviewAudio.volume) || 0;
+      const from = Number(flowOverviewAudio._musicLevel) || 0;
       const duration = Math.max(0, Number(settings.flowOverviewMusicFadeOut) || 0) * 1000;
       if (!duration) {
         flowOverviewAudio.pause();
@@ -1610,7 +1608,7 @@ ${SCENE_SWITCH_CSS}</style>
       const started = performance.now();
       const tick = (now) => {
         const progress = Math.min(1, (now - started) / duration);
-        flowOverviewAudio.volume = from * (1 - progress);
+        setMusicLevel(flowOverviewAudio, from * (1 - progress));
         if (progress < 1) requestAnimationFrame(tick);
         else {
           flowOverviewAudio.pause();
@@ -1657,6 +1655,7 @@ ${SCENE_SWITCH_CSS}</style>
       gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
+      if (nodeAudio) nodeAudio.volume = settings.voiceVolume / 100;
       const nodeVideo = document.getElementById("nodeVideo");
       if (nodeAudio) nodeAudio.pause();
       if (nodeVideo) nodeVideo.pause();
@@ -1692,6 +1691,10 @@ ${SCENE_SWITCH_CSS}</style>
       startGameFromCurrent();
     }
 
+    function setMusicLevel(audio, level) {
+      audio._musicLevel = Math.max(0, Math.min(1, Number(level) || 0));
+      audio.volume = audio._musicLevel * settings.musicVolume / 100;
+    }
     function syncPlayerPresentation() {
       updatePlaybackToolbar();
       const textScale = Math.min(8, Math.max(0.25, settings.canvasHeight / 720)) * settings.textScale / 100;
@@ -1706,6 +1709,12 @@ ${SCENE_SWITCH_CSS}</style>
       document.querySelectorAll("audio,video").forEach((media) => {
         if (!media.hasAttribute("data-author-muted")) media.setAttribute("data-author-muted", String(media.muted));
         media.muted = !settings.soundEnabled || media.getAttribute("data-author-muted") === "true";
+      });
+      [startMenuAudio, flowOverviewAudio, regionAudio].forEach((audio) => {
+        if (audio) setMusicLevel(audio, audio._musicLevel ?? 0);
+      });
+      [document.getElementById('nodeAudio'), playlistAudio].forEach((audio) => {
+        if (audio) audio.volume = settings.voiceVolume / 100;
       });
       [regionAudio, sceneAmbientAudio].forEach((audio) => { if (audio) audio.muted = !settings.soundEnabled; });
     }
@@ -1889,14 +1898,14 @@ ${SCENE_SWITCH_CSS}</style>
       cancelAnimationFrame(regionFadeFrame);
       const duration = Math.max(0, Number(seconds) || 0) * 1000;
       if (!duration) {
-        audio.volume = to;
+        setMusicLevel(audio, to);
         if (done) done();
         return;
       }
       const started = performance.now();
       const tick = (now) => {
         const progress = Math.min(1, (now - started) / duration);
-        audio.volume = from + (to - from) * progress;
+        setMusicLevel(audio, from + (to - from) * progress);
         if (progress < 1) regionFadeFrame = requestAnimationFrame(tick);
         else if (done) done();
       };
@@ -1935,7 +1944,7 @@ ${SCENE_SWITCH_CSS}</style>
       const nextKey = music && music.url ? music.url : "";
       if (regionAudio && regionAudioKey === nextKey) {
         regionAudio.loop = music.loop !== false;
-        regionAudio.volume = Math.max(0, Math.min(1, Number(music.volume) || 0));
+        setMusicLevel(regionAudio, Math.max(0, Math.min(1, Number(music.volume) || 0)));
         if (regionAudio.paused) playRegionAudio(regionAudio);
         return;
       }
@@ -1949,16 +1958,16 @@ ${SCENE_SWITCH_CSS}</style>
         audio.loop = music.loop !== false;
         audio._fadeOut = Math.max(0, Number(music.fadeOut) || 0);
         const targetVolume = Math.max(0, Math.min(1, Number(music.volume) || 0));
-        audio.volume = Number(music.fadeIn) > 0 ? 0 : targetVolume;
+        setMusicLevel(audio, Number(music.fadeIn) > 0 ? 0 : targetVolume);
         playRegionAudio(audio);
-        fadeRegionAudio(audio, audio.volume, targetVolume, music.fadeIn);
+        fadeRegionAudio(audio, audio._musicLevel || 0, targetVolume, music.fadeIn);
       };
       clearRegionAudioUnlock();
       if (!previous) {
         startNext();
         return;
       }
-      fadeRegionAudio(previous, previous.volume, 0, previous._fadeOut || 0, () => {
+      fadeRegionAudio(previous, previous._musicLevel || 0, 0, previous._fadeOut || 0, () => {
         previous.pause();
         if (regionAudio === previous) {
           regionAudio = null;
@@ -2078,6 +2087,7 @@ ${SCENE_SWITCH_CSS}</style>
       gwAppearance(backdropEl,settings.surfaceAppearances?.game);
       const exportedDialogue=stageEl.querySelector('.dialogue');if(exportedDialogue&&dialogObject.zIndex!==undefined)exportedDialogue.style.zIndex=String(dialogObject.zIndex);
       const nodeAudio = document.getElementById("nodeAudio");
+      if (nodeAudio) nodeAudio.volume = settings.voiceVolume / 100;
       if (nodeAudio) nodeAudio.pause();
       if (playlistAudio.getAttribute("src") === item.url) {
         if (playlistAudio.paused) {
@@ -2390,47 +2400,11 @@ ${SCENE_SWITCH_CSS}</style>
       flowOverviewRootNodeId = rootNode.id;
       flowOverviewBranchLabel = flowNodeTitle(rootNode);
       flowOverviewEdges = allEdges;
-      const levelById = new Map([[rootNode.id, 0]]);
-      const queue = [rootNode.id];
-      while (queue.length) {
-        const source = queue.shift();
-        const nextLevel = (levelById.get(source) || 0) + 1;
-        outEdges(source).forEach((edge) => {
-          if (!levelById.has(edge.target)) {
-            levelById.set(edge.target, nextLevel);
-            queue.push(edge.target);
-          }
-        });
-      }
-      allNodes.forEach((node) => {
-        if (!levelById.has(node.id)) levelById.set(node.id, 0);
-      });
-      const rowsByLevel = new Map();
-      allNodes.forEach((node) => {
-        const level = levelById.get(node.id) || 0;
-        const row = rowsByLevel.get(level) || [];
-        row.push(node);
-        rowsByLevel.set(level, row);
-      });
-      const positionById = new Map();
-      let maxRows = 1;
-      rowsByLevel.forEach((row, level) => {
-        maxRows = Math.max(maxRows, row.length);
-        row.forEach((node, index) => positionById.set(node.id, { level, index }));
-      });
-      const maxLevel = Math.max(...Array.from(levelById.values()));
-      positionById.forEach((position, nodeId) => {
-        const horizontal = flowOverviewLayoutDirection === "right" || flowOverviewLayoutDirection === "left";
-        const levelOffset = flowOverviewLayoutDirection === "left" || flowOverviewLayoutDirection === "up"
-          ? maxLevel - position.level
-          : position.level;
-        position.x = 120 + (horizontal ? levelOffset : position.index) * (208 + view.gapX);
-        position.y = 120 + (horizontal ? position.index : levelOffset) * (132 + view.gapY);
-        const size = settings.flowOverviewCardSizes[nodeId] || {};
-        position.width = clamp(size.width, 140, 420, 220);
-        position.height = clamp(size.height, 90, 260, 132);
-      });
-      const horizontal = flowOverviewLayoutDirection === "right" || flowOverviewLayoutDirection === "left";
+      const positionById = layoutWebFlow(allNodes.map((node) => {
+        const size = settings.flowOverviewCardSizes[node.id] || {};
+        return { id: node.id, targets: allEdges.filter((edge) => edge.source === node.id).map((edge) => edge.target),
+          width: clamp(size.width, 140, 420, 208), height: clamp(size.height, 90, 260, 132) };
+      }), flowOverviewLayoutDirection, view.gapX, view.gapY);
       const canvasWidth = Math.max(1040, ...Array.from(positionById.values()).map((position) => position.x + position.width + 120));
       const canvasHeight = Math.max(620, ...Array.from(positionById.values()).map((position) => position.y + position.height + 120));
       flowOverviewCanvas.style.width = canvasWidth + "px";
@@ -3227,6 +3201,7 @@ ${SCENE_SWITCH_CSS}</style>
       if(exportedDialogue&&dialogObject.buttonMotion){exportedDialogue.style.setProperty('--gw-button-layout-transform','var(--dialog-object-transform, rotate(0deg) scale(1, 1))');applyCustomButtonMotion(exportedDialogue,dialogObject);}
       syncPlayerPresentation();
       const nodeAudio = document.getElementById("nodeAudio");
+      if (nodeAudio) nodeAudio.volume = settings.voiceVolume / 100;
       if (nodeAudio) {
         nodeAudio.addEventListener("play", () => recordAudio(node, data.audioUrl));
         nodeAudio.addEventListener("ended", () => {

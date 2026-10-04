@@ -33,7 +33,22 @@ export const resolveArchivePageElements = (settings: Partial<WebExportSettings>,
     const previous = settings.archivePageElements?.find((element) => element.id === fallback.id);
     return previous ? { ...fallback, visible: previous.visible, disabled: previous.disabled, text: previous.text, ...(previous.appearance ? { appearance: previous.appearance } : {}) } : fallback;
   });
-  return settings.archivePageElements?.length ? settings.archivePageElements : defaults;
+  const source = settings.archivePageElements;
+  if (!source?.length) return defaults;
+  // Upgrade the shipped page once; user-added controls and later canvas edits survive.
+  if (source.some((element) => element.id === 'archive-panel' && !element.archiveLayoutVersion)) {
+    return source.flatMap((previous) => {
+      if (['archive-new', 'archive-new-hint', 'archive-slot-continue', 'archive-slot-delete'].includes(previous.id)) return [];
+      const fallback = defaults.find((element) => element.id === previous.id);
+      if (!fallback || previous.archiveLayoutVersion) return [previous];
+      if (previous.id === 'archive-panel') return [{ ...fallback, visible: previous.visible, locked: previous.locked }];
+      return [{ ...previous, archiveLayoutVersion: 1,
+        x: fallback.x, y: fallback.y, width: fallback.width, height: fallback.height,
+        ...(previous.role === 'slot' ? { fillEnabled: false, strokeEnabled: false, shadowEnabled: false, borderWidth: 0, appearance: undefined, buttonMotion: buttonMotionForPreset('none') } : {}),
+      }];
+    });
+  }
+  return source;
 };
 
 /** Resolve old grouped-page settings once; authored element arrays (including empty ones) are authoritative. */

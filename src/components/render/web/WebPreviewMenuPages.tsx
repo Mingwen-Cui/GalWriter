@@ -1,3 +1,5 @@
+import { WebArchiveCardGrid } from './WebArchiveCardGrid';
+import { WEB_ARCHIVE_GRID_CSS } from './webArchiveGrid';
 import { combineWebSelection, webSelectionMode, webMarqueeHits, type WebSelectionMode } from './webCanvasSelection';
 import { WebInlineText } from './WebInlineText';
 import { webThemeCssVariables } from './webThemeVisuals';
@@ -7,7 +9,7 @@ import { WebShapeSelectionOverlay } from './WebShapeSelectionOverlay';
 import { WebShapeCornerHandles } from './WebShapeCornerHandles';
 import type React from 'react';
 import type { CSSProperties } from 'react';
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { PlayerSettingsPanel } from './WebPlayerSettingsPanel';
 import { PLAYER_SETTINGS_CSS, playerSettingsDescription, type PlayerSettingsValues } from './playerSettingsPanel';
 import { SurfaceLayers } from '../shared/paint/SurfaceLayers';
@@ -89,6 +91,7 @@ type WebPreviewMenuPagesProps = {
   onOpenSettings: () => void;
   onNewGame: () => void;
   saveSlots?: WebSaveSlot[];
+  archivePreviewImage?: string;
   onContinueSave?: (slot: WebSaveSlot) => void;
   onDeleteSave?: (slotId: string) => void;
   onToggleControls: () => void;
@@ -134,6 +137,7 @@ export function WebPreviewMenuPages({
   onOpenSettings,
   onNewGame,
   saveSlots = [],
+  archivePreviewImage,
   onContinueSave,
   onDeleteSave,
   onToggleControls,
@@ -477,6 +481,15 @@ export function WebPreviewMenuPages({
     setActiveGuideLines([]);
     document.body.style.cursor = '';
   };
+  const archiveCards = useMemo(() => {
+    const prefix = language === 'zh' ? '存档' : language === 'ja' ? 'セーブ' : 'Save';
+    if (!saveSlots.length && previewMode === 'edit') return [1, 2, 3].map((index) => ({
+      id: `preview-${index}`, title: `${prefix} ${index}`, savedAt: Date.now(), thumbnail: archivePreviewImage,
+    }));
+    return saveSlots.map((save, index) => ({
+      id: save.id, title: `${prefix} ${index + 1}`, savedAt: save.savedAt, thumbnail: save.thumbnail || archivePreviewImage,
+    }));
+  }, [saveSlots, previewMode, language, archivePreviewImage]);
   const editableArchiveElements = archiveElements;
   const activeArchiveSave =
     saveSlots.find((save) => save.id === selectedArchiveSaveId) || saveSlots[0] || null;
@@ -499,7 +512,7 @@ export function WebPreviewMenuPages({
     );
   return (
     <>
-      <style>{PLAYER_SETTINGS_CSS}</style>
+      <style>{PLAYER_SETTINGS_CSS + WEB_ARCHIVE_GRID_CSS}</style>
       {archiveOpen && (
         <div
           ref={archiveRootRef}
@@ -553,49 +566,17 @@ export function WebPreviewMenuPages({
             canvasWidth={settings.canvasWidth}
             canvasHeight={settings.canvasHeight}
             renderControl={(element) =>
-              element.role === 'slot' && previewMode === 'test' ? (
-                <div className="gw-archive-slot-list">
-                  {saveSlots.length ? (
-                    saveSlots.map((save, index) => (
-                      <button
-                        key={save.id}
-                        type="button"
-                        className="gw-archive-slot"
-                        aria-pressed={save.id === activeArchiveSave?.id}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedArchiveSaveId(save.id);
-                        }}
-                      >
-                        <strong>
-                          {language === 'zh'
-                            ? `存档 ${index + 1}`
-                            : language === 'ja'
-                              ? `セーブ ${index + 1}`
-                              : `Save ${index + 1}`}
-                        </strong>
-                        <span>{new Date(save.savedAt).toLocaleString()}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="gw-archive-empty">
-                      <strong>
-                        {language === 'zh'
-                          ? '还没有存档'
-                          : language === 'ja'
-                            ? 'セーブはまだありません'
-                            : 'No saves yet'}
-                      </strong>
-                      <span>
-                        {language === 'zh'
-                          ? '开始故事后，你的阅读进度会保存在这里。'
-                          : language === 'ja'
-                            ? '物語を始めると、ここに進行状況が保存されます。'
-                            : 'Your reading progress will appear here after you start.'}
-                      </span>
-                    </div>
-                  )}
-                </div>
+              element.role === 'slot' ? (
+                <WebArchiveCardGrid
+                  cards={archiveCards}
+                  language={language}
+                  interactive={previewMode === 'test' && !element.disabled}
+                  onPlay={(id) => {
+                    const save = saveSlots.find((slot) => slot.id === id);
+                    if (save) { setSelectedArchiveSaveId(save.id); onContinueSave?.(save); }
+                  }}
+                  onDelete={(id) => onDeleteSave?.(id)}
+                />
               ) : null
             }
             elements={
@@ -679,7 +660,7 @@ export function WebPreviewMenuPages({
             box={marqueeRef.current?.page === 'settings' ? marqueeBox : null}
             visible={previewMode === 'edit'}
           />
-          <style>{PLAYER_SETTINGS_CSS}</style>
+          <style>{PLAYER_SETTINGS_CSS + WEB_ARCHIVE_GRID_CSS}</style>
           <MenuPageElementLayer
             page="settings"
             language={language}

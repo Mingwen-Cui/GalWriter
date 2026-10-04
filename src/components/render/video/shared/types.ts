@@ -312,6 +312,7 @@ export type WebMenuElement = {
   locked?: boolean;
   settingsDescription?: string;
   settingsLayoutVersion?: number;
+  archiveLayoutVersion?: number;
   settingsControlForm?: 'switch' | 'segmented' | 'slider' | 'stepper' | 'select';
   id: string;
   kind: 'button' | 'text' | 'image' | 'shape';

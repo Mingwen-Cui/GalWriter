@@ -97,7 +97,7 @@ export function WebElementPlacementOverlay({
         if (event.button !== 0 || !event.isPrimary) return;
         event.preventDefault();
         event.stopPropagation();
-        if (isLine) return;
+        if (isLine && lineStart) return;
         const start = position(event);
         drag.current = {
           start,
@@ -108,15 +108,18 @@ export function WebElementPlacementOverlay({
         };
         event.currentTarget.setPointerCapture(event.pointerId);
         setPoint(start);
-        setGeometry(placementGeometry(tool, start, null, canvasWidth, canvasHeight));
+        setGeometry(isLine ? null : placementGeometry(tool, start, null, canvasWidth, canvasHeight));
       }}
       onPointerMove={(event) => {
         const next = position(event);
         setPoint(next);
         if (isLine) {
-          const end = lineStart && (event.ctrlKey || event.metaKey) ? snapLineEnd(lineStart, next, canvasWidth, canvasHeight) : next;
+          const active = drag.current;
+          if (active) active.moved ||= Math.hypot(event.clientX - active.clientX, event.clientY - active.clientY) >= 4;
+          const start = lineStart || active?.start;
+          const end = start && (event.ctrlKey || event.metaKey) ? snapLineEnd(start, next, canvasWidth, canvasHeight) : next;
           setGeometry(
-            lineStart ? placementGeometry(tool, lineStart, end, canvasWidth, canvasHeight) : null,
+            start ? placementGeometry(tool, start, end, canvasWidth, canvasHeight) : null,
           );
           return;
         }
@@ -143,16 +146,18 @@ export function WebElementPlacementOverlay({
         const moved =
           active.moved ||
           Math.hypot(event.clientX - active.clientX, event.clientY - active.clientY) >= 4;
+        const rawEnd = position(event);
+        const end = isLine && (event.ctrlKey || event.metaKey) ? snapLineEnd(active.start, rawEnd, canvasWidth, canvasHeight) : rawEnd;
         const result = placementGeometry(
           tool,
           active.start,
-          moved ? position(event) : null,
+          moved ? end : null,
           canvasWidth,
           canvasHeight,
         );
         drag.current = null;
         event.currentTarget.releasePointerCapture(event.pointerId);
-        onPlace(result);
+        if (!isLine || moved) onPlace(result);
       }}
       onPointerCancel={() => {
         drag.current = null;

@@ -3,6 +3,7 @@ export type WebSaveSlot = {
   createdAt: number;
   savedAt: number;
   currentId: string;
+  thumbnail?: string;
   history: string[];
   settings: {
     autoAdvance: boolean;
@@ -47,6 +48,7 @@ const normalizeSlot = (value: LegacyWebSave, nodeIds?: ReadonlySet<string>): Web
     createdAt: Number.isFinite(Number(value.createdAt)) ? Number(value.createdAt) : Number(value.savedAt) || now,
     savedAt: Number.isFinite(Number(value.savedAt)) ? Number(value.savedAt) : now,
     currentId: value.currentId,
+    thumbnail: typeof value.thumbnail === 'string' ? value.thumbnail : undefined,
     history: Array.isArray(value.history)
       ? value.history.filter((id): id is string => typeof id === 'string' && (!nodeIds || nodeIds.has(id)))
       : [],

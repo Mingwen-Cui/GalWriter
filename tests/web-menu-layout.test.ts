@@ -44,7 +44,7 @@ test('settings migrate only the complete untouched previous grid', () => {
     '#fff',
   );
   assert.equal(migrated.find((element) => element.role === 'speed')?.text, '文字速度');
-  assert.equal(migrated.find((element) => element.role === 'preview')?.width, 84);
+  assert.equal(migrated.find((element) => element.role === 'preview')?.width, 66);
   assert.equal(migrated.find((element) => element.id === 'settings-panel'), undefined);
   const authored = previous.map((element) =>
     element.role === 'mode' ? { ...element, x: element.x + 1 } : element,

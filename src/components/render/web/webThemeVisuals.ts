@@ -106,7 +106,7 @@ export function decorateWebPageElements(items: WebMenuElement[], theme = default
       shadowOffsetX: 0, shadowOffsetY: panel ? 14 : primary ? 6 : 3,
       // Generated presets use editable legacy paint fields, with no stale layered override.
       appearance: undefined,
-      ...(element.id === 'settings-background' ? SETTINGS_BACKGROUND_STYLE : {}),
+      ...(['settings-background', 'archive-panel'].includes(element.id) ? SETTINGS_BACKGROUND_STYLE : {}),
     };
   });
 }
