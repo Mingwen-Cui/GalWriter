@@ -38,22 +38,20 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android licenses and install packages
+      - name: Verify preinstalled Android SDK
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $licenseResponses = (1..100 | ForEach-Object { "y" }) -join "`n"
-          $licenseResponses | sdkmanager --licenses
-          if ($LASTEXITCODE -ne 0) {
-            throw "Accepting Android SDK licenses failed."
-          }
-
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973" "cmdline-tools;latest"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Installing Android SDK packages failed."
+          $sdkRoot = $env:ANDROID_HOME
+          $requiredPaths = @(
+            (Join-Path $sdkRoot "platforms/android-36"),
+            (Join-Path $sdkRoot "build-tools/36.0.0"),
+            (Join-Path $sdkRoot "ndk/27.3.13750724")
+          )
+          foreach ($path in $requiredPaths) {
+            if (-not (Test-Path $path)) {
+              throw "Required preinstalled Android SDK component is missing: $path"
+            }
           }
 
       - name: Install frontend dependencies
