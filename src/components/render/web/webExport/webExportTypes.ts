@@ -6,7 +6,7 @@ export type { WebExportSettings };
 export type WebExportOptions = {
   projectName?: string;
   language: 'zh' | 'ja' | 'en';
-  /** The unpacked content folder belongs to the standalone EXE player. */
+  /** Content is sealed for the standalone player; browser launch scripts are omitted. */
   standalonePlayer?: boolean;
   style?: WebExportStyle;
   settings?: WebExportSettings;

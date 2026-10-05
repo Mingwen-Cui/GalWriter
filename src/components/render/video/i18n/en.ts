@@ -10,9 +10,12 @@ export const videoEn = {
   videoCoverButton: 'Cover',
   videoCoverAdd: 'Add video cover',
   videoCoverEdit: 'Edit video cover',
-  videoTimelineExportUnavailableHint: 'Place assets on the timeline and select the clips you want to export first.',
-  videoTimelineNeedsClipsDescription: 'Drag an asset card from the left panel onto the timeline below, then export the video.',
-  videoTimelineNeedsSelectionDescription: 'The timeline has assets. Select the clips you want to export, then try again.',
+  videoTimelineExportUnavailableHint:
+    'Place assets on the timeline and select the clips you want to export first.',
+  videoTimelineNeedsClipsDescription:
+    'Drag an asset card from the left panel onto the timeline below, then export the video.',
+  videoTimelineNeedsSelectionDescription:
+    'The timeline has assets. Select the clips you want to export, then try again.',
   exportPreflightTitle: 'Export check',
   exportPreflightContinue: 'Export anyway',
   exportPreflightCancel: 'Review',
@@ -156,12 +159,12 @@ export const videoEn = {
   webExportFormatLabel: 'Export format',
   webExportFormatZip: 'Web package (ZIP)',
   webExportFormatZipDesc: 'Extract it, then open it in a browser or use the included launcher.',
-  webExportFormatWindowsPlayer: 'Windows installer (EXE)',
+  webExportFormatWindowsPlayer: 'Windows game package (ZIP + EXE)',
   webExportFormatWindowsPlayerDesc:
-    'Creates a Windows program package. Install it, then play from its EXE without a web link.',
-  webExportWindowsPlayerAction: 'Export Windows Installer',
+    'Includes only used game assets. Extract and double-click the EXE to play, with no installation. Game content is checked for tampering.',
+  webExportWindowsPlayerAction: 'Export Game ZIP',
   webExportWindowsInstallerDesktopHint:
-    'Windows installers can only be generated in the GalWriter desktop app.',
+    'Windows game packages can only be generated in the GalWriter desktop app.',
   componentsrendervideopanelsPptExportDialogText78: 'Export PPTX',
   componentsrendervideopanelsPptExportDialogText82: 'Export PPTX',
   componentsrendervideopanelsPptExportDialogText84: 'Close',
@@ -546,7 +549,7 @@ export const videoEn = {
   webExportWindowsPlayerDone: 'Windows player exported',
   webExportWindowsPlayerFailed: 'Windows player export failed',
   webExportWindowsInstallerDesktopRequired:
-    'Export the installer from the GalWriter Windows desktop app.',
+    'Export the game ZIP from the GalWriter Windows desktop app.',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText957:
     'Fullscreen is not available here.',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText976:

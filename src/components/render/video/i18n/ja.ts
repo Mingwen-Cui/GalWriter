@@ -10,9 +10,12 @@ export const videoJa = {
   videoCoverButton: 'カバー',
   videoCoverAdd: '動画カバーを追加',
   videoCoverEdit: '動画カバーを編集',
-  videoTimelineExportUnavailableHint: '素材をタイムラインに配置し、エクスポートするクリップを選択してください。',
-  videoTimelineNeedsClipsDescription: '左側の素材カードを下のタイムラインにドラッグしてから、動画をエクスポートしてください。',
-  videoTimelineNeedsSelectionDescription: 'タイムラインに素材があります。エクスポートするクリップを選択してください。',
+  videoTimelineExportUnavailableHint:
+    '素材をタイムラインに配置し、エクスポートするクリップを選択してください。',
+  videoTimelineNeedsClipsDescription:
+    '左側の素材カードを下のタイムラインにドラッグしてから、動画をエクスポートしてください。',
+  videoTimelineNeedsSelectionDescription:
+    'タイムラインに素材があります。エクスポートするクリップを選択してください。',
   exportPreflightTitle: 'エクスポート前の確認',
   exportPreflightContinue: '続けてエクスポート',
   exportPreflightCancel: '確認に戻る',
@@ -161,12 +164,12 @@ export const videoJa = {
   webExportFormatLabel: '出力形式',
   webExportFormatZip: 'Web パッケージ（ZIP）',
   webExportFormatZipDesc: '展開後、ブラウザまたは同梱ランチャーで開けます。',
-  webExportFormatWindowsPlayer: 'Windows インストーラー（EXE）',
+  webExportFormatWindowsPlayer: 'Windows ゲームパッケージ（ZIP + EXE）',
   webExportFormatWindowsPlayerDesc:
-    'Windows プログラムパッケージを作成します。インストール後は EXE から再生でき、Web リンクは不要です。',
-  webExportWindowsPlayerAction: 'Windows インストーラーを書き出す',
+    '使用する素材だけを同梱。展開後に EXE をダブルクリックして遊べます。インストール不要、改ざん検証付き。',
+  webExportWindowsPlayerAction: 'ゲーム ZIP を書き出す',
   webExportWindowsInstallerDesktopHint:
-    'Windows インストーラーは GalWriter デスクトップ版でのみ生成できます。',
+    'Windows ゲームパッケージは GalWriter デスクトップ版でのみ生成できます。',
   componentsrendervideopanelsPptExportDialogText78: 'PPTX をエクスポート',
   componentsrendervideopanelsPptExportDialogText82: 'PPTX をエクスポート',
   componentsrendervideopanelsPptExportDialogText84: '閉じる',
@@ -551,7 +554,7 @@ export const videoJa = {
   webExportWindowsPlayerDone: 'Windows プレーヤーを書き出しました',
   webExportWindowsPlayerFailed: 'Windows プレーヤーの書き出しに失敗しました',
   webExportWindowsInstallerDesktopRequired:
-    'インストーラーは GalWriter の Windows デスクトップ版から書き出してください。',
+    'GalWriter Windows デスクトップ版からゲーム ZIP を書き出してください。',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText957:
     'Fullscreen is not available here.',
   componentsrendervideoVideoRenderModalVideoRenderModalIsZhText976:

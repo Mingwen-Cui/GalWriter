@@ -4,3 +4,4 @@
 
 # Generated Tauri files
 /gen/
+/player-runtime/

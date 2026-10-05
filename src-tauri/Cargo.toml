@@ -30,6 +30,8 @@ rmcp = { version = "3.5.0", features = ["server", "macros", "schemars", "transpo
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync"] }
 
 [target.'cfg(windows)'.dependencies]
+ring = "0.17"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 windows = { version = "0.61.3", features = [
   "Win32_Foundation",
   "Win32_System_Com",

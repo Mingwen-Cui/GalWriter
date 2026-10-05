@@ -1,0 +1,9 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "GalWriter Player",
+  "version": "1.0.0",
+  "identifier": "com.galwriter.player",
+  "build": { "frontendDist": "empty" },
+  "app": { "windows": [], "security": { "capabilities": [] } },
+  "bundle": { "active": false, "icon": ["../icons/icon.ico"] }
+}

@@ -27,6 +27,7 @@
     "tauri": "tauri",
     "tauri:android:init": "tauri android init --ci",
     "tauri:build:windows": "tauri build",
+    "build:player": "node build-scripts/build-player.mjs",
     "tauri:build:windows:full": "node build-scripts/build-tauri-edition.mjs windows full",
     "tauri:build:windows:lite": "node build-scripts/build-tauri-edition.mjs windows lite",
     "tauri:build:web": "npm run build:full",

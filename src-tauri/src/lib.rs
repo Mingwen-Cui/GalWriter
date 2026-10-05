@@ -20,6 +20,9 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 mod mcp_server;
+#[cfg(target_os = "windows")]
+#[allow(dead_code)] // Verification and asset serving are used by the standalone player.
+mod player_package;
 
 #[cfg(target_os = "windows")]
 use windows::{
@@ -817,18 +820,6 @@ $response = Invoke-WebRequest -Uri $env:GALWRITER_VOLCENGINE_ENDPOINT -Method Po
   }
 }
 
-fn unique_directory(dir: &Path, stem: &str) -> PathBuf {
-  let mut candidate = dir.join(stem);
-  let mut index = 1;
-
-  while candidate.exists() {
-    candidate = dir.join(format!("{stem}-{index}"));
-    index += 1;
-  }
-
-  candidate
-}
-
 fn web_player_launch_from_current_exe() -> Option<WebPlayerLaunch> {
   let executable = env::current_exe().ok()?;
   let export_root = executable.parent()?;
@@ -958,100 +949,41 @@ fn save_rendered_web_zip(
 }
 
 #[tauri::command]
-fn save_rendered_web_player(
-  file_name: String,
-  bytes: Vec<u8>,
-  output_dir: Option<String>,
+async fn save_rendered_web_player(
+    app: AppHandle,
+    file_name: String,
+    bytes: Vec<u8>,
+    output_dir: Option<String>,
 ) -> Result<RenderSaveResult, String> {
-  if !cfg!(target_os = "windows") {
-    return Err("The standalone web player is only available on Windows.".to_string());
-  }
-
-  let output_dir = output_dir
-    .filter(|dir| !dir.trim().is_empty())
-    .map(PathBuf::from)
-    .unwrap_or_else(downloads_dir);
-  fs::create_dir_all(&output_dir)
-    .map_err(|err| format!("Failed to create output directory: {err}"))?;
-
-  let stem = sanitize_file_name(&file_name);
-  let player_dir = unique_directory(&output_dir, &stem);
-  let content_dir = player_dir.join("content");
-  fs::create_dir_all(&content_dir)
-    .map_err(|err| format!("Failed to create the player package: {err}"))?;
-
-  let archive_path = player_dir.join("content.zip");
-  let result = (|| -> Result<PathBuf, String> {
-    fs::write(&archive_path, bytes).map_err(|err| format!("Failed to stage web export: {err}"))?;
-
-    let archive_json = serde_json::to_string(&archive_path.to_string_lossy().to_string())
-      .map_err(|err| format!("Failed to prepare web export archive: {err}"))?;
-    let content_json = serde_json::to_string(&content_dir.to_string_lossy().to_string())
-      .map_err(|err| format!("Failed to prepare web player content directory: {err}"))?;
-    let script = format!(
-      r#"$ErrorActionPreference = 'Stop'
-$archive = ConvertFrom-Json -InputObject {archive}
-$content = ConvertFrom-Json -InputObject {content}
-Expand-Archive -LiteralPath $archive -DestinationPath $content -Force
-"#,
-      archive = powershell_single_quoted(&archive_json),
-      content = powershell_single_quoted(&content_json),
-    );
-    let output = Command::new("powershell")
-      .arg("-NoProfile")
-      .arg("-NonInteractive")
-      .arg("-ExecutionPolicy")
-      .arg("Bypass")
-      .arg("-EncodedCommand")
-      .arg(powershell_encoded_command(&script))
-      .output()
-      .map_err(|err| format!("Failed to unpack web player content: {err}"))?;
-    if !output.status.success() {
-      return Err(format!(
-        "Failed to unpack web player content: {}",
-        String::from_utf8_lossy(&output.stderr).trim()
-      ));
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (app, file_name, bytes, output_dir);
+        return Err("The standalone player is only available on Windows.".into());
     }
-    let _ = fs::remove_file(&archive_path);
-
-    let source_executable = env::current_exe()
-      .map_err(|err| format!("Failed to locate the GalWriter player runtime: {err}"))?;
-    let player_executable = player_dir.join(format!("{stem}.exe"));
-    fs::copy(&source_executable, &player_executable)
-      .map_err(|err| format!("Failed to package the Windows player: {err}"))?;
-    if let Some(runtime_dir) = source_executable.parent() {
-      let loader = runtime_dir.join("WebView2Loader.dll");
-      if loader.is_file() {
-        fs::copy(&loader, player_dir.join("WebView2Loader.dll"))
-          .map_err(|err| format!("Failed to package the WebView runtime loader: {err}"))?;
-      }
+    #[cfg(target_os = "windows")]
+  tauri::async_runtime::spawn_blocking(move || {
+    let output_dir = output_dir.filter(|dir| !dir.trim().is_empty()).map(PathBuf::from).unwrap_or_else(downloads_dir);
+    fs::create_dir_all(&output_dir).map_err(|err| format!("Failed to create output directory: {err}"))?;
+    let runtime_path = app.path().resource_dir().map_err(|err| err.to_string())?
+      .join("player-runtime").join("galwriter-player.exe");
+    let runtime_path = if runtime_path.is_file() { runtime_path } else {
+      PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("player-runtime").join("galwriter-player.exe")
+    };
+    let runtime = fs::read(&runtime_path).map_err(|err| format!("Standalone player runtime is unavailable. Rebuild the desktop app with npm run tauri:build:windows. {err}"))?;
+    let loader = runtime_path.with_file_name("WebView2Loader.dll");
+    let loader_bytes = if loader.is_file() { Some(fs::read(loader).map_err(|err| err.to_string())?) } else { None };
+    let stem = sanitize_file_name(&file_name);
+    let package = player_package::distribution(&runtime, &bytes, &stem, loader_bytes.as_deref())?;
+    let output_path = unique_path(&output_dir, &format!("{stem}-windows"), "zip");
+    // Create atomically to avoid leaving a seemingly valid ZIP after a failed write.
+    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&output_path).map_err(|err| err.to_string())?;
+    if let Err(error) = file.write_all(&package) {
+      drop(file);
+      let _ = fs::remove_file(&output_path);
+      return Err(format!("Failed to save player ZIP: {error}"));
     }
-
-    let manifest = serde_json::json!({ "title": stem });
-    fs::write(
-      player_dir.join("galwriter-player.json"),
-      serde_json::to_vec_pretty(&manifest)
-        .map_err(|err| format!("Failed to write player manifest: {err}"))?,
-    )
-    .map_err(|err| format!("Failed to write player manifest: {err}"))?;
-    fs::write(
-      player_dir.join("README.txt"),
-      "双击同目录的 EXE 即可播放作品。请保留整个作品文件夹；不要单独移动 EXE 或 content 文件夹。\r\n\r\nDouble-click the EXE in this folder to play. Keep the entire folder together; do not move the EXE or content folder separately.\r\n",
-    )
-    .map_err(|err| format!("Failed to write player instructions: {err}"))?;
-
-    Ok(player_executable)
-  })();
-
-  match result {
-    Ok(player_executable) => Ok(RenderSaveResult {
-      path: player_executable.to_string_lossy().to_string(),
-    }),
-    Err(error) => {
-      let _ = fs::remove_dir_all(&player_dir);
-      Err(error)
-    }
-  }
+    Ok(RenderSaveResult { path: output_path.to_string_lossy().to_string() })
+  }).await.map_err(|err| err.to_string())?
 }
 
 #[tauri::command]

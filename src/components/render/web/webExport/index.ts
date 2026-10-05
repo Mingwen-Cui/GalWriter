@@ -22,12 +22,16 @@ import { buildDefaultRenderObjects } from '../../video/shared/renderObjects';
 import { filterMentionTags } from '../../video/shared/storyNodes';
 import type { RenderStyle } from '../../video/shared/types';
 import { DEFAULT_RENDER_STYLE } from '../../video/VideoRenderModal/workspaceStorage';
-import { alignDefaultFlowOverviewControls, resolveWebToolbarElements } from '../webExperienceTemplates';
+import {
+  alignDefaultFlowOverviewControls,
+  resolveWebToolbarElements,
+} from '../webExperienceTemplates';
 import { buildUniversalWebTemplate } from '../universalExperienceTemplate';
 import { resolveSettingsPageElements, resolveArchivePageElements } from '../webMenuPageElements';
 import { LOCAL_PREVIEW_CMD, LOCAL_PREVIEW_SERVER } from './localPreviewLauncher';
 import { makeIndexHtml } from './webExportHtml';
 import { usedRenderStyle, usedSurfaceSettings } from './webExportAssetUsage';
+import { playableWebScope } from './webExportScope';
 import type {
   WebExportEdge,
   WebExportNode,
@@ -417,7 +421,12 @@ export async function buildInteractiveWebZipBlob(
     startMenuButtonLayout: options.settings?.startMenuButtonLayout || 'vertical',
     startMenuButtonSize: options.settings?.startMenuButtonSize || 'normal',
     startMenuElements: options.settings?.startMenuElements || [],
-    archivePageElements: resolveArchivePageElements(options.settings || {}, options.language, '#0ea5e9', '#ffffff'),
+    archivePageElements: resolveArchivePageElements(
+      options.settings || {},
+      options.language,
+      '#0ea5e9',
+      '#ffffff',
+    ),
     settingsPageElements: resolveSettingsPageElements(
       options.settings || {},
       options.language,
@@ -457,12 +466,32 @@ export async function buildInteractiveWebZipBlob(
   };
   settings.surfaceAppearances = options.settings?.surfaceAppearances;
   settings = usedSurfaceSettings(settings);
-  style = { ...usedRenderStyle(style as RenderStyle, [
-    ...settings.startMenuElements, ...settings.archivePageElements, ...settings.settingsPageElements,
-    ...settings.previewToolbarElements, ...settings.dialogueOverlayElements, ...settings.flowOverviewElements,
-  ]), choiceColor: style.choiceColor, choiceTextColor: style.choiceTextColor };
-  style.dialogImageUrl = await packImageAsset(zip, style.dialogImageUrl, `${title}-dialog-background`, assetMap, assetFailures);
-  style.nameplateImageUrl = await packImageAsset(zip, style.nameplateImageUrl, `${title}-nameplate-background`, assetMap, assetFailures);
+  style = {
+    ...usedRenderStyle(style as RenderStyle, [
+      ...settings.startMenuElements,
+      ...settings.archivePageElements,
+      ...settings.settingsPageElements,
+      ...settings.previewToolbarElements,
+      ...settings.dialogueOverlayElements,
+      ...settings.flowOverviewElements,
+    ]),
+    choiceColor: style.choiceColor,
+    choiceTextColor: style.choiceTextColor,
+  };
+  style.dialogImageUrl = await packImageAsset(
+    zip,
+    style.dialogImageUrl,
+    `${title}-dialog-background`,
+    assetMap,
+    assetFailures,
+  );
+  style.nameplateImageUrl = await packImageAsset(
+    zip,
+    style.nameplateImageUrl,
+    `${title}-nameplate-background`,
+    assetMap,
+    assetFailures,
+  );
   const packAppearance = async (
     appearance: SurfaceAppearance | undefined,
     label: string,
@@ -518,8 +547,20 @@ export async function buildInteractiveWebZipBlob(
       await Promise.all(
         Object.entries(style.renderObjects).map(async ([key, object]) => [
           key,
-          { ...object, appearance: await packAppearance(object.appearance, `${title}-${key}`),
-            fill: { ...object.fill, imageUrl: await packImageAsset(zip, object.fill.imageUrl, `${title}-${key}-fill`, assetMap, assetFailures) } },
+          {
+            ...object,
+            appearance: await packAppearance(object.appearance, `${title}-${key}`),
+            fill: {
+              ...object.fill,
+              imageUrl: await packImageAsset(
+                zip,
+                object.fill.imageUrl,
+                `${title}-${key}-fill`,
+                assetMap,
+                assetFailures,
+              ),
+            },
+          },
         ]),
       ),
     ) as typeof style.renderObjects;
@@ -617,9 +658,8 @@ export async function buildInteractiveWebZipBlob(
   );
 
   const webNodes: WebExportNode[] = [];
-  for (const node of nodes.filter(
-    (candidate) => candidate.type === 'storyNode' || candidate.type === 'numberConditionNode',
-  )) {
+  const playable = playableWebScope(nodes, edges);
+  for (const node of playable.nodes) {
     if (node.type === 'numberConditionNode') {
       webNodes.push({
         id: node.id,
@@ -648,6 +688,21 @@ export async function buildInteractiveWebZipBlob(
                   (range) => range.id && Number.isFinite(range.min) && Number.isFinite(range.max),
                 )
             : [],
+        },
+      });
+      continue;
+    }
+
+    // Routing cards still affect progression and numeric state, but never render media.
+    if (node.data?.skip) {
+      webNodes.push({
+        id: node.id,
+        type: node.type,
+        data: {
+          title: nodeTitle(node),
+          isRoot: Boolean(node.data?.isRoot),
+          skip: true,
+          nodeValue: typeof node.data?.nodeValue === 'number' ? node.data.nodeValue : undefined,
         },
       });
       continue;
@@ -839,7 +894,7 @@ export async function buildInteractiveWebZipBlob(
       formatExportAssetFailures(options.language, '网页导出', [...assetFailures.values()]),
     );
 
-  const webEdges: WebExportEdge[] = edges.map((edge) => ({
+  const webEdges: WebExportEdge[] = playable.edges.map((edge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
@@ -889,5 +944,9 @@ export async function buildInteractiveWebZipBlob(
     );
   }
 
-  return zip.generateAsync({ type: 'blob' });
+  return zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 9 },
+  });
 }

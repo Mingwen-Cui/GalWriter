@@ -60,7 +60,31 @@ jobs:
       - name: Initialize Android target
         run: npm run tauri:android:init
 
+      - name: Check Android signing configuration
+        id: android-signing
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $requiredSecrets = @(
+            $env:ANDROID_KEYSTORE_BASE64,
+            $env:ANDROID_KEYSTORE_PASSWORD,
+            $env:ANDROID_KEY_PASSWORD,
+            $env:ANDROID_KEY_ALIAS
+          )
+          if ($requiredSecrets.Where({ -not $_ }).Count -gt 0) {
+            "configured=false" >> $env:GITHUB_OUTPUT
+            Write-Host "::notice::Android APK/AAB builds skipped because Android signing secrets are not configured."
+          } else {
+            "configured=true" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Restore Android signing files
+        if: steps.android-signing.outputs.configured == 'true'
         shell: pwsh
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -95,11 +119,13 @@ jobs:
           npm run tauri:prepare:release:lite
 
       - name: Build and prepare complete Android package
+        if: steps.android-signing.outputs.configured == 'true'
         run: |
           npm run tauri:build:android:full
           npm run tauri:prepare:android:full
 
       - name: Build and prepare lite Android package
+        if: steps.android-signing.outputs.configured == 'true'
         run: |
           npm run tauri:build:android:lite
           npm run tauri:prepare:android:lite
