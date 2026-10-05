@@ -465,11 +465,11 @@ export function VideoTimelinePanel({
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-accent-soft)] hover:text-[var(--vr-accent-strong)]'
             }`}
-            title={hasVideoCover ? '编辑视频封面' : '添加视频封面'}
-            aria-label={hasVideoCover ? '编辑视频封面' : '添加视频封面'}
+            title={formatVideoText(language, hasVideoCover ? 'videoCoverEdit' : 'videoCoverAdd')}
+            aria-label={formatVideoText(language, hasVideoCover ? 'videoCoverEdit' : 'videoCoverAdd')}
           >
             <Image className="h-3.5 w-3.5" />
-            封面
+            {formatVideoText(language, 'videoCoverButton')}
           </button>
         </div>
         <div className="flex justify-center gap-1.5">

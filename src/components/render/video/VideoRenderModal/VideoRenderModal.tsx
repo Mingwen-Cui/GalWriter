@@ -418,7 +418,7 @@ export function VideoRenderModal({
             {
               id: 'cover-title',
               kind: 'text',
-              text: '请选择你的封面',
+              text: language === 'zh' ? '请选择你的封面' : language === 'ja' ? 'カバーを選択してください' : 'Choose your cover',
               visible: true,
               x: 16,
               y: 52,

@@ -2015,7 +2015,7 @@ JSON schema:
         <div className="grid h-12 grid-cols-[1fr_auto] items-center gap-3 border-b border-[var(--vr-border)] px-4">
           <div className="flex min-w-0 items-center gap-2 text-xs font-black tracking-wide text-[var(--vr-text-soft)]">
             <Play className="w-4 h-4 text-[var(--vr-accent)]" />
-            <span className="truncate">测试预览窗口</span>
+            <span className="truncate">{formatWebText(language, 'renderTestPreviewWindow')}</span>
           </div>
           <div className="flex min-w-0 items-center gap-3">
             {startMenuPreviewMode === 'edit' && (
@@ -2206,8 +2206,8 @@ JSON schema:
               <WebPillToggleGroup
                 value={startMenuPreviewMode}
                 options={[
-                  { value: 'edit', label: '编辑模式' },
-                  { value: 'test', label: '测试模式' },
+                  { value: 'edit', label: formatWebText(language, 'renderEditMode') },
+                  { value: 'test', label: formatWebText(language, 'renderTestMode') },
                 ]}
                 onChange={(value) => {
                   const nextMode = value as 'edit' | 'test';

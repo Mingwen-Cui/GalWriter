@@ -83,6 +83,47 @@ const copy = (language: VideoCoverEditorProps['language']) =>
         confirm: '确定要删除这个视频封面吗？导出时将不再生成 PNG。',
         cancel: '取消',
         noMedia: '暂无可用图片素材。',
+        close: '关闭',
+        exportTemplate: '导出模板',
+        exportingTemplate: '导出中',
+        saveCopy: '保存副本',
+        savingCopy: '保存中',
+        savedCopy: '已保存副本',
+        saveFailedRetry: '保存失败，重试',
+        downloadCover: '下载封面',
+        zoomHelp: '拖动滑杆调整画布缩放，查看超出画布的图层',
+        canvasZoom: '画布缩放',
+        cropGuide: '取景参考比例',
+        closeCropGuide: '关闭取景参考线',
+        showCropGuide: '显示 {ratio} 取景框，仅作视觉参考',
+        noCropGuide: '无',
+        copySelection: '复制选中的文字或图片',
+        pasteSelection: '粘贴最近复制的文字或图片',
+        copy: '复制',
+        paste: '粘贴',
+        undo: '撤销',
+        redo: '重做',
+        copyAiPrompt: '复制 AI 提示词',
+        copyAiPromptTitle: '复制 AI 封面图片生成提示词',
+        copied: '已复制',
+        uploadImage: '上传图片',
+        loadingTemplates: '读取模板素材…',
+        noTemplates: '暂无可用封面模板。',
+        imageCrop: '图片裁切',
+        focusX: '焦点 X',
+        focusY: '焦点 Y',
+        cropZoom: '裁切缩放',
+        fontSize: '字号',
+        fontWeight: '字重',
+        color: '颜色',
+        alignment: '对齐',
+        alignLeft: '左对齐',
+        alignCenter: '居中',
+        alignRight: '右对齐',
+        width: '宽度',
+        height: '高度',
+        rotation: '旋转',
+        opacity: '透明度',
       }
     : language === 'ja'
       ? {
@@ -109,6 +150,47 @@ const copy = (language: VideoCoverEditorProps['language']) =>
           confirm: 'この動画カバーを削除しますか？PNG は書き出されなくなります。',
           cancel: 'キャンセル',
           noMedia: '利用できる画像素材がありません。',
+          close: '閉じる',
+          exportTemplate: 'テンプレートを書き出す',
+          exportingTemplate: '書き出し中',
+          saveCopy: 'コピーを保存',
+          savingCopy: '保存中',
+          savedCopy: 'コピーを保存しました',
+          saveFailedRetry: '保存に失敗しました。再試行',
+          downloadCover: 'カバーをダウンロード',
+          zoomHelp: 'スライダーをドラッグしてキャンバスを拡大縮小し、キャンバス外のレイヤーを確認します',
+          canvasZoom: 'キャンバスズーム',
+          cropGuide: 'トリミングガイド比率',
+          closeCropGuide: 'トリミングガイドをオフ',
+          showCropGuide: '{ratio} のガイドを表示（目安）',
+          noCropGuide: 'なし',
+          copySelection: '選択したテキストまたは画像をコピー',
+          pasteSelection: '最後にコピーしたテキストまたは画像を貼り付け',
+          copy: 'コピー',
+          paste: '貼り付け',
+          undo: '元に戻す',
+          redo: 'やり直し',
+          copyAiPrompt: 'AI プロンプトをコピー',
+          copyAiPromptTitle: 'AI カバー画像生成プロンプトをコピー',
+          copied: 'コピーしました',
+          uploadImage: '画像をアップロード',
+          loadingTemplates: 'テンプレート素材を読み込み中…',
+          noTemplates: '利用できるカバーテンプレートがありません。',
+          imageCrop: '画像のトリミング',
+          focusX: '焦点 X',
+          focusY: '焦点 Y',
+          cropZoom: 'トリミング倍率',
+          fontSize: '文字サイズ',
+          fontWeight: '文字の太さ',
+          color: '色',
+          alignment: '配置',
+          alignLeft: '左揃え',
+          alignCenter: '中央揃え',
+          alignRight: '右揃え',
+          width: '幅',
+          height: '高さ',
+          rotation: '回転',
+          opacity: '不透明度',
         }
       : {
           title: 'Cover editor',
@@ -134,6 +216,47 @@ const copy = (language: VideoCoverEditorProps['language']) =>
           confirm: 'Delete this video cover? A PNG will no longer be exported.',
           cancel: 'Cancel',
           noMedia: 'No usable image assets yet.',
+          close: 'Close',
+          exportTemplate: 'Export template',
+          exportingTemplate: 'Exporting',
+          saveCopy: 'Save a copy',
+          savingCopy: 'Saving',
+          savedCopy: 'Copy saved',
+          saveFailedRetry: 'Save failed. Retry',
+          downloadCover: 'Download cover',
+          zoomHelp: 'Drag the slider to zoom the canvas and inspect layers outside it',
+          canvasZoom: 'Canvas zoom',
+          cropGuide: 'Crop guide ratio',
+          closeCropGuide: 'Hide crop guide',
+          showCropGuide: 'Show {ratio} crop guide (reference only)',
+          noCropGuide: 'None',
+          copySelection: 'Copy selected text or image',
+          pasteSelection: 'Paste the most recently copied text or image',
+          copy: 'Copy',
+          paste: 'Paste',
+          undo: 'Undo',
+          redo: 'Redo',
+          copyAiPrompt: 'Copy AI prompt',
+          copyAiPromptTitle: 'Copy the AI cover image prompt',
+          copied: 'Copied',
+          uploadImage: 'Upload image',
+          loadingTemplates: 'Loading template assets…',
+          noTemplates: 'No cover templates available.',
+          imageCrop: 'Image crop',
+          focusX: 'Focus X',
+          focusY: 'Focus Y',
+          cropZoom: 'Crop zoom',
+          fontSize: 'Font size',
+          fontWeight: 'Font weight',
+          color: 'Color',
+          alignment: 'Alignment',
+          alignLeft: 'Align left',
+          alignCenter: 'Center',
+          alignRight: 'Align right',
+          width: 'Width',
+          height: 'Height',
+          rotation: 'Rotation',
+          opacity: 'Opacity',
         };
 
 const nodeLabel = (node: FlowNode) => String(node.data?.title || node.data?.label || node.id);
@@ -979,7 +1102,7 @@ export function VideoCoverEditor({
                     className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-violet-200 bg-violet-50 px-3 text-xs font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
                   >
                     <Download className="h-4 w-4" />
-                    {isTemplateExporting ? '导出中' : '导出模板'}
+                    {isTemplateExporting ? text.exportingTemplate : text.exportTemplate}
                   </button>
                   {isTauriRuntime() && !isRapidAssetEdition() ? (
                     <button
@@ -990,12 +1113,12 @@ export function VideoCoverEditor({
                     >
                       <Save className="h-4 w-4" />
                       {templateSaveState === 'saving'
-                        ? '保存中'
+                        ? text.savingCopy
                         : templateSaveState === 'saved'
-                          ? '已保存副本'
+                          ? text.savedCopy
                           : templateSaveState === 'error'
-                            ? '保存失败，重试'
-                            : '保存副本'}
+                            ? text.saveFailedRetry
+                            : text.saveCopy}
                     </button>
                   ) : (
                     <button
@@ -1004,7 +1127,7 @@ export function VideoCoverEditor({
                       className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-700 hover:bg-sky-100"
                     >
                       <Download className="h-4 w-4" />
-                      下载封面
+                      {text.downloadCover}
                     </button>
                   )}
                 </div>
@@ -1022,7 +1145,7 @@ export function VideoCoverEditor({
                   type="button"
                   onClick={() => void closeEditor()}
                   className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--vr-surface-soft)] text-[var(--vr-text-soft)] hover:bg-[var(--vr-border)]"
-                  aria-label="Close"
+                  aria-label={text.close}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1032,7 +1155,7 @@ export function VideoCoverEditor({
           <div className="absolute left-0 right-[330px] top-14 z-20 flex h-10 items-center justify-start gap-3 border-b border-[var(--vr-border)] bg-[var(--vr-surface-soft)] px-5 max-md:right-0">
             <div
               className="flex h-8 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-slate-600"
-              title="拖动滑杆调整画布缩放，查看超出画布的图层"
+              title={text.zoomHelp}
             >
               <ZoomOut className="h-4 w-4 shrink-0" />
               <input
@@ -1042,7 +1165,7 @@ export function VideoCoverEditor({
                 step="0.05"
                 value={viewScale}
                 onChange={(event) => setViewScale(Number(event.target.value))}
-                aria-label="画布缩放"
+                aria-label={text.canvasZoom}
                 className="w-24 accent-[var(--vr-accent)]"
               />
               <span className="w-8 text-right text-[10px] font-black tabular-nums">
@@ -1051,7 +1174,7 @@ export function VideoCoverEditor({
             </div>
             <div
               className="flex h-8 shrink-0 items-center overflow-hidden border-x border-[var(--vr-border)] px-3"
-              aria-label="取景参考比例"
+              aria-label={text.cropGuide}
             >
               {(['none', '4:3', '16:9'] as const).map((ratio) => (
                 <button
@@ -1059,9 +1182,13 @@ export function VideoCoverEditor({
                   type="button"
                   onClick={() => setCropGuide(ratio)}
                   className={`h-7 whitespace-nowrap rounded-md px-2.5 text-[11px] font-black transition-colors ${cropGuide === ratio ? 'bg-[var(--vr-accent)] text-white shadow-sm' : 'text-slate-500 hover:bg-white'}`}
-                  title={ratio === 'none' ? '关闭取景参考线' : `显示 ${ratio} 取景框，仅作视觉参考`}
+                  title={
+                    ratio === 'none'
+                      ? text.closeCropGuide
+                      : text.showCropGuide.replace('{ratio}', ratio)
+                  }
                 >
-                  {ratio === 'none' ? '无' : ratio}
+                  {ratio === 'none' ? text.noCropGuide : ratio}
                 </button>
               ))}
             </div>
@@ -1071,20 +1198,20 @@ export function VideoCoverEditor({
                 onClick={copySelectedElement}
                 disabled={!selectedElement}
                 className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                title="复制选中的文字或图片"
+                title={text.copySelection}
               >
                 <Copy className="h-3.5 w-3.5" />
-                复制
+                {text.copy}
               </button>
               <button
                 type="button"
                 onClick={pasteCopiedElement}
                 disabled={!hasCopiedElement}
                 className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                title="粘贴最近复制的文字或图片"
+                title={text.pasteSelection}
               >
                 <ClipboardPaste className="h-3.5 w-3.5" />
-                粘贴
+                {text.paste}
               </button>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -1093,8 +1220,8 @@ export function VideoCoverEditor({
                 onClick={undoCover}
                 disabled={!canUndo}
                 className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                title="撤销"
-                aria-label="撤销"
+                title={text.undo}
+                aria-label={text.undo}
               >
                 <Undo2 className="h-4 w-4" />
               </button>
@@ -1103,8 +1230,8 @@ export function VideoCoverEditor({
                 onClick={redoCover}
                 disabled={!canRedo}
                 className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
-                title="重做"
-                aria-label="重做"
+                title={text.redo}
+                aria-label={text.redo}
               >
                 <Redo2 className="h-4 w-4" />
               </button>
@@ -1112,10 +1239,10 @@ export function VideoCoverEditor({
                 type="button"
                 onClick={() => void copyAiPrompt()}
                 className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-violet-200 bg-violet-50 px-2.5 text-[11px] font-black text-violet-700 transition-colors hover:bg-violet-100"
-                title="复制 AI 封面图片生成提示词"
+                title={text.copyAiPromptTitle}
               >
                 <Copy className="h-3.5 w-3.5" />
-                {aiPromptCopied ? '已复制' : '复制 AI 提示词'}
+                {aiPromptCopied ? text.copied : text.copyAiPrompt}
               </button>
             </div>
           </div>
@@ -1148,7 +1275,7 @@ export function VideoCoverEditor({
               className="mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-300 bg-emerald-50 text-xs font-black text-emerald-700 hover:bg-emerald-100"
             >
               <Upload className="h-4 w-4" />
-              上传图片
+              {text.uploadImage}
             </button>
             <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto">
               {templateImages.map((image) => (
@@ -1376,7 +1503,7 @@ export function VideoCoverEditor({
                 })}
                 {isTemplateLibraryLoading && (
                   <span className="col-span-4 py-4 text-center text-xs font-bold text-[var(--vr-text-muted)]">
-                    读取模板素材…
+                    {text.loadingTemplates}
                   </span>
                 )}
                 {!isTemplateLibraryLoading && isRapidAssetEdition() && (
@@ -1384,7 +1511,7 @@ export function VideoCoverEditor({
                 )}
                 {!isTemplateLibraryLoading && !isRapidAssetEdition() && !templateLibrary.length && (
                   <span className="col-span-4 py-4 text-center text-xs font-bold text-[var(--vr-text-muted)]">
-                    暂无可用封面模板。
+                    {text.noTemplates}
                   </span>
                 )}
               </div>
@@ -1418,17 +1545,17 @@ export function VideoCoverEditor({
                 />
                 {selectedElement.kind === 'image' && (
                   <section className="mt-4 rounded-2xl bg-sky-50 p-3">
-                    <div className="mb-2 text-xs font-black text-slate-800">图片裁切</div>
+                    <div className="mb-2 text-xs font-black text-slate-800">{text.imageCrop}</div>
                     <div className="grid grid-cols-2 gap-2">
                       {numberField(
-                        '焦点 X',
+                        text.focusX,
                         selectedElement.imageCropX ?? 50,
                         (imageCropX) => updateElement(selectedElement.id, { imageCropX }),
                         0,
                         100,
                       )}
                       {numberField(
-                        '焦点 Y',
+                        text.focusY,
                         selectedElement.imageCropY ?? 50,
                         (imageCropY) => updateElement(selectedElement.id, { imageCropY }),
                         0,
@@ -1436,7 +1563,7 @@ export function VideoCoverEditor({
                       )}
                       <label className="col-span-2 grid gap-1 text-[10px] font-bold text-[var(--vr-text-muted)]">
                         <span>
-                          裁切缩放 {Math.round((selectedElement.imageCropScale ?? 1) * 100)}%
+                          {text.cropZoom} {Math.round((selectedElement.imageCropScale ?? 1) * 100)}%
                         </span>
                         <input
                           type="range"
@@ -1470,14 +1597,14 @@ export function VideoCoverEditor({
                       </label>
                       <section className="grid grid-cols-2 gap-2 rounded-xl bg-[var(--vr-surface-soft)] p-3">
                         {numberField(
-                          '字号',
+                          text.fontSize,
                           selectedElement.fontSize || 54,
                           (fontSize) => updateElement(selectedElement.id, { fontSize }),
                           12,
                           220,
                         )}
                         {numberField(
-                          '字重',
+                          text.fontWeight,
                           selectedElement.fontWeight || 800,
                           (fontWeight) => updateElement(selectedElement.id, { fontWeight }),
                           100,
@@ -1485,7 +1612,7 @@ export function VideoCoverEditor({
                           100,
                         )}
                         <label className="grid gap-1 text-[10px] font-bold text-[var(--vr-text-muted)]">
-                          <span>颜色</span>
+                          <span>{text.color}</span>
                           <input
                             type="color"
                             value={selectedElement.textColor || '#ffffff'}
@@ -1496,7 +1623,7 @@ export function VideoCoverEditor({
                           />
                         </label>
                         <label className="grid gap-1 text-[10px] font-bold text-[var(--vr-text-muted)]">
-                          <span>对齐</span>
+                          <span>{text.alignment}</span>
                           <select
                             value={selectedElement.textAlign || 'center'}
                             onChange={(event) =>
@@ -1506,9 +1633,9 @@ export function VideoCoverEditor({
                             }
                             className="h-9 rounded-lg border border-[var(--vr-border)] bg-[var(--vr-surface)] px-2 text-xs font-bold text-[var(--vr-text)]"
                           >
-                            <option value="left">左对齐</option>
-                            <option value="center">居中</option>
-                            <option value="right">右对齐</option>
+                            <option value="left">{text.alignLeft}</option>
+                            <option value="center">{text.alignCenter}</option>
+                            <option value="right">{text.alignRight}</option>
                           </select>
                         </label>
                       </section>
@@ -1551,28 +1678,28 @@ export function VideoCoverEditor({
                         updateElement(selectedElement.id, { y }),
                       )}
                       {numberField(
-                        '宽度',
+                        text.width,
                         selectedElement.width,
                         (width) => updateElement(selectedElement.id, { width }),
                         4,
                         100,
                       )}
                       {numberField(
-                        '高度',
+                        text.height,
                         selectedElement.height,
                         (height) => updateElement(selectedElement.id, { height }),
                         4,
                         100,
                       )}
                       {numberField(
-                        '旋转',
+                        text.rotation,
                         selectedElement.rotation,
                         (rotation) => updateElement(selectedElement.id, { rotation }),
                         -360,
                         360,
                       )}
                       {numberField(
-                        '透明度',
+                        text.opacity,
                         selectedElement.opacity,
                         (opacity) => updateElement(selectedElement.id, { opacity }),
                         0,

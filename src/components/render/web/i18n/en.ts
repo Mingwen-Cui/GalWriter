@@ -8,6 +8,9 @@ export const webSettingsCopy = {
 };
 
 export const webText = {
+  renderEditMode: 'Edit mode',
+  renderTestMode: 'Test mode',
+  renderTestPreviewWindow: 'Test preview',
   webExportAuthorWebsite: 'Author website',
   componentsrenderwebwebExperienceTemplatesText92: 'Save',
   componentsrenderwebwebExperienceTemplatesText107:

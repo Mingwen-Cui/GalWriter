@@ -8,6 +8,9 @@ export const webSettingsCopy = {
 };
 
 export const webText = {
+  renderEditMode: '编辑模式',
+  renderTestMode: '测试模式',
+  renderTestPreviewWindow: '测试预览窗口',
   webExportAuthorWebsite: '作者网站',
   componentsrenderwebwebExperienceTemplatesText92: '存档',
   componentsrenderwebwebExperienceTemplatesText107: '没有存档\n导出后的网页会在这里显示上次进度。',

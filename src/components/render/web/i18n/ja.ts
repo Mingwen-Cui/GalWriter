@@ -8,6 +8,9 @@ export const webSettingsCopy = {
 };
 
 export const webText = {
+  renderEditMode: '編集モード',
+  renderTestMode: 'テストモード',
+  renderTestPreviewWindow: 'テストプレビュー',
   webExportAuthorWebsite: '作者サイト',
   componentsrenderwebwebExperienceTemplatesText92: 'セーブ',
   componentsrenderwebwebExperienceTemplatesText107:

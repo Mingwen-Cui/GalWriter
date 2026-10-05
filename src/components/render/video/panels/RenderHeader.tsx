@@ -141,10 +141,10 @@ export function RenderHeader({
     ['dialogic', 'Godot Dialogic 2'],
   ] as const satisfies ReadonlyArray<readonly [Exclude<CodeExportTarget, 'ir-json'>, CodeTextKey]>;
   const workspaceLabels: Record<RenderWorkspaceMode, string> = {
-    video: '视频导出',
-    web: '网页导出',
-    ppt: 'PPT 导出',
-    code: '代码导出',
+    video: formatVideoText(language, 'renderWorkspaceVideo'),
+    web: formatVideoText(language, 'renderWorkspaceWeb'),
+    ppt: formatVideoText(language, 'renderWorkspacePpt'),
+    code: formatVideoText(language, 'renderWorkspaceCode'),
   };
 
   return (
@@ -153,7 +153,7 @@ export function RenderHeader({
         <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--vr-border)] bg-[var(--vr-accent-soft)] text-[var(--vr-accent-strong)]">
           <Film className="h-5 w-5" />
         </div>
-        <h2 className="truncate text-sm font-black">渲染脚本</h2>
+        <h2 className="truncate text-sm font-black">{formatVideoText(language, 'renderWorkspaceTitle')}</h2>
         <div className={`render-workspace-switcher render-workspace-switcher--${workspaceMode}`}>
           {(['video', 'web', 'ppt', 'code'] as RenderWorkspaceMode[]).map((mode) => (
             <button
@@ -182,15 +182,13 @@ export function RenderHeader({
               ) : (
                 <FileCode2 className="h-3.5 w-3.5" />
               )}
-              {mode === 'ppt' ? 'PPT' : null}
-              {mode === 'code' ? '代码' : null}
-              {mode !== 'ppt' && mode !== 'code' && <>{mode === 'video' ? '视频' : '网页'}</>}
+              {workspaceLabels[mode]}
             </button>
           ))}
         </div>
         {workspaceMode === 'code' && (
           <span className="inline-flex shrink-0 items-center rounded border border-amber-500/45 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-black tracking-wide text-amber-600 dark:text-amber-300">
-            暂时还在搭建
+            {formatVideoText(language, 'renderWorkspaceCodeBuilding')}
           </span>
         )}
       </div>
@@ -502,6 +500,7 @@ export function RenderHeader({
         <button
           type="button"
           onClick={onExportClick}
+          aria-label={formatVideoText(language, 'renderWorkspaceExport')}
           aria-disabled={timelineExportUnavailable || undefined}
           title={
             timelineExportUnavailable
@@ -525,13 +524,13 @@ export function RenderHeader({
           )}
           {workspaceMode === 'ppt' ? (
             <span className="hidden whitespace-nowrap sm:inline">
-              {isRendering ? '加载中' : '导出'}
+              {formatVideoText(language, isRendering ? 'renderWorkspaceLoading' : 'renderWorkspaceExport')}
             </span>
           ) : null}
           {workspaceMode !== 'ppt' && (
             <>
               <span className="hidden whitespace-nowrap sm:inline">
-                {isRendering ? '加载中' : '导出'}
+                {formatVideoText(language, isRendering ? 'renderWorkspaceLoading' : 'renderWorkspaceExport')}
               </span>
             </>
           )}
