@@ -21,16 +21,16 @@ npm run tauri:build:all-platforms
 
 `npm run tauri:build:release` は同じビルドのエイリアスです。
 
-バージョン `1.2.7` の場合、完全なビルドが成功すると次のファイルが生成されます。
+バージョン `1.5.0` のビルドが成功すると、次のファイルが生成されます。
 
 ```text
 release/
-  GalWriter-AI-v1.2.7-windows-x64-setup.exe
-  GalWriter-AI-v1.2.7-windows-x64.msi
-  GalWriter-AI-v1.2.7-windows-x64-portable.zip
-  GalWriter-AI-v1.2.7-web.zip
-  GalWriter-AI-v1.2.7-android-signed.apk
-  GalWriter-AI-v1.2.7-android.aab
+  GalWriter-AI-v1.5.0-windows-x64-setup.exe
+  GalWriter-AI-v1.5.0-windows-x64.msi
+  GalWriter-AI-v1.5.0-windows-x64-portable.zip
+  GalWriter-AI-v1.5.0-web.zip
+  GalWriter-AI-v1.5.0-android-signed.apk
+  GalWriter-AI-v1.5.0-android.aab
 ```
 
 ファイル名のバージョンは `package.json` から取得されます。
@@ -101,7 +101,7 @@ npm run build
 例：
 
 ```json
-"version": "1.2.8"
+"version": "1.5.0"
 ```
 
 2 つの値は一致させてください。アセット準備スクリプトは `package.json` の値でファイル名を作り、Tauri は `src-tauri/tauri.conf.json` の値でアプリをパッケージします。
@@ -335,7 +335,7 @@ Windows コード署名の手順を別途追加しない限り、このリポジ
 ZIP を展開して HTTP サーバーから開きます。`file://` をデプロイ確認に使わないでください。
 
 ```powershell
-Expand-Archive "release\GalWriter-AI-v1.2.7-web.zip" "release\web-test" -Force
+Expand-Archive "release\GalWriter-AI-v1.5.0-web-full.zip" "release\web-test" -Force
 npx serve "release\web-test"
 ```
 
@@ -349,17 +349,17 @@ $apksigner = Get-ChildItem "$env:ANDROID_HOME\build-tools" -Recurse -Filter apks
   Select-Object -First 1 -ExpandProperty FullName
 
 & $apksigner verify --verbose --print-certs `
-  "release\GalWriter-AI-v1.2.7-android-signed.apk"
+  "release\GalWriter-AI-v1.5.0-android-signed.apk"
 ```
 
 接続した端末へインストールします。
 
 ```powershell
 adb devices
-adb install -r "release\GalWriter-AI-v1.2.7-android-signed.apk"
+adb install -r "release\GalWriter-AI-v1.5.0-android-signed.apk"
 ```
 
-`1.2.7` は現在のバージョンへ置き換えてください。`INSTALL_FAILED_UPDATE_INCOMPATIBLE` が表示された場合、端末上のアプリは別の鍵で署名されています。ローカルのアプリデータが失われても問題ない場合に限り、先にアンインストールします。
+`1.5.0` は現在のバージョンへ置き換えてください。`INSTALL_FAILED_UPDATE_INCOMPATIBLE` が表示された場合、端末上のアプリは別の鍵で署名されています。ローカルのアプリデータが失われても問題ない場合に限り、先にアンインストールします。
 
 ```powershell
 adb uninstall com.galwriter.ai
@@ -385,11 +385,11 @@ PowerShell で keystore を `ANDROID_KEYSTORE_BASE64` 用にエンコードし�
 タグが `package.json` および `src-tauri/tauri.conf.json` のバージョンと一致することを確認してから push します。
 
 ```powershell
-git tag app-v1.2.8
-git push origin app-v1.2.8
+git tag app-v1.5.0
+git push origin app-v1.5.0
 ```
 
-ワークフローはファイルをビルドし、GitHub Release へ添付します。GitHub が自動生成する「Source code」アーカイブはアプリのバイナリではありません。
+ワークフローは Windows と Android の Full / Lite 版をビルドし、GitHub Release に添付します。Lite 用リソースは前述の Web サイト上のパスにも配置する必要があります。GitHub が自動生成する「Source code」アーカイブはアプリのバイナリではありません。
 
 > Android の Gradle 署名設定は Git 対象外の生成プロジェクト内にあります。クリーンな GitHub Actions runner では、Android 初期化後にセクション 4.5 の署名設定を適用する必要があります。生成された Gradle ファイルが設定を読み込まない場合、keystore と `key.properties` を復元するだけでは不十分です。
 

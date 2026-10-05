@@ -21,25 +21,25 @@ npm run tauri:build:all-platforms
 
 `npm run tauri:build:release` 是同一构建命令的别名。
 
-以 `1.2.7` 为例，完整构建成功后会生成：
+以 `1.5.0` 为例，单次完整构建成功后会生成：
 
 ```text
 release/
-  GalWriter-AI-v1.2.7-windows-x64-setup.exe
-  GalWriter-AI-v1.2.7-windows-x64.msi
-  GalWriter-AI-v1.2.7-windows-x64-portable.zip
-  GalWriter-AI-v1.2.7-web.zip
-  GalWriter-AI-v1.2.7-android-signed.apk
-  GalWriter-AI-v1.2.7-android.aab
+  GalWriter-AI-v1.5.0-windows-x64-setup.exe
+  GalWriter-AI-v1.5.0-windows-x64.msi
+  GalWriter-AI-v1.5.0-windows-x64-portable.zip
+  GalWriter-AI-v1.5.0-web.zip
+  GalWriter-AI-v1.5.0-android-signed.apk
+  GalWriter-AI-v1.5.0-android.aab
 ```
 
 文件名中的版本号来自 `package.json`。
 
 > 全平台命令会先构建 Web 和 Windows。如果找不到 Android SDK 或 NDK，脚本会显示警告并跳过 Android。因此构建结束后一定要检查最终文件列表。
 
-## 完整包、极速包与官网资源
+## 完整包、极简包与官网资源
 
-完整包保留所有预设图片、音乐、视频封面模板和首页模板；极速包不携带这些大资源，运行时从官网读取。两者使用同一套功能代码；极速资源**只部署到自己的官网**，不依赖 GitHub Releases 或 GitHub CDN。
+完整包保留所有预设图片、音乐、视频封面模板和首页模板；极简包不携带这些大资源，运行时按需从官网读取。两者使用同一套功能代码。建议面向大多数用户优先提供极简包；使用极简包的在线资源需要在官网部署，不能仅依赖 GitHub Releases 或 GitHub CDN。
 
 先生成需要上传的网站资源目录：
 
@@ -75,7 +75,7 @@ npm run tauri:build:android:full
 npm run tauri:build:android:lite
 ```
 
-Windows 发布文件会带 `-full` 或 `-lite` 后缀。Android 同包名的完整 APK 和极速 APK 不能作为两个可共存应用发布；官网主推极速 APK，完整 APK 仅供离线安装。两者若互相升级，必须使用相同签名且 Android `versionCode` 递增。
+Windows、Web 和 Android 发布文件会带 `-full` 或 `-lite` 后缀。Android 同包名的完整 APK 和极简 APK 不能作为两个可共存应用发布；官网主推极简 APK，完整 APK 适合需要离线资源的安装。两者若互相升级，必须使用相同签名且 Android `versionCode` 递增。
 
 ## 1. 安装构建工具
 
@@ -141,7 +141,7 @@ npm run build
 例如：
 
 ```json
-"version": "1.2.8"
+"version": "1.5.0"
 ```
 
 两个值必须一致。发布资产脚本使用 `package.json` 中的版本号命名文件，Tauri 则使用 `src-tauri/tauri.conf.json` 中的版本号打包应用。
@@ -377,7 +377,7 @@ Get-ChildItem "src-tauri\gen\android\app\build\outputs" -Recurse -File |
 解压 ZIP 并通过 HTTP 服务器访问，不要把 `file://` 当作部署测试：
 
 ```powershell
-Expand-Archive "release\GalWriter-AI-v1.2.7-web.zip" "release\web-test" -Force
+Expand-Archive "release\GalWriter-AI-v1.5.0-web.zip" "release\web-test" -Force
 npx serve "release\web-test"
 ```
 
@@ -391,17 +391,17 @@ $apksigner = Get-ChildItem "$env:ANDROID_HOME\build-tools" -Recurse -Filter apks
   Select-Object -First 1 -ExpandProperty FullName
 
 & $apksigner verify --verbose --print-certs `
-  "release\GalWriter-AI-v1.2.7-android-signed.apk"
+  "release\GalWriter-AI-v1.5.0-android-signed.apk"
 ```
 
 在已连接的设备上安装：
 
 ```powershell
 adb devices
-adb install -r "release\GalWriter-AI-v1.2.7-android-signed.apk"
+adb install -r "release\GalWriter-AI-v1.5.0-android-signed.apk"
 ```
 
-请把 `1.2.7` 换成当前版本。如果出现 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`，说明设备上已有应用使用了不同签名。只有在可以接受丢失本地应用数据时，才先卸载：
+请把 `1.5.0` 换成当前版本。如果出现 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`，说明设备上已有应用使用了不同签名。只有在可以接受丢失本地应用数据时，才先卸载：
 
 ```powershell
 adb uninstall com.galwriter.ai
@@ -427,11 +427,11 @@ adb uninstall com.galwriter.ai
 确认标签与两个配置文件中的版本一致，然后推送：
 
 ```powershell
-git tag app-v1.2.8
-git push origin app-v1.2.8
+git tag app-v1.5.0
+git push origin app-v1.5.0
 ```
 
-工作流会构建文件并附加到 GitHub Release。GitHub 自动生成的 “Source code” 压缩包不是应用程序安装包。
+工作流会分别构建 Windows 与 Android 的完整包和极简包，并附加到 GitHub Release。极简包所需的在线资源仍需部署到前文所述的网站目录。GitHub 自动生成的 “Source code” 压缩包不是应用程序安装包。
 
 > Android Gradle 签名配置位于被 Git 忽略的生成工程中。干净的 GitHub Actions runner 在初始化 Android 后，必须应用第 4.5 节的签名配置。若生成的 Gradle 文件不会读取这些配置，仅恢复 keystore 和 `key.properties` 并不足够。
 

@@ -77,8 +77,25 @@ keyAlias=$env:ANDROID_KEY_ALIAS
 keyPassword=$env:ANDROID_KEY_PASSWORD
 "@ | Set-Content -Encoding UTF8 "src-tauri/gen/android/key.properties"
 
-      - name: Build all platform release assets
-        run: npm run tauri:build:all-platforms
+      - name: Build and prepare complete Windows package
+        run: |
+          npm run tauri:build:windows:full
+          npm run tauri:prepare:release:full
+
+      - name: Build and prepare lite Windows package
+        run: |
+          npm run tauri:build:windows:lite
+          npm run tauri:prepare:release:lite
+
+      - name: Build and prepare complete Android package
+        run: |
+          npm run tauri:build:android:full
+          npm run tauri:prepare:release:full
+
+      - name: Build and prepare lite Android package
+        run: |
+          npm run tauri:build:android:lite
+          npm run tauri:prepare:release:lite
 
       - name: Prepare release assets
         shell: pwsh

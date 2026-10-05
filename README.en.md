@@ -13,7 +13,7 @@
 
 [中文](README.md) | English | [日本語](README.ja.md)
 
-[Download Releases](https://github.com/Mingwen-Cui/GalWriter/releases) · [Quick Start](#quick-start) · [Export and Delivery](#export-and-delivery) · [Development](#development) · [Build and Release Guide](docs/build/BUILD_GUIDE.en.md)
+[Download Releases](https://github.com/Mingwen-Cui/GalWriter/releases) · [Quick Start Guide](docs/USER_GUIDE.en.md) · [Build and Release Guide](docs/build/BUILD_GUIDE.en.md)
 
 </div>
 
@@ -21,9 +21,15 @@
 
 GalWriter is a local-first authoring workspace for visual novels, branching stories, and interactive presentations. Organize plots, characters, scenes, and numeric conditions on a node canvas, use AI to help write and create assets, test branches in Playtest, and export the same project as an interactive website, video, PowerPoint presentation, or game engine project.
 
-The current source version is **1.3.0**, built with React 19, TypeScript, React Flow, Vite 6, and Tauri 2, with Chinese, English, and Japanese interfaces. This README describes the implementation in the current repository; downloadable builds depend on the assets available in Releases.
+The current source version is **1.5.0**, built with React 19, TypeScript, React Flow, Vite 6, and Tauri 2, with Chinese, English, and Japanese interfaces. This README describes the implementation in the current repository; downloadable builds depend on the assets available in Releases.
+
+### Which package should I download?
+
+We recommend the **Lite** package for most users. It is smaller and downloads preset images, music, and templates from the official website when needed. Choose **Full** if you need all bundled resources available offline. Both editions have the same features; Lite needs an internet connection to fetch its optional resources.
 
 ## Core Features
+
+- **MCP**: the Windows desktop app includes a local MCP server for Codex to read and edit the current project. Copy its setup prompt from Assistant → **AI MCP**.
 
 - **Story canvas**: story, character, scene, AI generation, background, group, numeric condition, batch replacement, plot structure, note, and summary nodes; branching connections, character and scene tags, rich text, and Zen editing.
 - **Projects and asset libraries**: a local project home, recent projects, autosave and recovery, and project ZIP import/export; reusable character and scene settings, preset assets available for download on demand, and a music library with import, preview, and regional BGM.
@@ -41,6 +47,10 @@ The current source version is **1.3.0**, built with React 19, TypeScript, React 
 4. To use AI features, create and enable the relevant profile in `Settings > AI`, then enter the provider, API URL, model, and credentials. Manual editing, project management, and basic playtesting do not require an AI key.
 5. Discuss the story in Assistant, reference cards, or add documents. You can also start Creative Play to generate subsequent story passages through your choices.
 6. Check the story in Playtest, then open the Web, video, PPT, or code workspace from the export entry in the top toolbar. Save a separate project ZIP for backup and further editing.
+
+### Connect MCP
+
+Start the Windows desktop app and copy the connection prompt from Assistant → **AI MCP** into local Codex. The endpoint is `http://127.0.0.1:38941/mcp`; GalWriter must remain open. The browser version cannot access an MCP server on a visitor's computer.
 
 ## Export and Delivery
 

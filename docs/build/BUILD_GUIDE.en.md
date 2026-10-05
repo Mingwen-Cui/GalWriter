@@ -21,16 +21,16 @@ npm run tauri:build:all-platforms
 
 `npm run tauri:build:release` is an alias for the same build.
 
-For version `1.2.7`, a successful complete build creates:
+For version `1.5.0`, a successful complete build creates:
 
 ```text
 release/
-  GalWriter-AI-v1.2.7-windows-x64-setup.exe
-  GalWriter-AI-v1.2.7-windows-x64.msi
-  GalWriter-AI-v1.2.7-windows-x64-portable.zip
-  GalWriter-AI-v1.2.7-web.zip
-  GalWriter-AI-v1.2.7-android-signed.apk
-  GalWriter-AI-v1.2.7-android.aab
+  GalWriter-AI-v1.5.0-windows-x64-setup.exe
+  GalWriter-AI-v1.5.0-windows-x64.msi
+  GalWriter-AI-v1.5.0-windows-x64-portable.zip
+  GalWriter-AI-v1.5.0-web.zip
+  GalWriter-AI-v1.5.0-android-signed.apk
+  GalWriter-AI-v1.5.0-android.aab
 ```
 
 The version in the filenames comes from `package.json`.
@@ -101,7 +101,7 @@ Before publishing a new version, set the same version in both files:
 For example:
 
 ```json
-"version": "1.2.8"
+"version": "1.5.0"
 ```
 
 The two values must match. The asset preparation script names files using the version in `package.json`, while Tauri packages the application using `src-tauri/tauri.conf.json`.
@@ -345,7 +345,7 @@ Extract the ZIP and serve it through an HTTP server; do not use `file://` as the
 For example:
 
 ```powershell
-Expand-Archive "release\GalWriter-AI-v1.2.7-web.zip" "release\web-test" -Force
+Expand-Archive "release\GalWriter-AI-v1.5.0-web.zip" "release\web-test" -Force
 npx serve "release\web-test"
 ```
 
@@ -359,17 +359,17 @@ $apksigner = Get-ChildItem "$env:ANDROID_HOME\build-tools" -Recurse -Filter apks
   Select-Object -First 1 -ExpandProperty FullName
 
 & $apksigner verify --verbose --print-certs `
-  "release\GalWriter-AI-v1.2.7-android-signed.apk"
+  "release\GalWriter-AI-v1.5.0-android-signed.apk"
 ```
 
 Then install it on a connected device:
 
 ```powershell
 adb devices
-adb install -r "release\GalWriter-AI-v1.2.7-android-signed.apk"
+adb install -r "release\GalWriter-AI-v1.5.0-android-signed.apk"
 ```
 
-Replace `1.2.7` with the current version. If installation reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, the installed application uses a different signing key. Uninstall it first only if losing its local application data is acceptable:
+Replace `1.5.0` with the current version. If installation reports `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, the installed application uses a different signing key. Uninstall it first only if losing its local application data is acceptable:
 
 ```powershell
 adb uninstall com.galwriter.ai
@@ -395,11 +395,11 @@ Encode the keystore for `ANDROID_KEYSTORE_BASE64` in PowerShell:
 Make sure the tag matches the versions in `package.json` and `src-tauri/tauri.conf.json`, then push it:
 
 ```powershell
-git tag app-v1.2.8
-git push origin app-v1.2.8
+git tag app-v1.5.0
+git push origin app-v1.5.0
 ```
 
-The workflow builds the files and attaches them to a GitHub Release. The automatically generated “Source code” archives are not application binaries.
+The workflow builds Windows and Android assets in both editions and attaches them to a GitHub Release. Lite resource bundles still need to be deployed to the website path described above. The automatically generated “Source code” archives are not application binaries.
 
 > The Android Gradle signing configuration lives in the gitignored generated project. A clean GitHub Actions runner must apply the signing configuration described in section 4.5 after Android initialization; restoring only the keystore and `key.properties` is not sufficient if the generated Gradle file does not already load them.
 
