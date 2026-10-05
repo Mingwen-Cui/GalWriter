@@ -25,6 +25,8 @@ The current source version is **1.5.0**, built with React 19, TypeScript, React 
 
 ### Which package should I download?
 
+**Recommended for Windows: [GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe)**, the Lite EXE installer. Android is available as a Lite APK only in this release.
+
 We recommend the **Lite** package for most users. It is smaller and downloads preset images, music, and templates from the official website when needed. Choose **Full** if you need all bundled resources available offline. Both editions have the same features; Lite needs an internet connection to fetch its optional resources.
 
 ## Core Features

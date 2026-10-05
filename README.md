@@ -16,14 +16,16 @@ GalWriter 是一款用于创作视觉小说、分支故事与互动演示的 AI 
 
 ## 下载 v1.5.0
 
+**Windows 用户推荐下载： [GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe)**（极简版 EXE 安装包）。
+
 **推荐极简版 Lite**：下载更快，预设图片、音乐和模板按需联网获取。需要离线使用全部内置资源时，选择完整包 Full。
 
 | 平台 | 极简版 Lite（推荐） | 完整版 Full |
 | --- | --- | --- |
 | Windows x64 | [安装包](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe) | [安装包](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-full-setup.exe) |
-| Android | [APK](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-android-lite-signed.apk) | [APK](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-android-full-signed.apk) |
+| Android | [APK](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-android-lite-signed.apk) | 本次不提供 |
 
-Windows MSI 及其他版本文件见 [全部 Release 附件](https://github.com/Mingwen-Cui/GalWriter/releases/tag/app-v1.5.0)。Android 两种版本使用相同应用标识，不能并行安装。
+Windows MSI 及其他版本文件见 [全部 Release 附件](https://github.com/Mingwen-Cui/GalWriter/releases/tag/app-v1.5.0)。Android 本次仅发布 Lite APK；Full APK 暂不发布。
 
 ## 自行打包
 
@@ -32,7 +34,7 @@ Windows MSI 及其他版本文件见 [全部 Release 附件](https://github.com/
 | 目标 | 完整版 Full | 极简版 Lite | 产物 |
 | --- | --- | --- | --- |
 | Windows x64 | `npm run tauri:build:windows:full`<br>`npm run tauri:prepare:release:full` | `npm run tauri:build:windows:lite`<br>`npm run tauri:prepare:release:lite` | 本次发布：安装包、MSI（不含 ZIP） |
-| Android | `npm run tauri:build:android:full`<br>`npm run tauri:prepare:android:full` | `npm run tauri:build:android:lite`<br>`npm run tauri:prepare:android:lite` | 本次发布：APK（不含 AAB） |
+| Android | `npm run tauri:build:android:full`<br>`npm run tauri:prepare:android:full` | `npm run tauri:build:android:lite`<br>`npm run tauri:prepare:android:lite` | 本次发布：仅 Lite APK（不含 Full APK、AAB） |
 
 ## 项目数据
 

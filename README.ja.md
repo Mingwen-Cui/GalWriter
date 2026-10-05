@@ -25,6 +25,8 @@ GalWriter は、ビジュアルノベル、分岐ストーリー、インタラ�
 
 ### おすすめのダウンロード
 
+**Windows の推奨ファイル：[GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe)**（Lite 版の EXE インストーラー）。今回の Android 版は Lite APK のみ提供します。
+
 ほとんどの方には **Lite（軽量版）** をおすすめします。容量が小さく、プリセット画像、音楽、テンプレートなどは必要に応じて公式サイトから取得します。すべてのリソースをオフラインで使う場合は **Full（完全版）** を選んでください。機能は同じですが、Lite で追加リソースを取得するにはインターネット接続が必要です。
 
 ## 主な機能
