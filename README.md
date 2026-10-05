@@ -1,8 +1,12 @@
 <div align="center">
 
+<img src="public/icon.png" alt="GalWriter logo" width="84" />
+
 # 旮旯作家 · GalWriter
 
 ### 从旮旯的灵感，写到辽阔的世界。
+
+React 19 · TypeScript · Vite 6 · Tauri 2 · React Flow · MCP SDK
 
 [English](README.en.md) · [日本語](README.ja.md) · [完整说明](README.full.md) · [快速使用手册](docs/USER_GUIDE.md)
 
@@ -58,3 +62,7 @@ url = "http://127.0.0.1:38941/mcp"
 - [精简使用手册](docs/USER_GUIDE.md)
 - [问题反馈](https://github.com/Mingwen-Cui/GalWriter/issues)
 - [构建与发布指南](docs/build/BUILD_GUIDE.md)
+
+## 作者与许可证
+
+作者：Mingwen Cui。当前仓库未附开源许可证；版权所有，未经许可不得重新分发。详见 [NOTICE](NOTICE)。
