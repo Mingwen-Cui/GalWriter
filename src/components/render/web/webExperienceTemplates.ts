@@ -217,7 +217,7 @@ export const buildRehearsalSettingsPageElements = (
     button(
       'settings-back',
       'back',
-      formatWebText(language, 'componentsrenderwebwebExperienceTemplatesText196'),
+      getWebSettingsCopy(language).backToMainMenu,
       84,
       9,
       8,
@@ -271,11 +271,12 @@ export const buildRehearsalSettingsPageElements = (
 
 export const buildRehearsalFlowPageElements = (language: Language): WebMenuElement[] =>
   decorateWebPageElements([
-    buildFlowOverviewHomeElement(),
+    buildFlowOverviewHomeElement(1920, 1080, language),
     { ...text('flow-title', 'custom', language === 'zh' ? '流程图总览' : language === 'ja' ? 'フロー概要' : 'Story overview', 8, 5, 44, 7, 36), textAlign: 'left', fontWeight: 700 },
     { ...text('flow-subtitle', 'subtitle', language === 'zh' ? '循着故事的线索，回看每一次选择' : language === 'ja' ? '物語の道をたどり、選択を振り返ろう' : 'Trace your journey and revisit each choice', 8, 13, 58, 4, 18), textAlign: 'left' },
     ...(['flowDirection', 'flowFitView'] as const).map((role, index) => ({
-      ...button(index === 0 ? 'flow-direction-control' : 'flow-fit-view-control', role, '', 84 + index * 4, 5, 2.588, 4.6, defaultWebTheme.accent, '#fff'),
+      ...button(index === 0 ? 'flow-direction-control' : 'flow-fit-view-control', role, '', 0, 0, 0, 0, defaultWebTheme.accent, '#fff'),
+      ...flowOverviewControlFrame(role),
       textVisible: false, borderRadius: 999,
     })),
     { ...button('flow-minimap', 'flowMinimap', '', 79, 75, 19, 21, defaultWebTheme.accent, '#fff'), textVisible: false },
@@ -308,23 +309,74 @@ export const isPreviousRehearsalArchiveLayout = (elements: WebMenuElement[] | un
 
 import { arrangeToolbarRow } from './webToolbarLayout';
 
+export const flowOverviewControlFrame = (
+  role: 'flowDirection' | 'flowFitView' | 'mainMenu',
+  canvasWidth = 1920,
+  canvasHeight = 1080,
+) => {
+  const ratio = canvasWidth > 0 && canvasHeight > 0 ? canvasHeight / canvasWidth : 9 / 16;
+  const width = 4.6 * ratio;
+  const homeX = 86;
+  if (role === 'mainMenu') return { x: homeX, y: 5, width: 8, height: 7 };
+  const index = role === 'flowDirection' ? 0 : 1;
+  return {
+    x: Math.round((homeX - width * (1.4 + (1 - index) * 1.4)) * 1000) / 1000,
+    y: 6.2,
+    width: Math.round(width * 1000) / 1000,
+    height: 4.6,
+  };
+};
+
+/** Upgrade only the known built-in positions; keep authored button layouts. */
+export const alignDefaultFlowOverviewControls = (
+  elements: WebMenuElement[],
+  canvasWidth = 1920,
+  canvasHeight = 1080,
+  language: Language = 'zh',
+): WebMenuElement[] => {
+  const ratio = canvasWidth > 0 && canvasHeight > 0 ? canvasHeight / canvasWidth : 9 / 16;
+  const oldWidth = 4.6 * ratio;
+  const oldHomeX = Math.min(92, 97 - oldWidth);
+  const oldX = (index: number) => Math.round((oldHomeX - (2 - index) * oldWidth * 1.4) * 1000) / 1000;
+  const previous: Record<string, Array<[number, number]>> = {
+    'flow-direction-control': [[8, 14], [84, 4], [84, 5], [oldX(0), 5]],
+    'flow-fit-view-control': [[8, 20], [88, 4], [88, 5], [oldX(1), 5]],
+    'flow-main-menu': [[2, 2.4], [92, 4], [oldHomeX, 5]],
+  };
+  return elements.map((element) => {
+    if (!['flowDirection', 'flowFitView', 'mainMenu'].includes(element.role || '') ||
+      !previous[element.id]?.some(([x, y]) => element.x === x && element.y === y)) return element;
+    const frame = flowOverviewControlFrame(element.role as 'flowDirection' | 'flowFitView' | 'mainMenu', canvasWidth, canvasHeight);
+    const oldestLayout = element.x === 8 || (element.x === 2 && element.y === 2.4);
+    if (!oldestLayout && (element.height !== 4.6 ||
+      Math.min(Math.abs(element.width - 2.588), Math.abs(element.width - oldWidth)) > 0.003 ||
+      element.scale !== 1 || element.rotation !== 0)) return element;
+    return {
+      ...element,
+      ...(element.role === 'mainMenu' && element.textVisible === false
+        ? buildFlowOverviewHomeElement(canvasWidth, canvasHeight, language) : {}),
+      ...frame,
+      visible: element.visible,
+      locked: element.locked,
+      disabled: element.disabled,
+      zIndex: element.zIndex,
+    };
+  });
+};
+
 export const buildFlowOverviewHomeElement = (
   canvasWidth = 1920,
   canvasHeight = 1080,
+  language: Language = 'zh',
 ): WebMenuElement => ({
-  ...buildRehearsalToolbarElements('en', canvasWidth, canvasHeight).find(
-    (element) => element.role === 'mainMenu',
+  ...buildRehearsalSettingsPageElements(language, defaultWebTheme.accent, '#ffffff').find(
+    (element) => element.id === 'settings-back',
   )!,
   id: 'flow-main-menu',
-  text: '',
-  x: 92,
-  y: 4,
-  width: Math.round(((4.6 * canvasHeight) / canvasWidth) * 1000) / 1000,
-  height: 4.6,
-  backgroundColor: '#f1f5f9',
-  textColor: '#475569',
-  shadowEnabled: false,
-  shadows: [],
+  role: 'mainMenu',
+  settingsLayoutVersion: undefined,
+  textVisible: true,
+  ...flowOverviewControlFrame('mainMenu', canvasWidth, canvasHeight),
 });
 
 export const buildRehearsalToolbarElements = (

@@ -41,6 +41,7 @@ export const defaultWebTheme: WebThemeVisuals = {
 };
 
 export const webThemePalettes: Record<string, WebThemeVisuals> = {
+  universal: { ...defaultWebTheme, ink: '#252a49', accent: '#625bf6', accentEnd: '#514ae0' },
   'sakura-campus': {
     panel: '#fffaf7', panelEnd: '#f6e8ec', canvas: '#f8efed', canvasEnd: '#ecdce5',
     ink: '#4b3442', muted: '#856573', accent: '#b96b83', accentEnd: '#98566f',
@@ -100,7 +101,7 @@ export function decorateWebPageElements(items: WebMenuElement[], theme = default
       backgroundGradientEnd: primary ? theme.accentEnd : theme.panelEnd,
       backgroundGradientAngle: panel ? 155 : 135,
       backgroundGradientShape: 'linear', backgroundGradientStops: undefined,
-      borderColor: theme.edge, borderWidth: 1, borderRadius: element.settingsLayoutVersion ? (element.kind === 'button' && ['back', 'reset'].includes(element.role || '') ? theme.radius : 0) : ['flowDirection', 'flowFitView', 'mainMenu'].includes(element.role || '') ? 999 : panel ? theme.radius + 8 : theme.radius,
+      borderColor: theme.edge, borderWidth: 1, borderRadius: element.settingsLayoutVersion ? (element.kind === 'button' && ['back', 'reset'].includes(element.role || '') ? theme.radius : 0) : (['flowDirection', 'flowFitView'].includes(element.role || '') || (element.role === 'mainMenu' && element.textVisible === false)) ? 999 : panel ? theme.radius + 8 : theme.radius,
       shadowEnabled: element.shadowEnabled !== false, shadowColor: theme.dark ? '#000000' : '#34344f',
       shadowOpacity: panel ? 10 : primary ? 16 : 5, shadowBlur: panel ? 40 : primary ? 22 : 12,
       shadowOffsetX: 0, shadowOffsetY: panel ? 14 : primary ? 6 : 3,

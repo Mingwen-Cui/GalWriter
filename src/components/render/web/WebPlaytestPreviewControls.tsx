@@ -26,6 +26,7 @@ import type { Language } from '../../../lib/i18n';
 import { webButtonMotionStyleForMotion } from './webButtonMotion';
 import { AudioPlaylistModal, type AudioPlaylistItem } from '../../AudioPlaylistModal';
 import { getRenderObjects } from '../video/shared/renderObjects';
+import { renderObjectShadowPaint } from './webPlaytestStyleTools';
 import type {
   RenderEditableObjectKind,
   RenderStyle,
@@ -117,11 +118,12 @@ export function ChoiceButton({
       onClick={onClick}
       data-gw-button-motion={motionEnabled ? 'true' : undefined}
       data-gw-button-motion-editing={motionEditing ? 'true' : undefined}
-      className="min-h-10 rounded-xl px-3.5 py-2.5 text-left text-xs font-black leading-snug shadow-lg shadow-black/15 transition-all hover:-translate-y-px hover:brightness-110 active:translate-y-0 active:scale-[0.99]"
+      className="min-h-10 rounded-xl px-3.5 py-2.5 text-left text-xs font-black leading-snug transition-all"
       style={{
         backgroundColor: `${choiceColor}cc`,
         border: `1px solid ${choiceColor}`,
         color: choiceTextColor,
+        boxShadow: 'none',
         ...style,
       }}
     >
@@ -163,13 +165,7 @@ export function ChoiceButtonsGroup({
         ? `url("${choice.fill.imageUrl.replace(/"/g, '\\"')}") center / cover`
         : choice.fill.color
     : undefined;
-  const shadow = choice?.shadow.enabled
-    ? `${choice.shadow.x}px ${choice.shadow.y}px ${choice.shadow.blur}px ${choice.shadow.spread}px ${choice.shadow.color}${Math.round(
-        (choice.shadow.alpha / 100) * 255,
-      )
-        .toString(16)
-        .padStart(2, '0')}`
-    : undefined;
+  const shadow = choice ? renderObjectShadowPaint(choice) : 'none';
   return (
     <div
       className={`relative grid ${extraClass} ${editMode ? 'ring-1 ring-indigo-500' : ''}`}
@@ -209,7 +205,7 @@ export function ChoiceButtonsGroup({
                     background: fillStyle,
                     border: choice.stroke.enabled
                       ? `${choice.stroke.width}px solid ${choice.stroke.color}`
-                      : undefined,
+                      : 'none',
                     boxShadow: shadow,
                     color: choiceTextColor,
                     fontFamily: choice.fontFamily,
@@ -996,7 +992,7 @@ function ToolbarElement({
           ? 'bg-transparent shadow-none'
           : element.kind === 'image' || element.kind === 'shape'
             ? 'border-0 bg-transparent shadow-none'
-            : `shadow-lg ${active ? 'bg-sky-500/35 text-sky-100' : 'bg-white/12 hover:bg-white/20'}`
+            : `${active ? 'bg-sky-500/35 text-sky-100' : 'bg-white/12 hover:bg-white/20'}`
       } ${disabled ? 'opacity-35 grayscale' : ''}`}
       style={
         {

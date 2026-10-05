@@ -22,7 +22,8 @@ import { buildDefaultRenderObjects } from '../../video/shared/renderObjects';
 import { filterMentionTags } from '../../video/shared/storyNodes';
 import type { RenderStyle } from '../../video/shared/types';
 import { DEFAULT_RENDER_STYLE } from '../../video/VideoRenderModal/workspaceStorage';
-import { resolveWebToolbarElements } from '../webExperienceTemplates';
+import { alignDefaultFlowOverviewControls, resolveWebToolbarElements } from '../webExperienceTemplates';
+import { buildUniversalWebTemplate } from '../universalExperienceTemplate';
 import { resolveSettingsPageElements, resolveArchivePageElements } from '../webMenuPageElements';
 import { LOCAL_PREVIEW_CMD, LOCAL_PREVIEW_SERVER } from './localPreviewLauncher';
 import { makeIndexHtml } from './webExportHtml';
@@ -269,11 +270,17 @@ export async function buildInteractiveWebZipBlob(
   const assetMap = new Map<string, string>();
   const assetFailures = new Map<string, ExportAssetFailure>();
   const title = options.projectName?.trim() || 'galwriter-web';
+  const defaultTemplate = buildUniversalWebTemplate(options.language, title);
+  options = {
+    ...options,
+    settings: { ...defaultTemplate.settings, ...options.settings },
+  };
   const style: WebExportStyle = {
     ...DEFAULT_RENDER_STYLE,
+    ...defaultTemplate.renderStyle,
     ...options.style,
-    choiceColor: options.style?.choiceColor || '#0ea5e9',
-    choiceTextColor: options.style?.choiceTextColor || '#ffffff',
+    choiceColor: options.style?.choiceColor || defaultTemplate.choiceColor,
+    choiceTextColor: options.style?.choiceTextColor || defaultTemplate.choiceTextColor,
   };
   style.dialogImageUrl = await addImageAsset(
     zip,
@@ -385,7 +392,12 @@ export async function buildInteractiveWebZipBlob(
     flowOverviewMusicFadeIn: options.settings?.flowOverviewMusicFadeIn ?? 0,
     flowOverviewMusicFadeOut: options.settings?.flowOverviewMusicFadeOut ?? 0,
     flowOverviewMusicLoop: options.settings?.flowOverviewMusicLoop !== false,
-    flowOverviewElements: options.settings?.flowOverviewElements || [],
+    flowOverviewElements: alignDefaultFlowOverviewControls(
+      options.settings?.flowOverviewElements || [],
+      options.settings?.canvasWidth,
+      options.settings?.canvasHeight,
+      options.language,
+    ),
     menuTheme: options.settings?.menuTheme,
     flowOverviewLayoutDirection: options.settings?.flowOverviewLayoutDirection || 'right',
     flowOverviewView: normalizeWebFlowView(options.settings?.flowOverviewView),

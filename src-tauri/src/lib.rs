@@ -1,3 +1,6 @@
+// The MCP card summaries expand a large serde_json::json! object.
+#![recursion_limit = "256"]
+
 use std::{
   env,
   fs,

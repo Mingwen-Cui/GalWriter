@@ -45,14 +45,16 @@ export const webElementShadowStyle = (
   element: WebMenuElement,
   target: 'box' | 'text',
 ): CSSProperties => {
+  // Explicitly clear CSS/inherited shadows when the inspector has no enabled layer.
+  const noShadow: CSSProperties = target === 'text' ? { textShadow: 'none' } : { boxShadow: 'none' };
   if (target === 'text' && element.kind === 'text' && element.appearance) {
     const values = element.appearance.shadows
-      .filter((shadow) => shadow.enabled)
+      .filter((shadow) => shadow.enabled && !shadow.inset)
       .map(
         (shadow) =>
-          `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.spread}px ${shadow.color}`,
+          `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.color}`,
       );
-    return values.length ? { textShadow: values.join(', ') } : {};
+    return { textShadow: values.join(', ') || 'none' };
   }
   if (
     element.shadowEnabled === false ||
@@ -60,7 +62,7 @@ export const webElementShadowStyle = (
       element.kind === 'button' &&
       (element.buttonShadowMode === 'hover' || element.buttonShadowMode === 'none'))
   )
-    return {};
+    return noShadow;
   const shadows = element.shadows?.length
     ? element.shadows
     : [
@@ -85,7 +87,7 @@ export const webElementShadowStyle = (
       if (shadow.type === 'innerBlur') return `inset 0 0 ${shadow.blur}px ${color}`;
       return `${shadow.offsetX}px ${shadow.offsetY}px ${shadow.blur}px ${color}`;
     });
-  if (!values.length) return {};
+  if (!values.length) return noShadow;
   return target === 'text' ? { textShadow: values.join(', ') } : { boxShadow: values.join(', ') };
 };
 
@@ -232,10 +234,12 @@ export const webElementBoxStyle = (element: WebMenuElement): CSSProperties => {
   }
   const border = webElementBorderParts(element);
   const shadow = webElementShadowStyle(element, 'box');
-  const shadows = [border.shadow, shadow.boxShadow].filter(Boolean).join(', ');
+  const shadows = [border.shadow, shadow.boxShadow]
+    .filter((value) => value && value !== 'none')
+    .join(', ');
   return {
     ...border.style,
     ...shadow,
-    ...(shadows ? { boxShadow: shadows } : {}),
+    boxShadow: shadows || 'none',
   };
 };

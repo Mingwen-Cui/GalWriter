@@ -7,7 +7,8 @@ import { useEffect, useState, useRef } from 'react';
 import defaultMainInterfaceBackgroundUrl from '../../../../assets/common/default-main-interface-background.jpg';
 import type { Language } from '../../../../lib/i18n';
 import { canvasPatchFromWebSettings, useSharedCanvasSettings } from '../../canvas/canvasSettings';
-import { buildFlowOverviewHomeElement, buildRehearsalTemplate } from '../../web/webExperienceTemplates';
+import { alignDefaultFlowOverviewControls, buildFlowOverviewHomeElement, flowOverviewControlFrame } from '../../web/webExperienceTemplates';
+import { buildUniversalWebTemplate } from '../../web/universalExperienceTemplate';
 import type {
   RenderStyle,
   WebExportSettings,
@@ -165,10 +166,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     role: 'flowDirection',
     text: '',
     visible: false,
-    x: 84,
-    y: 4,
-    width: 2.588,
-    height: 4.6,
+    ...flowOverviewControlFrame('flowDirection'),
     scale: 1,
     rotation: 0,
     textVisible: false,
@@ -188,10 +186,7 @@ const defaultFlowOverviewElements: WebMenuElement[] = [
     role: 'flowFitView',
     text: '',
     visible: false,
-    x: 88,
-    y: 4,
-    width: 2.588,
-    height: 4.6,
+    ...flowOverviewControlFrame('flowFitView'),
     scale: 1,
     rotation: 0,
     textVisible: false,
@@ -460,32 +455,10 @@ const normalizeFlowMinimapControls = (settings: WebExportSettings): WebExportSet
   return changed ? { ...settings, flowOverviewElements: normalized } : settings;
 };
 
-const migrateFlowOverviewControlLayout = (settings: WebExportSettings): WebExportSettings => {
-  const legacyPositions: Record<string, { x: number; y: number }> = {
-    'flow-direction-control': { x: 8, y: 14 },
-    'flow-fit-view-control': { x: 8, y: 20 },
-  };
-  const nextPositions: Record<string, { x: number; y: number }> = {
-    'flow-direction-control': { x: 84, y: 4 },
-    'flow-fit-view-control': { x: 88, y: 4 },
-  };
-  const aspectHeightToWidth =
-    settings.canvasWidth > 0 && settings.canvasHeight > 0
-      ? settings.canvasHeight / settings.canvasWidth
-      : 9 / 16;
-  const homeWidth = Math.round(4.6 * aspectHeightToWidth * 1000) / 1000;
-  let changed = false;
-  const normalized = (settings.flowOverviewElements || []).map((element) => {
-    if (element.id === 'flow-main-menu' && element.role === 'mainMenu' && element.x === 2 && element.y === 2.4) {
-      changed = true;
-      return { ...element, x: 92, y: 4, width: homeWidth, height: 4.6 };
-    }
-    const legacy = legacyPositions[element.id];
-    const next = nextPositions[element.id];
-    if (!legacy || !next || element.x !== legacy.x || element.y !== legacy.y) return element;
-    changed = true;
-    return { ...element, ...next };
-  });
+const migrateFlowOverviewControlLayout = (settings: WebExportSettings, language: Language): WebExportSettings => {
+  const elements = settings.flowOverviewElements || [];
+  const normalized = alignDefaultFlowOverviewControls(elements, settings.canvasWidth, settings.canvasHeight, language);
+  const changed = normalized.some((element, index) => element !== elements[index]);
   return changed ? { ...settings, flowOverviewElements: normalized } : settings;
 };
 
@@ -497,18 +470,26 @@ const removeDefaultFlowBranchCard = (settings: WebExportSettings): WebExportSett
     : { ...settings, flowOverviewElements: normalized };
 };
 
-const ensureFlowOverviewControls = (settings: WebExportSettings): WebExportSettings => {
+const ensureFlowOverviewControls = (settings: WebExportSettings, language: Language): WebExportSettings => {
   const normalizedSettings = removeDefaultFlowBranchCard(
     migrateFlowOverviewControlLayout(
       normalizeFlowMinimapControls(normalizeFlowControlShapes(settings)),
+      language,
     ),
   );
   const elements = (normalizedSettings.flowOverviewElements || []).map((element) => {
     if (normalizedSettings.flowOverviewControlsInitialized) return element;
-    const isDefaultControl = (element.id === 'flow-direction-control' && element.x === 84 && element.y === 4) || (element.id === 'flow-fit-view-control' && element.x === 88 && element.y === 4);
+    const frame = ['flowDirection', 'flowFitView'].includes(element.role || '')
+      ? flowOverviewControlFrame(element.role as 'flowDirection' | 'flowFitView', settings.canvasWidth, settings.canvasHeight)
+      : undefined;
+    const isDefaultControl = frame && ['flow-direction-control', 'flow-fit-view-control'].includes(element.id) && element.x === frame.x && element.y === frame.y;
     return isDefaultControl ? { ...element, visible: false } : element;
   });
-  const controls = [buildFlowOverviewHomeElement(settings.canvasWidth, settings.canvasHeight), ...defaultFlowOverviewElements].filter(
+  const controls = [buildFlowOverviewHomeElement(settings.canvasWidth, settings.canvasHeight, language), ...defaultFlowOverviewElements.map((element) =>
+    element.role === 'flowDirection' || element.role === 'flowFitView'
+      ? { ...element, ...flowOverviewControlFrame(element.role, settings.canvasWidth, settings.canvasHeight) }
+      : element,
+  )].filter(
     (defaultElement) => !elements.some((element) => element.role === defaultElement.role),
   );
   return { ...normalizedSettings, flowOverviewControlsInitialized: true, flowOverviewElements: [...controls, ...elements] };
@@ -552,10 +533,20 @@ const applyDefaultMainInterfaceBackground = (settings: WebExportSettings): WebEx
     : settings;
 };
 
-const normalizeWebSettings = (settings: WebExportSettings): WebExportSettings =>
-  ensureFlowOverviewControls(
+const syncFlowMinimapSize = (settings: WebExportSettings): WebExportSettings => {
+  const minimap = settings.flowOverviewElements.find((element) => element.role === 'flowMinimap');
+  if (!minimap) return settings;
+  const width = Math.round(minimap.width * settings.canvasWidth / 100);
+  const height = Math.round(minimap.height * settings.canvasHeight / 100);
+  if (width === settings.flowOverviewMinimapWidth && height === settings.flowOverviewMinimapHeight) return settings;
+  return { ...settings, flowOverviewMinimapWidth: width, flowOverviewMinimapHeight: height };
+};
+
+const normalizeWebSettings = (settings: WebExportSettings, language: Language): WebExportSettings =>
+  syncFlowMinimapSize(ensureFlowOverviewControls(
     applyDefaultMainInterfaceBackground(normalizeWebImageFillBaseColors({ ...settings, flowOverviewView: normalizeWebFlowView(settings.flowOverviewView) })),
-  );
+    language,
+  ));
 
 export const useWebExportSettings = (
   defaultProjectName: string,
@@ -568,13 +559,13 @@ export const useWebExportSettings = (
     update: <K extends keyof RenderStyle>(key: K, value: RenderStyle[K]) => void;
   },
 ) => {
-  const defaultPreset = buildRehearsalTemplate(language, defaultProjectName);
+  const defaultPreset = buildUniversalWebTemplate(language, defaultProjectName);
   let migratedInitialSettings = migrateBuiltInGamePages(initial?.settings, {
     archivePageElements: defaultPreset.settings.archivePageElements || [],
     settingsPageElements: defaultPreset.settings.settingsPageElements || [],
   });
-  migratedInitialSettings = { ...migratedInitialSettings, settingsPageElements: resolveSettingsPageElements(migratedInitialSettings, language, '#0ea5e9', '#ffffff'), settingsPageElementsInitialized: true };
-  migratedInitialSettings = { ...migratedInitialSettings, archivePageElements: resolveArchivePageElements(migratedInitialSettings, language, '#0ea5e9', '#ffffff') };
+  migratedInitialSettings = { ...migratedInitialSettings, settingsPageElements: resolveSettingsPageElements(migratedInitialSettings, language, defaultPreset.choiceColor, defaultPreset.choiceTextColor), settingsPageElementsInitialized: true };
+  migratedInitialSettings = { ...migratedInitialSettings, archivePageElements: resolveArchivePageElements(migratedInitialSettings, language, defaultPreset.choiceColor, defaultPreset.choiceTextColor) };
   const sharedCanvas = useSharedCanvasSettings(
     workspaceKey,
     canvasPatchFromWebSettings(migratedInitialSettings),
@@ -582,7 +573,7 @@ export const useWebExportSettings = (
   const [webProjectName, setWebProjectName] = useState(
     () => initial?.projectName || defaultProjectName,
   );
-  const [webChoiceColor, setWebChoiceColor] = useState(() => initial?.choiceColor || '#0ea5e9');
+  const [webChoiceColor, setWebChoiceColor] = useState(() => initial?.choiceColor || defaultPreset.choiceColor);
   const [webChoiceTextColor, setWebChoiceTextColor] = useState(
     () => initial?.choiceTextColor || '#ffffff',
   );
@@ -593,7 +584,7 @@ export const useWebExportSettings = (
       ...migratedInitialSettings,
       ...sharedCanvas.settings,
       layoutMode: getWebLayoutMode(workspaceKey, sharedCanvas.settings.layoutMode),
-    }),
+    }, language),
   );
   useEffect(() => {
     const sharedCanvasForWeb = {
@@ -603,8 +594,8 @@ export const useWebExportSettings = (
     if (sharedCanvas.settings.layoutMode !== sharedCanvasForWeb.layoutMode) {
       sharedCanvas.update({ layoutMode: sharedCanvasForWeb.layoutMode });
     }
-    setWebSettings((previous) => normalizeWebSettings({ ...previous, ...sharedCanvasForWeb }));
-  }, [sharedCanvas.settings, workspaceKey]);
+    setWebSettings((previous) => normalizeWebSettings({ ...previous, ...sharedCanvasForWeb }, language));
+  }, [sharedCanvas.settings, workspaceKey, language]);
   const webRenderStyle = styleBinding.value;
   const applyRenderStyle = (style: RenderStyle) => {
     (Object.keys(style) as Array<keyof RenderStyle>).forEach((key) =>
@@ -622,7 +613,7 @@ export const useWebExportSettings = (
   });
 
   const restoreWebState = (snapshot: WebHistoryState) => {
-    setWebSettings(normalizeWebSettings(snapshot.settings));
+    setWebSettings(normalizeWebSettings(snapshot.settings, language));
     sharedCanvas.update(canvasPatchFromWebSettings(snapshot.settings));
     applyRenderStyle(snapshot.renderStyle);
     setWebChoiceColor(snapshot.choiceColor);
@@ -700,7 +691,7 @@ export const useWebExportSettings = (
   };
 
   const applySettingsPatch = (previous: WebExportSettings, patch: Partial<WebExportSettings>) => {
-    if (!('settingsPageElements' in patch)) return normalizeWebSettings({ ...previous, ...patch });
+    if (!('settingsPageElements' in patch)) return normalizeWebSettings({ ...previous, ...patch }, language);
     const next = patch.settingsPageElements || [];
     const removed = resolveSettingsPageElements(
       previous,
@@ -719,7 +710,7 @@ export const useWebExportSettings = (
       ...patch,
       settingsPageElementsInitialized: true,
       settingsPageRemovedElements: archive,
-    });
+    }, language);
   };
 
   const updateWebSettings = <K extends keyof WebExportSettings>(

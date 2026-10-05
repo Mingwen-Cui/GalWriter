@@ -4,6 +4,7 @@ import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings, WebMenuElement } from '../video/shared/types';
 import { webAppearance } from '../shared/paint/appearance';
 import { SETTINGS_BACKGROUND_STYLE } from './webThemeVisuals';
+import { getWebSettingsCopy } from './i18n';
 import {
   buildRehearsalArchivePageElements,
   buildRehearsalSettingsPageElements,
@@ -186,7 +187,10 @@ const resolveSettingsPageElementsBeforeInteractionUpgrade = (
 export const resolveSettingsPageElements = (
   settings: Partial<WebExportSettings>, language: Language, choiceColor: string, choiceTextColor: string,
 ): WebMenuElement[] => {
-  const source = resolveSettingsPageElementsBeforeInteractionUpgrade(settings, language, choiceColor, choiceTextColor);
+  const resolved = resolveSettingsPageElementsBeforeInteractionUpgrade(settings, language, choiceColor, choiceTextColor);
+  const source = resolved.map((element) => element.id === 'settings-back' && element.role === 'back' && ['返回', 'Back', '戻る'].includes(element.text)
+    ? { ...element, text: getWebSettingsCopy(language).backToMainMenu }
+    : element);
   const interactionUpgrade = source.map((element) => element.kind === 'button' && (element.settingsLayoutVersion || 0) < 7 && !['back', 'reset'].includes(element.role || '')
     ? { ...element, settingsLayoutVersion: 7, buttonMotion: buttonMotionForPreset('none'), ...(element.role === 'preview' ? {} : { width: 30 }) }
     : element);

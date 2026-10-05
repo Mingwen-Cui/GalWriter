@@ -1,4 +1,5 @@
 import { getAppAssetUrl } from '../../lib/appAssets';
+import defaultMainInterfaceBackgroundUrl from '../../assets/common/default-main-interface-background.jpg';
 
 /**
  * Built-in visual-novel homepage covers shared by Web and PPT.
@@ -9,7 +10,7 @@ import { getAppAssetUrl } from '../../lib/appAssets';
  * either workspace's preset contract.
  */
 export type HomepageCoverTemplate = {
-  id: 'sakura-campus' | 'rainy-station' | 'gothic-moon' | 'deepsea-sci-fi';
+  id: 'universal' | 'sakura-campus' | 'rainy-station' | 'gothic-moon' | 'deepsea-sci-fi';
   name: string;
   description: string;
   accent: string;
@@ -26,6 +27,16 @@ export type HomepageCoverTemplate = {
 const userContentSuffix = ' User content: [describe your story here]';
 
 export const homepageCoverTemplates: HomepageCoverTemplate[] = [
+  {
+    id: 'universal',
+    name: '通用封面',
+    description: '浅色画廊、简单图形与可编辑标题，搭配清晰的深色对话框。',
+    accent: '#625bf6',
+    previewUrl: defaultMainInterfaceBackgroundUrl,
+    backgroundUrl: defaultMainInterfaceBackgroundUrl,
+    backgroundColor: '#ffffff',
+    aiPrompt: '',
+  },
   {
     id: 'sakura-campus',
     name: '樱花校园',

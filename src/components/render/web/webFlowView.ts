@@ -10,6 +10,8 @@ export type WebFlowView = {
   maxZoom: number;
   gapX: number;
   gapY: number;
+  cardWidth: number;
+  cardHeight: number;
 };
 
 export const defaultWebFlowView: WebFlowView = {
@@ -24,6 +26,8 @@ export const defaultWebFlowView: WebFlowView = {
   maxZoom: 1.85,
   gapX: 260,
   gapY: 116,
+  cardWidth: 208,
+  cardHeight: 132,
 };
 
 // Kept self-contained so the exported player uses the same bounds as the editor.
@@ -49,5 +53,7 @@ export function normalizeWebFlowView(value?: Partial<WebFlowView>): WebFlowView 
     maxZoom,
     gapX: number(value?.gapX, 260, 0, 1000),
     gapY: number(value?.gapY, 116, 0, 1000),
+    cardWidth: number(value?.cardWidth, 208, 140, 420),
+    cardHeight: number(value?.cardHeight, 132, 90, 260),
   };
 }

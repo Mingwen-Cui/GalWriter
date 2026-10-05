@@ -2,6 +2,7 @@ import type { Language } from '../../lib/i18n';
 import { homepageCoverTemplates } from './homepageCoverTemplates';
 import { newPaint, type SurfaceAppearance } from './shared/paint/appearance';
 import { getRenderObjects } from './video/shared/renderObjects';
+import { DEFAULT_RENDER_STYLE } from './video/VideoRenderModal/workspaceStorage';
 import type { RenderStyle, WebExportSettings } from './video/shared/types';
 import { buildArchivePageElements, buildSettingsPageElements } from './web/webMenuPageElements';
 import { buildRehearsalFlowPageElements } from './web/webExperienceTemplates';
@@ -32,6 +33,27 @@ export function themeAppearance(id: string, primary = false): SurfaceAppearance 
 export function themeRenderPatch(id: string, style: RenderStyle): Partial<RenderStyle> {
   const theme = getExperienceTheme(id);
   if (!theme) return {};
+  if (id === 'universal') {
+    const { renderObjects: defaultObjects, ...defaults } = structuredClone(DEFAULT_RENDER_STYLE);
+    const objects = getRenderObjects({ ...defaults, renderObjects: defaultObjects });
+    return {
+      ...defaults,
+      selectedRenderObject: style.selectedRenderObject,
+      renderObjects: {
+        ...objects,
+        choice: {
+          ...objects.choice,
+          fill: {
+            ...objects.choice.fill, alpha: 100, color: theme.accent,
+            gradientStops: [
+              { id: 'start', color: theme.accent, alpha: 100, position: 0 },
+              { id: 'end', color: theme.accentEnd, alpha: 100, position: 100 },
+            ],
+          },
+        },
+      },
+    };
+  }
   const objects = getRenderObjects(style);
   const bodySize = id === 'gothic-moon' ? 28 : 26;
   const titleSize = 30;

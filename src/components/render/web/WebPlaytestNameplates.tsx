@@ -19,7 +19,7 @@ import {
   type PixelGuideLine,
   snapPixelBoxToGuides,
 } from './webPixelAlignmentGuides';
-import { colorInputValue, withAlpha } from './webPlaytestStyleTools';
+import { colorInputValue, renderObjectShadowPaint, withAlpha } from './webPlaytestStyleTools';
 
 type NameplateItem = ReturnType<
   typeof import('../video/shared/nameplateRenderer').getNameplateItems
@@ -102,21 +102,7 @@ export function WebPlaytestNameplates({
   const textGap = renderStyle.nameplateTextGap ?? 8;
   const top = 0;
   const translateY = `calc(-100% - 8px + ${renderStyle.nameplateOffsetY ?? 0}px)`;
-  const nameplateShadows = nameplateObject.shadows?.length
-    ? nameplateObject.shadows
-    : [nameplateObject.shadow];
-  const nameplateShadow = nameplateShadows
-    .filter((shadow) => shadow.enabled && shadow.alpha > 0)
-    .map((shadow) => {
-      const inset = shadow.type === 'outer' ? '' : 'inset ';
-      const x = shadow.type === 'innerBlur' ? 0 : shadow.x;
-      const y = shadow.type === 'innerBlur' ? 0 : shadow.y;
-      return `${inset}${x}px ${y}px ${shadow.blur}px ${shadow.spread}px ${withAlpha(
-        colorInputValue(shadow.color, '#000000'),
-        shadow.alpha / 100,
-      )}`;
-    })
-    .join(', ');
+  const nameplateShadow = renderObjectShadowPaint(nameplateObject);
   const isNameplateSelected =
     previewMode === 'edit' &&
     (selectedRenderObjectKinds?.includes('nameplate') ||
@@ -142,13 +128,11 @@ export function WebPlaytestNameplates({
             colorInputValue(nameplateObject.stroke.color, '#d6dee8'),
             nameplateObject.stroke.alpha / 100,
           )}`
-        : undefined,
+        : 'none',
     boxShadow: renderStyle.nameplateInside
       ? 'none'
-      : nameplateShadow || '0 10px 24px rgba(0, 0, 0, 0.24)',
-    textShadow: renderStyle.nameplateInside
-      ? '0 1px 10px rgba(0, 0, 0, 0.42)'
-      : '0 1px 8px rgba(0, 0, 0, 0.32)',
+      : nameplateShadow,
+    textShadow: 'none',
     whiteSpace: 'nowrap',
     boxSizing: 'border-box',
     display: 'inline-flex',

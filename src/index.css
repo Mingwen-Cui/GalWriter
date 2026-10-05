@@ -1432,6 +1432,11 @@ html.canvas-selection-dragging * {
   stroke-width: 0;
 }
 
+.interactive-segment-minimap .interactive-minimap-viewport {
+  stroke: var(--gw-accent, #625bf6);
+  stroke-width: 1.25;
+}
+
 .interactive-segment-minimap-link {
   color: rgba(100, 116, 139, 0.52);
 }
@@ -1457,21 +1462,22 @@ html.canvas-selection-dragging * {
   background: #e8e9eb;
 }
 
-.interactive-segment-minimap--icon-only .react-flow__minimap-node {
-  fill: rgba(255, 255, 255, 0.56);
-  stroke: rgba(148, 163, 184, 0.38);
-  stroke-width: 0.75;
+.interactive-segment-minimap--icon-only .interactive-minimap-node {
+  fill: #cbd5e1;
+  fill-opacity: 1;
+  stroke: #64748b;
+  stroke-width: 1;
   filter: none;
 }
 
 .interactive-segment-minimap--icon-only
-  .react-flow__minimap-node.interactive-segment-minimap-node-active {
-  fill: rgba(148, 163, 184, 0.54);
-  stroke: rgba(71, 85, 105, 0.48);
+  .interactive-minimap-node.interactive-segment-minimap-node-active {
+  fill: var(--gw-accent, #625bf6);
+  stroke: var(--gw-accent, #625bf6);
   stroke-width: 1;
 }
 
-.interactive-segment-minimap--icon-only .react-flow__minimap-mask {
+.interactive-segment-minimap--icon-only .interactive-minimap-mask {
   fill: rgba(15, 23, 42, 0.06);
   stroke: transparent;
 }

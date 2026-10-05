@@ -989,7 +989,7 @@ export function PptWorkspace({
           'cover-subtitle': getPptCoverSubtitle(language),
           'cover-description': getPptCoverDescription(language),
         } },
-      });
+      }, themeRenderPatch('universal', renderStyle));
       setSelectedManualElementId(undefined);
       setSelectedObject({ target: 'background', label: copy.background });
       setSidebarTab('style');

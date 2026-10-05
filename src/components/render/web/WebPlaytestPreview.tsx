@@ -73,7 +73,7 @@ import type {
   WebExportSettings,
   WebMenuElement,
 } from '../video/shared/types';
-import { formatWebText } from './i18n';
+import { formatWebText, getWebSettingsCopy } from './i18n';
 import type { PlayerSettingsValues } from './playerSettingsPanel';
 import { playbackSettingButtonRoles } from './playerSettingsPanelConfig';
 import { getSurfaceBackground } from './StartMenuBackgroundInspector';
@@ -1482,7 +1482,7 @@ export function WebPlaytestPreview({
         : 'bg-[radial-gradient(circle_at_16%_18%,rgba(98,91,246,0.16),transparent_36%),linear-gradient(135deg,#ffffff,#eef2ff)]';
   const startMenuPanelSurfaceClass =
     settings.startMenuTemplate === 'glass'
-      ? 'rounded-[18px] border border-white/16 bg-white/[0.08] p-6 shadow-2xl shadow-black/35 backdrop-blur-2xl'
+      ? 'rounded-[18px] border border-white/16 bg-white/[0.08] p-6 backdrop-blur-2xl'
       : '';
   const buttonHeight =
     settings.startMenuButtonSize === 'compact'
@@ -1567,7 +1567,7 @@ export function WebPlaytestPreview({
     if (isPreviewFlowOverviewOpen && element.role === 'mainMenu') {
       return {
         key: element.role,
-        label: language === 'zh' ? '主菜单' : language === 'ja' ? 'メニュー' : 'Menu',
+        label: getWebSettingsCopy(language).backToMainMenu,
         disabled: !settings.showStartMenu,
         primary: false,
         onClick: returnToStartMenu,

@@ -263,10 +263,10 @@ export function WebStoryFlowGraph({
   const resolvedCardSizes = useMemo(() => Object.fromEntries(segments.map((segment) => {
     const size = cardSizes[segment.id] || cardSizes[segment.nodeIds[0]];
     return [segment.id, {
-      width: clamp(size?.width ?? cardWidth, 140, 420),
-      height: clamp(size?.height ?? cardHeight, 90, 260),
+      width: clamp(size?.width ?? view.cardWidth, 140, 420),
+      height: clamp(size?.height ?? view.cardHeight, 90, 260),
     }];
-  })), [segments, cardSizes]);
+  })), [segments, cardSizes, view.cardWidth, view.cardHeight]);
   const cardSizeFor = (segmentId: string) => resolvedCardSizes[segmentId] || { width: cardWidth, height: cardHeight };
   const autoPositions = useMemo(
     () => buildWebFlowLayout(segments.map((segment) => ({ id: segment.id, targets: segment.choices.map((choice) => choice.targetSegmentId), ...cardSizeFor(segment.id) })), layoutDirection, view.gapX, view.gapY),

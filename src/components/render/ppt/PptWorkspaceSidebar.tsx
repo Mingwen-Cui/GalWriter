@@ -495,7 +495,7 @@ export function PptSidebar({
                       <RapidEditionTemplateNotice language={language} kind="preset" />
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
-                        {homepageCoverTemplates.map((template) => (
+                        {homepageCoverTemplates.filter((template) => template.id !== 'universal').map((template) => (
                           <button
                             key={template.id}
                             type="button"

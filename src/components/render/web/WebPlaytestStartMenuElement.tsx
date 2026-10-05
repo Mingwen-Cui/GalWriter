@@ -11,7 +11,7 @@ import { resolveKnownAppAssetUrl } from '../../../lib/appAssets';
 import type { Language } from '../../../lib/i18n';
 import type { WebExportSettings } from '../video/shared/types';
 import { GradientCanvasControl } from './GradientCanvasControl';
-import { formatWebText } from './i18n';
+import { formatWebText, getWebSettingsCopy } from './i18n';
 import { WebEditableElementFrame } from './WebEditableElementFrame';
 import {
   webColorWithAlpha,
@@ -247,8 +247,8 @@ export function WebPlaytestStartMenuElement({
     onSetEditingElement(element.id);
   };
   const functionLabel =
-    element.role === 'mainMenu'
-      ? language === 'zh' ? '主菜单' : language === 'ja' ? 'メニュー' : 'Menu'
+    element.role === 'mainMenu' || element.role === 'back'
+      ? getWebSettingsCopy(language).backToMainMenu
       : element.role === 'continue'
       ? formatWebText(language, 'componentsrenderwebWebPlaytestStartMenuElementText230')
       : element.role === 'save'
@@ -498,15 +498,7 @@ export function WebPlaytestStartMenuElement({
           }}
           className={`relative h-full w-full rounded-lg border font-black transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#625BF6]/20 ${
             isFlowIconControl ? 'gw-flow-control' : ''
-          } ${previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'} ${
-            previewMode === 'test'
-              ? element.role === 'continue'
-                ? 'hover:-translate-y-0.5 hover:shadow-xl'
-                : element.role === 'new' || element.role === 'save'
-                  ? 'hover:-translate-x-1'
-                  : 'hover:-translate-y-0.5'
-              : ''
-          } ${settings.startMenuTemplate === 'minimal' || element.backgroundType === 'gradient' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
+          } ${previewMode === 'edit' && selected ? 'overflow-visible' : 'overflow-hidden'} ${settings.startMenuTemplate === 'minimal' || element.backgroundType === 'gradient' ? 'bg-transparent backdrop-blur-0' : 'backdrop-blur-xl'} disabled:opacity-45`}
           style={{
             backgroundImage: element.backgroundType === 'gradient' ? elementBackground : undefined,
             backgroundColor:
@@ -611,7 +603,7 @@ export function WebPlaytestStartMenuElement({
         <div
           className={`flex h-full w-full items-center ${
             element.role === 'subtitle' ? 'text-white/68' : 'text-white'
-          } ${element.role === 'title' ? 'font-black leading-[1.06] [text-shadow:0_12px_36px_rgba(0,0,0,0.55)]' : 'font-black'}`}
+          } font-black`}
           style={textElementStyle}
         >
           {content}

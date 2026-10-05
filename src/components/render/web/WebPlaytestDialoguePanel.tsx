@@ -338,10 +338,10 @@ export function WebPlaytestDialoguePanel({
     >
       <div
         ref={dialogueBoxRef}
-        className={`pointer-events-auto relative border-t border-white/10 ${
+        className={`pointer-events-auto relative ${
           settings.layoutMode === 'immersive'
-            ? `${editMode || externalNameplate ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl border border-white/12 shadow-2xl shadow-black/30 backdrop-blur-xl`
-            : 'rounded-b-lg border-x border-b border-white/10 px-4 shadow-2xl shadow-black/20 backdrop-blur-xl'
+            ? `${editMode || externalNameplate ? 'overflow-visible' : 'overflow-y-auto'} rounded-xl backdrop-blur-xl`
+            : 'rounded-b-lg px-4 backdrop-blur-xl'
         } ${editMode ? 'cursor-grab' : ''} ${selectionClass('dialogBox')}`}
         style={{
           ...dialogueShellStyle,

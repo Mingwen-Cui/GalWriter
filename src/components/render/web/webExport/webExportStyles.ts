@@ -78,7 +78,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       font-weight: 900;
       letter-spacing: 0;
       text-overflow: ellipsis;
-      text-shadow: 0 2px 12px rgba(0,0,0,0.72);
+      text-shadow: none;
       white-space: nowrap;
     }
     .toolbar { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
@@ -365,15 +365,15 @@ export const WEB_EXPORT_STYLES = String.raw`
       font-weight: 800;
       line-height: 1;
       border: var(--nameplate-border, 1px solid rgba(214,222,232,0.24));
-      box-shadow: var(--nameplate-shadow, 0 8px 24px rgba(5,7,12,0.30));
-      text-shadow: 0 1px 8px rgba(0,0,0,0.32);
+      box-shadow: var(--nameplate-shadow, none);
+      text-shadow: none;
       transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-translate-y, -100%) + var(--nameplate-fixed-y, 0px))) var(--nameplate-object-transform, rotate(0deg) scale(1, 1));
     }
     .nameplate-layer.inside .nameplate {
       background: transparent;
       border: none;
       box-shadow: none;
-      text-shadow: 0 1px 10px rgba(0,0,0,0.42);
+      text-shadow: none;
       transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-offset-y, 0px) + var(--nameplate-fixed-y, 0px)));
     }
     .dialogue {
@@ -389,7 +389,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       padding: 20px var(--dialog-padding-x, 9%);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
       border-radius: var(--dialog-radius, 12px);
-      box-shadow: var(--dialog-shadow, 0 -14px 36px rgba(0,0,0,0.18));
+      box-shadow: var(--dialog-shadow, none);
       backdrop-filter: var(--dialog-backdrop-filter, none);
       overflow: auto;
       transform: var(--dialog-object-transform, none);
@@ -407,7 +407,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       border: var(--dialog-border-width, 1px) solid var(--dialog-border-color, rgba(255,255,255,0.12));
       border-radius: var(--dialog-radius, 12px);
       background: var(--dialog-background, rgba(7, 10, 16, 0.82));
-      box-shadow: var(--dialog-shadow, 0 24px 80px rgba(0,0,0,0.30));
+      box-shadow: var(--dialog-shadow, none);
       backdrop-filter: var(--dialog-backdrop-filter, blur(18px));
     }
     .title {
@@ -644,7 +644,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       height: 68px;
       justify-self: center;
       border-radius: 18px;
-      box-shadow: 0 20px 54px rgba(0,0,0,0.32);
+      box-shadow: none;
     }
     .start-title {
       margin: 0;
@@ -652,7 +652,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       font-size: clamp(28px, 6vw, 54px);
       font-weight: 950;
       line-height: 1.06;
-      text-shadow: 0 12px 36px rgba(0,0,0,0.55);
+      text-shadow: none;
     }
     .start-subtitle {
       min-height: 18px;
@@ -726,7 +726,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       border: 1px solid rgba(255,255,255,0.16);
       border-radius: 18px;
       background: rgba(255,255,255,0.08);
-      box-shadow: 0 24px 80px rgba(0,0,0,0.36);
+      box-shadow: none;
       backdrop-filter: blur(24px);
     }
     .start-screen.template-glass .start-action {
@@ -748,7 +748,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       align-items: center;
       color: #fff;
       font-weight: 900;
-      text-shadow: 0 12px 36px rgba(0,0,0,0.55);
+      text-shadow: none;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
     }
@@ -864,7 +864,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .flow-overview-minimap-map { min-height: 0; flex: 1; overflow: hidden; background: transparent; }
     .flow-overview-minimap-map svg { display: block; width: 100%; height: 100%; }
-    .flow-overview-minimap-controls { display: flex; gap: 0; align-items: center; justify-content: stretch; min-height: 42px; padding: 5px 6px; border-top: 1px solid #d8dce2; border-radius: 0 0 var(--flow-overview-minimap-bottom-right-radius, var(--flow-overview-minimap-radius, 12px)) var(--flow-overview-minimap-bottom-left-radius, var(--flow-overview-minimap-radius, 12px)); overflow: hidden; background: #ffffff; }
+    .flow-overview-minimap-controls { display: flex; flex-shrink: 0; gap: 0; align-items: center; justify-content: stretch; min-height: 42px; padding: 5px 6px; border-top: 1px solid #d8dce2; border-radius: 0 0 var(--flow-overview-minimap-bottom-right-radius, var(--flow-overview-minimap-radius, 12px)) var(--flow-overview-minimap-bottom-left-radius, var(--flow-overview-minimap-radius, 12px)); overflow: hidden; background: #ffffff; }
     .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; min-height: 30px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: var(--flow-overview-control-color, #111827); cursor: pointer; }
     .flow-overview-minimap-control:hover:not(:disabled), .flow-overview-minimap-control:focus-visible { border-color: #c5cad1; background: #f3f4f6; color: var(--flow-overview-control-color, #111827); outline: none; transform: translateY(-1px); }
     .flow-overview-minimap-control:disabled { cursor: not-allowed; opacity: .38; }

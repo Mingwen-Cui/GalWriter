@@ -56,7 +56,15 @@ const fillStyle = (fill: RenderFillStyle): CSSProperties => {
   };
 };
 
-const shadowPaint = (object: RenderEditableObject) => {
+export const renderObjectShadowPaint = (object: RenderEditableObject) => {
+  if (object.appearance) {
+    return object.appearance.shadows
+      .filter((shadow) => shadow.enabled)
+      .map((shadow) =>
+        `${shadow.inset ? 'inset ' : ''}${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.spread}px ${shadow.color}`,
+      )
+      .join(', ') || 'none';
+  }
   const layers = object.shadows?.length ? object.shadows : [object.shadow];
   const value = layers
     .filter((shadow) => shadow.enabled && shadow.alpha > 0)
@@ -67,7 +75,7 @@ const shadowPaint = (object: RenderEditableObject) => {
       return `${inset}${x}px ${y}px ${shadow.blur}px ${shadow.spread}px ${withAlpha(shadow.color, shadow.alpha / 100)}`;
     })
     .join(', ');
-  return value || undefined;
+  return value || 'none';
 };
 
 export const buildDialogueBackgroundStyle = (renderStyle: RenderStyle): CSSProperties => {
@@ -122,8 +130,8 @@ export const buildDialogueShellStyle = (
           border:
             object.stroke.enabled && object.stroke.type === 'solid'
               ? `${object.stroke.width}px solid ${withAlpha(object.stroke.color, object.stroke.alpha / 100)}`
-              : undefined,
-          boxShadow: shadowPaint(object),
+              : 'none',
+          boxShadow: renderObjectShadowPaint(object),
         }
       : {
           backgroundColor: 'transparent',

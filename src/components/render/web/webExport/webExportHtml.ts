@@ -2,6 +2,7 @@ import { buildWebFlowLayout } from '../webFlowGraphLayout';
 import { mountWebArchiveGrid, WEB_ARCHIVE_GRID_CSS } from '../webArchiveGrid';
 import { DEFAULT_TYPEWRITER_INTERVAL_MS } from '../../../../lib/typewriterTiming';
 import { normalizeWebFlowView } from '../webFlowView';
+import { buildMinimapGeometry } from '../../video/interactive/interactiveSegmentMinimapGeometry';
 import { defaultWebTheme, webThemeCssVariables, WEB_FLOW_THEME_CSS } from '../webThemeVisuals';
 import {
   createInlinePlaybackParser,
@@ -470,7 +471,7 @@ ${SCENE_SWITCH_CSS}</style>
       }
       const shadow = customBoxShadow(element);
       if (shadow) shadows.push(shadow);
-      target.style.boxShadow = shadows.join(", ");
+      target.style.boxShadow = shadows.join(", ") || "none";
     }
     function applyElementRadius(target, element, fallback) {
       const base = Number.isFinite(Number(element.borderRadius)) ? Number(element.borderRadius) : fallback;
@@ -502,7 +503,7 @@ ${SCENE_SWITCH_CSS}</style>
         target.style.webkitTextStroke = Number(element.textStrokeWidth) + "px " + (element.textStrokeColor || "#000000");
       }
       const shadow = customShadow(element, "text");
-      if (shadow) target.style.textShadow = shadow;
+      target.style.textShadow = shadow || "none";
       if (Number.isFinite(Number(element.letterSpacing))) target.style.letterSpacing = Number(element.letterSpacing) + "px";
       if (Number.isFinite(Number(element.lineHeight))) target.style.lineHeight = String(Number(element.lineHeight));
       if (element.textAlign) {
@@ -540,10 +541,10 @@ ${SCENE_SWITCH_CSS}</style>
       }
       const stroke = (appearance.strokes || []).find(function(layer) { return layer.enabled && layer.width > 0; });
       if (stroke) target.style.webkitTextStroke = stroke.width + "px " + (stroke.color || "#000000");
-      const shadows = (appearance.shadows || []).filter(function(layer) { return layer.enabled; }).map(function(layer) {
-        return layer.x + "px " + layer.y + "px " + layer.blur + "px " + layer.spread + "px " + layer.color;
+      const shadows = (appearance.shadows || []).filter(function(layer) { return layer.enabled && !layer.inset; }).map(function(layer) {
+        return layer.x + "px " + layer.y + "px " + layer.blur + "px " + layer.color;
       });
-      if (shadows.length) target.style.textShadow = shadows.join(", ");
+      target.style.textShadow = shadows.join(", ") || "none";
     }
     function applyCustomButtonTextStyle(target, element, fallbackColor) {
       if (element.textVisible === false) target.textContent = "";
@@ -645,13 +646,24 @@ ${SCENE_SWITCH_CSS}</style>
       if (fill.type === "image" && fill.imageUrl) return 'url("' + String(fill.imageUrl).replace(/"/g, '\\"') + '")';
       return withAlpha(fill.color || fallback, clamp(fill.alpha, 0, 100, 100) / 100);
     }
-    function objectShadow(object) {
+    function objectShadow(object, target) {
+      if (object.appearance) {
+        return (object.appearance.shadows || []).filter(function(shadow) {
+          return shadow.enabled && (target !== "text" || !shadow.inset);
+        }).map(function(shadow) {
+          const color = shadow.color || "#000000";
+          const geometry = shadow.x + "px " + shadow.y + "px " + shadow.blur + "px ";
+          return target === "text" ? geometry + color : (shadow.inset ? "inset " : "") + geometry + shadow.spread + "px " + color;
+        }).join(", ");
+      }
       const layers = Array.isArray(object.shadows) && object.shadows.length ? object.shadows : (object.shadow ? [object.shadow] : []);
-      return layers.filter(function(shadow) { return shadow && shadow.enabled !== false && clamp(shadow.alpha, 0, 100, 0) > 0; }).map(function(shadow) {
+      return layers.filter(function(shadow) { return shadow && shadow.enabled !== false && clamp(shadow.alpha, 0, 100, 0) > 0 && (target !== "text" || shadow.type === "outer"); }).map(function(shadow) {
         const inset = shadow.type === "outer" ? "" : "inset ";
         const x = shadow.type === "innerBlur" ? 0 : (Number(shadow.x) || 0);
         const y = shadow.type === "innerBlur" ? 0 : (Number(shadow.y) || 0);
-        return inset + x + "px " + y + "px " + (Number(shadow.blur) || 0) + "px " + (Number(shadow.spread) || 0) + "px " + withAlpha(shadow.color || "#000000", clamp(shadow.alpha, 0, 100, 0) / 100);
+        const color = withAlpha(shadow.color || "#000000", clamp(shadow.alpha, 0, 100, 0) / 100);
+        const geometry = x + "px " + y + "px " + (Number(shadow.blur) || 0) + "px ";
+        return target === "text" ? geometry + color : inset + geometry + (Number(shadow.spread) || 0) + "px " + color;
       }).join(", ");
     }
     function objectTransform(object) {
@@ -674,8 +686,8 @@ ${SCENE_SWITCH_CSS}</style>
     document.documentElement.style.setProperty("--body-color", objectFill(bodyObject, "#e5e7eb"));
     document.documentElement.style.setProperty("--title-fill", objectFill(titleObject, "#f8fafc"));
     document.documentElement.style.setProperty("--body-fill", objectFill(bodyObject, "#e5e7eb"));
-    document.documentElement.style.setProperty("--title-shadow", objectShadow(titleObject) || "none");
-    document.documentElement.style.setProperty("--body-shadow", objectShadow(bodyObject) || "none");
+    document.documentElement.style.setProperty("--title-shadow", objectShadow(titleObject, "text") || "none");
+    document.documentElement.style.setProperty("--body-shadow", objectShadow(bodyObject, "text") || "none");
     document.documentElement.style.setProperty("--title-font-family", titleObject.fontFamily || style.titleFontFamily || "inherit");
     document.documentElement.style.setProperty("--body-font-family", bodyObject.fontFamily || style.bodyFontFamily || "inherit");
     document.documentElement.style.setProperty("--title-line-height", String(Number(titleObject.lineHeight ?? style.titleLineHeight) || 1.18));
@@ -692,9 +704,9 @@ ${SCENE_SWITCH_CSS}</style>
     document.documentElement.style.setProperty("--body-transform", objectTransform(bodyObject));
     document.documentElement.style.setProperty("--title-stroke", titleObject.stroke && titleObject.stroke.enabled ? (Number(titleObject.stroke.width) || 0) + "px " + colorInputValue(titleObject.stroke.color, "#000000") : "0 transparent");
     document.documentElement.style.setProperty("--body-stroke", bodyObject.stroke && bodyObject.stroke.enabled ? (Number(bodyObject.stroke.width) || 0) + "px " + colorInputValue(bodyObject.stroke.color, "#000000") : "0 transparent");
-    document.documentElement.style.setProperty("--dialog-border-color", style.dialogVisible === false ? "transparent" : (dialogObject.stroke && dialogObject.stroke.enabled ? withAlpha(dialogObject.stroke.color || "#ffffff", clamp(dialogObject.stroke.alpha, 0, 100, 100) / 100) : "rgba(255,255,255,0.14)"));
-    document.documentElement.style.setProperty("--dialog-border-width", dialogObject.stroke && dialogObject.stroke.enabled ? (Number(dialogObject.stroke.width) || 0) + "px" : "1px");
-    document.documentElement.style.setProperty("--dialog-shadow", style.dialogVisible === false ? "none" : (objectShadow(dialogObject) || "0 24px 80px rgba(0,0,0,0.30)"));
+    document.documentElement.style.setProperty("--dialog-border-color", style.dialogVisible === false ? "transparent" : (dialogObject.stroke && dialogObject.stroke.enabled ? withAlpha(dialogObject.stroke.color || "#ffffff", clamp(dialogObject.stroke.alpha, 0, 100, 100) / 100) : "transparent"));
+    document.documentElement.style.setProperty("--dialog-border-width", dialogObject.stroke && dialogObject.stroke.enabled ? (Number(dialogObject.stroke.width) || 0) + "px" : "0px");
+    document.documentElement.style.setProperty("--dialog-shadow", style.dialogVisible === false ? "none" : (objectShadow(dialogObject) || "none"));
     document.documentElement.style.setProperty("--dialog-backdrop-filter", style.dialogVisible === false ? "none" : "blur(18px)");
     document.documentElement.style.setProperty("--dialog-width", resolvedDialogLayout.width + "px");
     document.documentElement.style.setProperty("--dialog-height", resolvedDialogLayout.height + "px");
@@ -718,7 +730,7 @@ ${SCENE_SWITCH_CSS}</style>
     document.documentElement.style.setProperty("--nameplate-color", styleColor(style.nameplateTextColor, style.nameplateTextColorAlpha ?? 100, "#ffffff"));
     document.documentElement.style.setProperty("--nameplate-background", nameplateBackground());
     document.documentElement.style.setProperty("--nameplate-border", nameplateObject.stroke && nameplateObject.stroke.enabled ? (Number(nameplateObject.stroke.width) || 0) + "px solid " + withAlpha(nameplateObject.stroke.color || "#d6dee8", clamp(nameplateObject.stroke.alpha, 0, 100, 24) / 100) : "none");
-    document.documentElement.style.setProperty("--nameplate-shadow", style.nameplateInside ? "none" : (objectShadow(nameplateObject) || "0 8px 24px rgba(5,7,12,0.30)"));
+    document.documentElement.style.setProperty("--nameplate-shadow", style.nameplateInside ? "none" : (objectShadow(nameplateObject) || "none"));
     document.documentElement.style.setProperty("--nameplate-offset-x", px(nameplateObject.x ?? style.nameplateOffsetX, 0));
     document.documentElement.style.setProperty("--nameplate-offset-y", px(nameplateObject.y ?? style.nameplateOffsetY, 0));
     document.documentElement.style.setProperty("--nameplate-top", style.nameplateInside ? "8px" : "0");
@@ -842,6 +854,8 @@ ${SCENE_SWITCH_CSS}</style>
     let flowOverviewZoom = 1;
     let flowPan = { x: 0, y: 0 };
     let flowMinimapViewportRect = null;
+    let flowMinimapGraphSize = { width: 1, height: 1 };
+    const buildMinimapGeometry = ${buildMinimapGeometry.toString()};
     const flowOverviewControlLabels = content.language === "zh"
       ? { zoomIn: "放大", zoomOut: "缩小", fit: "适应屏幕" }
       : content.language === "ja"
@@ -2162,10 +2176,15 @@ ${SCENE_SWITCH_CSS}</style>
     function applyFlowTransform() {
       flowOverviewCanvas.style.transform = "translate(" + flowPan.x + "px, " + flowPan.y + "px) scale(" + flowOverviewZoom + ")";
       if (flowMinimapViewportRect) {
-        flowMinimapViewportRect.setAttribute("x", String(-flowPan.x / flowOverviewZoom));
-        flowMinimapViewportRect.setAttribute("y", String(-flowPan.y / flowOverviewZoom));
-        flowMinimapViewportRect.setAttribute("width", String(flowGraphRegion.clientWidth / flowOverviewZoom));
-        flowMinimapViewportRect.setAttribute("height", String(flowGraphRegion.clientHeight / flowOverviewZoom));
+        const geometry = buildMinimapGeometry(
+          flowOverviewMinimapMap.clientWidth, flowOverviewMinimapMap.clientHeight,
+          flowMinimapGraphSize.width, flowMinimapGraphSize.height, flowPan, flowOverviewZoom,
+          { width: flowGraphRegion.clientWidth, height: flowGraphRegion.clientHeight },
+        );
+        flowMinimapViewportRect.setAttribute("x", String((geometry.viewport.x - geometry.offsetX) / geometry.scale));
+        flowMinimapViewportRect.setAttribute("y", String((geometry.viewport.y - geometry.offsetY) / geometry.scale));
+        flowMinimapViewportRect.setAttribute("width", String(geometry.viewport.width / geometry.scale));
+        flowMinimapViewportRect.setAttribute("height", String(geometry.viewport.height / geometry.scale));
       }
     }
     function setFlowOverviewZoom(value, resetPan, anchorX = flowGraphRegion.clientWidth / 2, anchorY = flowGraphRegion.clientHeight / 2) {
@@ -2338,9 +2357,12 @@ ${SCENE_SWITCH_CSS}</style>
     function renderFlowOverviewMinimap(positionById, allEdges, canvasWidth, canvasHeight) {
       if (!flowOverviewMinimapMap) return;
       flowOverviewMinimapMap.innerHTML = "";
+      flowMinimapGraphSize = { width: canvasWidth, height: canvasHeight };
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 " + canvasWidth + " " + canvasHeight);
-      svg.setAttribute("preserveAspectRatio", "none");
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      svg.style.padding = "8px";
+      svg.style.boxSizing = "border-box";
       allEdges.forEach((edge) => {
         const from = positionById.get(edge.source);
         const to = positionById.get(edge.target);
@@ -2349,7 +2371,7 @@ ${SCENE_SWITCH_CSS}</style>
         path.setAttribute("d", flowOverviewEdgePath(from, to));
         path.setAttribute("fill", "none");
         path.setAttribute("stroke", "#c5cad1");
-        path.setAttribute("stroke-width", "5");
+        path.setAttribute("stroke-width", "1");
         path.setAttribute("vector-effect", "non-scaling-stroke");
         svg.appendChild(path);
       });
@@ -2360,7 +2382,10 @@ ${SCENE_SWITCH_CSS}</style>
         rect.setAttribute("width", String(position.width || 220));
         rect.setAttribute("height", String(position.height || 132));
         rect.setAttribute("rx", "10");
-        rect.setAttribute("fill", nodeId === flowOverviewRootNodeId ? "#d0d3d7" : "#f4f5f6");
+        rect.setAttribute("fill", nodeId === flowOverviewRootNodeId ? "var(--gw-accent, #625bf6)" : "#cbd5e1");
+        rect.setAttribute("stroke", nodeId === flowOverviewRootNodeId ? "var(--gw-accent, #625bf6)" : "#64748b");
+        rect.setAttribute("stroke-width", "1");
+        rect.setAttribute("vector-effect", "non-scaling-stroke");
         rect.setAttribute("fill-opacity", "0.9");
         svg.appendChild(rect);
       });
@@ -2373,7 +2398,12 @@ ${SCENE_SWITCH_CSS}</style>
       svg.style.touchAction = "none";
       const navigate = (event) => {
         const rect = svg.getBoundingClientRect();
-        flowPan = { x: flowGraphRegion.clientWidth / 2 - (event.clientX - rect.left) / rect.width * canvasWidth * flowOverviewZoom, y: flowGraphRegion.clientHeight / 2 - (event.clientY - rect.top) / rect.height * canvasHeight * flowOverviewZoom };
+        const geometry = buildMinimapGeometry(svg.clientWidth, svg.clientHeight, canvasWidth, canvasHeight, flowPan, flowOverviewZoom, { width: flowGraphRegion.clientWidth, height: flowGraphRegion.clientHeight });
+        const svgX = (event.clientX - rect.left) / Math.max(1, rect.width) * svg.clientWidth;
+        const svgY = (event.clientY - rect.top) / Math.max(1, rect.height) * svg.clientHeight;
+        const graphX = clamp((svgX - geometry.offsetX) / geometry.scale, 0, canvasWidth, 0);
+        const graphY = clamp((svgY - geometry.offsetY) / geometry.scale, 0, canvasHeight, 0);
+        flowPan = { x: flowGraphRegion.clientWidth / 2 - graphX * flowOverviewZoom, y: flowGraphRegion.clientHeight / 2 - graphY * flowOverviewZoom };
         applyFlowTransform();
       };
       svg.addEventListener("pointerdown", (event) => { if (event.button !== 0) return; event.preventDefault(); svg.setPointerCapture(event.pointerId); navigate(event); });
@@ -2419,7 +2449,7 @@ ${SCENE_SWITCH_CSS}</style>
       const positionById = layoutWebFlow(allNodes.map((node) => {
         const size = settings.flowOverviewCardSizes[node.id] || {};
         return { id: node.id, targets: allEdges.filter((edge) => edge.source === node.id).map((edge) => edge.target),
-          width: clamp(size.width, 140, 420, 208), height: clamp(size.height, 90, 260, 132) };
+          width: clamp(size.width, 140, 420, view.cardWidth), height: clamp(size.height, 90, 260, view.cardHeight) };
       }), flowOverviewLayoutDirection, view.gapX, view.gapY);
       const canvasWidth = Math.max(1040, ...Array.from(positionById.values()).map((position) => position.x + position.width + 120));
       const canvasHeight = Math.max(620, ...Array.from(positionById.values()).map((position) => position.y + position.height + 120));
@@ -3304,6 +3334,10 @@ ${SCENE_SWITCH_CSS}</style>
     flowOverviewZoomIn?.addEventListener("click", () => setFlowOverviewZoom(flowOverviewZoom + 0.15, false));
     flowOverviewZoomOut?.addEventListener("click", () => setFlowOverviewZoom(flowOverviewZoom - 0.15, false));
     flowOverviewFitView?.addEventListener("click", fitFlowOverview);
+    const flowMinimapResizeObserver = new ResizeObserver(() => {
+      if (flowOverviewBackdrop.classList.contains("open")) applyFlowTransform();
+    });
+    flowMinimapResizeObserver.observe(flowOverviewMinimapMap);
     let flowDrag = null;
     flowGraphRegion.addEventListener("pointerdown", (event) => {
       if ((event.button !== 0 && event.button !== 1) || event.target.closest(".flow-overview-node")) return;

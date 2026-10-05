@@ -1,6 +1,7 @@
 import { combineWebSelection, webSelectionMode } from './webCanvasSelection';
 import { arrangeToolbarRow, toolbarRowGap } from './webToolbarLayout';
 import { resolveWebToolbarElements } from './webExperienceTemplates';
+import { buildUniversalWebTemplate } from './universalExperienceTemplate';
 import {
   buildSettingsPageElements,
   resolveSettingsPageElements,
@@ -52,6 +53,7 @@ import { formatWebText } from './i18n';
 import { getWebSettingsCopy } from './i18n';
 import { StartMenuBackgroundInspector } from './StartMenuBackgroundInspector';
 import { WebFlowViewInspector } from './WebFlowViewInspector';
+import { normalizeWebFlowView } from './webFlowView';
 import { readWebTemplateFile } from './webTemplateFiles';
 import { StartMenuElementInspector } from './StartMenuElementInspector';
 import { buildArchivePageElements } from './webMenuPageElements';
@@ -981,9 +983,22 @@ export function WebWorkspace({
             : webSettings.startMenuElements || [];
   const selectedStartMenuElement =
     activePageElements.find((element) => element.id === selectedStartMenuElementId) || null;
+  const flowView = normalizeWebFlowView(webSettings.flowOverviewView);
   const selectedFlowCardSize = selectedFlowCardId
-    ? webSettings.flowOverviewCardSizes?.[selectedFlowCardId] || { width: 208, height: 132 }
+    ? webSettings.flowOverviewCardSizes?.[selectedFlowCardId] || { width: flowView.cardWidth, height: flowView.cardHeight }
     : null;
+  const updateFlowCardDimension = (dimension: 'width' | 'height', value: number) =>
+    updateWebSettingsBulk({
+      flowOverviewView: {
+        ...flowView,
+        [dimension === 'width' ? 'cardWidth' : 'cardHeight']: value,
+      },
+      flowOverviewCardSizes: Object.fromEntries(
+        Object.entries(webSettings.flowOverviewCardSizes || {}).map(([id, size]) =>
+          [id, { ...size, [dimension]: value }],
+        ),
+      ),
+    });
   const handleGradientEditingChange = useCallback(
     (group: 'text' | 'fill' | 'stroke' | null) => {
       const next =
@@ -997,6 +1012,18 @@ export function WebWorkspace({
   const applyHomepageCoverPreset = async (templateId: string) => {
     const template = homepageCoverTemplates.find((item) => item.id === templateId);
     if (!template) return;
+    if (templateId === 'universal') {
+      const preset = buildUniversalWebTemplate(language, webProjectName);
+      updateWebSettingsBulk({ ...preset.settings, showStartMenu: webSettings.showStartMenu });
+      updateWebChoiceColor(preset.choiceColor);
+      updateWebChoiceTextColor(preset.choiceTextColor);
+      Object.entries(preset.renderStyle).forEach(([key, value]) =>
+        updateWebRenderStyle(key as keyof RenderStyle, value as never),
+      );
+      setSelectedStartMenuElementId(null);
+      setPreviewRefreshKey((key) => key + 1);
+      return;
+    }
     let presetStyle = webRenderStyle;
     let presetSurfaces = webSettings.surfaceAppearances;
     try {
@@ -1448,18 +1475,18 @@ export function WebWorkspace({
               <label className="block text-xs text-[var(--vr-text-soft)]">
                 <span className="flex justify-between">
                   <span>
-                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText936_flow_width')}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText939_flow_card_width')}
                   </span>
-                  <span>{Math.round(webSettings.flowOverviewMinimapWidth)}px</span>
+                  <span>{Math.round(flowView.cardWidth)}px</span>
                 </span>
                 <input
                   type="range"
-                  min={160}
-                  max={440}
-                  step={10}
-                  value={webSettings.flowOverviewMinimapWidth}
+                  min={140}
+                  max={420}
+                  step={1}
+                  value={flowView.cardWidth}
                   onChange={(event) =>
-                    updateWebSettings('flowOverviewMinimapWidth', Number(event.target.value))
+                    updateFlowCardDimension('width', Number(event.target.value))
                   }
                   className="mt-2 w-full accent-indigo-600"
                 />
@@ -1467,18 +1494,18 @@ export function WebWorkspace({
               <label className="block text-xs text-[var(--vr-text-soft)]">
                 <span className="flex justify-between">
                   <span>
-                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText937_flow_height')}
+                    {formatWebText(language, 'componentsrenderwebWebWorkspaceText940_flow_card_height')}
                   </span>
-                  <span>{Math.round(webSettings.flowOverviewMinimapHeight)}px</span>
+                  <span>{Math.round(flowView.cardHeight)}px</span>
                 </span>
                 <input
                   type="range"
-                  min={110}
-                  max={320}
-                  step={10}
-                  value={webSettings.flowOverviewMinimapHeight}
+                  min={90}
+                  max={260}
+                  step={1}
+                  value={flowView.cardHeight}
                   onChange={(event) =>
-                    updateWebSettings('flowOverviewMinimapHeight', Number(event.target.value))
+                    updateFlowCardDimension('height', Number(event.target.value))
                   }
                   className="mt-2 w-full accent-indigo-600"
                 />
@@ -2048,8 +2075,6 @@ JSON schema:
               </>
             )}
             {startMenuPreviewMode === 'edit' && <>
-              <WebInsertToolButton icon={Download} label={language === 'zh' ? '保存网页模板文件' : language === 'ja' ? 'テンプレートファイルを保存' : 'Save web template file'} onClick={() => void exportCurrentTemplate()} />
-              <WebInsertToolButton icon={Upload} label={language === 'zh' ? '导入网页模板' : language === 'ja' ? 'テンプレートを読み込む' : 'Import web template'} onClick={() => templateFileInputRef.current?.click()} />
               <input ref={templateFileInputRef} type="file" accept=".json,.zip" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importWebTemplate(file); }} />
             </>}
             <button
@@ -2420,13 +2445,20 @@ JSON schema:
                                 key={template.id}
                                 type="button"
                                 onClick={() => void applyHomepageCoverPreset(template.id)}
-                                className="group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5"
+                                className={`group overflow-hidden rounded-xl border border-indigo-500/15 bg-[var(--vr-surface-soft)] text-left transition-colors hover:border-indigo-500/50 hover:bg-white/5 ${template.id === 'universal' ? 'col-span-2' : ''}`}
                               >
-                                <img
-                                  src={template.previewUrl}
-                                  alt=""
-                                  className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                                />
+                                {template.id === 'universal' ? (
+                                  <div className="relative aspect-video overflow-hidden bg-white">
+                                    <img src={template.previewUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                                    <span className="absolute left-[9%] top-[26%] h-[2px] w-[4%] bg-[#625bf6]" />
+                                    <span className="absolute left-[9%] top-[70%] h-px w-[24%] bg-[#dce1ee]" />
+                                    <span className="absolute left-[9%] top-[33%] text-[clamp(10px,1vw,16px)] font-extrabold leading-tight text-[#252a49]">
+                                      {language === 'zh' ? <>故事，<br />从这里开始</> : language === 'ja' ? <>ここから、<br />物語が始まる。</> : <>Your story<br />starts here.</>}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <img src={template.previewUrl} alt="" className="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
+                                )}
                                 <span className="block p-2">
                                   <span className="block truncate text-[11px] font-black text-[var(--vr-text)]">
                                     {template.name}
@@ -2537,6 +2569,11 @@ JSON schema:
                               )}
                               onClick={deleteSelectedTemplates}
                               disabled={selectedTemplateEditIds.length === 0}
+                            />
+                            <IconToolButton
+                              icon={Upload}
+                              label={language === 'zh' ? '导入模板' : language === 'ja' ? 'テンプレートを読み込む' : 'Import template'}
+                              onClick={() => templateFileInputRef.current?.click()}
                             />
                           </div>
                         )}
