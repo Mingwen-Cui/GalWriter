@@ -343,6 +343,17 @@ export const WEB_EXPORT_STYLES = String.raw`
       min-height: var(--nameplate-row-height, 50px);
       margin-bottom: var(--nameplate-text-gap, 8px);
     }
+    .nameplate-anchor {
+      position: absolute;
+      left: var(--dialog-left, 0px);
+      top: var(--dialog-top, 0px);
+      width: var(--dialog-width, 86%);
+      height: var(--dialog-height, 34vh);
+      z-index: 8;
+      pointer-events: none;
+      overflow: visible;
+      transform: var(--dialog-object-transform, none);
+    }
     .nameplate {
       position: absolute;
       top: var(--nameplate-top, 0);
@@ -367,14 +378,14 @@ export const WEB_EXPORT_STYLES = String.raw`
       border: var(--nameplate-border, 1px solid rgba(214,222,232,0.24));
       box-shadow: var(--nameplate-shadow, none);
       text-shadow: none;
-      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-translate-y, -100%) + var(--nameplate-fixed-y, 0px))) var(--nameplate-object-transform, rotate(0deg) scale(1, 1));
+      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-translate-y, -100%) + var(--nameplate-fixed-y, 0px) + var(--nameplate-character-y, 0px))) var(--nameplate-object-transform, rotate(0deg) scale(1, 1));
     }
     .nameplate-layer.inside .nameplate {
       background: transparent;
       border: none;
       box-shadow: none;
       text-shadow: none;
-      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-offset-y, 0px) + var(--nameplate-fixed-y, 0px)));
+      transform: translate(calc(-50% + var(--nameplate-offset-x, 0px) + var(--nameplate-fixed-x, 0px)), calc(var(--nameplate-offset-y, 0px) + var(--nameplate-fixed-y, 0px) + var(--nameplate-character-y, 0px)));
     }
     .dialogue {
       position: absolute;
@@ -789,24 +800,24 @@ export const WEB_EXPORT_STYLES = String.raw`
       z-index: 11000;
       display: none;
       place-items: center;
-      padding: clamp(12px, 3vw, 36px);
-      background: rgba(255,255,255,0.18);
-      backdrop-filter: blur(5px);
+      padding: 0;
+      background: transparent;
     }
     .flow-overview-backdrop.open { display: grid; }
     .flow-overview-panel {
       position: relative;
-      width: min(1180px, 100%);
-      height: min(780px, 100%);
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      border: 1px solid rgba(15,23,42,0.28);
-      border-radius: 22px;
+      border: 0;
+      border-radius: 0;
       background: #fff;
       color: #252a59;
-      box-shadow: 0 28px 80px rgba(15,23,42,0.22);
+      box-shadow: none;
     }
+    .flow-overview-backdrop .flow-overview-panel.gw-flow-theme { border:0; border-radius:0; }
     .flow-overview-head {
       display: flex;
       align-items: center;
@@ -830,7 +841,7 @@ export const WEB_EXPORT_STYLES = String.raw`
       box-shadow: 0 6px 16px rgba(15,23,42,0.12);
     }
     .flow-overview-close:hover { color: #4f46e5; border-color: #818cf8; }
-    .flow-overview-close-floating { position: absolute; top: 18px; right: 18px; z-index: 12; }
+    .flow-overview-close-floating { position: absolute; top: 18px; right: 18px; z-index: 12; width:auto; height:auto; padding:14px 20px; white-space:nowrap; }
     .flow-overview-viewport { position: relative; flex: 1; overflow: hidden; background: transparent; }
     .flow-overview-graph-region { position: absolute; inset: 0; overflow: hidden; background: transparent; border: 0; box-shadow: none; touch-action: none; cursor: grab; }
     .flow-overview-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
@@ -931,6 +942,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .settings-backdrop.open { display: grid; }
     #settingsBackdrop { padding:0; }
+    #settingsBackdrop:not(.gw-playback-settings) { backdrop-filter:none; }
     #settingsBackdrop.gw-playback-settings { background: rgba(15,23,42,0.56); backdrop-filter: blur(10px); }
     #settingsCustomLayer { z-index:20; pointer-events:none; }
     #settingsCustomLayer .start-element { pointer-events:auto; }

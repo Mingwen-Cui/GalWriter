@@ -21,7 +21,7 @@ function gwAppearance(target,value,radius){
   });
   (value.strokes||[]).slice().reverse().filter(s=>s.enabled).forEach(s=>{const n=layer();n.style.inset=(s.position==='outside'?-s.width:s.position==='center'?-s.width/2:0)+'px';n.style.border=s.width+'px solid '+s.color;if(s.paint&&s.paint.type==='gradient'){const f=s.paint;const stops=(f.gradientStops||[{color:f.gradientStart,alpha:100,position:0},{color:f.gradientEnd,alpha:100,position:100}]).map(v=>v.color+' '+v.position+'%').join(',');n.style.borderImage='linear-gradient('+f.gradientAngle+'deg,'+stops+') 1';}else if(s.paint&&s.paint.type==='image')n.style.borderImage='url('+JSON.stringify(s.paint.imageUrl)+') 1';n.style.boxSizing='border-box';host.append(n);});
   Array.from(target.childNodes).forEach(n=>{if(n.nodeType===3&&n.textContent.trim()){const text=document.createElement('span');text.textContent=n.textContent;n.replaceWith(text);}});
-  Array.from(target.children).forEach(n=>{if(n.style){if(!n.style.position)n.style.position='relative';if(!n.style.zIndex)n.style.zIndex='1';}});
+  Array.from(target.children).forEach(n=>{if(n.style){if(getComputedStyle(n).position==='static')n.style.position='relative';if(getComputedStyle(n).zIndex==='auto')n.style.zIndex='1';}});
   target.prepend(host);
  });
 }

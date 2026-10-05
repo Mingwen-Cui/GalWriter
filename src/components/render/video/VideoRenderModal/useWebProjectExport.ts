@@ -90,6 +90,7 @@ export const useWebProjectExport = ({
       const options = {
         projectName: exportTitle,
         language,
+        standalonePlayer: format === 'windows-installer',
         style: {
           ...webRenderStyle,
           choiceColor: webChoiceColor,

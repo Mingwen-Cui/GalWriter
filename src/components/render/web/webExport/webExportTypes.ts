@@ -6,6 +6,8 @@ export type { WebExportSettings };
 export type WebExportOptions = {
   projectName?: string;
   language: 'zh' | 'ja' | 'en';
+  /** The unpacked content folder belongs to the standalone EXE player. */
+  standalonePlayer?: boolean;
   style?: WebExportStyle;
   settings?: WebExportSettings;
 };

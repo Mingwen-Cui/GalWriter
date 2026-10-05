@@ -19,7 +19,7 @@ import {
 import type { PlayerSettingsPanelConfig } from '../playerSettingsPanelConfig';
 import { appearanceRuntimeScript } from '../../shared/paint/appearanceRuntime';
 import type { Language } from '../../../../lib/i18n';
-import { formatWebText } from '../i18n';
+import { formatWebText, getWebSettingsCopy } from '../i18n';
 import {
   mountPlayerSettings,
   playerSettingsMarkup,
@@ -148,7 +148,7 @@ ${SCENE_SWITCH_CSS}</style>
   <div class="flow-overview-backdrop" id="flowOverviewBackdrop" role="dialog" aria-modal="true" aria-label="Flow overview">
     <div class="flow-overview-panel" id="flowOverviewPanel">
       <div class="flow-overview-viewport" id="flowOverviewViewport">
-        <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="${language === 'zh' ? '返回菜单' : language === 'ja' ? 'メニューに戻る' : 'Return to menu'}">← ${language === 'zh' ? '返回菜单' : language === 'ja' ? 'メニューに戻る' : 'Return to menu'}</button>
+        <button class="flow-overview-close flow-overview-close-floating" id="flowOverviewClose" type="button" aria-label="${getWebSettingsCopy(language).backToMainMenu}">${getWebSettingsCopy(language).backToMainMenu}</button>
         <div class="flow-overview-graph-region" id="flowOverviewGraphRegion"><div class="flow-overview-canvas" id="flowOverviewCanvas"></div></div>
         <div class="flow-overview-custom-layer" id="flowOverviewCustomLayer"></div>
         <div class="flow-overview-minimap" id="flowOverviewMinimap" aria-label="Flow chart navigator">
@@ -769,8 +769,8 @@ ${SCENE_SWITCH_CSS}</style>
     const stageEl = document.getElementById("stage");
     let nameplateSyncFrame = 0;
     function syncNameplatePositions() {
-      if (style.nameplateFollowCharacter === false || !stageEl) return;
-      const dialogue = stageEl.querySelector(".dialogue");
+      if (!stageEl) return;
+      const dialogue = stageEl.querySelector(".nameplate-anchor") || stageEl.querySelector(".dialogue");
       if (!dialogue) return;
       const dialogueRect = dialogue.getBoundingClientRect();
       const logicalWidth = dialogue.offsetWidth || dialogueRect.width;
@@ -781,24 +781,32 @@ ${SCENE_SWITCH_CSS}</style>
           character,
         ]),
       );
-      stageEl.querySelectorAll(".nameplate[data-follow-source-id]").forEach((nameplate) => {
-        const sourceNodeId = nameplate.getAttribute("data-follow-source-id") || "";
+      stageEl.querySelectorAll(".nameplate[data-nameplate-source-id]").forEach((nameplate) => {
+        const sourceNodeId = nameplate.getAttribute("data-nameplate-source-id") || "";
         const character = charactersBySourceId.get(sourceNodeId);
         if (!character) return;
         const characterRect = character.getBoundingClientRect();
+        const paint = getComputedStyle(character);
+        nameplate.style.opacity = paint.opacity;
+        nameplate.style.visibility = character.dataset.exited === 'true' ? 'hidden' : paint.visibility;
         if (characterRect.width <= 0) return;
+        if (style.nameplateFollowCharacter === false) return;
         const centerX =
           (characterRect.left + characterRect.width / 2 - dialogueRect.left) /
           Math.max(0.001, scaleX);
         nameplate.style.left = centerX + "px";
+        const matrix = paint.transform === 'none' ? null : new DOMMatrixReadOnly(paint.transform);
+        const parent = character.parentElement;
+        const parentScaleY = parent?.offsetHeight ? parent.getBoundingClientRect().height / parent.offsetHeight : 1;
+        const anchorScaleY = dialogue.offsetHeight ? dialogueRect.height / dialogue.offsetHeight : 1;
+        nameplate.style.setProperty('--nameplate-character-y', ((matrix?.m42 || 0) * parentScaleY / Math.max(0.001, anchorScaleY)) + 'px');
       });
     }
     function startNameplatePositionSync() {
       if (nameplateSyncFrame) cancelAnimationFrame(nameplateSyncFrame);
-      if (style.nameplateFollowCharacter === false) return;
       const tick = () => {
         syncNameplatePositions();
-        if (stageEl.querySelector(".nameplate[data-follow-source-id]")) {
+        if (stageEl.querySelector(".nameplate[data-nameplate-source-id]")) {
           nameplateSyncFrame = requestAnimationFrame(tick);
         } else {
           nameplateSyncFrame = 0;
@@ -2821,6 +2829,10 @@ ${SCENE_SWITCH_CSS}</style>
       const panel = stageEl.querySelector('.dialogue');
       Object.assign(panel.style, { position: 'absolute', boxSizing: 'border-box', margin: '0', padding: '0',
         left: data.dialog.x + 'px', top: data.dialog.y + 'px', width: data.dialog.width + 'px', height: data.dialog.height + 'px' });
+      const nameplateAnchor = stageEl.querySelector('.nameplate-anchor');
+      if (nameplateAnchor) Object.assign(nameplateAnchor.style, {
+        left: data.dialog.x + 'px', top: data.dialog.y + 'px', width: data.dialog.width + 'px', height: data.dialog.height + 'px',
+      });
       const title = panel.querySelector('.title');
       if (title) title.hidden = true;
       const text = document.getElementById('nodeText');
@@ -3123,7 +3135,7 @@ ${SCENE_SWITCH_CSS}</style>
       if (data.presentation && Array.isArray(data.presentation.characters)) {
         const dialogWidth = clamp(style.dialogWidth, 35, 100, 86);
         const dialogLeft = 50 + clamp(style.dialogOffsetX, -100, 100, 0) * 0.5 - dialogWidth / 2;
-        const visibleNameplates = style.nameplateVisible !== false
+        const visibleNameplates = style.nameplateVisible !== false && nameplateObject.visible !== false
           ? data.presentation.characters.filter((char) => char && char.name)
           : [];
         if (visibleNameplates.length) {
@@ -3142,7 +3154,7 @@ ${SCENE_SWITCH_CSS}</style>
               const fixedStyle = style.nameplateFollowCharacter === false
                 ? '; --nameplate-fixed-x: ' + (Number(fixedPosition.x) || 0) + 'px; --nameplate-fixed-y: ' + (Number(fixedPosition.y) || 0) + 'px'
                 : '';
-              return '<div class="nameplate"' + followSource + ' style="left: ' + localLeft + '%' + fixedStyle + '">' + escapeHtml(char.name || "") + '</div>';
+              return '<div class="nameplate" data-nameplate-source-id="' + escapeAttr(char.sourceNodeId || '') + '"' + followSource + ' style="left: ' + localLeft + '%' + fixedStyle + '">' + escapeHtml(char.name || "") + '</div>';
             }).join("") +
             '</div>';
         }
@@ -3198,15 +3210,21 @@ ${SCENE_SWITCH_CSS}</style>
           '</div>' +
         '</div>' +
         '<div class="dialogue">' +
-          nameplatesHtml +
+          (style.nameplateInside ? nameplatesHtml : '') +
           (choicePosition === "aboveText" ? renderChoices(node, edges, "above") : "") +
           (hideCenteredTitle ? "" : '<h2 class="title' + animationClass(style.titleAnimation) + '">' + escapeHtml(data.title || "") + '</h2>') +
           '<div class="text' + animationClass(style.bodyAnimation) + '" id="nodeText">' + (data.text || "") + '</div>' +
           (data.audioUrl ? '<audio id="nodeAudio" src="' + escapeAttr(data.audioUrl) + '" preload="auto" hidden></audio>' : '') +
           (choicePosition === "belowText" ? renderChoices(node, edges, "below") : "") +
         '</div>' +
+        (!style.nameplateInside && nameplatesHtml ? '<div class="nameplate-anchor">' + nameplatesHtml + '</div>' : '') +
         (choicePosition === "center" ? renderChoices(node, edges, "center") : "");
       mountResolvedText(node);
+      stageEl.querySelectorAll('.nameplate').forEach((nameplate) => {
+        if (nameplateObject.appearance && !style.nameplateInside) gwAppearance(nameplate, nameplateObject.appearance,
+          nameplateObject.corners ? nameplateObject.corners.map(radius => radius + 'px').join(' ') : null);
+      });
+      syncNameplatePositions();
       startNameplatePositionSync();
       watchZenButtonPosition();
 
@@ -3338,16 +3356,24 @@ ${SCENE_SWITCH_CSS}</style>
       if (flowOverviewBackdrop.classList.contains("open")) applyFlowTransform();
     });
     flowMinimapResizeObserver.observe(flowOverviewMinimapMap);
+    function flowPointerPosition(event) {
+      const rect = flowGraphRegion.getBoundingClientRect();
+      return {
+        x: (event.clientX - rect.left) * flowGraphRegion.clientWidth / Math.max(1, rect.width),
+        y: (event.clientY - rect.top) * flowGraphRegion.clientHeight / Math.max(1, rect.height),
+      };
+    }
     let flowDrag = null;
     flowGraphRegion.addEventListener("pointerdown", (event) => {
       if ((event.button !== 0 && event.button !== 1) || event.target.closest(".flow-overview-node")) return;
       event.preventDefault();
-      flowDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, pan: { ...flowPan } };
+      flowDrag = { pointerId: event.pointerId, ...flowPointerPosition(event), pan: { ...flowPan } };
       flowGraphRegion.setPointerCapture(event.pointerId);
     });
     flowGraphRegion.addEventListener("pointermove", (event) => {
       if (!flowDrag || flowDrag.pointerId !== event.pointerId) return;
-      flowPan = { x: flowDrag.pan.x + event.clientX - flowDrag.x, y: flowDrag.pan.y + event.clientY - flowDrag.y };
+      const point = flowPointerPosition(event);
+      flowPan = { x: flowDrag.pan.x + point.x - flowDrag.x, y: flowDrag.pan.y + point.y - flowDrag.y };
       applyFlowTransform();
     });
     const endFlowDrag = (event) => { flowDrag = null; if (flowGraphRegion.hasPointerCapture(event.pointerId)) flowGraphRegion.releasePointerCapture(event.pointerId); };
@@ -3355,8 +3381,8 @@ ${SCENE_SWITCH_CSS}</style>
     flowGraphRegion.addEventListener("pointercancel", endFlowDrag);
     flowGraphRegion.addEventListener("wheel", (event) => {
       event.preventDefault();
-      const rect = flowGraphRegion.getBoundingClientRect();
-      setFlowOverviewZoom(flowOverviewZoom * Math.exp(-Math.max(-240, Math.min(240, event.deltaY)) * 0.0014), false, event.clientX - rect.left, event.clientY - rect.top);
+      const point = flowPointerPosition(event);
+      setFlowOverviewZoom(flowOverviewZoom * Math.exp(-Math.max(-240, Math.min(240, event.deltaY)) * 0.0014), false, point.x, point.y);
     }, { passive: false });
     saveSlotButton.addEventListener("click", openSaveList);
     newGameButton.addEventListener("click", startNewGame);

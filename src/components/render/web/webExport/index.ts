@@ -27,6 +27,7 @@ import { buildUniversalWebTemplate } from '../universalExperienceTemplate';
 import { resolveSettingsPageElements, resolveArchivePageElements } from '../webMenuPageElements';
 import { LOCAL_PREVIEW_CMD, LOCAL_PREVIEW_SERVER } from './localPreviewLauncher';
 import { makeIndexHtml } from './webExportHtml';
+import { usedRenderStyle, usedSurfaceSettings } from './webExportAssetUsage';
 import type {
   WebExportEdge,
   WebExportNode,
@@ -269,34 +270,34 @@ export async function buildInteractiveWebZipBlob(
   const zip = new JSZip();
   const assetMap = new Map<string, string>();
   const assetFailures = new Map<string, ExportAssetFailure>();
+  // Several surfaces can request the same media concurrently. Share their
+  // in-flight load as well as the completed path so it is written only once.
+  const once = (loader: typeof addImageAsset) => {
+    const pending = new Map<string, ReturnType<typeof addImageAsset>>();
+    return (...args: Parameters<typeof addImageAsset>) => {
+      const source = args[1] ? resolveKnownAppAssetUrl(args[1]) : '';
+      if (!source) return loader(...args);
+      if (!pending.has(source)) pending.set(source, loader(...args));
+      return pending.get(source)!;
+    };
+  };
+  const packImageAsset = once(addImageAsset);
+  const packVideoAsset = once(addVideoAsset);
+  const packAudioAsset = once(addAudioAsset);
   const title = options.projectName?.trim() || 'galwriter-web';
   const defaultTemplate = buildUniversalWebTemplate(options.language, title);
   options = {
     ...options,
     settings: { ...defaultTemplate.settings, ...options.settings },
   };
-  const style: WebExportStyle = {
+  let style: WebExportStyle = {
     ...DEFAULT_RENDER_STYLE,
     ...defaultTemplate.renderStyle,
     ...options.style,
     choiceColor: options.style?.choiceColor || defaultTemplate.choiceColor,
     choiceTextColor: options.style?.choiceTextColor || defaultTemplate.choiceTextColor,
   };
-  style.dialogImageUrl = await addImageAsset(
-    zip,
-    style.dialogImageUrl,
-    `${title}-dialog-background`,
-    assetMap,
-    assetFailures,
-  );
-  style.nameplateImageUrl = await addImageAsset(
-    zip,
-    style.nameplateImageUrl,
-    `${title}-nameplate-background`,
-    assetMap,
-    assetFailures,
-  );
-  const settings: WebExportSettings = {
+  let settings: WebExportSettings = {
     canvasWidth: options.settings?.canvasWidth ?? 1920,
     canvasHeight: options.settings?.canvasHeight ?? 1080,
     canvasRatioWidth: options.settings?.canvasRatioWidth ?? 16,
@@ -454,6 +455,14 @@ export async function buildInteractiveWebZipBlob(
     hideCharacterTags: true,
     hideSceneTags: true,
   };
+  settings.surfaceAppearances = options.settings?.surfaceAppearances;
+  settings = usedSurfaceSettings(settings);
+  style = { ...usedRenderStyle(style as RenderStyle, [
+    ...settings.startMenuElements, ...settings.archivePageElements, ...settings.settingsPageElements,
+    ...settings.previewToolbarElements, ...settings.dialogueOverlayElements, ...settings.flowOverviewElements,
+  ]), choiceColor: style.choiceColor, choiceTextColor: style.choiceTextColor };
+  style.dialogImageUrl = await packImageAsset(zip, style.dialogImageUrl, `${title}-dialog-background`, assetMap, assetFailures);
+  style.nameplateImageUrl = await packImageAsset(zip, style.nameplateImageUrl, `${title}-nameplate-background`, assetMap, assetFailures);
   const packAppearance = async (
     appearance: SurfaceAppearance | undefined,
     label: string,
@@ -467,7 +476,7 @@ export async function buildInteractiveWebZipBlob(
               paint: stroke.paint
                 ? {
                     ...stroke.paint,
-                    imageUrl: await addImageAsset(
+                    imageUrl: await packImageAsset(
                       zip,
                       stroke.paint.imageUrl,
                       `${label}-stroke-${i}`,
@@ -481,14 +490,14 @@ export async function buildInteractiveWebZipBlob(
           fills: await Promise.all(
             appearance.fills.map(async (fill, i) => ({
               ...fill,
-              imageUrl: await addImageAsset(
+              imageUrl: await packImageAsset(
                 zip,
                 fill.imageUrl,
                 `${label}-fill-${i}`,
                 assetMap,
                 assetFailures,
               ),
-              videoUrl: await addVideoAsset(
+              videoUrl: await packVideoAsset(
                 zip,
                 fill.videoUrl,
                 `${label}-video-${i}`,
@@ -499,8 +508,9 @@ export async function buildInteractiveWebZipBlob(
           ),
         }
       : undefined;
+  const usedSurfaces = settings.surfaceAppearances;
   settings.surfaceAppearances = {};
-  for (const [surface, appearance] of Object.entries(options.settings?.surfaceAppearances || {}))
+  for (const [surface, appearance] of Object.entries(usedSurfaces || {}))
     settings.surfaceAppearances[surface as 'start' | 'archive' | 'settings' | 'game' | 'flow'] =
       await packAppearance(appearance, `${title}-${surface}`);
   if (style.renderObjects)
@@ -508,60 +518,61 @@ export async function buildInteractiveWebZipBlob(
       await Promise.all(
         Object.entries(style.renderObjects).map(async ([key, object]) => [
           key,
-          { ...object, appearance: await packAppearance(object.appearance, `${title}-${key}`) },
+          { ...object, appearance: await packAppearance(object.appearance, `${title}-${key}`),
+            fill: { ...object.fill, imageUrl: await packImageAsset(zip, object.fill.imageUrl, `${title}-${key}-fill`, assetMap, assetFailures) } },
         ]),
       ),
     ) as typeof style.renderObjects;
-  settings.startMenuBackgroundImageUrl = await addImageAsset(
+  settings.startMenuBackgroundImageUrl = await packImageAsset(
     zip,
     settings.startMenuBackgroundImageUrl,
     `${title}-start-background`,
     assetMap,
     assetFailures,
   );
-  settings.sceneBackgroundImageUrl = await addImageAsset(
+  settings.sceneBackgroundImageUrl = await packImageAsset(
     zip,
     settings.sceneBackgroundImageUrl,
     `${title}-scene-background`,
     assetMap,
     assetFailures,
   );
-  settings.archiveBackgroundImageUrl = await addImageAsset(
+  settings.archiveBackgroundImageUrl = await packImageAsset(
     zip,
     settings.archiveBackgroundImageUrl,
     `${title}-archive-background`,
     assetMap,
     assetFailures,
   );
-  settings.settingsBackgroundImageUrl = await addImageAsset(
+  settings.settingsBackgroundImageUrl = await packImageAsset(
     zip,
     settings.settingsBackgroundImageUrl,
     `${title}-settings-background`,
     assetMap,
     assetFailures,
   );
-  settings.dialogueBackgroundImageUrl = await addImageAsset(
+  settings.dialogueBackgroundImageUrl = await packImageAsset(
     zip,
     settings.dialogueBackgroundImageUrl,
     `${title}-dialogue-background`,
     assetMap,
     assetFailures,
   );
-  settings.flowOverviewBackgroundImageUrl = await addImageAsset(
+  settings.flowOverviewBackgroundImageUrl = await packImageAsset(
     zip,
     settings.flowOverviewBackgroundImageUrl,
     `${title}-flow-overview-background`,
     assetMap,
     assetFailures,
   );
-  settings.flowOverviewBackgroundMusicUrl = await addAudioAsset(
+  settings.flowOverviewBackgroundMusicUrl = await packAudioAsset(
     zip,
     settings.flowOverviewBackgroundMusicUrl,
     `${title}-flow-overview-music`,
     assetMap,
     assetFailures,
   );
-  settings.startMenuBackgroundMusicUrl = await addAudioAsset(
+  settings.startMenuBackgroundMusicUrl = await packAudioAsset(
     zip,
     settings.startMenuBackgroundMusicUrl,
     `${title}-start-menu-music`,
@@ -573,14 +584,14 @@ export async function buildInteractiveWebZipBlob(
       elements.map(async (element) => ({
         ...element,
         appearance: await packAppearance(element.appearance, `${title}-${pageName}-${element.id}`),
-        imageUrl: await addImageAsset(
+        imageUrl: await packImageAsset(
           zip,
           element.imageUrl,
           `${title}-${pageName}-${element.id || 'element'}`,
           assetMap,
           assetFailures,
         ),
-        backgroundImageUrl: await addImageAsset(
+        backgroundImageUrl: await packImageAsset(
           zip,
           element.backgroundImageUrl,
           `${title}-${pageName}-${element.id || 'button'}-background`,
@@ -643,21 +654,21 @@ export async function buildInteractiveWebZipBlob(
     }
 
     const titleText = nodeTitle(node);
-    const imageUrl = await addImageAsset(
+    const imageUrl = await packImageAsset(
       zip,
       typeof node.data?.imageUrl === 'string' ? node.data.imageUrl : undefined,
       `${titleText}-image`,
       assetMap,
       assetFailures,
     );
-    const videoUrl = await addVideoAsset(
+    const videoUrl = await packVideoAsset(
       zip,
-      typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,
+      !imageUrl && typeof node.data?.videoUrl === 'string' ? node.data.videoUrl : undefined,
       `${titleText}-video`,
       assetMap,
       assetFailures,
     );
-    const audioUrl = await addAudioAsset(
+    const audioUrl = await packAudioAsset(
       zip,
       typeof node.data?.audioUrl === 'string' ? node.data.audioUrl : undefined,
       `${titleText}-audio`,
@@ -665,7 +676,7 @@ export async function buildInteractiveWebZipBlob(
       assetFailures,
     );
     const regionMusicMatch = resolveRegionBackgroundMusic(nodes, node);
-    const backgroundMusicUrl = await addAudioAsset(
+    const backgroundMusicUrl = await packAudioAsset(
       zip,
       regionMusicMatch?.music.url,
       `${titleText}-background-music`,
@@ -691,7 +702,7 @@ export async function buildInteractiveWebZipBlob(
           ? await resolveSceneAmbientPresetUrl(rawAmbientSound)
           : rawAmbientSound.url
         : undefined;
-      const ambientSoundUrl = await addAudioAsset(
+      const ambientSoundUrl = await packAudioAsset(
         zip,
         resolvedAmbientUrl,
         `${titleText}-scene-ambience`,
@@ -703,7 +714,7 @@ export async function buildInteractiveWebZipBlob(
         sceneData?.scenePresetEnabled === true,
       );
       const lightOverlayUrl = lightOverlaySourceUrl
-        ? await addImageAsset(
+        ? await packImageAsset(
             zip,
             lightOverlaySourceUrl,
             `${titleText}-scene-light`,
@@ -720,7 +731,7 @@ export async function buildInteractiveWebZipBlob(
           const charName = charData.characterName || charData.name || '';
 
           if (typeof rawCharImgUrl === 'string' && rawCharImgUrl.trim()) {
-            const packedCharImgUrl = await addImageAsset(
+            const packedCharImgUrl = await packImageAsset(
               zip,
               rawCharImgUrl,
               `${charName || 'character'}-avatar`,
@@ -753,7 +764,7 @@ export async function buildInteractiveWebZipBlob(
               ? (source?.data as any)?.images
               : (source?.data as any)?.outfits;
           const target = assets?.find((asset: any) => asset.id === action.targetAssetId);
-          packedAction.targetImageUrl = await addImageAsset(
+          packedAction.targetImageUrl = await packImageAsset(
             zip,
             target?.imageUrl,
             `${action.kind}-switch-${action.id}`,
@@ -867,14 +878,16 @@ export async function buildInteractiveWebZipBlob(
   zip.file('audio/volume-test-jingle.ogg', await testMusicResponse.blob());
   zip.file('audio/volume-test-jingle.LICENSE.md', volumeTestJingleLicense);
   zip.folder('images');
-  zip.file('start-preview.cmd', LOCAL_PREVIEW_CMD);
-  zip.file('preview-server.ps1', LOCAL_PREVIEW_SERVER);
-  zip.file(
-    'README.txt',
-    'Windows：解压后双击 start-preview.cmd，通过本机 HTTP 地址打开网页。播放期间保留启动窗口，关闭窗口即停止服务。无需安装 Node.js 或 Python。\r\n' +
-      '直接打开 index.html 仍可使用；如果浏览器提示 file: 来源限制，请使用上述启动入口。\r\n' +
-      'Windows: Extract the archive and double-click start-preview.cmd. Keep its window open while playing. No Node.js or Python installation is required.\r\n',
-  );
+  if (!options.standalonePlayer) {
+    zip.file('start-preview.cmd', LOCAL_PREVIEW_CMD);
+    zip.file('preview-server.ps1', LOCAL_PREVIEW_SERVER);
+    zip.file(
+      'README.txt',
+      'Windows：解压后双击 start-preview.cmd，通过本机 HTTP 地址打开网页。播放期间保留启动窗口，关闭窗口即停止服务。无需安装 Node.js 或 Python。\r\n' +
+        '直接打开 index.html 仍可使用；如果浏览器提示 file: 来源限制，请使用上述启动入口。\r\n' +
+        'Windows: Extract the archive and double-click start-preview.cmd. Keep its window open while playing. No Node.js or Python installation is required.\r\n',
+    );
+  }
 
   return zip.generateAsync({ type: 'blob' });
 }
