@@ -70,12 +70,13 @@ jobs:
           New-Item -ItemType Directory -Force ".android-signing" | Out-Null
           [IO.File]::WriteAllBytes(".android-signing/galwriter-release.keystore", [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
 
-          @"
-storeFile=../../../.android-signing/galwriter-release.keystore
-storePassword=$env:ANDROID_KEYSTORE_PASSWORD
-keyAlias=$env:ANDROID_KEY_ALIAS
-keyPassword=$env:ANDROID_KEY_PASSWORD
-"@ | Set-Content -Encoding UTF8 "src-tauri/gen/android/key.properties"
+          $keyProperties = @(
+            "storeFile=../../../.android-signing/galwriter-release.keystore"
+            "storePassword=$env:ANDROID_KEYSTORE_PASSWORD"
+            "keyAlias=$env:ANDROID_KEY_ALIAS"
+            "keyPassword=$env:ANDROID_KEY_PASSWORD"
+          )
+          Set-Content -Path "src-tauri/gen/android/key.properties" -Value ($keyProperties -join [Environment]::NewLine) -Encoding UTF8
 
       - name: Build and prepare complete Windows package
         run: |
