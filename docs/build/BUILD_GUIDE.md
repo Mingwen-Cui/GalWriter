@@ -72,7 +72,9 @@ npm run tauri:build:windows:lite
 npm run tauri:prepare:release:lite
 
 npm run tauri:build:android:full
+npm run tauri:prepare:android:full
 npm run tauri:build:android:lite
+npm run tauri:prepare:android:lite
 ```
 
 Windows、Web 和 Android 发布文件会带 `-full` 或 `-lite` 后缀。Android 同包名的完整 APK 和极简 APK 不能作为两个可共存应用发布；官网主推极简 APK，完整 APK 适合需要离线资源的安装。两者若互相升级，必须使用相同签名且 Android `versionCode` 递增。

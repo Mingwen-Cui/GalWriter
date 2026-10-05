@@ -45,8 +45,16 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          sdkmanager --licenses < $null
+          $licenseResponses = (1..100 | ForEach-Object { "y" }) -join "`n"
+          $licenseResponses | sdkmanager --licenses
+          if ($LASTEXITCODE -ne 0) {
+            throw "Accepting Android SDK licenses failed."
+          }
+
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973" "cmdline-tools;latest"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Installing Android SDK packages failed."
+          }
 
       - name: Install frontend dependencies
         run: npm ci
@@ -91,12 +99,12 @@ jobs:
       - name: Build and prepare complete Android package
         run: |
           npm run tauri:build:android:full
-          npm run tauri:prepare:release:full
+          npm run tauri:prepare:android:full
 
       - name: Build and prepare lite Android package
         run: |
           npm run tauri:build:android:lite
-          npm run tauri:prepare:release:lite
+          npm run tauri:prepare:android:lite
 
       - name: Prepare release assets
         shell: pwsh

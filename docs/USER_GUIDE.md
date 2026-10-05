@@ -12,7 +12,14 @@ GalWriter 用于制作视觉小说、分支故事和互动演示：在画布组�
 
 ## 连接 Codex（MCP）
 
-MCP 仅由 Windows 桌面版提供。启动 GalWriter，在 Assistant →「AI MCP」复制连接指令并交给本机 Codex。服务地址为 `http://127.0.0.1:38941/mcp`；使用期间 GalWriter 必须保持运行。浏览器版不能连接访问者电脑上的本机服务。
+MCP 仅由 Windows 桌面版提供。启动 GalWriter，把以下配置写入 `~/.codex/config.toml`，然后重启 Codex：
+
+```toml
+[mcp_servers.galwriter]
+url = "http://127.0.0.1:38941/mcp"
+```
+
+也可执行 `codex mcp add galwriter --url http://127.0.0.1:38941/mcp`。使用期间 GalWriter 必须保持运行；浏览器版不能连接访问者电脑上的本机服务。
 
 ## 数据与隐私
 
