@@ -36,6 +36,7 @@ import {
 import { WEB_EXPORT_STYLES } from './webExportStyles';
 import { WEB_BUTTON_MOTION_CSS } from '../webButtonMotion';
 import { webShapeMarkup } from '../webShapes';
+import { segmentLinkPath } from '../../video/interactive/interactiveSegmentGraphLayout';
 
 export const makeIndexHtml = (
   title: string,
@@ -155,13 +156,13 @@ ${SCENE_SWITCH_CSS}</style>
           <div class="flow-overview-minimap-map" id="flowOverviewMinimapMap" aria-hidden="true"></div>
           <div class="flow-overview-minimap-controls" role="toolbar" aria-label="Flow chart zoom controls">
             <button class="flow-overview-minimap-control" id="flowOverviewZoomIn" type="button" aria-label="Zoom in" title="Zoom in">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M32 18.133H18.133V32h-4.266V18.133H0v-4.266h13.867V0h4.266v13.867H32z" /></svg>
             </button>
             <button class="flow-overview-minimap-control" id="flowOverviewZoomOut" type="button" aria-label="Zoom out" title="Zoom out">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+              <svg viewBox="0 0 32 5" aria-hidden="true"><path d="M0 0h32v4.2H0z" /></svg>
             </button>
             <button class="flow-overview-minimap-control" id="flowOverviewFitView" type="button" aria-label="Fit flow chart to screen" title="Fit flow chart to screen">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+              <svg viewBox="0 0 32 30" aria-hidden="true"><path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" /></svg>
             </button>
           </div>
         </div>
@@ -861,9 +862,11 @@ ${SCENE_SWITCH_CSS}</style>
     const flowGraphRegion = document.getElementById("flowOverviewGraphRegion");
     let flowOverviewZoom = 1;
     let flowPan = { x: 0, y: 0 };
-    let flowMinimapViewportRect = null;
-    let flowMinimapGraphSize = { width: 1, height: 1 };
+    let flowMinimapSvg = null;
+    let flowMinimapLayout = null;
+    let flowOverviewActiveNodeId = "";
     const buildMinimapGeometry = ${buildMinimapGeometry.toString()};
+    const segmentLinkPath = ${segmentLinkPath.toString()};
     const flowOverviewControlLabels = content.language === "zh"
       ? { zoomIn: "放大", zoomOut: "缩小", fit: "适应屏幕" }
       : content.language === "ja"
@@ -1402,6 +1405,8 @@ ${SCENE_SWITCH_CSS}</style>
             icon.style.height = '45%';
           }
           if (!isToolbar && element.textVisible === false && (element.role === "flowDirection" || element.role === "flowFitView")) {
+            button.classList.add("gw-flow-control");
+            button.style.padding = "0";
             button.setAttribute('aria-label', buttonLabel || element.role);
             button.title = buttonLabel || element.role;
           }
@@ -1410,9 +1415,11 @@ ${SCENE_SWITCH_CSS}</style>
             icon.setAttribute("aria-hidden", "true");
             icon.innerHTML = element.role === "flowDirection"
               ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
-              : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7M3 3v6h6"/></svg>';
-            icon.firstElementChild.style.width = "52%";
-            icon.firstElementChild.style.height = "52%";
+              : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>';
+            icon.className = "gw-flow-control-content";
+            icon.style.cssText = "position:relative;z-index:1;display:flex;width:100%;height:100%;align-items:center;justify-content:center;flex-shrink:0";
+            icon.firstElementChild.style.width = "24px";
+            icon.firstElementChild.style.height = "24px";
             button.appendChild(icon);
           }
           button.disabled = Boolean(element.disabled || action?.disabled);
@@ -2183,18 +2190,9 @@ ${SCENE_SWITCH_CSS}</style>
 
     function applyFlowTransform() {
       flowOverviewCanvas.style.transform = "translate(" + flowPan.x + "px, " + flowPan.y + "px) scale(" + flowOverviewZoom + ")";
-      if (flowMinimapViewportRect) {
-        const geometry = buildMinimapGeometry(
-          flowOverviewMinimapMap.clientWidth, flowOverviewMinimapMap.clientHeight,
-          flowMinimapGraphSize.width, flowMinimapGraphSize.height, flowPan, flowOverviewZoom,
-          { width: flowGraphRegion.clientWidth, height: flowGraphRegion.clientHeight },
-        );
-        flowMinimapViewportRect.setAttribute("x", String((geometry.viewport.x - geometry.offsetX) / geometry.scale));
-        flowMinimapViewportRect.setAttribute("y", String((geometry.viewport.y - geometry.offsetY) / geometry.scale));
-        flowMinimapViewportRect.setAttribute("width", String(geometry.viewport.width / geometry.scale));
-        flowMinimapViewportRect.setAttribute("height", String(geometry.viewport.height / geometry.scale));
-      }
+      updateFlowOverviewMinimap();
     }
+
     function setFlowOverviewZoom(value, resetPan, anchorX = flowGraphRegion.clientWidth / 2, anchorY = flowGraphRegion.clientHeight / 2) {
       const zoom = clamp(value, settings.flowOverviewView.minZoom, settings.flowOverviewView.maxZoom, 1);
       const ratio = zoom / flowOverviewZoom;
@@ -2206,11 +2204,11 @@ ${SCENE_SWITCH_CSS}</style>
     }
 
     function fitFlowOverview() {
-      const availableWidth = Math.max(1, flowGraphRegion.clientWidth - 48);
-      const availableHeight = Math.max(1, flowGraphRegion.clientHeight - 48);
+      const availableWidth = Math.max(1, flowGraphRegion.clientWidth - 112);
+      const availableHeight = Math.max(1, flowGraphRegion.clientHeight - 112);
       const canvasWidth = Math.max(1, flowOverviewCanvas.scrollWidth || flowOverviewCanvas.clientWidth);
       const canvasHeight = Math.max(1, flowOverviewCanvas.scrollHeight || flowOverviewCanvas.clientHeight);
-      setFlowOverviewZoom(Math.min(1, availableWidth / canvasWidth, availableHeight / canvasHeight), true);
+      setFlowOverviewZoom(Math.min(availableWidth / canvasWidth, availableHeight / canvasHeight), true);
       flowPan = { x: (flowGraphRegion.clientWidth - canvasWidth * flowOverviewZoom) / 2, y: (flowGraphRegion.clientHeight - canvasHeight * flowOverviewZoom) / 2 };
       applyFlowTransform();
     }
@@ -2278,9 +2276,12 @@ ${SCENE_SWITCH_CSS}</style>
 
     function showFlowNodeDetail(node) {
       if (!node) return;
+      const flowNode = content.flow?.nodes.find((candidate) => candidate.nodeIds.includes(node.id));
+      flowOverviewActiveNodeId = flowNode?.id || node.id;
+      updateFlowOverviewMinimap();
       flowOverviewBranchLabel = flowNodeTitle(node);
       renderCustomStartMenu(null, flowOverviewCustomLayer, settings.flowOverviewElements);
-      highlightFlowPath(node.id);
+      highlightFlowPath(flowOverviewActiveNodeId);
       const nextEdges = outEdges(node.id);
       flowOverviewDetail.hidden = false;
       flowOverviewDetail.innerHTML = "";
@@ -2340,92 +2341,95 @@ ${SCENE_SWITCH_CSS}</style>
     }
 
     function flowOverviewEdgePath(from, to) {
-      const fromWidth = Number(from.width) || 220;
-      const fromHeight = Number(from.height) || 132;
-      const toWidth = Number(to.width) || 220;
-      const toHeight = Number(to.height) || 132;
-      if (flowOverviewLayoutDirection === "down" || flowOverviewLayoutDirection === "up") {
-        const startX = from.x + fromWidth / 2;
-        const endX = to.x + toWidth / 2;
-        const startY = flowOverviewLayoutDirection === "down" ? from.y + fromHeight : from.y;
-        const endY = flowOverviewLayoutDirection === "down" ? to.y : to.y + toHeight;
-        const bend = Math.max(42, Math.abs(endY - startY) / 2);
-        const sign = flowOverviewLayoutDirection === "down" ? 1 : -1;
-        return "M " + startX + " " + startY + " C " + startX + " " + (startY + sign * bend) + ", " + endX + " " + (endY - sign * bend) + ", " + endX + " " + endY;
-      }
-      const startX = flowOverviewLayoutDirection === "right" ? from.x + fromWidth : from.x;
-      const endX = flowOverviewLayoutDirection === "right" ? to.x : to.x + toWidth;
-      const startY = from.y + fromHeight / 2;
-      const endY = to.y + toHeight / 2;
-      const bend = Math.max(42, Math.abs(endX - startX) / 2);
-      const sign = flowOverviewLayoutDirection === "right" ? 1 : -1;
-      return "M " + startX + " " + startY + " C " + (startX + sign * bend) + " " + startY + ", " + (endX - sign * bend) + " " + endY + ", " + endX + " " + endY;
+      return segmentLinkPath(from, to, from.width || 220, from.height || 132, flowOverviewLayoutDirection, 28, to.width || 220, to.height || 132);
+    }
+
+    function updateFlowOverviewMinimap() {
+      if (!flowMinimapSvg || !flowMinimapLayout) return;
+      const { positions, edges, width, height } = flowMinimapLayout;
+      const mapWidth = Math.max(1, flowOverviewMinimapMap.clientWidth);
+      const mapHeight = Math.max(1, flowOverviewMinimapMap.clientHeight);
+      const geometry = buildMinimapGeometry(mapWidth, mapHeight, width, height, flowPan, flowOverviewZoom, { width: flowGraphRegion.clientWidth, height: flowGraphRegion.clientHeight });
+      const { scale, offsetX, offsetY, viewport } = geometry;
+      const make = (tag) => document.createElementNS("http://www.w3.org/2000/svg", tag);
+      flowMinimapSvg.setAttribute("viewBox", "0 0 " + mapWidth + " " + mapHeight);
+      flowMinimapSvg.replaceChildren();
+      const group = make("g");
+      group.setAttribute("transform", "translate(" + offsetX + " " + offsetY + ")");
+      edges.forEach((edge) => {
+        const from = positions.get(edge.source), to = positions.get(edge.target);
+        if (!from || !to) return;
+        const path = make("path");
+        path.setAttribute("d", segmentLinkPath({ x: from.x * scale, y: from.y * scale }, { x: to.x * scale, y: to.y * scale }, from.width * scale, from.height * scale, flowOverviewLayoutDirection, 6, to.width * scale, to.height * scale));
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "rgba(100,116,139,0.48)");
+        path.setAttribute("stroke-width", "1");
+        path.setAttribute("opacity", edge.isChoice ? "0.72" : "0.4464");
+        group.appendChild(path);
+      });
+      positions.forEach((position, nodeId) => {
+        const rect = make("rect");
+        rect.setAttribute("x", position.x * scale);
+        rect.setAttribute("y", position.y * scale);
+        rect.setAttribute("width", position.width * scale);
+        rect.setAttribute("height", position.height * scale);
+        rect.setAttribute("rx", "6");
+        rect.setAttribute("ry", "6");
+        rect.setAttribute("shape-rendering", "crispEdges");
+        const active = nodeId === (flowOverviewActiveNodeId || flowOverviewRootNodeId);
+        rect.setAttribute("fill", active ? "var(--gw-accent, #625bf6)" : "#cbd5e1");
+        rect.setAttribute("stroke", active ? "var(--gw-accent, #625bf6)" : "#64748b");
+        rect.setAttribute("stroke-width", "1");
+        group.appendChild(rect);
+      });
+      flowMinimapSvg.appendChild(group);
+      const mask = make("path");
+      mask.setAttribute("d", "M0,0h" + mapWidth + "v" + mapHeight + "h-" + mapWidth + "z M" + viewport.x + "," + viewport.y + "h" + viewport.width + "v" + viewport.height + "h-" + viewport.width + "z");
+      mask.setAttribute("fill-rule", "evenodd");
+      mask.setAttribute("fill", "rgba(15,23,42,0.06)");
+      mask.setAttribute("pointer-events", "none");
+      const rect = make("rect");
+      Object.entries(viewport).forEach(([key, value]) => rect.setAttribute(key, value));
+      rect.setAttribute("fill", "none");
+      rect.setAttribute("stroke", "var(--gw-accent, #625bf6)");
+      rect.setAttribute("stroke-width", "1.25");
+      rect.setAttribute("pointer-events", "none");
+      flowMinimapSvg.append(mask, rect);
     }
 
     function renderFlowOverviewMinimap(positionById, allEdges, canvasWidth, canvasHeight) {
       if (!flowOverviewMinimapMap) return;
-      flowOverviewMinimapMap.innerHTML = "";
-      flowMinimapGraphSize = { width: canvasWidth, height: canvasHeight };
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", "0 0 " + canvasWidth + " " + canvasHeight);
-      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      svg.style.padding = "8px";
-      svg.style.boxSizing = "border-box";
-      allEdges.forEach((edge) => {
-        const from = positionById.get(edge.source);
-        const to = positionById.get(edge.target);
-        if (!from || !to) return;
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", flowOverviewEdgePath(from, to));
-        path.setAttribute("fill", "none");
-        path.setAttribute("stroke", "#c5cad1");
-        path.setAttribute("stroke-width", "1");
-        path.setAttribute("vector-effect", "non-scaling-stroke");
-        svg.appendChild(path);
-      });
-      positionById.forEach((position, nodeId) => {
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", String(position.x));
-        rect.setAttribute("y", String(position.y));
-        rect.setAttribute("width", String(position.width || 220));
-        rect.setAttribute("height", String(position.height || 132));
-        rect.setAttribute("rx", "10");
-        rect.setAttribute("fill", nodeId === flowOverviewRootNodeId ? "var(--gw-accent, #625bf6)" : "#cbd5e1");
-        rect.setAttribute("stroke", nodeId === flowOverviewRootNodeId ? "var(--gw-accent, #625bf6)" : "#64748b");
-        rect.setAttribute("stroke-width", "1");
-        rect.setAttribute("vector-effect", "non-scaling-stroke");
-        rect.setAttribute("fill-opacity", "0.9");
-        svg.appendChild(rect);
-      });
-      flowMinimapViewportRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      flowMinimapViewportRect.setAttribute("fill", "rgba(79,70,229,0.08)");
-      flowMinimapViewportRect.setAttribute("stroke", "#818cf8");
-      flowMinimapViewportRect.setAttribute("stroke-width", "1");
-      flowMinimapViewportRect.setAttribute("vector-effect", "non-scaling-stroke");
-      svg.appendChild(flowMinimapViewportRect);
+      flowMinimapLayout = { positions: positionById, edges: allEdges, width: canvasWidth, height: canvasHeight };
+      flowOverviewMinimapMap.replaceChildren();
+      flowMinimapSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      const svg = flowMinimapSvg;
       svg.style.touchAction = "none";
       const navigate = (event) => {
         const rect = svg.getBoundingClientRect();
-        const geometry = buildMinimapGeometry(svg.clientWidth, svg.clientHeight, canvasWidth, canvasHeight, flowPan, flowOverviewZoom, { width: flowGraphRegion.clientWidth, height: flowGraphRegion.clientHeight });
-        const svgX = (event.clientX - rect.left) / Math.max(1, rect.width) * svg.clientWidth;
-        const svgY = (event.clientY - rect.top) / Math.max(1, rect.height) * svg.clientHeight;
+        const width = flowOverviewMinimapMap.clientWidth, height = flowOverviewMinimapMap.clientHeight;
+        const geometry = buildMinimapGeometry(width, height, canvasWidth, canvasHeight, flowPan, flowOverviewZoom, { width: flowGraphRegion.clientWidth, height: flowGraphRegion.clientHeight });
+        const svgX = (event.clientX - rect.left) / Math.max(1, rect.width) * width;
+        const svgY = (event.clientY - rect.top) / Math.max(1, rect.height) * height;
         const graphX = clamp((svgX - geometry.offsetX) / geometry.scale, 0, canvasWidth, 0);
         const graphY = clamp((svgY - geometry.offsetY) / geometry.scale, 0, canvasHeight, 0);
         flowPan = { x: flowGraphRegion.clientWidth / 2 - graphX * flowOverviewZoom, y: flowGraphRegion.clientHeight / 2 - graphY * flowOverviewZoom };
         applyFlowTransform();
       };
-      svg.addEventListener("pointerdown", (event) => { if (event.button !== 0) return; event.preventDefault(); svg.setPointerCapture(event.pointerId); navigate(event); });
+      svg.addEventListener("pointerdown", (event) => { if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); svg.setPointerCapture(event.pointerId); navigate(event); });
       svg.addEventListener("pointermove", (event) => { if (svg.hasPointerCapture(event.pointerId)) navigate(event); });
-      svg.addEventListener("pointerup", (event) => { if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId); });
+      const endDrag = (event) => { if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId); };
+      svg.addEventListener("pointerup", endDrag);
+      svg.addEventListener("pointercancel", endDrag);
       flowOverviewMinimapMap.appendChild(svg);
+      updateFlowOverviewMinimap();
     }
 
     function openFlowOverview() {
       flowOverviewBackdrop.classList.add("open");
       const view = settings.flowOverviewView;
       Object.assign(flowGraphRegion.style, { inset: "auto", left: view.x + "%", top: view.y + "%", width: view.width + "%", height: view.height + "%" });
-      const allNodes = Array.isArray(content.nodes) ? content.nodes.filter(Boolean) : [];
-      const allEdges = Array.isArray(content.edges) ? content.edges.filter(Boolean) : [];
+      const allNodes = Array.isArray(content.flow?.nodes) ? content.flow.nodes : content.nodes || [];
+      const allEdges = Array.isArray(content.flow?.edges) ? content.flow.edges : content.edges || [];
       if (settings.surfaceAppearances?.flow) {
         gwAppearance(flowOverviewPanel, settings.surfaceAppearances.flow);
         flowOverviewViewport.style.background = 'transparent';
@@ -2452,10 +2456,11 @@ ${SCENE_SWITCH_CSS}</style>
 
       const rootNode = allNodes.find((node) => node.data && node.data.isRoot) || allNodes[0];
       flowOverviewRootNodeId = rootNode.id;
+      if (!allNodes.some((node) => node.id === flowOverviewActiveNodeId)) flowOverviewActiveNodeId = rootNode.id;
       flowOverviewBranchLabel = flowNodeTitle(rootNode);
       flowOverviewEdges = allEdges;
       const positionById = layoutWebFlow(allNodes.map((node) => {
-        const size = settings.flowOverviewCardSizes[node.id] || {};
+        const size = settings.flowOverviewCardSizes[node.segmentId] || settings.flowOverviewCardSizes[node.id] || {};
         return { id: node.id, targets: allEdges.filter((edge) => edge.source === node.id).map((edge) => edge.target),
           width: clamp(size.width, 140, 420, view.cardWidth), height: clamp(size.height, 90, 260, view.cardHeight) };
       }), flowOverviewLayoutDirection, view.gapX, view.gapY);
@@ -2490,7 +2495,7 @@ ${SCENE_SWITCH_CSS}</style>
       allNodes.forEach((node) => {
         const position = positionById.get(node.id);
         const card = document.createElement("div");
-        const locked = !flowNodeIsWatched(node.id);
+        const locked = !(node.nodeIds || [node.id]).some(flowNodeIsWatched);
         card.className = "flow-overview-node" + (node.id === rootNode.id ? " root" : "") + (locked ? " is-locked" : "");
         card.style.left = position.x + "px";
         card.style.top = position.y + "px";

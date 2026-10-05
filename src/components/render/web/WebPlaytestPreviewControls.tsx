@@ -1239,7 +1239,8 @@ export function PreviewAudioPlaylistModal({
       autoPlayOnJumpLabel={copy.autoPlay}
       showCurrentBranchOnly={showCurrentBranchOnly}
       showCurrentBranchOnlyLabel={copy.currentBranch}
-      dark
+      dark={false}
+      size="large"
       scope="container"
       onClose={onClose}
       onToggleAudio={toggleItemAudio}

@@ -32,6 +32,7 @@ import { LOCAL_PREVIEW_CMD, LOCAL_PREVIEW_SERVER } from './localPreviewLauncher'
 import { makeIndexHtml } from './webExportHtml';
 import { usedRenderStyle, usedSurfaceSettings } from './webExportAssetUsage';
 import { playableWebScope } from './webExportScope';
+import { buildExportWebFlow } from './webExportFlow';
 import type {
   WebExportEdge,
   WebExportNode,
@@ -238,6 +239,7 @@ const makeContentScript = (payload: {
   settings: WebExportSettings;
   nodes: WebExportNode[];
   edges: WebExportEdge[];
+  flow: ReturnType<typeof buildExportWebFlow>;
 }) => `window.GALWRITER_CONTENT=${JSON.stringify(payload)};\n`;
 
 const WEB_EXPORT_ICONS: Record<string, string> = {
@@ -926,6 +928,7 @@ export async function buildInteractiveWebZipBlob(
       settings,
       nodes: webNodes,
       edges: webEdges,
+      flow: buildExportWebFlow(webNodes, webEdges),
     }),
   );
   const testMusicResponse = await fetch(volumeTestJingleUrl);

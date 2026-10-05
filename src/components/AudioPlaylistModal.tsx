@@ -38,6 +38,7 @@ type AudioPlaylistModalProps = {
   showCurrentBranchOnlyLabel: string;
   dark?: boolean;
   scope?: 'viewport' | 'container' | 'panel';
+  size?: 'default' | 'large';
   onClose: () => void;
   onToggleAudio: (item: AudioPlaylistItem) => void;
   onJumpToItem: (item: AudioPlaylistItem) => void;
@@ -64,6 +65,7 @@ export function AudioPlaylistModal({
   showCurrentBranchOnly,
   showCurrentBranchOnlyLabel,
   dark = true,
+  size = 'default',
   scope = 'viewport',
   onClose,
   onToggleAudio,
@@ -108,9 +110,13 @@ export function AudioPlaylistModal({
   const modalSizeClass =
     scope === 'panel'
       ? 'h-full w-full'
-      : scope === 'container'
-        ? 'h-[min(26rem,calc(100%_-_2rem))] w-[min(32rem,calc(100%_-_2rem))]'
-        : 'h-[min(26rem,calc(100vh-4rem))] w-[min(32rem,calc(100vw-2rem))]';
+      : size === 'large'
+        ? scope === 'container'
+          ? 'h-[min(680px,calc(100%_-_2rem))] w-[min(880px,calc(100%_-_2rem))]'
+          : 'h-[min(680px,calc(100vh-4rem))] w-[min(880px,calc(100vw-2rem))]'
+        : scope === 'container'
+          ? 'h-[min(26rem,calc(100%_-_2rem))] w-[min(32rem,calc(100%_-_2rem))]'
+          : 'h-[min(26rem,calc(100vh-4rem))] w-[min(32rem,calc(100vw-2rem))]';
 
   return (
     <div

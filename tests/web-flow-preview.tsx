@@ -5,6 +5,8 @@ import { WebWorkspace } from '../src/components/render/web/WebWorkspace';
 import { useWebExportSettings } from '../src/components/render/video/export/useWebExportSettings';
 import { DEFAULT_RENDER_STYLE } from '../src/components/render/video/VideoRenderModal/workspaceStorage';
 import { makeIndexHtml } from '../src/components/render/web/webExport/webExportHtml';
+import { buildExportWebFlow } from '../src/components/render/web/webExport/webExportFlow';
+import type { WebExportNode } from '../src/components/render/web/webExport/webExportTypes';
 import type { Node, Edge } from '@xyflow/react';
 
 const nodes: Node[] = [
@@ -29,7 +31,7 @@ const nodes: Node[] = [
 ];
 const edges: Edge[] = [
   { id: 'a-b', source: 'flow-a', target: 'flow-b' },
-  { id: 'a-c', source: 'flow-a', target: 'flow-c' },
+  { id: 'b-c', source: 'flow-b', target: 'flow-c' },
 ];
 
 function App() {
@@ -39,13 +41,25 @@ function App() {
     update: (key, value) => setStyle((previous) => ({ ...previous, [key]: value })),
   });
   const [html, setHtml] = useState('');
+  const flowButton = state.webSettings.flowOverviewElements.find((element) => element.kind === 'button')!;
+  const settings = {
+    ...state.webSettings,
+    flowOverviewElements: [
+      ...state.webSettings.flowOverviewElements,
+      ...(['flowDirection', 'flowFitView'] as const).map((role, index) => ({
+        ...flowButton, id: `regression-${role}`, role, text: '', textVisible: false,
+        x: 77 + index * 4, y: 8, width: 3, height: 16 / 3, visible: true,
+      })),
+    ],
+  };
   const exportPreview = () => {
     const content = {
       title: 'Flow regression',
       language: 'zh',
       nodes,
       edges,
-      settings: state.webSettings,
+      flow: buildExportWebFlow(nodes as WebExportNode[], edges),
+      settings,
       style,
     };
     setHtml(
@@ -75,6 +89,7 @@ function App() {
           edges={edges}
           language="zh"
           {...state}
+          webSettings={settings}
           progress=""
           error=""
           progressValue={0}

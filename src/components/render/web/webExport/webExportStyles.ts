@@ -13,6 +13,9 @@ export const WEB_EXPORT_STYLES = String.raw`
       place-items: center;
     }
     button { font: inherit; }
+    .gw-flow-control { border: 0 !important; border-radius: 9999px !important; background: #f1f5f9 !important; color: #475569 !important; }
+    .gw-flow-control:hover { background: #e2e8f0 !important; color: #334155 !important; }
+    .gw-flow-control-content > svg { display: block; width: 24px !important; height: 24px !important; max-width: 72%; max-height: 72%; flex-shrink: 0; }
     .canvas-shell {
       border-radius: 0;
       position: fixed;
@@ -100,7 +103,7 @@ export const WEB_EXPORT_STYLES = String.raw`
     .tool:disabled { opacity: 0.4; cursor: not-allowed; }
     .playlist-wrap { position: relative; }
     .playlist-backdrop {
-      position: fixed;
+      position: absolute;
       inset: 0;
       z-index: 9999;
       display: none;
@@ -111,16 +114,16 @@ export const WEB_EXPORT_STYLES = String.raw`
     }
     .playlist-backdrop.open { display: grid; }
     .playlist-panel {
-      width: min(512px, calc(100vw - 32px));
-      height: min(416px, calc(100vh - 64px));
+      width: min(880px, 100%);
+      height: min(680px, 100%);
       display: flex;
       flex-direction: column;
-      padding: 16px;
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 16px;
-      background: rgba(8, 12, 20, 0.94);
-      box-shadow: 0 24px 70px rgba(0,0,0,0.5);
-      backdrop-filter: blur(18px);
+      padding: 24px;
+      border: 1px solid #e2e8f0;
+      border-radius: 24px;
+      background: #fff;
+      color: #0f172a;
+      box-shadow: 0 24px 70px rgba(15,23,42,0.2);
     }
     .playlist-head {
       display: flex;
@@ -129,27 +132,27 @@ export const WEB_EXPORT_STYLES = String.raw`
       gap: 12px;
       margin-bottom: 10px;
     }
-    .playlist-title { font-size: 14px; font-weight: 900; }
-    .playlist-hint { margin-top: 3px; color: rgba(255,255,255,0.46); font-size: 11px; }
+    .playlist-title { font-size: 18px; font-weight: 900; }
+    .playlist-hint { margin-top: 3px; color: #64748b; font-size: 12px; }
     .playlist-close {
       width: 30px;
       height: 30px;
       border: 0;
       border-radius: 8px;
       background: transparent;
-      color: rgba(255,255,255,0.64);
+      color: #64748b;
       cursor: pointer;
     }
-    .playlist-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .playlist-close:hover { background: #f1f5f9; color: #0f172a; }
     .playlist-items { min-height: 0; flex: 1; overflow-y: auto; display: grid; align-content: start; gap: 8px; }
     .playlist-empty {
       height: 100%;
       display: grid;
       place-items: center;
       padding: 24px;
-      border: 1px dashed rgba(255,255,255,0.16);
+      border: 1px dashed #e2e8f0;
       border-radius: 12px;
-      color: rgba(255,255,255,0.42);
+      color: #94a3b8;
       font-size: 12px;
       text-align: center;
     }
@@ -164,11 +167,11 @@ export const WEB_EXPORT_STYLES = String.raw`
       min-height: var(--choice-height, 0px);
       transform: var(--choice-transform, none);
       padding: 8px 10px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
-      background: rgba(255,255,255,0.05);
+      background: #f8fafc;
     }
-    .playlist-item.active { border-color: rgba(56,189,248,0.5); background: rgba(14,165,233,0.15); }
+    .playlist-item.active { border-color: #a5b4fc; background: #eef2ff; }
     .playlist-name {
       min-width: 0;
       flex: 1;
@@ -184,12 +187,12 @@ export const WEB_EXPORT_STYLES = String.raw`
       flex: 0 0 auto;
       border: 0;
       border-radius: 999px;
-      background: #0ea5e9;
+      background: #4f46e5;
       color: #fff;
       cursor: pointer;
       font-size: 15px;
     }
-    .playlist-play:hover { background: #38bdf8; }
+    .playlist-play:hover { background: #6366f1; }
     main {
       position: relative;
       min-height: 0;
@@ -866,20 +869,21 @@ export const WEB_EXPORT_STYLES = String.raw`
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      border: 1px solid rgba(15,23,42,0.28);
+      border: 1px solid #d8dce2;
+      border-color: #d8dce2 !important;
       border-radius: var(--flow-overview-minimap-radius, 12px);
-      background: #e8e9eb;
-      box-shadow: 0 14px 32px rgba(15,23,42,0.16);
+      background: #e8e9eb !important;
+      box-shadow: 0 12px 28px rgba(15,23,42,0.12) !important;
       backdrop-filter: blur(14px);
       pointer-events: auto;
     }
-    .flow-overview-minimap-map { min-height: 0; flex: 1; overflow: hidden; background: transparent; }
+    .flow-overview-minimap-map { min-height: 0; flex: 1; overflow: hidden; background: #e8e9eb; }
     .flow-overview-minimap-map svg { display: block; width: 100%; height: 100%; }
-    .flow-overview-minimap-controls { display: flex; flex-shrink: 0; gap: 0; align-items: center; justify-content: stretch; min-height: 42px; padding: 5px 6px; border-top: 1px solid #d8dce2; border-radius: 0 0 var(--flow-overview-minimap-bottom-right-radius, var(--flow-overview-minimap-radius, 12px)) var(--flow-overview-minimap-bottom-left-radius, var(--flow-overview-minimap-radius, 12px)); overflow: hidden; background: #ffffff; }
-    .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; min-height: 30px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: var(--flow-overview-control-color, #111827); cursor: pointer; }
+    .flow-overview-minimap-controls { display: flex; flex-shrink: 0; gap: 0; align-items: center; justify-content: stretch; height: 56px; padding: 6px 8px; border-top: 1px solid #d8dce2; border-radius: 0 0 var(--flow-overview-minimap-bottom-right-radius, var(--flow-overview-minimap-radius, 12px)) var(--flow-overview-minimap-bottom-left-radius, var(--flow-overview-minimap-radius, 12px)); overflow: hidden; background: #ffffff; }
+    .flow-overview-minimap-control { flex: 1 1 0; display: grid; place-items: center; min-width: 0; height: 100%; min-height: 32px; padding: 0; border: 1px solid #d8dce2; border-radius: 0; background: #ffffff; color: var(--flow-overview-control-color, #111827); cursor: pointer; }
     .flow-overview-minimap-control:hover:not(:disabled), .flow-overview-minimap-control:focus-visible { border-color: #c5cad1; background: #f3f4f6; color: var(--flow-overview-control-color, #111827); outline: none; transform: translateY(-1px); }
     .flow-overview-minimap-control:disabled { cursor: not-allowed; opacity: .38; }
-    .flow-overview-minimap-control svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+    .flow-overview-minimap-control svg { width: 20px; height: 20px; fill: currentColor; stroke: currentColor; }
     .flow-overview-node {
       position: absolute;
       width: 220px;
