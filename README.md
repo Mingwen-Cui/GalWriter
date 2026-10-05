@@ -20,10 +20,10 @@ GalWriter 是一款用于创作视觉小说、分支故事与互动演示的 AI 
 
 | 平台 | 极简版 Lite（推荐） | 完整版 Full |
 | --- | --- | --- |
-| Windows x64 | [安装包](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe) · [便携 ZIP](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-lite-portable.zip) | [安装包](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-full-setup.exe) · [便携 ZIP](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-full-portable.zip) |
+| Windows x64 | [安装包](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-lite-setup.exe) | [安装包](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-windows-x64-full-setup.exe) |
 | Android | [APK](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-android-lite-signed.apk) | [APK](https://github.com/Mingwen-Cui/GalWriter/releases/download/app-v1.5.0/GalWriter-AI-v1.5.0-android-full-signed.apk) |
 
-更多 MSI、Web、AAB 和发布文件见 [全部 Release 附件](https://github.com/Mingwen-Cui/GalWriter/releases/tag/app-v1.5.0)。Android 两种版本使用相同应用标识，不能并行安装。
+Windows MSI 及其他版本文件见 [全部 Release 附件](https://github.com/Mingwen-Cui/GalWriter/releases/tag/app-v1.5.0)。Android 两种版本使用相同应用标识，不能并行安装。
 
 ## 自行打包
 
@@ -31,8 +31,8 @@ GalWriter 是一款用于创作视觉小说、分支故事与互动演示的 AI 
 
 | 目标 | 完整版 Full | 极简版 Lite | 产物 |
 | --- | --- | --- | --- |
-| Windows + Web | `npm run tauri:build:windows:full`<br>`npm run tauri:prepare:release:full` | `npm run tauri:build:windows:lite`<br>`npm run tauri:prepare:release:lite` | 安装包、MSI、便携 ZIP、Web ZIP |
-| Android | `npm run tauri:build:android:full`<br>`npm run tauri:prepare:android:full` | `npm run tauri:build:android:lite`<br>`npm run tauri:prepare:android:lite` | APK、AAB |
+| Windows x64 | `npm run tauri:build:windows:full`<br>`npm run tauri:prepare:release:full` | `npm run tauri:build:windows:lite`<br>`npm run tauri:prepare:release:lite` | 本次发布：安装包、MSI（不含 ZIP） |
+| Android | `npm run tauri:build:android:full`<br>`npm run tauri:prepare:android:full` | `npm run tauri:build:android:lite`<br>`npm run tauri:prepare:android:lite` | 本次发布：APK（不含 AAB） |
 
 ## 项目数据
 
