@@ -7,7 +7,8 @@ const edition = requestedEdition === 'lite' ? 'lite' : 'full';
 const rootDir = resolve('.');
 const sourcePublicDir = resolve('public');
 const litePublicDir = resolve('.build', 'asset-editions', 'lite-public');
-const omittedResourcePacks = new Set(['assistant', 'presets', 'cover-templates', 'web-homepage']);
+// Assistant illustrations are part of the UI and must work offline in Lite too.
+const omittedResourcePacks = new Set(['presets', 'cover-templates', 'web-homepage']);
 const viteEntry = resolve('node_modules', 'vite', 'bin', 'vite.js');
 
 const prepareLitePublicDirectory = () => {

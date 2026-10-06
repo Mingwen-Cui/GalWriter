@@ -1,7 +1,7 @@
 import { Bot, Check, Copy, Download, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 
-import { FULL_BUILD_DOWNLOAD_URL } from '../lib/appAssets';
+import { FULL_BUILD_DOWNLOAD_URL, getAppAssetUrl } from '../lib/appAssets';
 import type { Language } from '../lib/i18n';
 import { isTauriRuntime } from '../lib/tauriRuntime';
 import { assistantPanelCopy } from './i18n/assistant';
@@ -111,7 +111,7 @@ export function AgentConnectionContent({
         <div className="assistant-agent-connect-overview">
           <img
             className="assistant-agent-connect-overview-image"
-            src="/assistant/agent-connect-overview.png"
+            src={getAppAssetUrl('/assistant/agent-connect-overview.png')}
             alt={ui.agentConnectOverviewAlt}
           />
           <div className="assistant-agent-connect-overview-copy">

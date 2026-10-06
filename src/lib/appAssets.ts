@@ -12,7 +12,6 @@ export const FULL_BUILD_DOWNLOAD_URL = 'https://mingwencui.com/galwriter/downloa
 const edition = import.meta.env.VITE_ASSET_EDITION === 'lite' ? 'lite' : 'full';
 const configuredBaseUrl = String(import.meta.env.VITE_ASSET_BASE_URL || '').trim();
 const defaultRemoteBaseUrl = 'https://mingwencui.com/online/galwriter-assets/';
-const assistantOnlineBaseUrl = 'https://mingwencui.com/online/';
 
 const normalizeBaseUrl = (value: string) => `${value.replace(/\/+$/, '')}/`;
 const remoteBaseUrl = normalizeBaseUrl(configuredBaseUrl || defaultRemoteBaseUrl);
@@ -44,9 +43,6 @@ export const getAppAssetUrl = (path: string) => {
   if (!path || /^(?:blob:|data:|https?:)/i.test(path)) return path;
 
   const relativePath = normalizeAssetPath(path);
-  if (isRapidAssetEdition() && assistantAssetRoots.some((root) => relativePath.startsWith(root))) {
-    return `${assistantOnlineBaseUrl}${relativePath}`;
-  }
   if (isRapidAssetEdition() && isRemoteAssetPath(relativePath)) {
     return `${remoteBaseUrl}${relativePath}`;
   }
