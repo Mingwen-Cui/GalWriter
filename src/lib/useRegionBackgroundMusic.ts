@@ -50,6 +50,9 @@ export const useRegionBackgroundMusic = (
     key: string;
     audio: HTMLAudioElement;
     fadeOut: number;
+    volume: number;
+    fadingOut?: boolean;
+    pendingKey?: string;
     cancelFade?: () => void;
   } | null>(null);
   const mutedRef = useRef(muted);
@@ -71,7 +74,7 @@ export const useRegionBackgroundMusic = (
     const playWithUnlockRetry = (entry: NonNullable<typeof activeRef.current>) => {
       entry.audio
         .play()
-        .then(clearUnlockRetry)
+        .then(() => { if (activeRef.current === entry) clearUnlockRetry(); })
         .catch((error) => {
           console.info('Region background music autoplay was blocked', error);
           if (activeRef.current !== entry) return;
@@ -83,7 +86,7 @@ export const useRegionBackgroundMusic = (
             }
             entry.audio
               .play()
-              .then(clearUnlockRetry)
+              .then(() => { if (activeRef.current === entry) clearUnlockRetry(); })
               .catch(() => {});
           };
           const options: AddEventListenerOptions = { capture: true, passive: true };
@@ -99,13 +102,20 @@ export const useRegionBackgroundMusic = (
     };
 
     if (active?.key === nextKey && match) {
-      active.cancelFade?.();
+      if (active.fadingOut || active.volume !== match.music.volume) {
+        active.cancelFade?.();
+        active.audio.volume = match.music.volume;
+      }
+      active.fadingOut = false;
+      active.volume = match.music.volume;
       active.audio.loop = match.music.loop;
-      active.audio.volume = match.music.volume;
       active.fadeOut = match.music.fadeOut;
-      if (active.audio.paused) playWithUnlockRetry(active);
+      if (active.audio.paused && !active.audio.ended) playWithUnlockRetry(active);
       return;
     }
+
+    // Moving between cards at the destination must not restart the outgoing fade.
+    if (active?.fadingOut && active.pendingKey === nextKey) return;
 
     const startNext = () => {
       if (!match) return;
@@ -118,6 +128,7 @@ export const useRegionBackgroundMusic = (
         key: nextKey,
         audio,
         fadeOut: match.music.fadeOut,
+        volume: match.music.volume,
         cancelFade: undefined as (() => void) | undefined,
       };
       activeRef.current = entry;
@@ -132,6 +143,8 @@ export const useRegionBackgroundMusic = (
     }
 
     active.cancelFade?.();
+    active.fadingOut = true;
+    active.pendingKey = nextKey;
     active.cancelFade = fadeAudio(active.audio, active.audio.volume, 0, active.fadeOut, () => {
       active.audio.pause();
       active.audio.src = '';

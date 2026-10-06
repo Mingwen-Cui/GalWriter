@@ -9,6 +9,7 @@ export const usePreviewPlayback = ({
   focusedPreviewNode,
   focusedTimelineMetric,
   activeAudioSegments,
+  regionAudioSegments,
   activeTimelineTime,
   previewPlaying,
   previewTime,
@@ -29,6 +30,7 @@ export const usePreviewPlayback = ({
   focusedPreviewNode?: FlowNode;
   focusedTimelineMetric?: TimelineSegmentMetric;
   activeAudioSegments: TimelineSegmentMetric[];
+  regionAudioSegments: TimelineSegmentMetric[];
   activeTimelineTime: number;
   previewPlaying: boolean;
   previewTime: number;
@@ -79,13 +81,25 @@ export const usePreviewPlayback = ({
       stopPreviewAudio();
       return;
     }
+    const regionSegments = regionAudioSegments
+      .filter(metric => activeTimelineTime >= metric.start && activeTimelineTime < metric.end)
+      .map(metric => ({
+        key: metric.node.id,
+        audioUrl: String(metric.node.data.audioUrl),
+        localTime: (activeTimelineTime - metric.start) * speed,
+        duration: metric.duration * speed,
+        loop: metric.node.data.loop === true,
+        volume: Number(metric.node.data.volume ?? 0.5),
+        fadeIn: Number(metric.node.data.fadeIn ?? 0) * speed,
+        fadeOut: Number(metric.node.data.fadeOut ?? 0) * speed,
+      }));
     if (focusedPreviewNode) {
       void syncPreviewAudioSegments(
-        getSegmentAudioSources(focusedPreviewNode).map((source) => ({
+        [...getSegmentAudioSources(focusedPreviewNode).map((source) => ({
           key: `focused-${source.kind}`,
           audioUrl: source.url,
           localTime: previewTime,
-        })),
+        })), ...regionSegments],
         previewPlaying,
       );
       return;
@@ -102,9 +116,10 @@ export const usePreviewPlayback = ({
           localTime: (activeTimelineTime - metric.start) * speed,
         })),
       );
-    void syncPreviewAudioSegments(segments, previewPlaying);
+    void syncPreviewAudioSegments([...segments, ...regionSegments], previewPlaying);
   }, [
     activeAudioSegments,
+    regionAudioSegments,
     activeTimelineTime,
     focusedPreviewNode,
     getSegmentAudioSources,

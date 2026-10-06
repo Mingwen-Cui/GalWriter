@@ -8,6 +8,12 @@ export const videoJa = {
   renderWorkspaceExport: 'エクスポート',
   renderWorkspaceLoading: '読み込み中',
   videoCoverButton: 'カバー',
+  regionMusicAudioTrack: '領域BGM',
+  regionMusicAudioTrackHint: '物語クリップの範囲に自動追従します。背景カードで音楽、音量、フェードを調整してください。',
+  pptRegionMusicFadesWarning: '領域BGMはPPTXに埋め込まれます。音楽のフェードは現在保持されません。',
+  pptRegionMusicBranchWarning: '分岐モードでは領域BGMを各スライドで再生し直し、ページを離れると停止します。連続再生には線形モードを使用してください。',
+  pptRegionMusicMixWarning: '複数のBGMまたは音声付きメディアがあります。PowerPointのページ間再生や同時再生はバージョンによって異なり、音声は事前にミックスされません。スライドショーを確認するか、動画またはWebを書き出してください。',
+  pptRegionMusicOtherAudioWarning: 'PPTXには領域BGMと動画音声のみ埋め込まれます。カードの独立音声と環境音は出力されません。全音声にはWeb出力を使用してください。',
   videoCoverAdd: '動画カバーを追加',
   videoCoverEdit: '動画カバーを編集',
   videoTimelineExportUnavailableHint:

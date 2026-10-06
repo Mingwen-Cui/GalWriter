@@ -40,16 +40,21 @@ export const buildAudioBuffer = async (
           : Math.min(decoded.duration, playbackDuration * speed);
         if (sourceDuration <= 0) continue;
         const volume = Math.min(1, Math.max(0, segment.volume ?? 1));
-        const fadeIn = Math.min(playbackDuration, Math.max(0, segment.fadeIn ?? 0));
-        const fadeOut = Math.min(playbackDuration, Math.max(0, segment.fadeOut ?? 0));
+        const audibleDuration = sourceDuration / speed;
+        const requestedFadeIn = Math.max(0, segment.fadeIn ?? 0);
+        const requestedFadeOut = Math.max(0, segment.fadeOut ?? 0);
+        const fadeScale = requestedFadeIn + requestedFadeOut > audibleDuration
+          ? audibleDuration / (requestedFadeIn + requestedFadeOut) : 1;
+        const fadeIn = requestedFadeIn * fadeScale;
+        const fadeOut = requestedFadeOut * fadeScale;
         gain.gain.setValueAtTime(fadeIn > 0 ? 0 : volume, startAt);
         if (fadeIn > 0) {
           gain.gain.linearRampToValueAtTime(volume, startAt + fadeIn);
         }
         if (fadeOut > 0) {
-          const fadeOutAt = Math.max(startAt + fadeIn, startAt + playbackDuration - fadeOut);
+          const fadeOutAt = Math.max(startAt + fadeIn, startAt + audibleDuration - fadeOut);
           gain.gain.setValueAtTime(volume, fadeOutAt);
-          gain.gain.linearRampToValueAtTime(0, startAt + playbackDuration);
+          gain.gain.linearRampToValueAtTime(0, startAt + audibleDuration);
         }
         source.start(startAt, 0, sourceDuration);
         hasAudio = true;

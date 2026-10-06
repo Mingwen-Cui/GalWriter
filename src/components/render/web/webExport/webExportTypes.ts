@@ -30,6 +30,7 @@ export type WebExportNode = {
     audioUrl?: string;
     rawText?: string;
     backgroundMusic?: {
+      regionId?: string;
       url: string;
       loop: boolean;
       volume: number;

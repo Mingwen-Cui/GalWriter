@@ -70,6 +70,7 @@ type VideoTimelinePanelProps = {
   timelinePlayheadLeft: number;
   videoTrackIds: string[];
   audioTrackIds: string[];
+  regionAudioSegments?: TimelineSegmentMetric[];
   videoTrackByNodeId: Record<string, string>;
   audioTrackByNodeId: Record<string, string>;
   timelineNodes: FlowNode[];
@@ -153,6 +154,7 @@ export function VideoTimelinePanel({
   timelinePlayheadLeft,
   videoTrackIds,
   audioTrackIds,
+  regionAudioSegments = [],
   videoTrackByNodeId,
   audioTrackByNodeId,
   timelineNodes,
@@ -1009,6 +1011,25 @@ export function VideoTimelinePanel({
                   </div>
                 </div>
               </div>
+              {regionAudioSegments.length > 0 && (
+                <div className="relative grid items-center gap-3" style={{ gridTemplateColumns: `${TIMELINE_LABEL_WIDTH}px minmax(0, 1fr)` }}>
+                  <div className="flex items-center gap-1 px-3 text-[11px] font-black text-violet-600 dark:text-violet-300">
+                    <Music className="h-3.5 w-3.5 shrink-0" />
+                    <span>{formatVideoText(language, 'regionMusicAudioTrack')}</span>
+                  </div>
+                  <div data-render-track-kind="audio" className="relative h-16 border border-[var(--vr-audio-track-border)] bg-[var(--vr-audio-track-bg)]" style={{ width: timelineMetrics.width }}>
+                    {regionAudioSegments.map(metric => (
+                      <div key={metric.node.id} data-region-music-clip-id={metric.node.id}
+                        className="absolute inset-y-0 overflow-hidden border border-[var(--vr-audio-track-border)] bg-[var(--vr-audio-clip-bg)] px-2 py-2 text-[11px] font-bold text-[var(--vr-text)]"
+                        style={{ left: metric.start * timelineMetrics.pixelsPerSecond, width: Math.max(1, metric.duration * timelineMetrics.pixelsPerSecond) }}
+                        title={formatVideoText(language, 'regionMusicAudioTrackHint')}>
+                        <span className="block truncate">{String(metric.node.data.title || '')}</span>
+                        <span className="block truncate text-[10px] text-[var(--vr-text-muted)]">{formatSeconds(metric.start)} – {formatSeconds(metric.end)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {audioTrackIds.map((trackId, trackIndex) => {
                 const trackNodes = timelineNodes.filter(
                   (node) =>

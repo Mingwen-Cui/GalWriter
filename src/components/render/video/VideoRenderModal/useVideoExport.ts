@@ -3,10 +3,10 @@ import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useRef, useState } from 'react';
 
 import type { Language } from '../../../../lib/i18n';
-import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import type { SharedCanvasSettings } from '../../canvas/canvasSettings';
 import { formatExportAssetFailures } from '../../shared/exportAssetFailures';
 import { buildAudioBuffer } from '../audio/audioTrack';
+import { buildRegionMusicSegments } from '../audio/regionMusicTrack';
 import { saveRenderedImage, saveRenderedVideo } from '../export/tauriRenderAdapter';
 import { renderVideoCoverPngBytes } from '../export/videoCover';
 import { preflightVideoExportImages } from '../export/videoExportPreflight';
@@ -157,6 +157,7 @@ export const useVideoExport = ({
         })),
       );
       let regionCursor = 0;
+      const regionMetrics: TimelineSegmentMetric[] = [];
       renderNodes.forEach((node, index) => {
         const duration = nodeDurations[index];
         if (renderAudioSegments.length === 0) {
@@ -172,36 +173,10 @@ export const useVideoExport = ({
             });
           });
         }
-        const match = resolveRegionBackgroundMusic(nodes, node);
-        const previous = audioSegments[audioSegments.length - 1];
-        const canExtend =
-          match &&
-          previous?.node.id === `region-music:${match.regionId}` &&
-          previous.audioUrl === match.music.url &&
-          previous.startSecs !== undefined &&
-          previous.startSecs + previous.durationSecs === regionCursor;
-        if (canExtend) {
-          previous.durationSecs += duration;
-          previous.fadeOut = match.music.fadeOut;
-        } else if (match) {
-          audioSegments.push({
-            node: {
-              id: `region-music:${match.regionId}`,
-              type: 'regionMusic',
-              position: { x: 0, y: 0 },
-              data: {},
-            },
-            startSecs: regionCursor,
-            durationSecs: duration,
-            audioUrl: match.music.url,
-            volume: match.music.volume,
-            loop: match.music.loop,
-            fadeIn: match.music.fadeIn,
-            fadeOut: match.music.fadeOut,
-          });
-        }
+        regionMetrics.push({ node, start: regionCursor, duration, end: regionCursor + duration });
         regionCursor += duration;
       });
+      audioSegments.push(...buildRegionMusicSegments(nodes, regionMetrics));
       const audioFailures: { kind: 'audio'; label: string; source: string; reason: string }[] = [];
       const audioBuffer = await buildAudioBuffer(
         audioSegments,

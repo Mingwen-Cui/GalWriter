@@ -34,7 +34,9 @@ import {
   toPptImageData,
   toPptVideoData,
   toPptVideoLastFrameData,
+  toPptAudioData,
 } from './pptMedia';
+import { buildPptRegionMusicRuns } from './pptRegionMusic';
 import { pptSceneColors, resolvePptScenes } from './pptSceneResolver';
 import { addPptShape } from './pptShapes';
 import { reorderPptSlides } from './pptSlideOrder';
@@ -52,6 +54,7 @@ import {
   orderPptAnimationTargets,
   type PptAnimationExportTarget,
   type PptVideoPlaybackTarget,
+  type PptAudioPlaybackTarget,
   toPptFontFace,
 } from './pptxCompatibility';
 
@@ -249,6 +252,7 @@ export async function buildPptxBuffer({
   const animationTargets: PptAnimationExportTarget[] = [];
   const sceneAnimationOrderBySlide = new Map<number, Map<string, number>>();
   const videoPlaybackTargets: PptVideoPlaybackTarget[] = [];
+  const audioPlaybackTargets: PptAudioPlaybackTarget[] = [];
   scenes.forEach((scene) => {
     const slideNumber = slideNumberById.get(scene.id);
     if (slideNumber) slideByNodeId.set(scene.id, slideNumber);
@@ -1198,6 +1202,25 @@ export async function buildPptxBuffer({
       );
     await appendManualSlides(`choice:${scene.id}`);
   }
+  for (const run of buildPptRegionMusicRuns(nodes, orderedSlideIds, pptSettings)) {
+    const slide = slideObjectsById.get(run.slideId);
+    const slideNumber = slideNumberById.get(run.slideId);
+    if (!slide || !slideNumber) continue;
+    try {
+      const media = await toPptAudioData(run.match.music.url);
+      const objectName = `ppt-region-music-${run.slideId}`;
+      slide.addMedia({ type: 'audio', ...media, objectName, x: -1, y: -1, w: 0.2, h: 0.2 });
+      audioPlaybackTargets.push({
+        slideNumber, objectName, slideCount: run.slideCount,
+        loop: run.match.music.loop, volume: run.match.music.volume,
+      });
+    } catch (error) {
+      assetFailures.set(`audio:${run.match.music.url}`, {
+        kind: 'audio', label: run.match.music.name || run.match.regionId, source: run.match.music.url,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   if (assetFailures.size > 0)
     throw new Error(formatExportAssetFailures(language, 'PPT 导出', [...assetFailures.values()]));
   // Slides are authored in graph order for convenient scene rendering, then
@@ -1247,5 +1270,6 @@ export async function buildPptxBuffer({
       const transition = pptSettings.transitions?.[id] || DEFAULT_PPT_TRANSITION;
       return [{ slideNumber: index + 1, transition }];
     }),
+    audioPlaybackTargets,
   );
 }

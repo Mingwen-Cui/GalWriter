@@ -2,6 +2,7 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
 import React, { Suspense, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
+import { resolveRegionBackgroundMusic } from '../../../../lib/regionMusic';
 import { canvasRatio, migrateVideoCanvasSettings } from '../../canvas/canvasDimensions';
 import {
   normalizeSharedCanvasSettings,
@@ -12,7 +13,9 @@ import { normalizeRenpyExportSettings } from '../../code/codeExport/model';
 import type { CodeExportTarget } from '../../code/codeExport/targets/targetTypes';
 import type { RenpyExportSettings } from '../../code/codeExport/types';
 import { formatCodeText, getCodeText } from '../../code/i18n';
+import { getPptRegionMusicWarnings } from '../../ppt/pptRegionMusic';
 import { getAssetRegionOptions, getStoryNodeRegion } from '../assets/assetRegions';
+import { buildRegionMusicSegments, regionMusicTimelineMetrics } from '../audio/regionMusicTrack';
 import { makeTrackId, ResizeHandle } from '../controls/RenderControls';
 import {
   chooseRenderOutputDir,
@@ -625,7 +628,7 @@ export function VideoRenderModal({
             ? ({
                 ...sourceNode,
                 id,
-                data: { ...sourceNode.data, ...(timelineDataOverrides[id] || {}) },
+                data: { ...sourceNode.data, ...(timelineDataOverrides[id] || {}), timelineSourceNodeId: sourceNode.id },
               } as FlowNode)
             : null;
         })
@@ -805,6 +808,10 @@ export function VideoRenderModal({
           (segment.node.data?.videoUrl && segment.node.data?.muteVideoAudio !== true),
       ),
     [timelineMetrics.segments],
+  );
+  const regionAudioSegments = useMemo(
+    () => regionMusicTimelineMetrics(buildRegionMusicSegments(nodes, timelineMetrics.segments)),
+    [nodes, timelineMetrics.segments],
   );
   const getSegmentAudioSources = (node: FlowNode) =>
     [
@@ -2200,6 +2207,7 @@ export function VideoRenderModal({
       return { exported: false, error: 'No visible story cards are available to export.' };
     }
     const customFonts = renderStyle.customFonts || [];
+    const musicWarnings = getPptRegionMusicWarnings(exportNodes, exportEdges, pptSettings, language);
     if (!skipFontPreflight && customFonts.length) {
       const { inspectPptFontEmbedding } = await import('../../ppt/pptFontEmbedding');
       const embeddingReasonText = {
@@ -2289,6 +2297,7 @@ export function VideoRenderModal({
           isZh,
           'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2010',
         ),
+        details: musicWarnings,
         description: isTauriRuntime()
           ? getVideoTextForChinesePreference(
               isZh,
@@ -2315,7 +2324,7 @@ export function VideoRenderModal({
           'componentsrendervideoVideoRenderModalVideoRenderModalIsZhText2022',
         ),
       );
-      return { exported: true, filePath: exportPath, projectName: exportTitle, slideCount: pptSettings.slideOrder?.length || exportNodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length };
+      return { exported: true, filePath: exportPath, projectName: exportTitle, warnings: musicWarnings, slideCount: pptSettings.slideOrder?.length || exportNodes.filter((node) => node.type === 'storyNode' && !node.data?.hidden).length };
     } catch (exportError) {
       setStatus('error');
       setError(
@@ -2370,6 +2379,8 @@ export function VideoRenderModal({
     }
     const settingIds = new Set<string>();
     pathNodes.forEach((node) => {
+      const regionMusic = resolveRegionBackgroundMusic(nodes, node);
+      if (regionMusic) settingIds.add(regionMusic.regionId);
       const presentation = node?.data.presentation as Record<string, unknown> | undefined;
       const scene = presentation?.scene as Record<string, unknown> | undefined;
       if (typeof scene?.sourceNodeId === 'string') settingIds.add(scene.sourceNodeId);
@@ -2498,6 +2509,7 @@ export function VideoRenderModal({
     focusedPreviewNode,
     focusedTimelineMetric,
     activeAudioSegments,
+    regionAudioSegments,
     activeTimelineTime,
     previewPlaying,
     previewTime,
@@ -2934,6 +2946,7 @@ export function VideoRenderModal({
                   timelinePlayheadLeft={timelinePlayheadLeft}
                   videoTrackIds={videoTrackIds}
                   audioTrackIds={audioTrackIds}
+                  regionAudioSegments={regionAudioSegments}
                   videoTrackByNodeId={videoTrackByNodeId}
                   audioTrackByNodeId={audioTrackByNodeId}
                   timelineNodes={timelineNodes}
@@ -3141,6 +3154,7 @@ export function VideoRenderModal({
           outputDir={webOutputDir}
           outputDirError={webOutputDirError}
           settings={pptSettings}
+          warnings={getPptRegionMusicWarnings(nodes, edges, pptSettings, language)}
           onClose={() => setIsPptExportDialogOpen(false)}
           onConfirm={(projectName) => {
             setIsPptExportDialogOpen(false);

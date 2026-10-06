@@ -67,6 +67,25 @@ const isPptSafeImageDataUrl = (value: string) =>
   isBase64DataUrl(value) &&
   /^data:image\/(png|jpeg|gif|svg\+xml);base64,/i.test(value);
 const isPptSafeVideoDataUrl = (value: string) => /^data:video\/[a-z0-9.+-]+;base64,/i.test(value);
+
+export async function toPptAudioData(url: string): Promise<{ data: string; extn: string }> {
+  const blob = getRegisteredBlobAsset(url) || await readVideoBlob(url);
+  const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+  const riff = String.fromCharCode(...bytes.slice(0, 4));
+  const wave = String.fromCharCode(...bytes.slice(8, 12));
+  const mp3 = String.fromCharCode(...bytes.slice(0, 3)) === 'ID3' ||
+    (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
+  if (riff === 'RIFF' && wave === 'WAVE') return { data: await readBlobAsDataUrl(blob), extn: 'wav' };
+  if (mp3) return { data: await readBlobAsDataUrl(blob), extn: 'mp3' };
+  // Normalise other decodable browser audio formats to PCM for PowerPoint.
+  const { buildAudioTrack } = await import('../video/audio/audioTrack');
+  const { getAudioDuration } = await import('../video/shared/mediaUtils');
+  const duration = await getAudioDuration(url);
+  if (!Number.isFinite(duration) || duration <= 0) throw new Error('Could not read BGM duration');
+  const wav = await buildAudioTrack([{ node: { id: 'ppt-bgm', position: { x: 0, y: 0 }, data: {} }, audioUrl: url, durationSecs: duration }], 1);
+  if (!wav) throw new Error('Could not decode BGM for PowerPoint');
+  return { data: await readBlobAsDataUrl(new Blob([new Uint8Array(wav)], { type: 'audio/wav' })), extn: 'wav' };
+}
 const videoLastFrameCache = new Map<string, Promise<string | undefined>>();
 
 const readVideoBlobWithXhr = (source: string) =>

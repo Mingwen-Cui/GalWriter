@@ -15,6 +15,7 @@ type PptExportDialogProps = {
   outputDir: string;
   outputDirError: string;
   settings: PptExportSettings;
+  warnings?: string[];
   onClose: () => void;
   onConfirm: (projectName: string) => void;
   onProjectNameChange: (value: string) => void;
@@ -30,6 +31,7 @@ export function PptExportDialog({
   outputDir,
   outputDirError,
   settings,
+  warnings = [],
   onClose,
   onConfirm,
   onProjectNameChange,
@@ -113,6 +115,11 @@ export function PptExportDialog({
         </div>
 
         <div className="max-h-[min(65vh,620px)] space-y-4 overflow-y-auto px-5 py-5">
+          {warnings.length > 0 && (
+            <div role="status" className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-[var(--vr-text)]">
+              {warnings.map(warning => <p key={warning}>{warning}</p>)}
+            </div>
+          )}
           <label className="block space-y-1.5">
             <span className="block text-[11px] font-black uppercase tracking-wide text-[var(--vr-text-muted)]">
               {formatVideoText(language, 'componentsrendervideopanelsPptExportDialogText89')}

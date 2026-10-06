@@ -873,7 +873,7 @@ export async function buildInteractiveWebZipBlob(
         audioUrl,
         backgroundMusic:
           regionMusicMatch && backgroundMusicUrl
-            ? { ...regionMusicMatch.music, url: backgroundMusicUrl }
+            ? { ...regionMusicMatch.music, regionId: regionMusicMatch.regionId, url: backgroundMusicUrl }
             : undefined,
         objectFit: typeof node.data?.objectFit === 'string' ? node.data.objectFit : undefined,
         showTextOverlay:

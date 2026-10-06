@@ -1,0 +1,20 @@
+[
+  "React playback: adjacent cards keep the same BGM",
+  "React playback: A → B → A cancels stale transition",
+  "React playback: finished non-looping BGM stays stopped",
+  "React playback: adjacent destination cards do not postpone the BGM switch",
+  "Video preview: relative URL cache, loop seek and BGM volume",
+  "React unmount: all audio stops",
+  "Offline PCM: continuous BGM increases across card boundary and is silent outside",
+  "Offline PCM: 2× speed preserves the BGM end boundary",
+  "Offline PCM: short clips have valid fade envelopes",
+  "Actual single-video export: MP4 bytes generated",
+  "Actual MP4: AAC audio track and six-second video",
+  "Decoded exported MP4: BGM does not restart on card two and stops at four seconds",
+  "Actual Web ZIP: packaged BGM audio and standalone player",
+  "Actual PPTX: BGM is embedded for slides one and two, outside slide has no BGM",
+  "Single-video workspace: BGM automatically appears as one continuous four-second audio clip",
+  "MCP selected-path PPT export: retains the background card so BGM is not dropped",
+  "PPT export dialog: visible compatibility warning for multiple BGM or other audio",
+  "Exported Web in browser: real BGM remains continuous on card two and stops outside the region"
+]

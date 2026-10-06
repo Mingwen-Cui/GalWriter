@@ -1963,7 +1963,7 @@ ${SCENE_SWITCH_CSS}</style>
     }
 
     function playRegionAudio(audio) {
-      audio.play().then(clearRegionAudioUnlock).catch(() => {
+      audio.play().then(() => { if (regionAudio === audio) clearRegionAudioUnlock(); }).catch(() => {
         if (regionAudio !== audio) return;
         clearRegionAudioUnlock();
         const retry = () => {
@@ -1971,7 +1971,7 @@ ${SCENE_SWITCH_CSS}</style>
             clearRegionAudioUnlock();
             return;
           }
-          audio.play().then(clearRegionAudioUnlock).catch(() => {});
+          audio.play().then(() => { if (regionAudio === audio) clearRegionAudioUnlock(); }).catch(() => {});
         };
         const options = { capture: true, passive: true };
         window.addEventListener("pointerdown", retry, options);
@@ -1986,13 +1986,21 @@ ${SCENE_SWITCH_CSS}</style>
     }
 
     function syncRegionMusic(music) {
-      const nextKey = music && music.url ? music.url : "";
+      const nextKey = music && music.url ? (music.regionId || "") + ":" + music.url : "";
       if (regionAudio && regionAudioKey === nextKey) {
+        const volume = Math.max(0, Math.min(1, Number(music.volume) || 0));
+        if (regionAudio._fadingOut || regionAudio._targetVolume !== volume) {
+          cancelAnimationFrame(regionFadeFrame);
+          setMusicLevel(regionAudio, volume);
+        }
+        regionAudio._fadingOut = false;
+        regionAudio._targetVolume = volume;
+        regionAudio._fadeOut = Math.max(0, Number(music.fadeOut) || 0);
         regionAudio.loop = music.loop !== false;
-        setMusicLevel(regionAudio, Math.max(0, Math.min(1, Number(music.volume) || 0)));
-        if (regionAudio.paused) playRegionAudio(regionAudio);
+        if (regionAudio.paused && !regionAudio.ended) playRegionAudio(regionAudio);
         return;
       }
+      if (regionAudio && regionAudio._fadingOut && regionAudio._pendingKey === nextKey) return;
       const previous = regionAudio;
       const startNext = () => {
         if (!music || !music.url) return;
@@ -2003,6 +2011,8 @@ ${SCENE_SWITCH_CSS}</style>
         audio.loop = music.loop !== false;
         audio._fadeOut = Math.max(0, Number(music.fadeOut) || 0);
         const targetVolume = Math.max(0, Math.min(1, Number(music.volume) || 0));
+        audio._targetVolume = targetVolume;
+        audio._fadingOut = false;
         setMusicLevel(audio, Number(music.fadeIn) > 0 ? 0 : targetVolume);
         playRegionAudio(audio);
         fadeRegionAudio(audio, audio._musicLevel || 0, targetVolume, music.fadeIn);
@@ -2012,8 +2022,11 @@ ${SCENE_SWITCH_CSS}</style>
         startNext();
         return;
       }
+      previous._fadingOut = true;
+      previous._pendingKey = nextKey;
       fadeRegionAudio(previous, previous._musicLevel || 0, 0, previous._fadeOut || 0, () => {
         previous.pause();
+        previous.src = "";
         if (regionAudio === previous) {
           regionAudio = null;
           regionAudioKey = "";

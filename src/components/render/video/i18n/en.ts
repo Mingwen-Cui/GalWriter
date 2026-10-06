@@ -8,6 +8,12 @@ export const videoEn = {
   renderWorkspaceExport: 'Export',
   renderWorkspaceLoading: 'Loading',
   videoCoverButton: 'Cover',
+  regionMusicAudioTrack: 'Region BGM',
+  regionMusicAudioTrackHint: 'Follows the story clips automatically. Adjust music, volume and fades on the background card.',
+  pptRegionMusicFadesWarning: 'Region BGM is embedded in PPTX. Music fades are currently omitted.',
+  pptRegionMusicBranchWarning: 'Interactive branches restart region BGM on each slide and stop it when leaving that slide to prevent music leaking across regions. Use linear mode for continuous playback.',
+  pptRegionMusicMixWarning: 'This deck contains multiple BGMs or other audible media. PowerPoint playback across slides and simultaneous playback vary by version; tracks are not premixed. Check the slide show, or export video or Web for reliable mixing.',
+  pptRegionMusicOtherAudioWarning: 'PPTX currently embeds region BGM and video audio only. Separate card audio and scene ambience are omitted. Export Web for the complete audio tracks.',
   videoCoverAdd: 'Add video cover',
   videoCoverEdit: 'Edit video cover',
   videoTimelineExportUnavailableHint:

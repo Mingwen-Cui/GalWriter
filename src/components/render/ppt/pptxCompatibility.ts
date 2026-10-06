@@ -38,6 +38,8 @@ export type PptVideoPlaybackTarget = {
   loop: boolean;
 };
 
+export type PptAudioPlaybackTarget = PptVideoPlaybackTarget & { volume: number; slideCount: number };
+
 /**
  * Keep shapes for one authored effect together, with the character first so
  * its start mode remains authoritative when merging its nameplate copies.
@@ -304,8 +306,9 @@ const videoPlaybackXml = (shapeId: string, id: number, loop: boolean) =>
 const animationTimelineXml = (
   targets: ResolvedAnimationTarget[],
   videoTargets: Array<{ shapeId: string; loop: boolean }>,
+  audioTargets: Array<{ shapeId: string; loop: boolean; volume: number; slideCount: number }> = [],
 ) => {
-  if (!targets.length && !videoTargets.length) return '';
+  if (!targets.length && !videoTargets.length && !audioTargets.length) return '';
   let nextId = 3;
   const allocateId = () => nextId++;
   const effectsById = new Map<string, ResolvedAnimationTarget[]>();
@@ -337,8 +340,11 @@ const animationTimelineXml = (
     ? `<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>${entries}</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>`
     : '';
   const videos = videoTargets
-    .map((target, index) => videoPlaybackXml(target.shapeId, nextId + index, target.loop))
+    .map(target => videoPlaybackXml(target.shapeId, allocateId(), target.loop))
     .join('');
+  const audio = audioTargets.map(target =>
+    `<p:audio isNarration="0"><p:cMediaNode vol="${Math.round(Math.max(0, Math.min(1, target.volume)) * 100000)}" numSld="${target.slideCount}" showWhenStopped="0"><p:cTn id="${allocateId()}" dur="indefinite"${target.loop ? ' repeatCount="indefinite"' : ''} fill="hold" display="0" nodeType="withEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>${shapeTarget(target.shapeId)}</p:cMediaNode></p:audio>`
+  ).join('');
   const textShapes = [
     ...new Set(
       targets.filter((target) => target.animation.textBuild && phaseOf(target.animation) === 'enter')
@@ -348,16 +354,23 @@ const animationTimelineXml = (
   const builds = textShapes.length
     ? `<p:bldLst>${textShapes.map((shapeId) => `<p:bldP spid="${shapeId}" grpId="0" build="p" animBg="0"/>`).join('')}</p:bldLst>`
     : '';
-  return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${mainSequence}${videos}</p:childTnLst></p:cTn></p:par></p:tnLst>${builds}</p:timing>`;
+  return `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${mainSequence}${videos}${audio}</p:childTnLst></p:cTn></p:par></p:tnLst>${builds}</p:timing>`;
 };
 
 const addNativeAnimations = async (
   archive: JSZip,
   targets: PptAnimationExportTarget[],
   videoTargets: PptVideoPlaybackTarget[],
+  audioTargets: PptAudioPlaybackTarget[],
 ) => {
   const targetsBySlide = new Map<number, PptAnimationExportTarget[]>();
   const videosBySlide = new Map<number, PptVideoPlaybackTarget[]>();
+  const audiosBySlide = new Map<number, PptAudioPlaybackTarget[]>();
+  audioTargets.forEach(target => {
+    const current = audiosBySlide.get(target.slideNumber) || [];
+    current.push(target);
+    audiosBySlide.set(target.slideNumber, current);
+  });
   targets
     .filter((target) => target.animation.effect !== 'none')
     .forEach((target) => {
@@ -372,12 +385,24 @@ const addNativeAnimations = async (
     videosBySlide.set(target.slideNumber, current);
   });
 
-  for (const slideNumber of new Set([...targetsBySlide.keys(), ...videosBySlide.keys()])) {
+  for (const slideNumber of new Set([...targetsBySlide.keys(), ...videosBySlide.keys(), ...audiosBySlide.keys()])) {
     const slideTargets = targetsBySlide.get(slideNumber) || [];
     const slideVideos = videosBySlide.get(slideNumber) || [];
     const path = `ppt/slides/slide${slideNumber}.xml`;
-    const slideXml = await archive.file(path)?.async('string');
+    let slideXml = await archive.file(path)?.async('string');
     if (!slideXml) continue;
+    // PptxGenJS emits videoFile even for type: 'audio'. PowerPoint rejects an
+    // audio relationship behind a videoFile reference and asks to repair it.
+    let nextShapeId = Math.max(1, ...[...slideXml.matchAll(/<p:cNvPr id="(\d+)"/g)].map(match => Number(match[1]))) + 1;
+    for (const audio of audiosBySlide.get(slideNumber) || []) {
+      slideXml = slideXml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, picture =>
+        picture.includes(`name="${audio.objectName}"`)
+          // The library also derives media IDs from relationships, which can
+          // collide with editable text shapes on this slide.
+          ? picture.replace(/<a:videoFile\b/g, '<a:audioFile')
+            .replace(/<p:cNvPr id="\d+"/, `<p:cNvPr id="${nextShapeId++}"`) : picture,
+      );
+    }
     const resolved = slideTargets
       .map((target) => {
         const lineCount = textLineCount(slideXml, target.objectName);
@@ -395,7 +420,12 @@ const addNativeAnimations = async (
     const resolvedVideos = slideVideos
       .map((target) => ({ shapeId: findShapeId(slideXml, target.objectName), loop: target.loop }))
       .filter((target): target is { shapeId: string; loop: boolean } => Boolean(target.shapeId));
-    const timeline = animationTimelineXml(resolved, resolvedVideos);
+    const resolvedAudios = (audiosBySlide.get(slideNumber) || [])
+      .flatMap(target => {
+        const shapeId = findShapeId(slideXml, target.objectName);
+        return shapeId ? [{ ...target, shapeId }] : [];
+      });
+    const timeline = animationTimelineXml(resolved, resolvedVideos, resolvedAudios);
     if (!timeline) continue;
     archive.file(path, replacePptSlideProperty(slideXml, 'timing', timeline));
   }
@@ -407,12 +437,13 @@ export async function finalizePptxForPowerPoint(
   videoTargets: PptVideoPlaybackTarget[] = [],
   customFonts: RenderCustomFont[] = [],
   transitionTargets: PptTransitionExportTarget[] = [],
+  audioTargets: PptAudioPlaybackTarget[] = [],
 ): Promise<ArrayBuffer> {
   const archive = await JSZip.loadAsync(buffer);
   const contentTypes = await archive.file(CONTENT_TYPES_PATH)?.async('string');
   if (!contentTypes) throw new Error('PPTX export is missing [Content_Types].xml');
   archive.file(CONTENT_TYPES_PATH, removeMissingSlideMasterOverrides(contentTypes));
-  await addNativeAnimations(archive, animationTargets, videoTargets);
+  await addNativeAnimations(archive, animationTargets, videoTargets, audioTargets);
   await addNativePptTransitions(archive, transitionTargets);
   await embedCustomFontsInPptx(archive, customFonts);
   return archive.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
