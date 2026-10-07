@@ -49,8 +49,3 @@ export const saveRenderedPptx = async (input: SaveRenderedPptxInput) => {
   const invoke = await loadInvoke();
   return invoke<RenderSaveResult>('save_rendered_pptx', input);
 };
-
-export const transcodePptVideo = async (bytes: Uint8Array) => {
-  const invoke = await loadInvoke();
-  return invoke<number[]>('transcode_ppt_video', { bytes: Array.from(bytes) });
-};

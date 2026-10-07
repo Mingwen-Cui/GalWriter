@@ -1,6 +1,6 @@
 import { getRegisteredBlobAsset } from '../../../lib/blobAssetRegistry';
 import { isTauriRuntime } from '../../../lib/tauriRuntime';
-import { transcodePptVideo } from '../video/export/tauriRenderAdapter';
+import { toPowerPointMp4Blob } from './pptVideoConversion';
 
 const isImageDataUrl = (value: string) => value.startsWith('data:image/');
 const isBase64DataUrl = (value: string) => /;base64,/i.test(value);
@@ -69,22 +69,36 @@ const isPptSafeImageDataUrl = (value: string) =>
 const isPptSafeVideoDataUrl = (value: string) => /^data:video\/[a-z0-9.+-]+;base64,/i.test(value);
 
 export async function toPptAudioData(url: string): Promise<{ data: string; extn: string }> {
-  const blob = getRegisteredBlobAsset(url) || await readVideoBlob(url);
+  const blob = getRegisteredBlobAsset(url) || (await readVideoBlob(url));
   const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
   const riff = String.fromCharCode(...bytes.slice(0, 4));
   const wave = String.fromCharCode(...bytes.slice(8, 12));
-  const mp3 = String.fromCharCode(...bytes.slice(0, 3)) === 'ID3' ||
+  const mp3 =
+    String.fromCharCode(...bytes.slice(0, 3)) === 'ID3' ||
     (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
-  if (riff === 'RIFF' && wave === 'WAVE') return { data: await readBlobAsDataUrl(blob), extn: 'wav' };
+  if (riff === 'RIFF' && wave === 'WAVE')
+    return { data: await readBlobAsDataUrl(blob), extn: 'wav' };
   if (mp3) return { data: await readBlobAsDataUrl(blob), extn: 'mp3' };
   // Normalise other decodable browser audio formats to PCM for PowerPoint.
   const { buildAudioTrack } = await import('../video/audio/audioTrack');
   const { getAudioDuration } = await import('../video/shared/mediaUtils');
   const duration = await getAudioDuration(url);
   if (!Number.isFinite(duration) || duration <= 0) throw new Error('Could not read BGM duration');
-  const wav = await buildAudioTrack([{ node: { id: 'ppt-bgm', position: { x: 0, y: 0 }, data: {} }, audioUrl: url, durationSecs: duration }], 1);
+  const wav = await buildAudioTrack(
+    [
+      {
+        node: { id: 'ppt-bgm', position: { x: 0, y: 0 }, data: {} },
+        audioUrl: url,
+        durationSecs: duration,
+      },
+    ],
+    1,
+  );
   if (!wav) throw new Error('Could not decode BGM for PowerPoint');
-  return { data: await readBlobAsDataUrl(new Blob([new Uint8Array(wav)], { type: 'audio/wav' })), extn: 'wav' };
+  return {
+    data: await readBlobAsDataUrl(new Blob([new Uint8Array(wav)], { type: 'audio/wav' })),
+    extn: 'wav',
+  };
 }
 const videoLastFrameCache = new Map<string, Promise<string | undefined>>();
 
@@ -128,29 +142,6 @@ const readVideoBlob = async (source: string) => {
   }
 };
 
-const pptVideoMimeFromBlob = async (blob: Blob) => {
-  const declared = blob.type.toLowerCase();
-  if (declared === 'video/mp4' || declared === 'video/x-m4v') return 'video/mp4';
-  if (declared.startsWith('video/')) return undefined;
-
-  const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
-  const box = String.fromCharCode(...bytes.slice(4, 8));
-  const brand = String.fromCharCode(...bytes.slice(8, 12));
-  return box === 'ftyp' && brand !== 'qt  ' ? 'video/mp4' : undefined;
-};
-
-const toPowerPointMp4Blob = async (blob: Blob) => {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (!isTauriRuntime()) {
-    throw new Error(
-      'PPT video export in the browser supports MP4 (H.264/AAC) only. Use the desktop app to convert this video automatically.',
-    );
-  }
-  const transcoded = await transcodePptVideo(bytes);
-  if (!transcoded.length) throw new Error('The video conversion returned no data.');
-  return new Blob([new Uint8Array(transcoded)], { type: 'video/mp4' });
-};
-
 export const getPptImageDimensions = async (data: string) => {
   const image = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -188,28 +179,22 @@ export async function toPptImageData(url?: string): Promise<string | undefined> 
 
 /**
  * PPTX media cannot point to the editor's Blob URLs. Materialise videos in the
- * same way as images, but preserve the original video bytes rather than
- * rasterising them. PowerPoint requires an MP4 container; H.264/AAC is the
- * compatible codec combination. Failure is surfaced to the export dialog so
+ * same way as images. Compatible H.264/AAC MP4s retain their original bytes;
+ * other desktop video sources are converted locally with Mediabunny.
+ * Failure is surfaced to the export dialog so
  * we never create a seemingly successful deck with the video silently missing.
  */
 export async function toPptVideoData(url?: string): Promise<string | undefined> {
   const source = url?.trim();
   if (!source) return undefined;
-  if (isPptSafeVideoDataUrl(source) && /^data:video\/(mp4|x-m4v);base64,/i.test(source))
-    return source.replace(/^data:video\/x-m4v/i, 'data:video/mp4');
-
-  let blob = getRegisteredBlobAsset(source) || (await readVideoBlob(source));
-  const mime = await pptVideoMimeFromBlob(blob);
-  if (!mime) {
-    blob = await toPowerPointMp4Blob(blob);
-  }
+  const original = getRegisteredBlobAsset(source) || (await readVideoBlob(source));
+  const blob = await toPowerPointMp4Blob(original, isTauriRuntime());
   const data = await readBlobAsDataUrl(blob);
   // A video can be recognised from its bytes even when the original Blob was
   // registered as application/octet-stream. FileReader preserves that generic
   // MIME header, which made a valid MP4 fail the data-URL validation below.
-  // We have either identified an MP4 container above or just produced one with
-  // FFmpeg, so normalise only the data-URL header while keeping its bytes.
+  // Mediabunny has verified the codecs or produced a compatible MP4, so
+  // normalise only the data-URL header while keeping its bytes.
   const mp4Data = data.replace(/^data:[^;,]+/i, 'data:video/mp4');
   if (!isPptSafeVideoDataUrl(mp4Data))
     throw new Error('Could not encode the video for PPT export.');
