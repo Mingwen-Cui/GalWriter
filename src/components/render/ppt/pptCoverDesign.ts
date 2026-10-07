@@ -32,7 +32,7 @@ export const createPptCoverDecorations = (): PptManualElement[] => [
     id: 'ppt-cover-decoration-circle', kind: 'shape',
     x: 746, y: 270, width: 28, height: 28, rotation: 0,
     webStyle: {
-      shapeType: 'circle', borderColor: '#c3c7df', borderWidth: 1.5,
+      shapeType: 'ellipse', borderColor: '#c3c7df', borderWidth: 1.5,
       fillEnabled: false, strokeEnabled: true, shadowEnabled: false, zIndex: 1,
     },
   },

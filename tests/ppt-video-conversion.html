@@ -8,6 +8,10 @@
     <h1>PPT video conversion validation</h1>
     <p>Local generated media; no installed FFmpeg, downloads or uploaded files.</p>
     <button id="run">Run checks</button>
+    <label
+      ><input id="fallback" type="checkbox" /> Simulate missing native AAC encoder (reload before
+      changing)</label
+    >
     <pre id="results">Ready</pre>
     <script type="module" src="./ppt-video-conversion.browser.ts"></script>
   </body>

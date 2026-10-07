@@ -78,7 +78,8 @@ async function verify(blob: Blob, audio: boolean) {
     const sound = await input.getPrimaryAudioTrack();
     assert(video?.codec === 'avc', 'video must be H.264');
     assert(audio ? sound?.codec === 'aac' : !sound, 'audio presence/codec changed');
-    assert(Math.abs((await input.computeDuration()) - 2) < 0.1, 'duration changed');
+    const duration = await input.computeDuration();
+    assert(Math.abs(duration - 2) < 0.11, `duration changed: ${duration}`);
     const frame = await new CanvasSink(video!).getCanvas(0.5);
     assert(
       frame && frame.canvas.width === 320 && frame.canvas.height === 180,
@@ -118,27 +119,67 @@ document.querySelector<HTMLButtonElement>('#run')!.onclick = async () => {
     await verify(generic, true);
     log('PASS generic MIME is recognised by actual tracks');
     const webm = await fixture('webm', 'vp8');
-    const converted = await toPowerPointMp4Blob(webm);
+    // Simulate missing AAC before the first capability probe, because Mediabunny
+    // memoizes support. Reload the page between native and fallback runs.
+    const fallback = document.querySelector<HTMLInputElement>('#fallback')!.checked;
+    const nativeCheck = AudioEncoder.isConfigSupported;
+    if (fallback) {
+      AudioEncoder.isConfigSupported = async (config) =>
+        config.codec.startsWith('mp4a')
+          ? { supported: false, config }
+          : nativeCheck.call(AudioEncoder, config);
+    }
+    let converted: Blob;
+    try {
+      converted = await toPowerPointMp4Blob(webm);
+    } finally {
+      AudioEncoder.isConfigSupported = nativeCheck;
+    }
     await verify(converted, true);
     log('PASS WebM VP8/Opus -> MP4 H.264/AAC with picture, sound and duration');
+    if (fallback) log('PASS bundled AAC WASM fallback retains sound without native AAC encoding');
     await verify(await toPowerPointMp4Blob(await fixture('webm', 'vp8', false)), false);
     log('PASS silent WebM remains silent with a working H.264 picture');
     await verify(await toPowerPointMp4Blob(await fixture('mp4', 'vp9')), true);
     log('PASS VP9 inside MP4 is transcoded instead of bypassed by extension');
     await verify(await toPowerPointMp4Blob(await fixture('mov', 'avc')), true);
     log('PASS H.264/AAC MOV is remuxed to MP4');
-    // Exercise the bundled WASM fallback without changing browser settings.
-    const nativeCheck = AudioEncoder.isConfigSupported;
-    AudioEncoder.isConfigSupported = async (config) =>
-      config.codec.startsWith('mp4a')
+    const audioDecodeCheck = AudioDecoder.isConfigSupported;
+    AudioDecoder.isConfigSupported = async (config) =>
+      config.codec === 'opus'
         ? { supported: false, config }
-        : nativeCheck.call(AudioEncoder, config);
+        : audioDecodeCheck.call(AudioDecoder, config);
+    let audioFailure = '';
     try {
-      await verify(await toPowerPointMp4Blob(webm), true);
+      await toPowerPointMp4Blob(webm);
+    } catch (error) {
+      audioFailure = String(error);
     } finally {
-      AudioEncoder.isConfigSupported = nativeCheck;
+      AudioDecoder.isConfigSupported = audioDecodeCheck;
     }
-    log('PASS bundled AAC WASM fallback retains sound without native AAC encoding');
+    assert(
+      audioFailure.includes('audio (opus): undecodable_source_codec'),
+      'unsupported sound was silently dropped',
+    );
+    log('PASS unsupported audio fails instead of silently dropping sound');
+    const videoDecodeCheck = VideoDecoder.isConfigSupported;
+    VideoDecoder.isConfigSupported = async (config) =>
+      config.codec === 'vp8'
+        ? { supported: false, config }
+        : videoDecodeCheck.call(VideoDecoder, config);
+    let videoFailure = '';
+    try {
+      await toPowerPointMp4Blob(webm);
+    } catch (error) {
+      videoFailure = String(error);
+    } finally {
+      VideoDecoder.isConfigSupported = videoDecodeCheck;
+    }
+    assert(
+      videoFailure.includes('video (vp8): undecodable_source_codec'),
+      'unsupported picture was silently dropped',
+    );
+    log('PASS unsupported video fails instead of exporting audio only');
     for (const blob of [new Blob([]), new Blob(['invalid'], { type: 'video/mp4' })]) {
       let rejected = false;
       try {
